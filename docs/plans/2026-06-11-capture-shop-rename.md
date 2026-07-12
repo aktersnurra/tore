@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, Phoenix LiveView, ExUnit, gettext (sv). No new deps.
 
-**Spec:** `docs/superpowers/specs/2026-06-11-capture-shop-rename-design.md`
+**Spec:** `docs/specs/2026-06-11-capture-shop-rename-design.md`
 
 ---
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Phoenix LiveView, HEEx function components, `Phoenix.LiveViewTest`, Tailwind (CSS-variable tokens), jj for VCS.
 
-**Source spec:** `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md` §1, §2, §4 (tray skeleton only), §5 (pill + Settings entry only), §6, §9. Object sheets (§4.1) are Plan 2; the anticipation layer (§3) and receipt seen-state are Plan 3.
+**Source spec:** `docs/specs/2026-07-04-surface-consolidation-design.md` §1, §2, §4 (tray skeleton only), §5 (pill + Settings entry only), §6, §9. Object sheets (§4.1) are Plan 2; the anticipation layer (§3) and receipt seen-state are Plan 3.
 
 **Conventions for every task:** run tests with `mix test <path>`; commit with `jj describe -m "<msg>" && jj new`. Test auth setup: copy the `setup` / login-helper pattern from `test/tore_web/live/home_live_test.exs` — all authenticated LiveView tests in this repo bootstrap the same way. All user-facing strings go through `gettext`.
 

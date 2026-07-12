@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, Phoenix LiveView (HEEx), gettext (en/sv, test locale is `sv`). VCS is **jj** (Jujutsu), never git. Push to master per repo convention.
 
-**Spec:** `docs/superpowers/specs/2026-06-09-planner-pin-ui-design.md`
+**Spec:** `docs/specs/2026-06-09-planner-pin-ui-design.md`
 
 ---
 

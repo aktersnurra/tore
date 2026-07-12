@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, ExUnit, Mox (`Tore.MockLLM`), Quantum (`Tore.Scheduler`). No new deps. Model-facing English prompts — no gettext.
 
-**Spec:** `docs/superpowers/specs/2026-06-10-weekly-planning-design.md`
+**Spec:** `docs/specs/2026-06-10-weekly-planning-design.md`
 
 ---
 

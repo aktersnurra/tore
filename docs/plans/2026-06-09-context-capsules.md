@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, ExUnit, Mox (existing). No new deps. Model-facing English prompts — no gettext/i18n.
 
-**Spec:** `docs/superpowers/specs/2026-06-09-context-capsules-design.md`
+**Spec:** `docs/specs/2026-06-09-context-capsules-design.md`
 
 ---
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Phoenix LiveView + HEEx, Ecto/SQLite, Quantum cron, Phoenix.PubSub, Mox (`Tore.MockLLM`), gettext (sv default in tests), one small vanilla-JS LiveView hook.
 
-**Design source:** `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md` §3 (rules 1–3), §4 (tray half state), §4.1 (object sheets), §10 amendments #3/#4, §12 steps 6–7.
+**Design source:** `docs/specs/2026-07-04-surface-consolidation-design.md` §3 (rules 1–3), §4 (tray half state), §4.1 (object sheets), §10 amendments #3/#4, §12 steps 6–7.
 
 ---
 
@@ -1278,7 +1278,7 @@ end
 
 - Modify: `SPEC.md` (CounterNote catalog/§3 kind table, ambient scan, §A.6.2, §Status)
 - Modify: `UI_SPEC.md` (prediction rules + surfaces touched)
-- Modify: `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md` (shipped notes)
+- Modify: `docs/specs/2026-07-04-surface-consolidation-design.md` (shipped notes)
 
 Doc-only task. Read the shipped code from Tasks 1–9 first and describe what IS, not what the design hoped. Match each document's voice and heading conventions (SPEC has a dated `## Status` log; the design doc uses bold-lead-in notes like `**Shipped** 2026-07 …`).
 

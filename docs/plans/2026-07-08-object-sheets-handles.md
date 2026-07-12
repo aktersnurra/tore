@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir/Phoenix LiveView, ExUnit + Mox (`Tore.MockLLM`), existing Decider harness. jj for VCS (controller only).
 
-**Source specs:** SPEC.md §A.6.2; design doc `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md` §4.1 + §10 amendment 5.
+**Source specs:** SPEC.md §A.6.2; design doc `docs/specs/2026-07-04-surface-consolidation-design.md` §4.1 + §10 amendment 5.
 
 ---
 
@@ -363,7 +363,7 @@ In the orchestrator's `:planner_command_run` dispatch: when `ctx.input[:scoped_s
 
 - Modify: `SPEC.md` §A.6.2, §Status
 - Modify: `UI_SPEC.md` §6.2 (slot sheet)
-- Modify: `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md` (mark §4.1 shipped-for-slots)
+- Modify: `docs/specs/2026-07-04-surface-consolidation-design.md` (mark §4.1 shipped-for-slots)
 
 - [ ] **Step 1: SPEC.md §A.6.2** — add after the handle example: the `ref` token + per-run registry mechanics (LLM sees refs, runtime exchanges, invented refs rejected as tool errors); add `:direct_touch` to the possible `source` values with confidence 1.0 semantics; add an implementation-status note: V1 ships `resolve_recipe` + direct-touch slot handles; `resolve_slot` (NL), `resolve_grocery_item`, `resolve_pantry_item` deferred until their consumers exist; slot action-tool params remain structural `slot_key` domain keys by design. Add a §Status log entry (dated) recording these decisions.
 - [ ] **Step 2: UI_SPEC.md §6.2** — in the slot sheet/interactions section, add the scoped input: one line of what it is (input inside the slot sheet whose referent is the touched slot, pre-resolved) and the calm rules (placeholder copy, no AI branding).

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, Phoenix LiveView, Ecto/SQLite event store, Mox, gettext (en/sv). VCS is **jj** (Jujutsu), never git. Push to master per repo convention.
 
-**Spec:** `docs/superpowers/specs/2026-06-08-plan-verifier-design.md`
+**Spec:** `docs/specs/2026-06-08-plan-verifier-design.md`
 
 ---
 

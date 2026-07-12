@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, ExUnit, Mox (`Tore.MockLLM`), Jason. VCS is **jj (Jujutsu), never git**.
 
-**Spec:** `docs/superpowers/specs/2026-06-05-real-plan-diff-design.md`
+**Spec:** `docs/specs/2026-06-05-real-plan-diff-design.md`
 
 **Baseline:** Pre-existing test floor is 5 failures in `Tore.Groceries.*` / `GroceriesHandlerTest` (Mox global-mode race), unrelated to this work. "No new failures" = that floor unchanged.
 

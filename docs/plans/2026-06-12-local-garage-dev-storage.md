@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker Compose, Garage v2.3.0 (`dxflrs/garage:v2.3.0`), POSIX sh, Elixir/Phoenix (unchanged), jj (Jujutsu) for VCS — **never git**.
 
-**Spec:** `docs/superpowers/specs/2026-06-12-local-garage-dev-storage-design.md`
+**Spec:** `docs/specs/2026-06-12-local-garage-dev-storage-design.md`
 
 ---
 

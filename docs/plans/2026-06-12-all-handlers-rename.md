@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, Phoenix LiveView, event-sourcing (EventStore + Decider pattern), Mox for LLM stubbing, jj (Jujutsu) for VCS — **never git**.
 
-**Spec:** `docs/superpowers/specs/2026-06-12-all-handlers-rename-design.md`
+**Spec:** `docs/specs/2026-06-12-all-handlers-rename-design.md`
 
 ---
 

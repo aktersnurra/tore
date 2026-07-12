@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, Phoenix LiveComponent, gettext, ExUnit. VCS is **jj (Jujutsu), never git**.
 
-**Spec:** `docs/superpowers/specs/2026-06-05-named-receipt-lines-design.md`
+**Spec:** `docs/specs/2026-06-05-named-receipt-lines-design.md`
 
 **Baseline:** Pre-existing test floor is ~5–8 failures in `Tore.Groceries.*` / `GroceriesHandlerTest` (Mox race), unrelated. "No new failures" = that floor unchanged.
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir, Phoenix LiveComponent, ExUnit, Mox (`Tore.MockLLM`), gettext. VCS is **jj (Jujutsu), never git**.
 
-**Spec:** `docs/superpowers/specs/2026-06-06-orchestrator-error-boundary-design.md`
+**Spec:** `docs/specs/2026-06-06-orchestrator-error-boundary-design.md`
 
 **Baseline:** Pre-existing test floor is ~5–8 flaky failures in `Tore.Groceries.*` / `Tore.HouseholdTest` (Mox/SQLite race) that pass in isolation. "No new failures" = that floor unchanged.
 

@@ -5,7 +5,7 @@
 
 ## Resume in one line
 
-Read `docs/superpowers/specs/2026-08-17-recipe-intelligence-design.md`, then invoke `superpowers:writing-plans` to produce `docs/superpowers/plans/2026-08-<date>-recipe-intelligence.md`. Approach and all decisions are locked — do **not** re-brainstorm.
+Read `docs/specs/2026-08-17-recipe-intelligence-design.md`, then invoke `superpowers:writing-plans` to produce `docs/plans/2026-08-<date>-recipe-intelligence.md`. Approach and all decisions are locked — do **not** re-brainstorm.
 
 ## What this feature is
 

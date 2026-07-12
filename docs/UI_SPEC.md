@@ -101,7 +101,7 @@ Kiosk:     "Rice is already prepped."
 No push notifications. No nags. No streaks. Your current spec already requires proactive intelligence to appear inline and explicitly forbids interruption. 
 
 **Three rules for predictions (shipped, 2026-08 — the anticipation layer,
-see `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md`
+see `docs/specs/2026-07-04-surface-consolidation-design.md`
 §3):**
 
 ```md
@@ -1042,7 +1042,7 @@ The default outcome should be a useful artifact, not a question. Your current sp
 
 ### Tray half state (shipped, 2026-08)
 
-Per `docs/superpowers/specs/2026-07-04-surface-consolidation-design.md` §4,
+Per `docs/specs/2026-07-04-surface-consolidation-design.md` §4,
 Capture is reached as the command pill's tray, not a page. Its default
 ("half") state lists the origin surface's actionable predictions (Home →
 `home`, Plan → `week`, Shop → `groceries`) above the multimodal input, as

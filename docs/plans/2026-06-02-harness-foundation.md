@@ -8,7 +8,7 @@
 
 **Tech Stack:** Elixir/Phoenix/LiveView/Ecto, SQLite via `Ecto.Adapters.SQLite3`, `Phoenix.PubSub`, `Registry`, ETS, `Mox` for behaviour mocking, `ExUnit` for tests. Existing precedents: `Tore.Planning.Decider`, `Tore.Groceries.Decider`, `Tore.EventStore`.
 
-**Spec:** `docs/superpowers/specs/2026-06-02-harness-foundation-design.md`
+**Spec:** `docs/specs/2026-06-02-harness-foundation-design.md`
 
 **Pre-existing test floor:** Five to seven failures in `Groceries*` plus a SQLite race in `HouseholdTest` exist at commit `587101b6`. Anything new is a regression.
 

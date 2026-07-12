@@ -14,7 +14,7 @@
 
 Read these before starting. You do not need to read the whole files, just the named regions.
 
-- **Design spec:** `docs/superpowers/specs/2026-08-17-recipe-intelligence-design.md`. Decisions D1–D5 are locked; do not redesign.
+- **Design spec:** `docs/specs/2026-08-17-recipe-intelligence-design.md`. Decisions D1–D5 are locked; do not redesign.
 - **`lib/tore/llm/planner_tools.ex`** — the tool catalog. `all/0` at the top lists every tool. Action tools call `propose/3` (pure, in-memory). Read tools return `{:ok, result_map, [], plan}` — an empty event list and the unchanged plan. A read tool can attach handles by putting `__handles__: [handle]` in its result map; `PlannerAgent` pops that key and registers the handles.
 - **`lib/tore/llm/planner_agent.ex`** — the bounded tool loop. `run_and_record/4` is where a tool's return value is interpreted; `finish/2` builds the `loop_outcome` map. Loop-terminating results today are `{:question, q}` (via `ask_user`) and `{:capped, text}`.
 - **`lib/tore/harness/orchestrator.ex`** — `dispatch(:planner_command_run, ctx)` at line 42, `run_planner_loop/6` at line 576, `close/4` at ~line 636 (dispatches on `loop.result`), `commit_receipt/4` at line 425 (the model for the new commit function), `discard_run/2` at line 478.
