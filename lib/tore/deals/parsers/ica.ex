@@ -2,6 +2,23 @@ defmodule Tore.Deals.Parsers.ICA do
   @behaviour Tore.Deals.Parsers.Parser
 
   @impl Tore.Deals.Parsers.Parser
+  def hosts, do: ["www.ica.se", "ica.se"]
+
+  @impl Tore.Deals.Parsers.Parser
+  def chain, do: "ica"
+
+  @impl Tore.Deals.Parsers.Parser
+  def store_name(%URI{path: path}) do
+    case Regex.run(~r{^/erbjudanden/ica-([a-z0-9-]+)-\d+/?$}, path || "") do
+      [_, slug] ->
+        {:ok, "ICA " <> (slug |> String.split("-") |> Enum.map_join(" ", &String.capitalize/1))}
+
+      _ ->
+        {:error, :unsupported_store}
+    end
+  end
+
+  @impl Tore.Deals.Parsers.Parser
   def parse(html) do
     with {:ok, offers} <- extract_initial_data(html),
          {:ok, offers} <- extract_offers(offers) do

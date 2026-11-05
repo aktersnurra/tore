@@ -74,10 +74,10 @@ defmodule ToreWeb.RunReviewLive do
   defp has_image_path?(_), do: false
 
   # Only allow same-origin paths in ?from= — never honour an absolute URL or
-  # anything that could push the user off-site. Defaults to /inbox because
-  # that's where pending work lives.
+  # anything that could push the user off-site. Defaults to Home, whose pill
+  # shows any reviews still waiting.
   defp return_to_from_params(params) do
-    ToreWeb.SafeReturn.path(Map.get(params, "from"), "/inbox")
+    ToreWeb.SafeReturn.path(Map.get(params, "from"), "/")
   end
 
   @impl true
@@ -214,7 +214,6 @@ defmodule ToreWeb.RunReviewLive do
     """
   end
 
-  defp back_label("/inbox"), do: gettext("Inbox")
   defp back_label("/capture"), do: gettext("Back to chat")
   defp back_label(_), do: gettext("Back")
 

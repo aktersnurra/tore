@@ -4,8 +4,6 @@ defmodule Tore.Deals.StoreConfig do
 
   schema "store_configs" do
     field :name, :string
-    field :chain, Ecto.Enum, values: [:ica, :coop]
-    field :store_id, :string
     field :url, :string
     field :scrape_enabled, :boolean, default: false
     timestamps()
@@ -13,7 +11,8 @@ defmodule Tore.Deals.StoreConfig do
 
   def changeset(config, attrs) do
     config
-    |> cast(attrs, [:name, :chain, :store_id, :url, :scrape_enabled])
-    |> validate_required([:name, :chain])
+    |> cast(attrs, [:name, :url, :scrape_enabled])
+    |> validate_required([:name, :url])
+    |> unique_constraint(:url)
   end
 end

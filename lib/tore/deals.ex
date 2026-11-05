@@ -1,6 +1,6 @@
 defmodule Tore.Deals do
   require Logger
-  alias Tore.{Alerts, Repo, Deals.Deal, Deals.StoreConfig}
+  alias Tore.{Alerts, Repo, Deals.Deal, Deals.Parsers, Deals.StoreConfig}
   import Ecto.Query
 
   @http Application.compile_env(:tore, :http_client)
@@ -35,16 +35,6 @@ defmodule Tore.Deals do
     Repo.all(from d in Deal, where: is_nil(d.valid_until) or d.valid_until >= ^today)
   end
 
-  @spec rename_store(String.t(), String.t(), String.t()) :: :ok
-  def rename_store(chain, old_store, new_store) do
-    Repo.update_all(
-      from(d in Deal, where: d.chain == ^chain and d.store == ^old_store),
-      set: [store: new_store, store_location: new_store]
-    )
-
-    :ok
-  end
-
   @spec clear_expired() :: :ok
   def clear_expired do
     today = Date.utc_today()
@@ -63,11 +53,18 @@ defmodule Tore.Deals do
   @spec list_store_configs() :: [StoreConfig.t()]
   def list_store_configs, do: Repo.all(StoreConfig)
 
-  @spec create_store_config(map()) :: {:ok, StoreConfig.t()} | {:error, Ecto.Changeset.t()}
-  def create_store_config(attrs) do
-    %StoreConfig{}
-    |> StoreConfig.changeset(attrs)
-    |> Repo.insert()
+  @doc "Adds a store from just its link, switched on. The backend supplies its name."
+  @spec add_store(String.t()) ::
+          {:ok, StoreConfig.t()} | {:error, :unsupported_store | Ecto.Changeset.t()}
+  def add_store(url) do
+    url = String.trim(url)
+
+    with {:ok, parser} <- Parsers.for_url(url),
+         {:ok, name} <- parser.store_name(URI.parse(url)) do
+      %StoreConfig{}
+      |> StoreConfig.changeset(%{url: url, name: name, scrape_enabled: true})
+      |> Repo.insert()
+    end
   end
 
   @spec update_store_config(StoreConfig.t(), map()) ::
@@ -95,22 +92,13 @@ defmodule Tore.Deals do
     :ok
   end
 
-  @spec scrape_url(String.t(), atom(), String.t() | nil) :: {:ok, integer()} | {:error, term()}
-  def scrape_url(url, chain, store_name \\ nil) do
-    parser = parser_for(chain)
-
-    with {:ok, html} <- @http.fetch(url),
+  @spec scrape_url(String.t(), String.t()) :: {:ok, integer()} | {:error, term()}
+  def scrape_url(url, store_name) do
+    with {:ok, parser} <- Parsers.for_url(url),
+         {:ok, html} <- @http.fetch(url),
          {:ok, deals} <- parser.parse(html) do
-      deals =
-        if store_name do
-          Enum.map(deals, fn d ->
-            d
-            |> Map.put(:store, store_name)
-            |> Map.put_new(:chain, to_string(chain))
-          end)
-        else
-          Enum.map(deals, &Map.put_new(&1, :chain, to_string(chain)))
-        end
+      chain = parser.chain()
+      deals = Enum.map(deals, &Map.merge(&1, %{store: store_name, chain: chain}))
 
       case deals do
         [] ->
@@ -186,7 +174,7 @@ defmodule Tore.Deals do
   end
 
   defp scrape_store(store_config) do
-    case scrape_url(store_config.url, store_config.chain, store_config.name) do
+    case scrape_url(store_config.url, store_config.name) do
       {:ok, count} ->
         Logger.info("scraped #{count} deals", store: store_config.name, url: store_config.url)
 
@@ -198,7 +186,4 @@ defmodule Tore.Deals do
         )
     end
   end
-
-  defp parser_for(:ica), do: Tore.Deals.Parsers.ICA
-  defp parser_for(:coop), do: Tore.Deals.Parsers.Coop
 end

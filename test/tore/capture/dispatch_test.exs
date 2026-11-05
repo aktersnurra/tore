@@ -40,4 +40,22 @@ defmodule Tore.Capture.DispatchTest do
       assert bubble.role == :assistant
     end
   end
+
+  test "a repeated photo links to review, not to a page that's gone" do
+    household_id = Tore.Household.get_household!().id
+    image = <<255, 216, 255, 1, 2, 3>>
+
+    {:ok, _} =
+      Tore.Capture.Uploads.record(
+        household_id,
+        Tore.Capture.Uploads.content_hash(image),
+        "kr_seen",
+        "receipt"
+      )
+
+    assert %{review_link: true, text: text} =
+             Dispatch.ingest_receipt(image, %{household_id: household_id, user_id: nil})
+
+    refute text =~ "inbox"
+  end
 end

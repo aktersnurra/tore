@@ -28,7 +28,7 @@ defmodule ToreWeb.SafeReturnTest do
   end
 
   test "honors a custom default" do
-    assert SafeReturn.path(nil, "/inbox") == "/inbox"
-    assert SafeReturn.path("//evil.example", "/inbox") == "/inbox"
+    assert SafeReturn.path(nil, "/plan") == "/plan"
+    assert SafeReturn.path("//evil.example", "/plan") == "/plan"
   end
 end

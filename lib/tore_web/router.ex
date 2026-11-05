@@ -34,6 +34,7 @@ defmodule ToreWeb.Router do
 
     get "/images/recipes/:id", RecipeImageController, :show
     get "/images/runs/:stream_id", RunPhotoController, :show
+    get "/review", ReviewController, :next
 
     live_session :authenticated,
       on_mount: [{ToreWeb.Live.Auth, :require_authenticated}] do
@@ -42,13 +43,11 @@ defmodule ToreWeb.Router do
       live "/recipes", RecipeLive
       live "/shop", ShopLive
       live "/prep", PrepLive
-      live "/deals", DealsLive
       live "/cooking", CookingLive
       live "/settings", SettingsLive
       live "/settings/pantry", PantryLive
       live "/settings/costs", CostLive
       live "/capture", CaptureLive
-      live "/inbox", InboxLive
       live "/runs/:stream_id", RunReviewLive
     end
   end

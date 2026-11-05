@@ -103,8 +103,6 @@ defmodule ToreWeb.HomeLiveTest do
       assert nav_html =~ ~s(href="/settings")
       refute nav_html =~ ~s(href="/recipes")
       refute nav_html =~ ~s(href="/prep")
-      refute nav_html =~ ~s(href="/deals")
-      refute nav_html =~ ~s(href="/inbox")
       refute nav_html =~ ~s(href="/cooking")
 
       assert bottom_nav_html =~ ~s(href="/plan")
@@ -112,8 +110,6 @@ defmodule ToreWeb.HomeLiveTest do
       refute bottom_nav_html =~ ~s(href="/settings")
       refute bottom_nav_html =~ ~s(href="/recipes")
       refute bottom_nav_html =~ ~s(href="/prep")
-      refute bottom_nav_html =~ ~s(href="/deals")
-      refute bottom_nav_html =~ ~s(href="/inbox")
       refute bottom_nav_html =~ ~s(href="/cooking")
     end
   end
@@ -128,6 +124,7 @@ defmodule ToreWeb.HomeLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/")
     assert html =~ ~s(data-role="review-pill")
+    assert html =~ ~s(href="/review")
   end
 
   test "review pill is absent when nothing needs review", %{conn: conn} do

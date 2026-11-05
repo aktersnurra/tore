@@ -39,7 +39,7 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} current_path="/">
       <.link
         :if={@inbox_count > 0}
-        navigate={~p"/inbox"}
+        href={~p"/review"}
         data-role="review-pill"
         class="inline-flex items-center gap-2 px-4 h-9 rounded-full border border-[color:var(--border)] bg-[var(--surface)] text-sm text-[var(--text)] mb-4"
       >

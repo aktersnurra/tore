@@ -9,6 +9,8 @@ defmodule Tore.Capture.Dispatch do
   one per channel, lifted out so the router can call them directly.
   """
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Capture.Uploads
   alias Tore.Harness.Orchestrator
   alias Tore.Harness.Run
@@ -47,7 +49,7 @@ defmodule Tore.Capture.Dispatch do
 
       case Orchestrator.dispatch(:receipt_ingestion_run, dispatch_ctx) do
         {:ok, %State.NeedsUser{stream_id: sid}} ->
-          inbox_bubble(:receipt, sid)
+          review_bubble(:receipt, sid)
 
         {:ok, %State.Failed{failure_code: code}} ->
           if image_path, do: RunPhotos.delete_async(image_path)
@@ -78,7 +80,7 @@ defmodule Tore.Capture.Dispatch do
 
       case Orchestrator.dispatch(:pantry_belief_update_run, dispatch_ctx) do
         {:ok, %State.NeedsUser{stream_id: sid}} ->
-          inbox_bubble(:pantry, sid)
+          review_bubble(:pantry, sid)
 
         {:ok, %State.Applied{}} ->
           %{role: :assistant, text: Gettext.dgettext(ToreWeb.Gettext, "default", "Added the pantry items from your photo.")}
@@ -720,13 +722,8 @@ defmodule Tore.Capture.Dispatch do
   defp duplicate_bubble(_kind, _stream_id) do
     %{
       role: :assistant,
-      inbox_link: true,
-      text:
-        Gettext.dgettext(
-          ToreWeb.Gettext,
-          "default",
-          "You've already uploaded this photo. Find it in your inbox."
-        )
+      review_link: true,
+      text: gettext("You've already uploaded this photo.")
     }
   end
 
@@ -742,20 +739,12 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp inbox_bubble(:receipt, _sid) do
-    %{
-      role: :assistant,
-      inbox_link: true,
-      text: Gettext.dgettext(ToreWeb.Gettext, "default", "I parsed a receipt. Review it in your inbox.")
-    }
+  defp review_bubble(:receipt, _sid) do
+    %{role: :assistant, review_link: true, text: gettext("I parsed a receipt.")}
   end
 
-  defp inbox_bubble(:pantry, _sid) do
-    %{
-      role: :assistant,
-      inbox_link: true,
-      text: Gettext.dgettext(ToreWeb.Gettext, "default", "I parsed your shelf photo. Review it in your inbox.")
-    }
+  defp review_bubble(:pantry, _sid) do
+    %{role: :assistant, review_link: true, text: gettext("I parsed your shelf photo.")}
   end
 
   defp current_shop_list_id do

@@ -325,4 +325,16 @@ defmodule ToreWeb.PlannerLiveTest do
       eventually_renders(view, substr, attempts - 1)
     end
   end
+
+  test "links to this week's prep", %{conn: conn, user: user} do
+    {:ok, view, _html} = conn |> authed(user) |> live(~p"/plan")
+
+    {:ok, _prep, html} =
+      view
+      |> element(~s(a[data-role="prep-link"]))
+      |> render_click()
+      |> follow_redirect(conn |> authed(user), ~p"/prep")
+
+    assert html =~ "phx-click=\"generate_guide\""
+  end
 end

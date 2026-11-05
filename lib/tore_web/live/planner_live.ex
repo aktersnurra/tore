@@ -497,6 +497,15 @@ defmodule ToreWeb.PlannerLive do
           />
           {health_message(@plan_health)}
         </div>
+        <div class="mt-2">
+          <.link
+            navigate={~p"/prep"}
+            data-role="prep-link"
+            class="text-xs font-semibold text-[color:var(--accent)] hover:underline"
+          >
+            {gettext("Prep this week")} →
+          </.link>
+        </div>
 
         <%!-- Week mode selector (placeholder — modes are normal only until Task 4 builds WeekMode) --%>
         <div class="flex flex-wrap gap-2 mb-4">

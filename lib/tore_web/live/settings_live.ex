@@ -1,7 +1,7 @@
 defmodule ToreWeb.SettingsLive do
   use ToreWeb, :live_view
 
-  alias Tore.{Accounts, Costs, Household}
+  alias Tore.{Accounts, Costs, Deals, Household}
 
   def mount(_params, _session, socket) do
     users = Accounts.list_users()
@@ -22,7 +22,10 @@ defmodule ToreWeb.SettingsLive do
        ai: ai,
        memory_insights: Household.list_active_insights(),
        household: Household.get_household!(),
-       locales: Household.supported_locales()
+       locales: Household.supported_locales(),
+       stores: Deals.list_store_configs(),
+       store_url: "",
+       store_error: nil
      )}
   end
 
@@ -31,6 +34,35 @@ defmodule ToreWeb.SettingsLive do
       {:ok, household} -> {:noreply, assign(socket, household: household)}
       {:error, _} -> {:noreply, socket}
     end
+  end
+
+  def handle_event("add_store", %{"url" => url}, socket) do
+    case Deals.add_store(url) do
+      {:ok, _store} ->
+        {:noreply,
+         assign(socket, stores: Deals.list_store_configs(), store_url: "", store_error: nil)}
+
+      {:error, :unsupported_store} ->
+        {:noreply,
+         assign(socket, store_url: url, store_error: gettext("Tore can't read that store yet"))}
+
+      {:error, %Ecto.Changeset{}} ->
+        {:noreply,
+         assign(socket, store_url: url, store_error: gettext("That store is already added"))}
+    end
+  end
+
+  def handle_event("toggle_store", %{"id" => id}, socket) do
+    store = Deals.get_store_config!(String.to_integer(id))
+    {:ok, _store} = Deals.update_store_config(store, %{scrape_enabled: !store.scrape_enabled})
+    {:noreply, assign(socket, stores: Deals.list_store_configs())}
+  end
+
+  def handle_event("remove_store", %{"id" => id}, socket) do
+    {:ok, _store} =
+      id |> String.to_integer() |> Deals.get_store_config!() |> Deals.delete_store_config()
+
+    {:noreply, assign(socket, stores: Deals.list_store_configs())}
   end
 
   def handle_event("add_user", _params, %{assigns: %{current_user: %{role: role}}} = socket)
@@ -268,6 +300,74 @@ defmodule ToreWeb.SettingsLive do
             <% end %>
           </section>
 
+          <%!-- Stores --%>
+          <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
+            <h2
+              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
+              style="font-size: var(--t-micro); font-weight: 600;"
+            >
+              {gettext("Stores")}
+            </h2>
+
+            <div :if={@stores != []} class="flex flex-col gap-3 mb-4">
+              <div :for={store <- @stores} class="flex items-center gap-3">
+                <p
+                  class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
+                  style="font-size: var(--t-body);"
+                >
+                  {store.name}
+                </p>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={to_string(store.scrape_enabled)}
+                  phx-click="toggle_store"
+                  phx-value-id={store.id}
+                  class={[
+                    "font-medium hover:underline",
+                    store.scrape_enabled && "text-[color:var(--accent)]",
+                    !store.scrape_enabled && "text-[color:var(--muted)]"
+                  ]}
+                  style="font-size: var(--t-meta);"
+                >
+                  {if store.scrape_enabled, do: gettext("On"), else: gettext("Off")}
+                </button>
+                <button
+                  type="button"
+                  phx-click="remove_store"
+                  phx-value-id={store.id}
+                  class="text-[color:var(--danger)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Remove")}
+                </button>
+              </div>
+            </div>
+
+            <form phx-submit="add_store" class="flex items-center gap-2">
+              <input
+                type="url"
+                name="url"
+                value={@store_url}
+                placeholder="https://www.ica.se/erbjudanden/…"
+                aria-label={gettext("Link to a store's offers")}
+                required
+                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                style="font-size: var(--t-body);"
+              />
+              <.button type="submit" variant={:primary}>
+                <.icon name="hero-plus" class="size-4" />{gettext("Add")}
+              </.button>
+            </form>
+            <p
+              :if={@store_error}
+              class="mt-1 text-[color:var(--danger)]"
+              style="font-size: var(--t-meta);"
+            >
+              {@store_error}
+            </p>
+          </section>
+
           <%!-- AI usage --%>
           <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
             <h2
@@ -347,15 +447,7 @@ defmodule ToreWeb.SettingsLive do
                 <span aria-hidden="true">→</span>
               </.link>
             </li>
-            <li>
-              <.link
-                navigate={~p"/inbox"}
-                class="flex items-center justify-between p-4 hover:bg-stone-50"
-              >
-                <span>{gettext("Run history")}</span>
-                <span aria-hidden="true">→</span>
-              </.link>
-            </li>
+            <li></li>
           </ul>
         </section>
       </.page>
