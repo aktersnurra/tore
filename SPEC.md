@@ -192,7 +192,7 @@ how the other implements its half.
 | `CostEntry` | `:receipt_ingestion_run` | Parsed receipt: store, date, total, line items, optional photo path |
 | `DealsUpdate` | `:deal_capture_run` | New deals parsed from a flyer photo, with provenance `:vision` |
 | `MemoryUpdate` | `:kitchen_memory_synthesis_run` | Insights added / superseded / unchanged, with evidence pointers |
-| `CounterNote` | `:ambient_scan_run`, `:deal_opportunity_run` | A proposed action with title, body, `proposed_run` link, primary + dismiss actions |
+| `CounterNote` | `:ambient_scan_run` | A proposed action with title, body, `proposed_run` link, primary + dismiss actions |
 | `PantrySnapshot` | any run that mutates pantry rows (emitted alongside `PantryBeliefUpdate`) | Per-row before/after images (`%{item_id, before, after}`) so the `undo_payload` derived at commit time can restore rows exactly |
 | `RunBundle` | `:capture_turn_run` | A parent run's manifest of the child runs it owns, so one Capture turn renders as one receipt with one Undo (a `:composite` payload over the children) |
 | `RunSummary` | every run | One-line human-readable description plus structured `counts` (e.g. `%{meals_changed: 4, grocery_items_updated: 17, prep_notes_added: 1}`); always present |
@@ -335,7 +335,7 @@ requires explicit confirmation before any event commits.
 
 | Tier | Examples | Apply policy |
 |---|---|---|
-| **Tier 0 — Surface only** | `:ambient_scan_run`, `:deal_opportunity_run`, `:fridge_rescue_run` | The run produces surface-only artifacts (`CounterNote`s, `RecipeSuggestions`) but writes no aggregate state on its own. The user opts in by tapping a primary action, which dispatches a follow-up run of higher tier. |
+| **Tier 0 — Surface only** | `:ambient_scan_run`, `:fridge_rescue_run` | The run produces surface-only artifacts (`CounterNote`s, `RecipeSuggestions`) but writes no aggregate state on its own. The user opts in by tapping a primary action, which dispatches a follow-up run of higher tier. |
 | **Tier 1 — Reversible domain edits** | `:planner_command_run`, `:weekly_planning_run`, `:prep_generation_run`, `:pantry_belief_update_run`, `:kitchen_memory_synthesis_run` | Auto-apply after verifier passes. The run receipt is visible. Undo is one tap. |
 | **Tier 2 — Reversible ingestion** | `:receipt_ingestion_run`, `:deal_capture_run`, `:recipe_ingestion_run`, `:grocery_reconciliation_run` | Auto-apply by default, but the proposal artifact is always surfaced as a card the user can review and edit before commit. Becomes `:needs_user` per the rule below. |
 | **Tier 3 — Destructive or sensitive** | `:recipe_generation_run`; bulk operations like *clear the week*; any change touching dietary constraints or allergens | Never auto-applies. Proposal is produced; commit requires explicit user confirmation. `:recipe_generation_run` sits here deliberately: ingestion transcribes a recipe that exists somewhere, generation invents one — invented content never enters the catalog without an explicit look. |
@@ -393,7 +393,9 @@ toward `max_action_calls`.
 `source` values include `:search_recipes`, `:resolve_recipe`, and
 `:direct_touch`. `:direct_touch` means the user physically touched the
 object in the UI (e.g. opened a plan slot's sheet) — there is no resolution
-step, so confidence is always `1.0`.
+step, so confidence is always `1.0`. Object sheets on the tonight card and
+grocery rows mint direct-touch handles the same way the plan slot sheet
+does.
 
 **Resolver tools (V1):**
 
@@ -575,6 +577,16 @@ declares a field that no UI surface consumes, that's a SPEC.md trimming
 opportunity. Both specs evolve together at the artifact-schema boundary; no
 side silently degrades.
 
+**Boundary additions (2026-07, anticipation layer):**
+
+1. Deal product identity fields on grocery/shop items — `product_label`, `package_size`, `price`, `store` — so a matched deal can render against the specific product it applies to.
+2. `CounterNote` gains `surface` targeting (`:today | :plan | :shop`, matching `KitchenRun.surface`) and a `proposed_run` descriptor (the run kind + scope dispatched on primary action).
+3. The new `CounterNote` kinds — `swap_suggestion`, `freezer_fallback`, `missing_ingredient`, `usual_item_missing`, `deal_match`, `plan_repair` — see §3's catalog.
+4. `:ambient_scan_run` re-triggers on plan/pantry mutation, not only the daily cron: a debounced mutation trigger fires the scan after a plan or pantry write settles.
+
+Receipt seen-state (the review pill surfacing unread run receipts) is
+already shipped — not re-specified here.
+
 ---
 
 ## The Six LLM-Native Features
@@ -652,7 +664,7 @@ Every loop iteration is logged to `AIOperations` with the run's
 - The LLM cannot read or write anything outside the registered tool surface. No direct DB access from prompts, no template-expanded pantry dumps mid-loop.
 - The agent never silently guesses an ambiguous reference. *"The salmon"* matching two recipes forces `ask_user`. The harness enforces this by rejecting unresolved handles.
 
-### 3. Proactive Intelligence → `:ambient_scan_run` + `:deal_opportunity_run`
+### 3. Proactive Intelligence → `:ambient_scan_run`
 
 A daily Quantum job (07:00 in the original design; **shipped at 05:00**, see
 below) starts an `:ambient_scan_run`. A post-scrape trigger (after the
@@ -668,12 +680,14 @@ implemented). Both produce `CounterNote` artifacts.
 
 **`CounterNote` kinds (V1 design):**
 
-| Kind | Trigger | Proposed run |
-|---|---|---|
-| `:expiring_pantry_match` | Pantry item expiring in ≤3 days AND a catalog recipe uses it AND that recipe is not in the current plan | `:planner_command_run` to assign the recipe to a near slot |
-| `:cascade_break` | A cascade plan depends on Sunday prep but Sunday slot is empty/unplanned | `:planner_command_run` to fill the source slot |
-| `:unplanned_week` | It is Wednesday or later AND the current week has ≥3 unplanned dinners | `:weekly_planning_run` |
-| `:deal_match` | A deal matches a high-affinity recipe (frequently chosen, never swapped) | `:planner_command_run` to assign the matched recipe |
+| kind | surface | trigger | proposed_run |
+|---|---|---|---|
+| `swap_suggestion` | `today`/`plan` | busy-day insight × heavier dish on that slot | `:planner_command_run` scoped to the slot |
+| `freezer_fallback` | `today` | busy-day insight × freezer belief matching tonight | `:planner_command_run` ("use the frozen …") |
+| `missing_ingredient` | `today` | pantry belief says an ingredient of tonight's recipe is absent | `:planner_command_run` (add substitute / add to list) |
+| `usual_item_missing` | `shop` | purchase-history staple not on the current list | `:planner_command_run` (add item) |
+| `deal_match` | `shop`/`plan` | active deal matches a planned recipe/list item | `:planner_command_run` (use the deal) |
+| `plan_repair` | `plan` | empty/broken slot detected | `:weekly_planning_run` slot-fill |
 
 New kinds are added by extending the catalog, not by new run kinds.
 
