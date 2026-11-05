@@ -2,15 +2,15 @@ defmodule ToreWeb.RunReviewLive do
   @moduledoc """
   Editable card surface for a `:receipt_ingestion_run` in `:needs_user` state.
 
-  Loads the run's CostEntry + PantryBeliefUpdate proposals, lets the user
-  correct store/date/total/line-items, and confirms via
-  `Tore.Harness.Orchestrator.commit_receipt/4` — which re-runs both verifiers
+  Loads the run's CostEntry proposal, lets the user correct
+  store/date/total/line-items, and confirms via
+  `Tore.Harness.Orchestrator.commit_receipt/3` — which re-runs the verifier
   before applying.
   """
 
   use ToreWeb, :live_view
 
-  alias Tore.Harness.Artifact.{CostEntry, PantryBeliefUpdate, RecipeProposal}
+  alias Tore.Harness.Artifact.{CostEntry, RecipeProposal}
   alias Tore.Harness.{Orchestrator, Run}
   alias Tore.Harness.Run.State
 
@@ -56,14 +56,13 @@ defmodule ToreWeb.RunReviewLive do
         |> assign(:error, nil)
 
       nil ->
-        {cost, pantry} = extract_artifacts(state)
+        cost = Enum.find(state.artifacts, &match?(%CostEntry{}, &1))
 
         socket
         |> assign(:stream_id, stream_id)
         |> assign(:state, :needs_user)
         |> assign(:has_photo?, has_image_path?(state.input))
         |> assign(:cost, cost)
-        |> assign(:pantry, pantry)
         |> assign(:form_data, form_data_from(cost))
         |> assign(:error, nil)
     end
@@ -132,16 +131,14 @@ defmodule ToreWeb.RunReviewLive do
 
   def handle_event("confirm", _params, socket) do
     cost = build_cost(socket.assigns.cost, socket.assigns.form_data)
-    pantry = build_pantry(socket.assigns.pantry, socket.assigns.form_data)
     user_id = socket.assigns.current_user && socket.assigns.current_user.id
     stream_id = socket.assigns.stream_id
 
-    # Fire-and-forget: the commit takes ~3-8s (verifiers re-run + LLM
-    # canonicaliser + atomic write). Kick it to Task.Supervisor and bounce
-    # the user back to /capture immediately. The toast on completion lands
-    # wherever they happen to be (PubSub topic "toasts:user:<id>").
+    # Fire-and-forget: bounce the user back immediately. The toast on
+    # completion lands wherever they happen to be (PubSub topic
+    # "toasts:user:<id>").
     Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      Orchestrator.commit_receipt(stream_id, cost, pantry, user_id)
+      Orchestrator.commit_receipt(stream_id, cost, user_id)
       |> case do
         {:ok, _} ->
           broadcast_toast(user_id, :info, "Receipt saved.")
@@ -223,7 +220,7 @@ defmodule ToreWeb.RunReviewLive do
       {gettext("Review receipt")}
     </h2>
     <p class="text-sm text-[color:var(--muted)] mb-4">
-      {gettext("Edit anything that looks wrong, then save. Costs and pantry update together.")}
+      {gettext("Edit anything that looks wrong, then save.")}
     </p>
 
     <.error_banner :if={@error} code={@error} />
@@ -359,7 +356,7 @@ defmodule ToreWeb.RunReviewLive do
           </div>
         </div>
         <p :if={@form_data.line_items == []} class="text-xs text-[color:var(--muted)] mt-2">
-          {gettext("No items parsed. Nothing will be added to the pantry.")}
+          {gettext("No items parsed.")}
         </p>
 
         <button
@@ -534,12 +531,6 @@ defmodule ToreWeb.RunReviewLive do
     """
   end
 
-  defp extract_artifacts(%State.NeedsUser{artifacts: artifacts}) do
-    cost = Enum.find(artifacts, &match?(%CostEntry{}, &1))
-    pantry = Enum.find(artifacts, &match?(%PantryBeliefUpdate{}, &1))
-    {cost, pantry}
-  end
-
   defp extract_recipe_proposal(%State.NeedsUser{artifacts: artifacts}),
     do: Enum.find(artifacts, &match?(%RecipeProposal{}, &1))
 
@@ -654,31 +645,6 @@ defmodule ToreWeb.RunReviewLive do
         end
     end
   end
-
-  defp build_pantry(%PantryBeliefUpdate{} = p, form) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    # Rebuild items from the (possibly edited) form so removed lines drop out
-    # of the pantry write too. Keep provenance from the original proposal.
-    items =
-      Enum.map(form.line_items, fn it ->
-        %{
-          name: String.trim(it.name),
-          change: :added,
-          quantity: parse_decimal(it.quantity),
-          unit: blank_to_nil(it[:unit]),
-          category: it[:category],
-          provenance: provenance_of(p),
-          last_seen_at: now
-        }
-      end)
-      |> Enum.reject(&(&1.name == ""))
-
-    %PantryBeliefUpdate{items: items}
-  end
-
-  defp provenance_of(%PantryBeliefUpdate{items: [first | _]}), do: first.provenance
-  defp provenance_of(_), do: "receipt"
 
   defp parse_date(str, fallback) do
     case Date.from_iso8601(str || "") do

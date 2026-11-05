@@ -24,49 +24,6 @@ defmodule Tore.ShopTest do
   defp list_id, do: "shop_list:2026-04-27"
   defp week_start, do: ~D[2026-04-27]
 
-  test "match_receipt_to_list checks off shop items whose names overlap receipt names" do
-    {:ok, _} = Shop.add_item(list_id(), "Milk", Decimal.new("1"), "l", 1)
-    {:ok, _} = Shop.add_item(list_id(), "Sourdough bread", Decimal.new("1"), "st", 1)
-    {:ok, _} = Shop.add_item(list_id(), "Habanero peppers", Decimal.new("1"), "st", 1)
-
-    # Receipt items: one strict raw-name match, one bidirectional substring,
-    # one no-match.
-    receipt_items = [
-      %{name: "MJÖLK LÅNG 1.5L"},
-      %{name: "Sourdough"},
-      %{name: "Eggs", catalogue_name: "Eggs"}
-    ]
-
-    {:ok, checked} = Shop.match_receipt_to_list(list_id(), receipt_items, 1)
-    checked_names = Enum.map(checked, & &1.name)
-
-    # "Sourdough" (receipt) is a substring of "Sourdough bread" (shop): match.
-    # "MJÖLK LÅNG 1.5L" doesn't overlap "Milk" — no false match.
-    # "Habanero peppers" wasn't on the receipt at all — no match.
-    assert "Sourdough bread" in checked_names
-    refute "Milk" in checked_names
-    refute "Habanero peppers" in checked_names
-
-    {:ok, state} = Shop.load_list(list_id())
-    sourdough = state.items |> Map.values() |> Enum.find(&(&1.name == "Sourdough bread"))
-    assert sourdough.checked
-  end
-
-  test "match_receipt_to_list does not re-check already-checked items" do
-    {:ok, _} = Shop.add_item(list_id(), "Yogurt", Decimal.new("1"), "st", 1)
-    {:ok, state} = Shop.load_list(list_id())
-    [{id, _}] = Enum.to_list(state.items)
-    {:ok, _} = Shop.check_item_quiet(list_id(), id, 1)
-
-    {:ok, checked} = Shop.match_receipt_to_list(list_id(), [%{name: "Yogurt"}], 1)
-    assert checked == []
-  end
-
-  test "match_receipt_to_list returns [] when the list is empty" do
-    {:ok, checked} = Shop.match_receipt_to_list("shop_list:nonexistent", [%{name: "Milk"}], 1)
-    assert checked == []
-  end
-
   test "load_list returns initial state for new list" do
     assert {:ok, state} = Shop.load_list(list_id())
     assert state.items == %{}

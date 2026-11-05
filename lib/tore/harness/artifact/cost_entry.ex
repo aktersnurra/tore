@@ -1,7 +1,7 @@
 defmodule Tore.Harness.Artifact.CostEntry do
   @moduledoc """
   Parsed receipt: store, date, total, line items, optional image path.
-  Output of `:receipt_ingestion_run` (alongside `PantryBeliefUpdate`).
+  Output of `:receipt_ingestion_run`.
   """
 
   @behaviour Tore.Harness.Artifact

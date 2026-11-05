@@ -4,20 +4,18 @@ defmodule Tore.Harness.PantryUpdate do
 
   Three input channels feed this run:
 
-    * `:grocery_checkoff` — grocery list item checked off (Tier 1, auto-apply)
-    * `:manual`           — user added/edited an item by hand (Tier 1, auto-apply)
-    * `:shelf_photo`      — chat photo classified as `:pantry_items` (Tier 2,
-                            editable card if ≥5 items or low confidence)
+    * `:grocery_checkoff` — grocery list item checked off
+    * `:manual`           — user added/edited an item by hand
+    * `:shelf_photo`      — photo of what's on a shelf, read by the vision model
 
-  All channels normalise to a flat `[%{name, quantity, unit, category, ...}]`
-  list, run it through the LLM canonicaliser, then atomically upsert pantry
-  beliefs (find-or-create ingredient, find-or-create-or-bump pantry row).
+  All channels apply straight away and can be undone. They normalise to a flat
+  `[%{name, quantity, unit, category, ...}]` list, run it through the LLM
+  canonicaliser, then atomically upsert pantry beliefs (find-or-create
+  ingredient, find-or-create-or-bump pantry row).
   """
 
   alias Tore.Harness.Artifact.PantryBeliefUpdate, as: Artifact
   alias Tore.Pantry
-
-  @needs_user_item_threshold 5
 
   @spec parse_shelf_photo(binary()) :: {:ok, [map()]} | {:error, term()}
   def parse_shelf_photo(image_binary) do
@@ -54,15 +52,6 @@ defmodule Tore.Harness.PantryUpdate do
   defp provenance_for(:shelf_photo), do: "vision"
 
   @doc """
-  Tier decision per SPEC §A.6.1: vision input always needs user review when
-  the parsed batch is non-trivial. Tier 1 channels (manual, grocery
-  checkoff) auto-apply.
-  """
-  @spec needs_user?(atom(), [map()]) :: boolean()
-  def needs_user?(:shelf_photo, items), do: length(items) >= @needs_user_item_threshold
-  def needs_user?(_, _), do: false
-
-  @doc """
   Canonicalise the artifact items via the LLM, then atomically upsert each
   belief. Returns `{:ok, counts, snapshots}` where counts is `%{added: n,
   bumped: n}` and snapshots is `[%{item_id, before, after}]` capturing the
@@ -71,6 +60,8 @@ defmodule Tore.Harness.PantryUpdate do
   """
   @spec apply!(Artifact.t(), String.t() | nil) ::
           {:ok, map(), [map()]} | {:error, term()}
+  def apply!(%Artifact{items: []}, _locale), do: {:ok, %{added: 0, bumped: 0}, []}
+
   def apply!(%Artifact{items: items}, locale) do
     raws = Enum.map(items, &%{raw_name: &1.name})
 

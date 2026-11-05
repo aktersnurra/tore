@@ -145,10 +145,10 @@ defmodule Tore.Costs do
   end
 
   def parse_receipt_image(image_binary) do
-    parse_receipt_for_pantry(image_binary, nil)
+    parse_receipt(image_binary, nil)
   end
 
-  def parse_receipt_for_pantry(image_binary, locale) do
+  def parse_receipt(image_binary, locale) do
     {system, user} = Tore.LLM.Prompts.parse_receipt_for_pantry(locale)
 
     with {:ok, data, _usage} <-
@@ -220,19 +220,14 @@ defmodule Tore.Costs do
     end
   end
 
-  def confirm_receipt(%{total: total, store_name: store_name, items: items, date: date}, user_id) do
-    total_decimal = receipt_to_decimal(total)
-
-    with {:ok, _receipt} <-
-           log_receipt(%{
-             date: date,
-             store_name: store_name,
-             total_amount: total_decimal,
-             user_id: user_id,
-             line_items: []
-           }) do
-      Tore.Pantry.confirm_items(items)
-    end
+  def confirm_receipt(%{total: total, store_name: store_name, date: date}, user_id) do
+    log_receipt(%{
+      date: date,
+      store_name: store_name,
+      total_amount: receipt_to_decimal(total),
+      user_id: user_id,
+      line_items: []
+    })
   end
 
   @spec list_dining_out() :: [DiningOut.t()]

@@ -227,7 +227,8 @@ defmodule Tore.Harness.RunReceipts do
   end
 
   defp compensate(%UndoPayload{kind: :snapshot, data: %{schema: "Tore.Pantry.PantryItem"} = data}) do
-    Enum.reduce_while(data.changes, :ok, fn change, :ok ->
+    # Newest first: two changes to one row must end on the earliest "before".
+    Enum.reduce_while(Enum.reverse(data.changes), :ok, fn change, :ok ->
       case restore_pantry_change(change) do
         :ok -> {:cont, :ok}
         {:error, _} = err -> {:halt, err}
@@ -270,7 +271,8 @@ defmodule Tore.Harness.RunReceipts do
 
   defp restore_attrs(before) do
     before
-    |> Map.take([:quantity, :unit, :last_seen_at, :provenance, :belief])
+    |> Map.take([:last_seen_at, :provenance, :belief])
     |> Map.reject(fn {_, v} -> is_nil(v) end)
+    |> Map.merge(%{quantity: before[:quantity], unit: before[:unit]})
   end
 end

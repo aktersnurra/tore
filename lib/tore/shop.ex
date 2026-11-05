@@ -189,24 +189,6 @@ defmodule Tore.Shop do
   end
 
   @doc """
-  Check an item off WITHOUT dispatching the grocery_checkoff pantry update.
-
-  Use this from contexts that already own the pantry mutation — e.g. the
-  receipt commit path which upserts pantry beliefs directly from the
-  parsed receipt and only needs to reflect "yes, you bought this" on
-  the active shopping list.
-  """
-  def check_item_quiet(list_id, item_id, user_id) do
-    with {:ok, state} <- EventStore.load(list_id, Decider),
-         {:ok, events} <-
-           Decider.decide(%Commands.CheckItem{item_id: item_id, checked_by: user_id}, state),
-         :ok <- EventStore.append(list_id, events) do
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
-      {:ok, events}
-    end
-  end
-
-  @doc """
   Resolve a free-text item name to a single uncheckéd item on `list_id`
   by case-insensitive bidirectional substring match.
   """
@@ -236,62 +218,6 @@ defmodule Tore.Shop do
       _ ->
         {:error, :not_found}
     end
-  end
-
-  @doc """
-  Cross-reference receipt items against an active shopping list and check
-  off matches. Returns `{:ok, [%{item_id, name}]}` listing the items
-  that were checked off; never raises.
-
-  Match strategy v1: case-insensitive substring overlap between shop item
-  name and any of (receipt raw name, canonical name). Cheap, tolerant of
-  OCR noise, occasionally over-matches (the cost of an extra uncheck is
-  low; the cost of a missed match is the chore we're trying to remove).
-  """
-  @spec match_receipt_to_list(String.t(), [map()], integer() | nil) ::
-          {:ok, [%{item_id: String.t(), name: String.t()}]}
-  def match_receipt_to_list(list_id, receipt_items, user_id) do
-    case load_list(list_id) do
-      {:ok, %{items: items}} when map_size(items) > 0 ->
-        receipt_terms = receipt_terms(receipt_items)
-
-        checked =
-          items
-          |> Enum.reject(fn {_id, it} -> it.checked end)
-          |> Enum.filter(fn {_id, it} -> any_term_matches?(it.name, receipt_terms) end)
-          |> Enum.map(fn {id, it} ->
-            check_item_quiet(list_id, id, user_id)
-            %{item_id: id, name: it.name}
-          end)
-
-        {:ok, checked}
-
-      _ ->
-        {:ok, []}
-    end
-  end
-
-  defp receipt_terms(items) do
-    Enum.flat_map(items, fn it ->
-      [
-        Map.get(it, :name) || Map.get(it, "name"),
-        Map.get(it, :catalogue_name) || Map.get(it, "catalogue_name"),
-        Map.get(it, :matched_key) || Map.get(it, "matched_key")
-      ]
-      |> Enum.reject(&(is_nil(&1) or &1 == ""))
-      |> Enum.map(&String.downcase/1)
-    end)
-    |> Enum.uniq()
-  end
-
-  defp any_term_matches?(shop_name, receipt_terms) do
-    needle = String.downcase(shop_name)
-
-    Enum.any?(receipt_terms, fn term ->
-      # Bidirectional substring: "milk" matches "Whole milk 1L" on the
-      # receipt and "Milk" on the shop list matches "milk".
-      String.contains?(needle, term) or String.contains?(term, needle)
-    end)
   end
 
   def uncheck_item(list_id, item_id, user_id) do

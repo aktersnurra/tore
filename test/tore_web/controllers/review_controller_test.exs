@@ -16,14 +16,14 @@ defmodule ToreWeb.ReviewControllerTest do
     %{conn: conn, user: user, household_id: household_id}
   end
 
-  defp open_pending_run(household_id, user_id, opened_at) do
+  defp open_pending_run(household_id, user_id, opened_at, kind \\ "receipt_ingestion_run") do
     sid = Run.next_stream_id()
 
     {:ok, [opened]} =
       Run.decide(
         %Commands.Open{
           household_id: household_id,
-          kind: "receipt_ingestion_run",
+          kind: kind,
           surface: :plan,
           started_by: "user",
           user_id: user_id,
@@ -49,6 +49,19 @@ defmodule ToreWeb.ReviewControllerTest do
     conn = get(ctx.conn, ~p"/review")
 
     assert redirected_to(conn) == ~p"/runs/#{older}?#{[from: "/"]}"
+  end
+
+  test "only receipts wait for review", ctx do
+    open_pending_run(
+      ctx.household_id,
+      ctx.user.id,
+      ~U[2026-11-04 10:00:00Z],
+      "pantry_belief_update_run"
+    )
+
+    Process.sleep(50)
+
+    assert ctx.conn |> get(~p"/review") |> redirected_to() == ~p"/"
   end
 
   test "goes Home when nothing is waiting", %{conn: conn} do

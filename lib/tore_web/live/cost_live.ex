@@ -127,7 +127,7 @@ defmodule ToreWeb.CostLive do
         {:noreply,
          socket
          |> assign(receipt_preview: nil, summary: summary)
-         |> put_flash(:info, gettext("Receipt saved and items added to pantry"))}
+         |> put_flash(:info, gettext("Receipt saved"))}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to save receipt"))}
@@ -377,7 +377,7 @@ defmodule ToreWeb.CostLive do
                 class="px-5 pb-2 font-medium text-[color:var(--muted)]"
                 style="font-size: var(--t-meta);"
               >
-                {gettext("Add to pantry")}
+                {gettext("Items")}
               </p>
               <ul class="divide-y divide-[color:var(--hairline)] border-t border-[color:var(--hairline)]">
                 <li :for={item <- @receipt_preview.items} class="flex items-start gap-3 px-5 py-3">
@@ -425,7 +425,7 @@ defmodule ToreWeb.CostLive do
               </ul>
               <div class="flex gap-3 border-t border-[color:var(--hairline)] px-5 py-4">
                 <.button phx-click="confirm_receipt" variant={:primary} size={:lg} full>
-                  {gettext("Save receipt & add to pantry")}
+                  {gettext("Save receipt")}
                 </.button>
                 <.button phx-click="discard_receipt" variant={:ghost} size={:lg}>
                   {gettext("Discard")}

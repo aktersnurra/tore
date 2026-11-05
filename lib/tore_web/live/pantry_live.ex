@@ -60,7 +60,7 @@ defmodule ToreWeb.PantryLive do
           class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500"
         >
           {gettext(
-            "Nothing in the pantry yet. Items appear here when you check off groceries or scan a receipt."
+            "Nothing in the pantry yet. Items appear here when you check off groceries or send a photo of your shelves."
           )}
         </div>
       </div>

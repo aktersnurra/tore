@@ -118,13 +118,13 @@ defmodule Tore.Harness.Orchestrator do
            {:ok, state} <- enter(state, :gathering_context, metadata),
            {:ok, parsed} <- ReceiptIngestion.parse(ctx.image_binary, household_locale()),
            {:ok, state} <- enter(state, :proposing, metadata),
-           {cost, pantry} =
-             ReceiptIngestion.build_artifacts(parsed,
+           cost =
+             ReceiptIngestion.build_cost_entry(parsed,
                date: Map.get(ctx, :date, Date.utc_today()),
                image_path: Map.get(ctx, :image_path)
              ),
            {:ok, state} <- enter(state, :verifying, metadata),
-           {:ok, state} <- verify_and_surface_receipt(state, cost, pantry, metadata) do
+           {:ok, state} <- verify_and_surface_receipt(state, cost, metadata) do
         {:ok, state}
       else
         {:error, reason} ->
@@ -156,7 +156,7 @@ defmodule Tore.Harness.Orchestrator do
            {:ok, state} <- enter(state, :proposing, metadata),
            {:ok, state} <- enter(state, :verifying, metadata),
            {:ok, state} <-
-             verify_and_finish_pantry(state, artifact, channel, ctx, metadata) do
+             verify_and_finish_pantry(state, artifact, metadata) do
         {:ok, state}
       else
         {:error, reason} -> {:error, {:step_failed, reason}}
@@ -398,19 +398,18 @@ defmodule Tore.Harness.Orchestrator do
 
   @doc """
   Commit a receipt proposal after the user has reviewed (and possibly edited)
-  the artifacts on the `:needs_user` card. Re-runs verifiers against the
-  (possibly edited) artifacts, then atomically applies Costs + Pantry. UI
-  entrypoint; not part of `dispatch/2`.
+  the cost on the `:needs_user` card. Re-runs the verifier against the
+  (possibly edited) cost, then logs the receipt. UI entrypoint; not part of
+  `dispatch/2`.
   """
-  @spec commit_receipt(String.t(), CostEntry.t(), PantryBeliefUpdate.t(), integer() | nil) ::
+  @spec commit_receipt(String.t(), CostEntry.t(), integer() | nil) ::
           {:ok, State.t()} | {:error, term()}
-  def commit_receipt(stream_id, %CostEntry{} = cost, %PantryBeliefUpdate{} = pantry, user_id) do
+  def commit_receipt(stream_id, %CostEntry{} = cost, user_id) do
     {:ok, state} = Run.load(stream_id)
     metadata = %{household_id: state.household_id}
 
     with %State.NeedsUser{} <- state,
          :ok <- CostEntryVerifier.verify(cost, %{}),
-         :ok <- PantryVerifier.verify(pantry, %{}),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -418,17 +417,10 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, _receipt} <- ReceiptIngestion.apply!(cost, pantry, user_id, household_locale()),
+         {:ok, _receipt} <- ReceiptIngestion.apply!(cost, user_id),
          {:ok, state} <-
            apply_command(state.stream_id, %Commands.AddArtifact{artifact: cost}, state, metadata),
-         {:ok, state} <-
-           apply_command(
-             state.stream_id,
-             %Commands.AddArtifact{artifact: pantry},
-             state,
-             metadata
-           ),
-         run_summary = RunSummary.from_artifacts([cost, pantry], :applied),
+         run_summary = RunSummary.from_artifacts([cost], :applied),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -438,7 +430,6 @@ defmodule Tore.Harness.Orchestrator do
            ),
          {:ok, final_state} <-
            apply_command(state.stream_id, commit_command(state), state, metadata) do
-      check_off_matching_shop_items(cost, pantry, user_id)
       delete_run_photo_async(state)
       {:ok, final_state}
     else
@@ -579,34 +570,6 @@ defmodule Tore.Harness.Orchestrator do
       {:ok, _other} ->
         {:error, :not_discardable}
     end
-  end
-
-  # Walk the active shopping list for the receipt's week and tick off any
-  # item whose name overlaps with what the user actually bought. Best-effort:
-  # never raises, logs and moves on if the shop list can't be loaded.
-  defp check_off_matching_shop_items(
-         %CostEntry{date: date},
-         %PantryBeliefUpdate{items: items},
-         user_id
-       ) do
-    week_start = Date.add(date, -(Date.day_of_week(date) - 1))
-    list_id = "shop_list:#{Date.to_iso8601(week_start)}"
-
-    case Tore.Shop.match_receipt_to_list(list_id, items, user_id) do
-      {:ok, []} ->
-        :ok
-
-      {:ok, checked} ->
-        Logger.info(
-          "Receipt #{date} checked off #{length(checked)} shop items: #{Enum.map_join(checked, ", ", & &1.name)}"
-        )
-
-        :ok
-    end
-  rescue
-    e ->
-      Logger.warning("check_off_matching_shop_items raised: #{inspect(e)}")
-      :ok
   end
 
   # Fire-and-forget cleanup of the photo stashed at upload time. We don't
@@ -758,26 +721,12 @@ defmodule Tore.Harness.Orchestrator do
     end
   end
 
-  defp verify_and_surface_receipt(
-         state,
-         %CostEntry{} = cost,
-         %PantryBeliefUpdate{} = pantry,
-         metadata
-       ) do
-    # SPEC §A.5 atomic verifier set: any fail = the whole run fails. Per §A.6.1
-    # vision-input runs always transition to NeedsUser when verifiers pass —
-    # the user reviews on an editable card and commit_receipt/4 commits.
+  defp verify_and_surface_receipt(state, %CostEntry{} = cost, metadata) do
+    # Per §A.6.1 a receipt transitions to NeedsUser when the verifier passes:
+    # the user reviews on an editable card and commit_receipt/3 commits.
     with :ok <- CostEntryVerifier.verify(cost, %{}),
-         :ok <- PantryVerifier.verify(pantry, %{}),
          {:ok, state} <-
-           apply_command(state.stream_id, %Commands.AddArtifact{artifact: cost}, state, metadata),
-         {:ok, state} <-
-           apply_command(
-             state.stream_id,
-             %Commands.AddArtifact{artifact: pantry},
-             state,
-             metadata
-           ) do
+           apply_command(state.stream_id, %Commands.AddArtifact{artifact: cost}, state, metadata) do
       apply_command(
         state.stream_id,
         %Commands.RaiseQuestion{question: "Review the parsed receipt before saving."},
@@ -860,9 +809,7 @@ defmodule Tore.Harness.Orchestrator do
   defp gather_pantry_items(_, %{items: items}) when is_list(items), do: {:ok, items}
   defp gather_pantry_items(_, _), do: {:error, :missing_items}
 
-  defp verify_and_finish_pantry(state, %PantryBeliefUpdate{} = artifact, channel, ctx, metadata) do
-    needs_user? = PantryUpdate.needs_user?(channel, artifact.items)
-
+  defp verify_and_finish_pantry(state, %PantryBeliefUpdate{} = artifact, metadata) do
     with :ok <- PantryVerifier.verify(artifact, %{}),
          {:ok, state} <-
            apply_command(
@@ -870,36 +817,25 @@ defmodule Tore.Harness.Orchestrator do
              %Commands.AddArtifact{artifact: artifact},
              state,
              metadata
+           ),
+         {:ok, counts, snaps} <- PantryUpdate.apply!(artifact, household_locale()),
+         snapshot = %Tore.Harness.Artifact.PantrySnapshot{items: snaps},
+         {:ok, state} <-
+           apply_command(
+             state.stream_id,
+             %Commands.AddArtifact{artifact: snapshot},
+             state,
+             metadata
+           ),
+         run_summary = %RunSummary{counts: counts, outcome: :applied},
+         {:ok, state} <-
+           apply_command(
+             state.stream_id,
+             %Commands.AddArtifact{artifact: run_summary},
+             state,
+             metadata
            ) do
-      if needs_user? do
-        apply_command(
-          state.stream_id,
-          %Commands.RaiseQuestion{question: "Review the parsed pantry items before saving."},
-          state,
-          metadata
-        )
-      else
-        with {:ok, counts, snaps} <- PantryUpdate.apply!(artifact, household_locale()),
-             snapshot = %Tore.Harness.Artifact.PantrySnapshot{items: snaps},
-             {:ok, state} <-
-               apply_command(
-                 state.stream_id,
-                 %Commands.AddArtifact{artifact: snapshot},
-                 state,
-                 metadata
-               ),
-             run_summary = %RunSummary{counts: counts, outcome: :applied},
-             {:ok, state} <-
-               apply_command(
-                 state.stream_id,
-                 %Commands.AddArtifact{artifact: run_summary},
-                 state,
-                 metadata
-               ) do
-          _ = ctx
-          apply_command(state.stream_id, commit_command(state), state, metadata)
-        end
-      end
+      apply_command(state.stream_id, commit_command(state), state, metadata)
     else
       {:fail, code, repair} ->
         apply_command(

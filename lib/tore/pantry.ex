@@ -29,19 +29,6 @@ defmodule Tore.Pantry do
   defp parse_decimal(n) when is_number(n), do: Decimal.from_float(n * 1.0)
   defp parse_decimal(s) when is_binary(s), do: Decimal.new(s)
 
-  def confirm_items(items) do
-    Enum.reduce_while(items, {:ok, []}, fn item, {:ok, acc} ->
-      case add_item(item) do
-        {:ok, pantry_item} -> {:cont, {:ok, [pantry_item | acc]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
-    |> case do
-      {:ok, inserted} -> {:ok, Enum.reverse(inserted)}
-      error -> error
-    end
-  end
-
   @doc """
   Catalogue snapshot used to ground the LLM canonicaliser.
   """
@@ -171,8 +158,7 @@ defmodule Tore.Pantry do
   end
 
   defp bump_existing(%PantryItem{} = item, attrs) do
-    {new_qty, new_unit} =
-      merge_quantity(item.quantity, item.unit, attrs[:quantity], attrs[:unit])
+    {new_qty, new_unit} = next_quantity(item, attrs)
 
     next_provenance = attrs[:provenance] || item.provenance
 
@@ -186,6 +172,16 @@ defmodule Tore.Pantry do
     })
     |> Repo.update()
   end
+
+  # A photo shows what's there now, so it replaces what we knew. Every other
+  # source reports what came in, so it adds. A photo with no readable quantity
+  # tells us nothing about the amount.
+  defp next_quantity(item, %{provenance: "vision", quantity: quantity} = attrs)
+       when not is_nil(quantity),
+       do: {quantity, attrs[:unit] || item.unit}
+
+  defp next_quantity(item, attrs),
+    do: merge_quantity(item.quantity, item.unit, attrs[:quantity], attrs[:unit])
 
   # Sum only when units are compatible (equal, or one side nil). A conflict
   # (existing "L", incoming "ml") would silently turn 1 L into 501 L —

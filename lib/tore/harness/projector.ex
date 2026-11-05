@@ -52,11 +52,10 @@ defmodule Tore.Harness.Projector do
     end
   end
 
-  # Runs that surface in the inbox — only the ones a user initiated by
-  # uploading or typing something. Cron-fired headless runs (weekly
-  # planning, kitchen memory synthesis) stay out of sight even if a
-  # verifier slip puts one in NeedsUser.
-  @inbox_kinds ~w[receipt_ingestion_run pantry_belief_update_run recipe_ingestion_run]
+  # Receipts are the only runs with a review page. Anything else that ended up
+  # in NeedsUser would crash `/runs/:id`, and the Home pill always opens the
+  # oldest, so one of those would block every later review.
+  @inbox_kinds ~w[receipt_ingestion_run]
 
   @doc """
   Pending `:needs_user` runs the user is meant to act on, newest first.

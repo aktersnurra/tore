@@ -67,8 +67,11 @@ defmodule ToreWeb.CaptureLive do
       }
 
       pid = self()
+      locale = Gettext.get_locale(ToreWeb.Gettext)
 
       Task.start(fn ->
+        # Gettext's locale is per process, so the replies need it set here too.
+        Gettext.put_locale(ToreWeb.Gettext, locale)
         result = Router.route(text, images, ctx, history)
         send(pid, {:route_complete, result})
       end)

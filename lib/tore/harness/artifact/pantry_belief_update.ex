@@ -1,7 +1,7 @@
 defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
   @moduledoc """
   Pantry items added, removed, or `last_seen_at`-bumped by a run, each with
-  provenance. Output of `:receipt_ingestion_run` and `:pantry_belief_update_run`.
+  provenance. Output of `:pantry_belief_update_run`.
 
   Pantry is modelled as belief, not fact (SPEC §4): every write carries
   provenance and the user's last observation timestamp. The verifier checks

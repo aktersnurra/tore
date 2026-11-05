@@ -12,6 +12,7 @@ defmodule Tore.Capture.Dispatch do
   use Gettext, backend: ToreWeb.Gettext
 
   alias Tore.Capture.Uploads
+  alias Tore.Harness.Artifact.PantryBeliefUpdate
   alias Tore.Harness.Orchestrator
   alias Tore.Harness.Run
   alias Tore.Harness.Run.State
@@ -67,23 +68,17 @@ defmodule Tore.Capture.Dispatch do
   @spec update_pantry_from_shelf(binary(), ctx()) :: bubble()
   def update_pantry_from_shelf(image, ctx) when is_binary(image) do
     with_dedup(image, ctx, "shelf", fn stream_id ->
-      image_path = stash_photo(stream_id, image)
-
       dispatch_ctx = %{
         household_id: ctx.household_id,
         user_id: ctx[:user_id],
         stream_id: stream_id,
         channel: :shelf_photo,
-        image_binary: image,
-        image_path: image_path
+        image_binary: image
       }
 
       case Orchestrator.dispatch(:pantry_belief_update_run, dispatch_ctx) do
-        {:ok, %State.NeedsUser{stream_id: sid}} ->
-          review_bubble(:pantry, sid)
-
-        {:ok, %State.Applied{}} ->
-          %{role: :assistant, text: Gettext.dgettext(ToreWeb.Gettext, "default", "Added the pantry items from your photo.")}
+        {:ok, %State.Applied{} = state} ->
+          shelf_bubble(state)
 
         {:ok, %State.Failed{failure_code: code}} ->
           error_bubble(:pantry, code)
@@ -92,6 +87,24 @@ defmodule Tore.Capture.Dispatch do
           error_bubble(:pantry, reason)
       end
     end)
+  end
+
+  defp shelf_bubble(%State.Applied{stream_id: sid, artifacts: artifacts}) do
+    %PantryBeliefUpdate{items: items} = Enum.find(artifacts, &match?(%PantryBeliefUpdate{}, &1))
+
+    case items do
+      [] ->
+        %{role: :assistant, text: gettext("I couldn't see any pantry items in that photo.")}
+
+      items ->
+        names = items |> Enum.map(& &1.name) |> Enum.uniq() |> Enum.join(", ")
+
+        %{
+          role: :assistant,
+          text: gettext("Added %{names} from your photo.", names: names),
+          run_stream_id: sid
+        }
+    end
   end
 
   # ── recipe (grouped: multi-page recipes stay together) ─────────────────
@@ -741,10 +754,6 @@ defmodule Tore.Capture.Dispatch do
 
   defp review_bubble(:receipt, _sid) do
     %{role: :assistant, review_link: true, text: gettext("I parsed a receipt.")}
-  end
-
-  defp review_bubble(:pantry, _sid) do
-    %{role: :assistant, review_link: true, text: gettext("I parsed your shelf photo.")}
   end
 
   defp current_shop_list_id do

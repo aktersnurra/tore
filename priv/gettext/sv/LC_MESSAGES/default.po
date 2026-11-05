@@ -73,11 +73,6 @@ msgstr "Lägg till ingrediens"
 msgid "Add item…"
 msgstr "Lägg till vara…"
 
-#: lib/tore_web/live/cost_live.ex:380
-#, elixir-autogen, elixir-format
-msgid "Add to pantry"
-msgstr "Lägg till i skafferiet"
-
 #: lib/tore_web/live/planner_live.ex:1001
 #, elixir-autogen, elixir-format
 msgid "All recipes"
@@ -120,8 +115,8 @@ msgid "Build rich, interactive web applications quickly, with less code and fewe
 msgstr "Bygg rika, interaktiva webbapplikationer snabbt, med mindre kod och färre rörliga delar. Gå med i vår växande gemenskap av utvecklare som använder Phoenix för att skapa API:er, HTML5-appar och mer."
 
 #: lib/tore_web/live/recipe_live.ex:966
-#: lib/tore_web/live/run_review_live.ex:381
-#: lib/tore_web/live/run_review_live.ex:464
+#: lib/tore_web/live/run_review_live.ex:378
+#: lib/tore_web/live/run_review_live.ex:461
 #, elixir-autogen, elixir-format
 msgid "Cancel"
 msgstr "Avbryt"
@@ -142,9 +137,9 @@ msgid "Choose a recipe"
 msgstr "Välj ett recept"
 
 #: lib/tore_web/components/core_components.ex:913
-#: lib/tore_web/live/capture_live.ex:129
+#: lib/tore_web/live/capture_live.ex:132
 #: lib/tore_web/live/home_live.ex:109
-#: lib/tore_web/live/run_review_live.ex:262
+#: lib/tore_web/live/run_review_live.ex:259
 #: lib/tore_web/live/shop_live.ex:284
 #, elixir-autogen, elixir-format
 msgid "Close"
@@ -283,7 +278,7 @@ msgstr "Ingrediens"
 
 #: lib/tore_web/live/recipe_live.ex:616
 #: lib/tore_web/live/recipe_live.ex:887
-#: lib/tore_web/live/run_review_live.ex:432
+#: lib/tore_web/live/run_review_live.ex:429
 #, elixir-autogen, elixir-format
 msgid "Ingredients"
 msgstr "Ingredienser"
@@ -484,6 +479,7 @@ msgstr "Föregående vecka"
 msgid "Qty"
 msgstr "Antal"
 
+#: lib/tore_web/live/cost_live.ex:130
 #: lib/tore_web/live/cost_live.ex:186
 #, elixir-autogen, elixir-format
 msgid "Receipt saved"
@@ -523,8 +519,9 @@ msgstr "Resultat"
 msgid "Save"
 msgstr "Spara"
 
+#: lib/tore_web/live/cost_live.ex:428
 #: lib/tore_web/live/cost_live.ex:919
-#: lib/tore_web/live/run_review_live.ex:404
+#: lib/tore_web/live/run_review_live.ex:401
 #, elixir-autogen, elixir-format
 msgid "Save receipt"
 msgstr "Spara kvitto"
@@ -662,7 +659,7 @@ msgstr "För många försök. Försök igen om %{n} s"
 msgid "Too many attempts. Try again later."
 msgstr "För många försök. Försök igen senare."
 
-#: lib/tore_web/live/run_review_live.ex:304
+#: lib/tore_web/live/run_review_live.ex:301
 #: lib/tore_web/live/settings_live.ex:398
 #, elixir-autogen, elixir-format
 msgid "Total"
@@ -752,7 +749,7 @@ msgstr "Batch"
 
 #: lib/tore_web/live/cost_live.ex:902
 #: lib/tore_web/live/cost_live.ex:947
-#: lib/tore_web/live/run_review_live.ex:287
+#: lib/tore_web/live/run_review_live.ex:284
 #, elixir-autogen, elixir-format
 msgid "Date"
 msgstr "Datum"
@@ -769,7 +766,7 @@ msgstr "Snabb"
 
 #: lib/tore_web/live/cost_live.ex:348
 #: lib/tore_web/live/cost_live.ex:908
-#: lib/tore_web/live/run_review_live.ex:278
+#: lib/tore_web/live/run_review_live.ex:275
 #, elixir-autogen, elixir-format
 msgid "Store"
 msgstr "Butik"
@@ -941,10 +938,10 @@ msgid "Wednesday"
 msgstr "Onsdag"
 
 #: lib/tore_web/live/cost_live.ex:431
-#: lib/tore_web/live/run_review_live.ex:388
-#: lib/tore_web/live/run_review_live.ex:398
-#: lib/tore_web/live/run_review_live.ex:471
-#: lib/tore_web/live/run_review_live.ex:481
+#: lib/tore_web/live/run_review_live.ex:385
+#: lib/tore_web/live/run_review_live.ex:395
+#: lib/tore_web/live/run_review_live.ex:468
+#: lib/tore_web/live/run_review_live.ex:478
 #, elixir-autogen, elixir-format
 msgid "Discard"
 msgstr "Kasta"
@@ -992,21 +989,11 @@ msgstr "Inga kvitton än"
 msgid "Or enter manually"
 msgstr "Eller ange manuellt"
 
-#: lib/tore_web/live/cost_live.ex:130
-#, elixir-autogen, elixir-format
-msgid "Receipt saved and items added to pantry"
-msgstr "Kvitto sparat och varor tillagda i skafferiet"
-
 #: lib/tore_web/live/cost_live.ex:337
-#: lib/tore_web/live/run_review_live.ex:223
+#: lib/tore_web/live/run_review_live.ex:220
 #, elixir-autogen, elixir-format
 msgid "Review receipt"
 msgstr "Granska kvitto"
-
-#: lib/tore_web/live/cost_live.ex:428
-#, elixir-autogen, elixir-format
-msgid "Save receipt & add to pantry"
-msgstr "Spara kvitto och lägg till i skafferiet"
 
 #: lib/tore_web/live/cost_live.ex:883
 #, elixir-autogen, elixir-format
@@ -1601,7 +1588,7 @@ msgstr "Ungefärligt lager"
 msgid "Ask"
 msgstr "Fråga"
 
-#: lib/tore_web/live/capture_live.ex:141
+#: lib/tore_web/live/capture_live.ex:144
 #, elixir-autogen, elixir-format
 msgid "Ask Tore"
 msgstr "Fråga Tore"
@@ -1611,17 +1598,17 @@ msgstr "Fråga Tore"
 msgid "Ask about tonight's plan..."
 msgstr "Fråga om kvällens plan..."
 
-#: lib/tore_web/live/capture_live.ex:269
+#: lib/tore_web/live/capture_live.ex:272
 #, elixir-autogen, elixir-format
 msgid "Ask anything about meals, groceries…"
 msgstr "Fråga vad som helst om måltider, inköp…"
 
-#: lib/tore_web/live/capture_live.ex:286
+#: lib/tore_web/live/capture_live.ex:289
 #, elixir-autogen, elixir-format
 msgid "Attach photo"
 msgstr "Bifoga foto"
 
-#: lib/tore_web/live/run_review_live.ex:217
+#: lib/tore_web/live/run_review_live.ex:214
 #, elixir-autogen, elixir-format
 msgid "Back to chat"
 msgstr "Tillbaka till chatten"
@@ -1747,11 +1734,6 @@ msgstr "Ingen plan för veckan än."
 msgid "Normal"
 msgstr "Normal"
 
-#: lib/tore_web/live/pantry_live.ex:62
-#, elixir-autogen, elixir-format
-msgid "Nothing in the pantry yet. Items appear here when you check off groceries or scan a receipt."
-msgstr "Inget i skafferiet än. Varor dyker upp här när du bockar av inköp eller skannar ett kvitto."
-
 #: lib/tore_web/live/home_live.ex:88
 #, elixir-autogen, elixir-format
 msgid "Nothing planned for tonight"
@@ -1783,7 +1765,7 @@ msgid "Proposing"
 msgstr "Föreslår"
 
 #: lib/tore_web/components/receipt_live.ex:59
-#: lib/tore_web/live/capture_live.ex:251
+#: lib/tore_web/live/capture_live.ex:254
 #, elixir-autogen, elixir-format
 msgid "Reverted"
 msgstr "Återställd"
@@ -1829,7 +1811,7 @@ msgstr "Bytte in %{recipe} på %{day}"
 msgid "Things Tore has learned"
 msgstr "Saker Tore har lärt sig"
 
-#: lib/tore_web/live/capture_live.ex:257
+#: lib/tore_web/live/capture_live.ex:260
 #: lib/tore_web/live/recipe_live.ex:719
 #, elixir-autogen, elixir-format
 msgid "Thinking…"
@@ -1954,7 +1936,7 @@ msgstr "Låst"
 msgid "Shop"
 msgstr "Inköp"
 
-#: lib/tore_web/live/capture_live.ex:87
+#: lib/tore_web/live/capture_live.ex:90
 #, elixir-autogen, elixir-format
 msgid "%{n} photos"
 msgstr "%{n} foton"
@@ -1974,17 +1956,17 @@ msgstr ""
 msgid ", last confirmed yesterday"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:86
+#: lib/tore_web/live/capture_live.ex:89
 #, elixir-autogen, elixir-format
 msgid "1 photo"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:370
+#: lib/tore_web/live/run_review_live.ex:367
 #, elixir-autogen, elixir-format
 msgid "Add item"
 msgstr "Lägg till vara"
 
-#: lib/tore_web/live/run_review_live.ex:218
+#: lib/tore_web/live/run_review_live.ex:215
 #, elixir-autogen, elixir-format
 msgid "Back"
 msgstr "Tillbaka"
@@ -1994,22 +1976,17 @@ msgstr "Tillbaka"
 msgid "Confirmed at home"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:299
+#: lib/tore_web/live/run_review_live.ex:296
 #, elixir-autogen, elixir-format
 msgid "Couldn't read the date from the receipt — please verify."
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:532
+#: lib/tore_web/live/run_review_live.ex:529
 #, elixir-autogen, elixir-format
 msgid "Couldn't save:"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:226
-#, elixir-autogen, elixir-format
-msgid "Edit anything that looks wrong, then save. Costs and pantry update together."
-msgstr "Ändra det som ser fel ut och spara. Kostnader och skafferi uppdateras tillsammans."
-
-#: lib/tore_web/live/capture_live.ex:170
+#: lib/tore_web/live/capture_live.ex:173
 #, elixir-autogen, elixir-format
 msgid "Imported"
 msgstr "Importerad"
@@ -2020,38 +1997,33 @@ msgstr "Importerad"
 msgid "Language"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:315
+#: lib/tore_web/live/run_review_live.ex:312
 #, elixir-autogen, elixir-format
 msgid "Line items"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:317
+#: lib/tore_web/live/run_review_live.ex:314
 #, elixir-autogen, elixir-format
 msgid "Lines sum to"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:362
-#, elixir-autogen, elixir-format
-msgid "No items parsed. Nothing will be added to the pantry."
-msgstr "Inga varor lästes in. Inget läggs till i skafferiet."
-
-#: lib/tore_web/live/run_review_live.ex:235
+#: lib/tore_web/live/run_review_live.ex:232
 #, elixir-autogen, elixir-format
 msgid "Open photo"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:176
+#: lib/tore_web/live/capture_live.ex:179
 #, elixir-autogen, elixir-format
 msgid "Open recipe"
 msgstr "Öppna recept"
 
-#: lib/tore_web/live/capture_live.ex:222
+#: lib/tore_web/live/capture_live.ex:225
 #, elixir-autogen, elixir-format
 msgid "Open shopping list"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:240
-#: lib/tore_web/live/run_review_live.ex:270
+#: lib/tore_web/live/run_review_live.ex:237
+#: lib/tore_web/live/run_review_live.ex:267
 #, elixir-autogen, elixir-format
 msgid "Original photo"
 msgstr ""
@@ -2076,35 +2048,35 @@ msgstr ""
 msgid "Probably missing"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:497
+#: lib/tore_web/live/run_review_live.ex:494
 #, elixir-autogen, elixir-format
 msgid "Receipt already saved."
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:100
+#: lib/tore_web/live/capture_live.ex:103
 #, elixir-autogen, elixir-format
 msgid "Sorry, I couldn't process that. Please try again."
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:245
+#: lib/tore_web/live/run_review_live.ex:242
 #, elixir-autogen, elixir-format
 msgid "Tap to enlarge"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:509
+#: lib/tore_web/live/run_review_live.ex:506
 #, elixir-autogen, elixir-format
 msgid "This receipt failed."
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:503
+#: lib/tore_web/live/run_review_live.ex:500
 #, elixir-autogen, elixir-format
 msgid "This receipt was discarded."
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:245
+#: lib/tore_web/live/capture_live.ex:248
 #, elixir-autogen, elixir-format
 msgid "Undo"
-msgstr ""
+msgstr "Ångra"
 
 #: lib/tore_web/live/planner_live.ex:306
 #: lib/tore_web/live/shop_live.ex:142
@@ -2128,7 +2100,7 @@ msgstr "Används när kvitton, recept och varor läses in."
 msgid "confirmed at home%{when}"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:317
+#: lib/tore_web/live/run_review_live.ex:314
 #, elixir-autogen, elixir-format
 msgid "looks off, is something missing?"
 msgstr ""
@@ -2138,7 +2110,7 @@ msgstr ""
 msgid "probably at home%{when}"
 msgstr ""
 
-#: lib/tore_web/live/run_review_live.ex:317
+#: lib/tore_web/live/run_review_live.ex:314
 #, elixir-autogen, elixir-format
 msgid "receipt total"
 msgstr "kvittosumma"
@@ -2170,15 +2142,10 @@ msgstr "Öppna kommandobrickan"
 msgid "Anything about this day…"
 msgstr "Något om den här dagen…"
 
-#: lib/tore/capture/dispatch.ex:743
+#: lib/tore/capture/dispatch.ex:756
 #, elixir-autogen, elixir-format
 msgid "I parsed a receipt."
 msgstr "Jag har läst kvittot."
-
-#: lib/tore/capture/dispatch.ex:747
-#, elixir-autogen, elixir-format
-msgid "I parsed your shelf photo."
-msgstr "Jag har läst skafferifotot."
 
 #: lib/tore_web/live/settings_live.ex:353
 #, elixir-autogen, elixir-format
@@ -2200,7 +2167,7 @@ msgstr "På"
 msgid "Prep this week"
 msgstr "Förbered veckan"
 
-#: lib/tore_web/live/capture_live.ex:162
+#: lib/tore_web/live/capture_live.ex:165
 #, elixir-autogen, elixir-format
 msgid "Review"
 msgstr "Granska"
@@ -2220,10 +2187,40 @@ msgstr "Den butiken är redan tillagd"
 msgid "Tore can't read that store yet"
 msgstr "Tore kan inte läsa den butiken än"
 
-#: lib/tore/capture/dispatch.ex:726
+#: lib/tore/capture/dispatch.ex:739
 #, elixir-autogen, elixir-format
 msgid "You've already uploaded this photo."
 msgstr "Du har redan laddat upp det här fotot."
+
+#: lib/tore/capture/dispatch.ex:104
+#, elixir-autogen, elixir-format
+msgid "Added %{names} from your photo."
+msgstr "La till %{names} från din bild."
+
+#: lib/tore_web/live/run_review_live.ex:223
+#, elixir-autogen, elixir-format
+msgid "Edit anything that looks wrong, then save."
+msgstr "Ändra det som ser fel ut och spara sedan."
+
+#: lib/tore/capture/dispatch.ex:97
+#, elixir-autogen, elixir-format
+msgid "I couldn't see any pantry items in that photo."
+msgstr "Jag såg inga skafferivaror på bilden."
+
+#: lib/tore_web/live/cost_live.ex:380
+#, elixir-autogen, elixir-format
+msgid "Items"
+msgstr "Varor"
+
+#: lib/tore_web/live/run_review_live.ex:359
+#, elixir-autogen, elixir-format
+msgid "No items parsed."
+msgstr "Inga varor lästes in."
+
+#: lib/tore_web/live/pantry_live.ex:62
+#, elixir-autogen, elixir-format
+msgid "Nothing in the pantry yet. Items appear here when you check off groceries or send a photo of your shelves."
+msgstr "Inget i skafferiet än. Varor dyker upp här när du bockar av inköp eller skickar en bild på dina hyllor."
 
 #: lib/tore_web/live/shop_live.ex:304
 #, elixir-autogen, elixir-format
@@ -2235,7 +2232,7 @@ msgstr "Något om den här varan…"
 msgid "Anything about tonight…"
 msgstr "Något om ikväll…"
 
-#: lib/tore_web/live/run_review_live.ex:177
+#: lib/tore_web/live/run_review_live.ex:174
 #, elixir-autogen, elixir-format
 msgid "Couldn't save recipe"
 msgstr "Kunde inte spara receptet"
@@ -2246,67 +2243,67 @@ msgstr "Kunde inte spara receptet"
 msgid "Done."
 msgstr "Klar"
 
-#: lib/tore_web/live/run_review_live.ex:453
+#: lib/tore_web/live/run_review_live.ex:450
 #, elixir-autogen, elixir-format
 msgid "From"
 msgstr "Från"
 
-#: lib/tore_web/live/run_review_live.ex:446
+#: lib/tore_web/live/run_review_live.ex:443
 #, elixir-autogen, elixir-format
 msgid "Method"
 msgstr "Gör så här"
 
-#: lib/tore_web/live/run_review_live.ex:120
+#: lib/tore_web/live/run_review_live.ex:119
 #, elixir-autogen, elixir-format
 msgid "Receipt discarded."
 msgstr "Kvittot slängdes."
 
-#: lib/tore_web/live/run_review_live.ex:119
+#: lib/tore_web/live/run_review_live.ex:118
 #, elixir-autogen, elixir-format
 msgid "Recipe discarded."
 msgstr "Receptet slängdes."
 
-#: lib/tore_web/live/run_review_live.ex:171
+#: lib/tore_web/live/run_review_live.ex:168
 #, elixir-autogen, elixir-format
 msgid "Recipe saved."
 msgstr "Receptet sparades."
 
-#: lib/tore_web/live/run_review_live.ex:488
+#: lib/tore_web/live/run_review_live.ex:485
 #, elixir-autogen, elixir-format
 msgid "Save recipe"
 msgstr "Spara recept"
 
-#: lib/tore_web/live/run_review_live.ex:416
+#: lib/tore_web/live/run_review_live.ex:413
 #, elixir-autogen, elixir-format
 msgid "Save this recipe to your catalog, or discard it."
 msgstr "Spara receptet bland dina recept, eller släng det."
 
-#: lib/tore_web/live/run_review_live.ex:188
+#: lib/tore_web/live/run_review_live.ex:185
 #, elixir-autogen, elixir-format
 msgid "That recipe came back incomplete."
 msgstr "Receptet kom tillbaka ofullständigt."
 
-#: lib/tore_web/live/run_review_live.ex:187
+#: lib/tore_web/live/run_review_live.ex:184
 #, elixir-autogen, elixir-format
 msgid "That recipe has no ingredients."
 msgstr "Receptet saknar ingredienser."
 
-#: lib/tore_web/live/run_review_live.ex:185
+#: lib/tore_web/live/run_review_live.ex:182
 #, elixir-autogen, elixir-format
 msgid "You already have a recipe just like this one."
 msgstr "Du har redan ett recept som är precis som det här."
 
-#: lib/tore_web/live/run_review_live.ex:517
+#: lib/tore_web/live/run_review_live.ex:514
 #, elixir-autogen, elixir-format
 msgid "min cooking"
 msgstr "min tillagning"
 
-#: lib/tore_web/live/run_review_live.ex:516
+#: lib/tore_web/live/run_review_live.ex:513
 #, elixir-autogen, elixir-format
 msgid "min prep"
 msgstr "min förberedelse"
 
-#: lib/tore_web/live/run_review_live.ex:515
+#: lib/tore_web/live/run_review_live.ex:512
 #, elixir-autogen, elixir-format
 msgid "servings"
 msgstr "portioner"

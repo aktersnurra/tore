@@ -104,12 +104,12 @@ defmodule ToreWeb.CaptureLiveTest do
     :timer.sleep(300)
     html = render(lv)
     assert html =~ "Pizza"
-    assert html =~ "Undo"
+    assert html =~ "Ångra"
 
     {:ok, plan_state} = Tore.Planning.load_plan("plan:2026-06-22")
     assert Map.has_key?(plan_state.slots, "tue_dinner")
 
-    lv |> element("button", "Undo") |> render_click()
+    lv |> element("button", "Ångra") |> render_click()
 
     {:ok, plan_state2} = Tore.Planning.load_plan("plan:2026-06-22")
     refute Map.has_key?(plan_state2.slots, "tue_dinner")
@@ -118,4 +118,57 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html2 =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
+  test "a shelf photo replies in the user's language and can be undone", %{conn: conn} do
+    usage = %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
+    tool_call = %{id: "call_1", name: "update_pantry_from_shelf", args: %{"image_indices" => [1]}}
+
+    Tore.MockLLM
+    |> expect(:chat_with_tools, 2, fn _sys, _msgs, _tools, _opts ->
+      case Process.get(:turn_count, 0) do
+        0 ->
+          Process.put(:turn_count, 1)
+          {:ok, {:tool_calls, [tool_call]}, usage}
+
+        _ ->
+          {:ok, {:message, "Klart."}, usage}
+      end
+    end)
+    |> expect(:vision, fn _blobs, _sys, _user, _opts ->
+      {:ok, %{"items" => [%{"name" => "mjölk", "quantity" => 2, "unit" => "l", "category" => "dairy"}]},
+       usage}
+    end)
+    |> expect(:text, fn _sys, _user, _opts ->
+      {:ok,
+       %{
+         "items" => [
+           %{
+             "raw_name" => "mjölk",
+             "catalogue_name" => "mjölk",
+             "category" => "dairy",
+             "default_unit" => "l",
+             "matched_key" => nil
+           }
+         ]
+       }, usage}
+    end)
+
+    {:ok, lv, _html} = live(conn, "/capture")
+
+    photo =
+      file_input(lv, "form", :chat_photos, [
+        %{name: "shelf.jpg", content: <<255, 216, 255, 1>>, type: "image/jpeg"}
+      ])
+
+    render_upload(photo, "shelf.jpg")
+    lv |> form("form", %{message: "hyllan"}) |> render_submit()
+
+    :timer.sleep(300)
+    assert render(lv) =~ "La till mjölk från din bild."
+    assert [%{name: "mjölk"}] = Tore.Pantry.list_inventory()
+
+    lv |> element("button", "Ångra") |> render_click()
+
+    assert Tore.Pantry.list_inventory() == []
+    assert render(lv) =~ "Återställd"
+  end
 end
