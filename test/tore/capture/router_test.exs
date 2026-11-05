@@ -26,6 +26,7 @@ defmodule Tore.Capture.RouterTest do
         case Process.get(:turn_count, 0) do
           0 ->
             Process.put(:turn_count, 1)
+
             {:ok, {:tool_calls, [tool_call]},
              %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
 
@@ -66,6 +67,39 @@ defmodule Tore.Capture.RouterTest do
           _ -> []
         end
       end)
+    end
+  end
+
+  describe "route/4 with mark_eating_out" do
+    test "marks the day through Capture, even an empty one" do
+      {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+
+      tool_call = %{
+        id: "call_1",
+        name: "mark_eating_out",
+        args: %{"date" => "2026-11-13", "place" => "Sushi", "amount" => 450}
+      }
+
+      usage = %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
+
+      Tore.MockLLM
+      |> expect(:chat_with_tools, fn _sys, _msgs, tools, _opts ->
+        assert Enum.any?(tools, &(&1.function.name == "mark_eating_out"))
+        {:ok, {:tool_calls, [tool_call]}, usage}
+      end)
+      |> expect(:chat_with_tools, fn _sys, _msgs, _tools, _opts ->
+        {:ok, {:message, "Done."}, usage}
+      end)
+
+      ctx = %{household_id: 1, user_id: user.id}
+      assert {:ok, _bubbles} = Router.route("vi äter ute på fredag", [], ctx)
+
+      {:ok, state} = Tore.Planning.load_plan("plan:2026-11-09")
+      assert Tore.Planning.State.eating_out?(state.slots["fri_dinner"])
+
+      entry = Tore.Costs.get_dining_out("plan:2026-11-09", "fri_dinner")
+      assert entry.description == "Sushi"
+      assert Decimal.equal?(entry.total_amount, 450)
     end
   end
 end

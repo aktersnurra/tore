@@ -999,9 +999,9 @@ defmodule Tore.Harness.Orchestrator do
   defp weekly_fill_instruction do
     """
     Fill every empty, unplanned dinner this week with a suitable recipe. Leave
-    days that already have a meal, and days the household has pinned, exactly as
-    they are. Use leftovers across days where it makes sense. When you are done,
-    stop.
+    days that already have a meal, days the household has pinned, and days marked
+    eating_out exactly as they are. Use leftovers across days where it makes
+    sense. When you are done, stop.
     """
   end
 

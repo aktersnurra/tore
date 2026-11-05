@@ -58,4 +58,27 @@ defmodule Tore.Capture.DispatchTest do
 
     refute text =~ "inbox"
   end
+
+  describe "mark_eating_out/3" do
+    setup do
+      {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+      %{ctx: %{household_id: 1, user_id: user.id}}
+    end
+
+    test "marks the day, and a later call adds the amount", %{ctx: ctx} do
+      date = ~D[2026-11-13]
+
+      assert %{text: text} =
+               Dispatch.mark_eating_out(date, %{description: "Sushi", total_amount: nil}, ctx)
+
+      assert text =~ "2026-11-13"
+
+      Dispatch.mark_eating_out(date, %{description: nil, total_amount: 450}, ctx)
+
+      entry = Tore.Costs.get_dining_out("plan:2026-11-09", "fri_dinner")
+      assert entry.date == date
+      assert entry.description == "Sushi"
+      assert Decimal.equal?(entry.total_amount, 450)
+    end
+  end
 end

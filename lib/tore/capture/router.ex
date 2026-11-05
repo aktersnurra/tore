@@ -65,10 +65,13 @@ defmodule Tore.Capture.Router do
       have?") rather than committing.
     - To clear a day, call `clear_plan_slot`.
     - When the user asks what to cook, call `suggest_meals_from_pantry`.
-    - Adjust portions with `set_plan_servings`; pin/unpin with `pin_plan_slot`;
-      mark a day as eating-out with `skip_plan_meal`. Mark a recipe as
-      cooked tonight with `mark_recipe_cooked` (this is what teaches the
-      rotation to deprioritise it).
+    - Adjust portions with `set_plan_servings`; pin/unpin with `pin_plan_slot`.
+      Mark a recipe as cooked tonight with `mark_recipe_cooked` (this is what
+      teaches the rotation to deprioritise it).
+    - "We're eating out Tuesday" / "vi äter ute på fredag" → `mark_eating_out`,
+      even if the day has no meal. If they later say what it cost, call it again
+      for that day with the amount. Use `skip_plan_meal` only when they're not
+      having dinner at all and aren't eating out.
 
   Shopping list (always current week):
     - "Add X to the shopping list" → `add_to_shopping_list`.
@@ -385,6 +388,13 @@ defmodule Tore.Capture.Router do
     end
   end
 
+  defp run_call(%{name: "mark_eating_out", args: args}, _images, _count, ctx) do
+    with {:ok, date} <- parse_iso_date(args["date"]) do
+      attrs = %{description: args["place"], total_amount: args["amount"]}
+      {:ok, [Dispatch.mark_eating_out(date, attrs, ctx)]}
+    end
+  end
+
   defp run_call(%{name: name}, _images, _count, _ctx) do
     {:error, {:unknown_tool, name}}
   end
@@ -635,11 +645,24 @@ defmodule Tore.Capture.Router do
         }
       ),
       tool("skip_plan_meal",
-        "Mark a day's dinner slot as skipped. Use when the user says 'eating out Tuesday'.",
+        "Mark a day's dinner slot as skipped, for when there's no dinner and no eating out. Fails if the day has no meal.",
         %{
           type: "object",
           properties: %{
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."}
+          },
+          required: ["date"],
+          additionalProperties: false
+        }
+      ),
+      tool("mark_eating_out",
+        "Mark a day as eating out. Cancels any recipe that day and works on an empty day. Call again to add the place or amount later.",
+        %{
+          type: "object",
+          properties: %{
+            date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."},
+            place: %{type: ["string", "null"], description: "Optional restaurant or occasion."},
+            amount: %{type: ["number", "null"], description: "Optional total paid, in kr."}
           },
           required: ["date"],
           additionalProperties: false

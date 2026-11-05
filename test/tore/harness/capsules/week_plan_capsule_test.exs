@@ -36,6 +36,15 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
     assert tue.status == :assigned
   end
 
+  test "to_prompt/1 tells the planner a day is eating out, not empty" do
+    ctx = ctx_for(~D[2026-06-08])
+    {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+    {:ok, _} = Planning.eat_out(ctx.plan_stream_id, "fri_dinner", %{user_id: user.id})
+
+    prompt = ctx |> Capsule.build() |> Capsule.to_prompt()
+    assert prompt =~ "Friday 2026-06-12 (fri_dinner): eating_out"
+  end
+
   test "to_prompt/1 renders the dinner plan with one line per day" do
     week_start = ~D[2026-06-08]
     ctx = ctx_for(week_start)

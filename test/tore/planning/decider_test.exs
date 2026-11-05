@@ -78,6 +78,20 @@ defmodule Tore.Planning.DeciderTest do
     end
   end
 
+  describe "decide/2 — EatOut" do
+    test "works on an empty day, unlike a plain skip" do
+      assert {:ok, [%Events.MealSkipped{slot_key: "mon_dinner", reason: "eating_out"}]} =
+               Decider.decide(%Commands.EatOut{slot_key: "mon_dinner"}, Decider.initial())
+    end
+
+    test "changes nothing if the day is already eating out" do
+      event = %Events.MealSkipped{slot_key: "mon_dinner", reason: "eating_out"}
+      state = Decider.evolve(Decider.initial(), event)
+
+      assert {:ok, []} = Decider.decide(%Commands.EatOut{slot_key: "mon_dinner"}, state)
+    end
+  end
+
   describe "decide/2 — SkipMeal" do
     test "returns :slot_empty when slot missing" do
       cmd = %Commands.SkipMeal{slot_key: "mon_dinner"}
@@ -151,6 +165,46 @@ defmodule Tore.Planning.DeciderTest do
       event = %Events.MealSkipped{slot_key: "mon_dinner"}
       updated = Decider.evolve(state, event)
       assert updated.slots["mon_dinner"].skipped == true
+    end
+
+    test "a plain MealSkipped keeps the recipe and has no reason" do
+      state = state_with_slot("mon_dinner")
+      updated = Decider.evolve(state, %Events.MealSkipped{slot_key: "mon_dinner"})
+      assert updated.slots["mon_dinner"].recipe_id == state.slots["mon_dinner"].recipe_id
+      assert updated.slots["mon_dinner"].reason == nil
+    end
+
+    test "eating out clears the recipe" do
+      state = state_with_slot("mon_dinner")
+      event = %Events.MealSkipped{slot_key: "mon_dinner", reason: "eating_out"}
+      slot = Decider.evolve(state, event).slots["mon_dinner"]
+
+      assert slot.recipe_id == nil
+      assert slot.skipped == true
+      assert State.eating_out?(slot)
+    end
+
+    test "eating out lands on an empty day" do
+      event = %Events.MealSkipped{slot_key: "mon_dinner", reason: "eating_out"}
+      assert State.eating_out?(Decider.evolve(Decider.initial(), event).slots["mon_dinner"])
+    end
+
+    test "assigning a recipe ends eating out" do
+      state =
+        Decider.evolve(Decider.initial(), %Events.MealSkipped{
+          slot_key: "mon_dinner",
+          reason: "eating_out"
+        })
+
+      updated =
+        Decider.evolve(state, %Events.RecipeAssigned{
+          slot_key: "mon_dinner",
+          recipe_id: 1,
+          servings: 2
+        })
+
+      refute State.eating_out?(updated.slots["mon_dinner"])
+      assert updated.slots["mon_dinner"].skipped == false
     end
 
     test "LeftoverMarked marks slot leftover: true" do

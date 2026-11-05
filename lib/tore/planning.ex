@@ -1,5 +1,6 @@
 defmodule Tore.Planning do
-  alias Tore.{Deals, EventStore, Planning.Decider, Planning.Commands, Recipes, SpendGuard}
+  alias Tore.{Costs, Deals, EventStore, Repo, Recipes, SpendGuard}
+  alias Tore.Planning.{Commands, Decider, Events}
   alias Phoenix.PubSub
   alias Tore.Household
 
@@ -80,8 +81,7 @@ defmodule Tore.Planning do
 
       events = primary_events ++ leftover_events
 
-      with :ok <- EventStore.append(plan_id, events) do
-        PubSub.broadcast(@pubsub, @topic, {:events, events})
+      with :ok <- apply_events(plan_id, events) do
         {:ok, events}
       end
     end
@@ -122,8 +122,7 @@ defmodule Tore.Planning do
           err
 
         {:ok, events, _final} ->
-          with :ok <- EventStore.append(plan_id, events) do
-            PubSub.broadcast(@pubsub, @topic, {:events, events})
+          with :ok <- apply_events(plan_id, events) do
             {:ok, events}
           end
       end
@@ -136,10 +135,17 @@ defmodule Tore.Planning do
 
   def apply_events(plan_id, events) do
     with :ok <- EventStore.append(plan_id, events) do
+      Costs.delete_dining_out(plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
       PubSub.broadcast(@pubsub, @topic, {:events, events})
       :ok
     end
   end
+
+  # These replace whatever the slot held, so a day that was eating out isn't any more.
+  defp slot_no_longer_eating_out(%Events.RecipeAssigned{slot_key: sk}), do: [sk]
+  defp slot_no_longer_eating_out(%Events.RecipeRemoved{slot_key: sk}), do: [sk]
+  defp slot_no_longer_eating_out(%Events.MealSkipped{slot_key: sk, reason: nil}), do: [sk]
+  defp slot_no_longer_eating_out(_event), do: []
 
   # A slot counts as present only if it actually holds a recipe.
   defp present(%{recipe_id: rid} = slot) when not is_nil(rid), do: slot
@@ -190,6 +196,42 @@ defmodule Tore.Planning do
     run(plan_id, %Commands.SkipMeal{slot_key: slot_key})
   end
 
+  @doc """
+  Marks a day as eating out, cancelling any recipe. `attrs` holds `:user_id` and
+  optionally `:description` and `:total_amount`. Asking again updates the same
+  entry, so an amount can follow later. To undo it, remove the slot or give it a
+  recipe; both drop the entry.
+  """
+  @spec eat_out(String.t(), String.t(), map()) ::
+          {:ok, Costs.DiningOut.t()} | {:error, term()}
+  def eat_out(plan_id, slot_key, attrs) do
+    entry_attrs =
+      Map.merge(attrs, %{plan_id: plan_id, slot_key: slot_key, date: slot_date(plan_id, slot_key)})
+
+    result =
+      Repo.transaction(fn ->
+        with {:ok, state} <- EventStore.load(plan_id, Decider),
+             {:ok, events} <- Decider.decide(%Commands.EatOut{slot_key: slot_key}, state),
+             {:ok, entry} <- Costs.save_dining_out(entry_attrs),
+             :ok <- EventStore.append(plan_id, events) do
+          {entry, events}
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+
+    with {:ok, {entry, events}} <- result do
+      if events != [], do: PubSub.broadcast(@pubsub, @topic, {:events, events})
+      {:ok, entry}
+    end
+  end
+
+  defp slot_date("plan:" <> week_start, slot_key) do
+    [day, _meal] = String.split(slot_key, "_", parts: 2)
+    days = ~w[mon tue wed thu fri sat sun]
+    week_start |> Date.from_iso8601!() |> Date.add(Enum.find_index(days, &(&1 == day)))
+  end
+
   def mark_leftover(plan_id, slot_key) do
     run(plan_id, %Commands.MarkLeftover{slot_key: slot_key})
   end
@@ -197,8 +239,7 @@ defmodule Tore.Planning do
   defp run(plan_id, command) do
     with {:ok, state} <- EventStore.load(plan_id, Decider),
          {:ok, events} <- Decider.decide(command, state),
-         :ok <- EventStore.append(plan_id, events) do
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
+         :ok <- apply_events(plan_id, events) do
       {:ok, events}
     end
   end
@@ -396,7 +437,7 @@ defmodule Tore.Planning do
 
     import Ecto.Query
 
-    Tore.Repo.all(
+    Repo.all(
       from r in Recipe,
         where: not is_nil(r.last_used_at) and r.last_used_at >= ^cutoff,
         select: r.id

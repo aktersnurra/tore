@@ -10,4 +10,9 @@ defmodule Tore.Planning.State do
           slots: map(),
           pins: map()
         }
+
+  @doc "Whether a slot, or a missing one, is a day the household eats out."
+  @spec eating_out?(map() | nil) :: boolean()
+  def eating_out?(%{reason: "eating_out"}), do: true
+  def eating_out?(_slot), do: false
 end

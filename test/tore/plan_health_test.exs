@@ -36,4 +36,20 @@ defmodule Tore.PlanHealthTest do
 
     assert {:fragile, 1} = PlanHealth.compute(%{slots: slots})
   end
+
+  defp eating_out, do: %{recipe_id: nil, skipped: true, reason: "eating_out"}
+
+  test "eating out isn't a gap or a skip" do
+    slots = make_state(~w(mon tue wed thu)).slots |> Map.put("fri_dinner", eating_out())
+    assert {:ready, 0} = PlanHealth.compute(%{slots: slots})
+  end
+
+  test "eating out doesn't hide the days still unplanned" do
+    slots = make_state(~w(mon)).slots |> Map.put("fri_dinner", eating_out())
+    assert {:flexible, 3} = PlanHealth.compute(%{slots: slots})
+  end
+
+  test "a week with only eating out still counts as planned" do
+    assert {:flexible, 4} = PlanHealth.compute(%{slots: %{"fri_dinner" => eating_out()}})
+  end
 end

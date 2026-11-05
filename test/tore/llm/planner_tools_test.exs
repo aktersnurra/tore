@@ -79,6 +79,31 @@ defmodule Tore.LLM.PlannerToolsTest do
     assert next.slots["tue_dinner"].skipped == true
   end
 
+  describe "a day marked as eating out" do
+    setup do
+      plan =
+        Decider.evolve(%State{}, %Events.MealSkipped{slot_key: "tue_dinner", reason: "eating_out"})
+
+      %{plan: plan}
+    end
+
+    test "can't be given a recipe by the planner", %{ctx: ctx, plan: plan} do
+      args = %{"slot_key" => "tue_dinner", "recipe_id" => 1, "servings" => 2}
+      assert {:error, :slot_eating_out} = find("assign_recipe").run.(args, ctx, plan)
+    end
+
+    test "can't be skipped or removed by the planner", %{ctx: ctx, plan: plan} do
+      args = %{"slot_key" => "tue_dinner"}
+      assert {:error, :slot_eating_out} = find("skip_meal").run.(args, ctx, plan)
+      assert {:error, :slot_eating_out} = find("remove_recipe").run.(args, ctx, plan)
+    end
+
+    test "can't be swapped by the planner", %{ctx: ctx, plan: plan} do
+      args = %{"from_slot_key" => "mon_dinner", "to_slot_key" => "tue_dinner"}
+      assert {:error, :slot_eating_out} = find("swap_recipe").run.(args, ctx, plan)
+    end
+  end
+
   test "skip_meal on an empty slot returns the Decider error and does not evolve", %{ctx: ctx} do
     tool = find("skip_meal")
 

@@ -704,6 +704,22 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
+  @spec mark_eating_out(Date.t(), map(), ctx()) :: bubble()
+  def mark_eating_out(%Date{} = date, attrs, ctx) do
+    attrs = Map.put(attrs, :user_id, ctx[:user_id])
+
+    case Planning.eat_out(plan_stream_id_for(date), slot_key_for(date), attrs) do
+      {:ok, _entry} ->
+        %{
+          role: :assistant,
+          text: gettext("Marked %{date} as eating out.", date: Date.to_iso8601(date))
+        }
+
+      {:error, reason} ->
+        error_bubble(:plan, reason)
+    end
+  end
+
   # ── unrecognised image ─────────────────────────────────────────────────
 
   @spec report_unrecognised_image(String.t() | nil) :: bubble()
@@ -752,8 +768,8 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp review_bubble(:receipt, _sid) do
-    %{role: :assistant, review_link: true, text: gettext("I parsed a receipt.")}
+  defp review_bubble(:receipt, sid) do
+    %{role: :assistant, review_link: true, stream_id: sid, text: gettext("I parsed a receipt.")}
   end
 
   defp current_shop_list_id do
@@ -800,6 +816,7 @@ defmodule Tore.Capture.Dispatch do
 
           case Map.get(state.slots, slot_key) do
             nil -> slot_key
+            %{reason: "eating_out"} -> nil
             %{recipe_id: nil} -> slot_key
             _ -> nil
           end

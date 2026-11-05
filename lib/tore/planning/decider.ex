@@ -45,6 +45,15 @@ defmodule Tore.Planning.Decider do
     end
   end
 
+  # Unlike a plain skip, this works on an empty day. Saying it twice changes nothing.
+  def decide(%Commands.EatOut{slot_key: sk}, state) do
+    if State.eating_out?(state.slots[sk]) do
+      {:ok, []}
+    else
+      {:ok, [%Events.MealSkipped{slot_key: sk, reason: "eating_out"}]}
+    end
+  end
+
   def decide(%Commands.MarkLeftover{slot_key: sk}, state) do
     if Map.has_key?(state.slots, sk) do
       {:ok, [%Events.LeftoverMarked{slot_key: sk}]}
@@ -75,8 +84,15 @@ defmodule Tore.Planning.Decider do
     %{state | pins: Map.delete(state.pins, sk)}
   end
 
+  # Eating out cancels the day's recipe, and may land on a day that has none.
+  def evolve(state, %Events.MealSkipped{slot_key: sk, reason: "eating_out"}) do
+    slot = %{recipe_id: nil, servings: nil, skipped: true, leftover: false, reason: "eating_out"}
+    %{state | slots: Map.put(state.slots, sk, slot)}
+  end
+
   def evolve(state, %Events.MealSkipped{slot_key: sk}) do
-    %{state | slots: update_in(state.slots, [sk], &Map.put(&1, :skipped, true))}
+    slot = state.slots |> Map.fetch!(sk) |> Map.merge(%{skipped: true, reason: nil})
+    %{state | slots: Map.put(state.slots, sk, slot)}
   end
 
   def evolve(state, %Events.LeftoverMarked{slot_key: sk}) do

@@ -11,7 +11,7 @@ defmodule Tore.LLM.PlannerTools do
   alias Tore.LLM.{Tool, Prompts}
   alias Tore.SpendGuard
   alias Tore.Planning
-  alias Tore.Planning.{Decider, Commands}
+  alias Tore.Planning.{Commands, Decider, State}
   alias Tore.Harness.{Handles, Resolvers}
 
   @slot_key %{type: "string", description: "Slot identifier like \"mon_dinner\""}
@@ -88,14 +88,13 @@ defmodule Tore.LLM.PlannerTools do
         required: ["from_slot_key", "to_slot_key", "rationale"]
       },
       run: fn args, _ctx, plan ->
-        case Planning.swap_events(plan, args["from_slot_key"], args["to_slot_key"]) do
-          {:ok, events, next} ->
-            to_recipe_id = get_in(next.slots, [args["to_slot_key"], :recipe_id])
+        with :ok <- not_eating_out(plan, args["from_slot_key"]),
+             :ok <- not_eating_out(plan, args["to_slot_key"]),
+             {:ok, events, next} <-
+               Planning.swap_events(plan, args["from_slot_key"], args["to_slot_key"]) do
+          to_recipe_id = get_in(next.slots, [args["to_slot_key"], :recipe_id])
 
-            {:ok, %{ok: true, label: recipe_title(to_recipe_id)}, events, next}
-
-          {:error, reason} ->
-            {:error, reason}
+          {:ok, %{ok: true, label: recipe_title(to_recipe_id)}, events, next}
         end
       end
     }
@@ -571,14 +570,16 @@ defmodule Tore.LLM.PlannerTools do
   end
 
   # Decide one command against the working plan; on success evolve it and return events.
-  defp propose(cmd, plan, result) do
-    case Decider.decide(cmd, plan) do
-      {:ok, events} ->
-        next = Enum.reduce(events, plan, fn ev, acc -> Decider.evolve(acc, ev) end)
-        {:ok, result, events, next}
-
-      {:error, reason} ->
-        {:error, reason}
+  defp propose(%{slot_key: slot_key} = cmd, plan, result) do
+    with :ok <- not_eating_out(plan, slot_key),
+         {:ok, events} <- Decider.decide(cmd, plan) do
+      next = Enum.reduce(events, plan, fn ev, acc -> Decider.evolve(acc, ev) end)
+      {:ok, result, events, next}
     end
+  end
+
+  # A person said so, and the planner leaves that alone. Only a person can change it.
+  defp not_eating_out(plan, slot_key) do
+    if State.eating_out?(plan.slots[slot_key]), do: {:error, :slot_eating_out}, else: :ok
   end
 end

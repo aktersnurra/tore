@@ -16,5 +16,6 @@ defmodule Tore.Costs.Receipt do
     receipt
     |> cast(attrs, [:date, :store_name, :total_amount, :image_path, :user_id])
     |> validate_required([:date, :user_id])
+    |> validate_number(:total_amount, greater_than_or_equal_to: 0)
   end
 end

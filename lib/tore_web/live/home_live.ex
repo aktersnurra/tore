@@ -29,6 +29,7 @@ defmodule ToreWeb.HomeLive do
        week_start: week_start,
        today_key: today_key,
        tonight_recipe: tonight_recipe,
+       eating_out_tonight: Tore.Planning.State.eating_out?(tonight_slot),
        recipes_by_id: recipes_by_id,
        tonight_sheet: false
      )}
@@ -85,7 +86,9 @@ defmodule ToreWeb.HomeLive do
           :if={!@tonight_recipe}
           class="rounded-2xl bg-[var(--surface)] border border-[color:var(--border)] p-6 text-center text-[color:var(--muted)] text-sm"
         >
-          {gettext("Nothing planned for tonight")}
+          {if @eating_out_tonight,
+            do: gettext("Eating out tonight"),
+            else: gettext("Nothing planned for tonight")}
           <div class="mt-4">
             <.link navigate={~p"/plan"} class="text-[color:var(--accent)] font-semibold text-sm">
               {gettext("Open planner")}

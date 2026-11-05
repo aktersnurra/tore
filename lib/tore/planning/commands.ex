@@ -5,6 +5,7 @@ defmodule Tore.Planning.Commands do
   defmodule PinSlot, do: defstruct([:slot_key, :pin])
   defmodule UnpinSlot, do: defstruct([:slot_key])
   defmodule SkipMeal, do: defstruct([:slot_key])
+  defmodule EatOut, do: defstruct([:slot_key])
   defmodule MarkLeftover, do: defstruct([:slot_key])
 
   @type t ::
@@ -14,5 +15,6 @@ defmodule Tore.Planning.Commands do
           | %PinSlot{}
           | %UnpinSlot{}
           | %SkipMeal{}
+          | %EatOut{}
           | %MarkLeftover{}
 end

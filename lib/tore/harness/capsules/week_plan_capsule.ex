@@ -14,7 +14,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
           day: String.t(),
           date: Date.t(),
           slot_key: String.t(),
-          status: :empty | :assigned | :skipped,
+          status: :empty | :assigned | :skipped | :eating_out,
           recipe_title: String.t() | nil
         }
   @type t :: %__MODULE__{week_start: Date.t() | nil, slots: [slot()] | nil}
@@ -89,6 +89,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
   defp slot_recipe_title(_, _), do: nil
 
   defp slot_status(nil), do: :empty
+  defp slot_status(%{reason: "eating_out"}), do: :eating_out
   defp slot_status(%{recipe_id: nil}), do: :empty
   defp slot_status(%{skipped: true}), do: :skipped
   defp slot_status(_slot), do: :assigned

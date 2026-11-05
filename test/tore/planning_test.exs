@@ -297,4 +297,89 @@ defmodule Tore.PlanningTest do
                Planning.swap_slots(plan, "fri_dinner", "sun_dinner")
     end
   end
+
+  describe "eat_out/3" do
+    setup do
+      {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+      %{user_id: user.id}
+    end
+
+    test "cancels the recipe and stores the entry on the right day", %{user_id: user_id} do
+      {:ok, _} = Planning.assign_recipe(plan_id(), "wed_dinner", 1, 4)
+
+      assert {:ok, entry} =
+               Planning.eat_out(plan_id(), "wed_dinner", %{
+                 description: "Sushi",
+                 total_amount: 450,
+                 user_id: user_id
+               })
+
+      assert entry.date == ~D[2026-04-29]
+      assert entry.slot_key == "wed_dinner"
+
+      {:ok, state} = Planning.load_plan(plan_id())
+      assert state.slots["wed_dinner"].recipe_id == nil
+      assert Tore.Planning.State.eating_out?(state.slots["wed_dinner"])
+    end
+
+    test "works on an empty day, where a plain skip doesn't", %{user_id: user_id} do
+      assert {:error, :slot_empty} = Planning.skip_meal(plan_id(), "fri_dinner")
+      assert {:ok, entry} = Planning.eat_out(plan_id(), "fri_dinner", %{user_id: user_id})
+      assert entry.total_amount == nil
+    end
+
+    test "asking again updates the entry and adds no event", %{user_id: user_id} do
+      {:ok, first} = Planning.eat_out(plan_id(), "fri_dinner", %{user_id: user_id})
+      assert_receive {:events, [_skipped]}
+
+      {:ok, second} =
+        Planning.eat_out(plan_id(), "fri_dinner", %{total_amount: 300, user_id: user_id})
+
+      assert second.id == first.id
+      refute_receive {:events, _}, 50
+    end
+
+    test "a bad amount changes nothing", %{user_id: user_id} do
+      assert {:error, _} =
+               Planning.eat_out(plan_id(), "fri_dinner", %{total_amount: -1, user_id: user_id})
+
+      {:ok, state} = Planning.load_plan(plan_id())
+      assert state.slots == %{}
+      assert Tore.Costs.get_dining_out(plan_id(), "fri_dinner") == nil
+    end
+
+    test "a recipe or a cleared day drops the entry", %{user_id: user_id} do
+      {:ok, _} = Planning.eat_out(plan_id(), "fri_dinner", %{user_id: user_id})
+      {:ok, _} = Planning.assign_recipe(plan_id(), "fri_dinner", 1, 4)
+      assert Tore.Costs.get_dining_out(plan_id(), "fri_dinner") == nil
+
+      {:ok, _} = Planning.eat_out(plan_id(), "sat_dinner", %{user_id: user_id})
+      {:ok, _} = Planning.remove_recipe(plan_id(), "sat_dinner")
+      assert Tore.Costs.get_dining_out(plan_id(), "sat_dinner") == nil
+    end
+
+    test "old MealSkipped events with no reason still load" do
+      Tore.Repo.insert_all(Tore.EventStore.Event, [
+        %{
+          stream_id: plan_id(),
+          stream_type: "planning",
+          event_type: "RecipeAssigned",
+          data: ~s({"slot_key":"mon_dinner","recipe_id":1,"servings":4}),
+          inserted_at: ~N[2026-04-27 10:00:00]
+        },
+        %{
+          stream_id: plan_id(),
+          stream_type: "planning",
+          event_type: "MealSkipped",
+          data: ~s({"slot_key":"mon_dinner"}),
+          inserted_at: ~N[2026-04-27 10:00:01]
+        }
+      ])
+
+      {:ok, state} = Planning.load_plan(plan_id())
+      assert state.slots["mon_dinner"].skipped == true
+      assert state.slots["mon_dinner"].recipe_id == 1
+      refute Tore.Planning.State.eating_out?(state.slots["mon_dinner"])
+    end
+  end
 end

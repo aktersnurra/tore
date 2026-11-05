@@ -325,49 +325,6 @@ defmodule Tore.LLM.Prompts do
     end
   end
 
-  @receipt_json_schema %{
-    type: "object",
-    required: ["line_items"],
-    additionalProperties: false,
-    properties: %{
-      line_items: %{
-        type: "array",
-        items: %{
-          type: "object",
-          required: ["product_name", "quantity", "unit_price", "total_price", "category"],
-          additionalProperties: false,
-          properties: %{
-            product_name: %{type: "string"},
-            quantity: %{type: ["number", "null"]},
-            unit_price: %{type: ["number", "null"]},
-            total_price: %{type: ["number", "null"]},
-            category: %{
-              type: "string",
-              enum: [
-                "dairy",
-                "meat",
-                "produce",
-                "frozen",
-                "dry_goods",
-                "canned",
-                "herbs_spices",
-                "condiments",
-                "other"
-              ]
-            }
-          }
-        }
-      }
-    }
-  }
-
-  def receipt_json_schema do
-    %{
-      type: "json_schema",
-      json_schema: %{name: "receipt", strict: true, schema: @receipt_json_schema}
-    }
-  end
-
   def check_recipe_html(html) do
     system = """
     You are a recipe detector. Does the provided HTML contain a parseable recipe with ingredients and instructions?
@@ -441,17 +398,7 @@ defmodule Tore.LLM.Prompts do
     end
   end
 
-  def parse_receipt do
-    system = """
-    You are a receipt parser. Extract line items from receipt images precisely.
-    Respond with a JSON object only. No prose.
-    """
-
-    user = File.read!(Path.join(@prompts_dir, "parse_receipt.eex"))
-    {system, user}
-  end
-
-  @receipt_pantry_json_schema %{
+  @receipt_json_schema %{
     type: "object",
     required: ["total", "store_name", "purchase_date", "items"],
     additionalProperties: false,
@@ -495,14 +442,14 @@ defmodule Tore.LLM.Prompts do
     }
   }
 
-  def receipt_pantry_json_schema do
+  def receipt_json_schema do
     %{
       type: "json_schema",
-      json_schema: %{name: "receipt_pantry", strict: true, schema: @receipt_pantry_json_schema}
+      json_schema: %{name: "receipt", strict: true, schema: @receipt_json_schema}
     }
   end
 
-  def parse_receipt_for_pantry(locale \\ nil) do
+  def parse_receipt(locale \\ nil) do
     system = """
     You are a receipt parser. Given a photo of a grocery receipt:
     1. Extract the store name (if visible).

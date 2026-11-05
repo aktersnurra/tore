@@ -1,7 +1,8 @@
 defmodule ToreWeb.PlannerLive do
   use ToreWeb, :live_view
 
-  alias Tore.{Recipes, Planning, Shop, PlanHealth}
+  alias Tore.{Costs, Recipes, Planning, Shop, PlanHealth}
+  alias Tore.Planning.State
   alias Phoenix.PubSub
 
   @days ~w[mon tue wed thu fri sat sun]
@@ -81,7 +82,11 @@ defmodule ToreWeb.PlannerLive do
       selected_recipe_id: slot && slot.recipe_id,
       servings: (slot && slot.servings) || 4,
       leftover_days: existing_leftover_days,
-      skipped: (slot && slot.skipped) || false,
+      # Eating out is its own state, and picking a recipe replaces it.
+      skipped: (slot && slot.skipped && !State.eating_out?(slot)) || false,
+      eating_out: State.eating_out?(slot),
+      eating_out_open: State.eating_out?(slot),
+      dining: Costs.get_dining_out(socket.assigns.plan_id, sk),
       flipped: false,
       pinned: Map.has_key?(socket.assigns.plan_state.pins, sk)
     }
@@ -163,6 +168,29 @@ defmodule ToreWeb.PlannerLive do
   def handle_event("toggle_skipped", _, socket) do
     socket = update_slot(socket, fn s -> %{s | skipped: !s.skipped} end)
     {:noreply, auto_save_slot(socket)}
+  end
+
+  def handle_event("toggle_eating_out", _, socket) do
+    {:noreply, update_slot(socket, fn s -> %{s | eating_out_open: !s.eating_out_open} end)}
+  end
+
+  def handle_event("save_eating_out", %{"place" => place, "amount" => amount}, socket) do
+    %{plan_id: plan_id, slot_action: %{slot_key: sk}, current_user: user} = socket.assigns
+    attrs = %{description: place, total_amount: amount, user_id: user.id}
+
+    case Planning.eat_out(plan_id, sk, attrs) do
+      {:ok, _entry} ->
+        {:noreply, assign(socket, slot_action: nil)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Couldn't save that. Check the amount."))}
+    end
+  end
+
+  def handle_event("clear_eating_out", _, socket) do
+    %{plan_id: plan_id, slot_action: %{slot_key: sk}} = socket.assigns
+    Planning.remove_recipe(plan_id, sk)
+    {:noreply, assign(socket, slot_action: nil)}
   end
 
   def handle_event("toggle_pinned", _, socket) do
@@ -581,7 +609,7 @@ defmodule ToreWeb.PlannerLive do
       id={"slot-#{@slot_key}"}
       class={[
         "transition-colors",
-        @slot && @slot.skipped && "opacity-50",
+        @slot && @slot.skipped && !State.eating_out?(@slot) && "opacity-50",
         @focused && "ring-2 ring-[color:var(--accent)] rounded-xl"
       ]}
     >
@@ -668,6 +696,10 @@ defmodule ToreWeb.PlannerLive do
             <% @slot && @slot.leftover -> %>
               <p class="text-[color:var(--muted)]" style="font-size: var(--t-body);">
                 {gettext("Leftovers")}
+              </p>
+            <% State.eating_out?(@slot) -> %>
+              <p class="text-[color:var(--muted)]" style="font-size: var(--t-body);">
+                {gettext("Eating out")}
               </p>
             <% @slot && @slot.skipped -> %>
               <p class="text-[color:var(--subtle)]" style="font-size: var(--t-body);">
@@ -789,7 +821,9 @@ defmodule ToreWeb.PlannerLive do
             <% else %>
               <div class="px-6 pt-6 pb-2">
                 <p class="text-[color:var(--muted)]" style="font-size: var(--t-body);">
-                  {gettext("No meal chosen yet — tap Change recipe to pick one.")}
+                  {if @slot_action.eating_out,
+                    do: gettext("Eating out. Change recipe to cook instead."),
+                    else: gettext("No meal chosen yet — tap Change recipe to pick one.")}
                 </p>
               </div>
             <% end %>
@@ -860,7 +894,7 @@ defmodule ToreWeb.PlannerLive do
               </div>
             </div>
 
-            <div class="px-6 pb-5 border-t border-[color:var(--hairline)] pt-4 flex items-center justify-between gap-4">
+            <div class="px-6 pb-5 border-t border-[color:var(--hairline)] pt-4 flex flex-wrap items-center gap-x-2 gap-y-2 [&>button]:whitespace-nowrap">
               <button
                 type="button"
                 phx-click="flip_slot"
@@ -891,6 +925,22 @@ defmodule ToreWeb.PlannerLive do
 
               <button
                 type="button"
+                phx-click="toggle_eating_out"
+                class={[
+                  "inline-flex items-center gap-2 rounded-[var(--r-pill)] px-3 h-8 transition-colors",
+                  @slot_action.eating_out_open &&
+                    "bg-[color:var(--accent-soft)] text-[color:var(--accent)] font-medium",
+                  !@slot_action.eating_out_open &&
+                    "text-[color:var(--muted)] hover:text-[var(--text)] hover:bg-[color:var(--hairline)]"
+                ]}
+                style="font-size: var(--t-meta);"
+              >
+                <.icon name="hero-building-storefront" class="size-4" />
+                {gettext("Eating out")}
+              </button>
+
+              <button
+                type="button"
                 phx-click="toggle_pinned"
                 class={[
                   "inline-flex items-center gap-2 rounded-[var(--r-pill)] px-3 h-8 transition-colors",
@@ -908,6 +958,41 @@ defmodule ToreWeb.PlannerLive do
                 {if @slot_action.pinned, do: gettext("Pinned"), else: gettext("Pin this day")}
               </button>
             </div>
+
+            <form
+              :if={@slot_action.eating_out_open}
+              id="eating-out-form"
+              phx-submit="save_eating_out"
+              class="px-6 pb-5 space-y-3"
+            >
+              <.field
+                name="place"
+                label={gettext("Place (optional)")}
+                value={@slot_action.dining && @slot_action.dining.description}
+              />
+              <.field
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                label={gettext("Total, kr (optional)")}
+                value={@slot_action.dining && decimal_value(@slot_action.dining.total_amount)}
+              />
+              <div class="flex gap-3">
+                <.button type="submit" variant={:primary} size={:md} full>
+                  {gettext("Save")}
+                </.button>
+                <.button
+                  :if={@slot_action.eating_out}
+                  type="button"
+                  phx-click="clear_eating_out"
+                  variant={:ghost}
+                  size={:md}
+                >
+                  {gettext("Not eating out")}
+                </.button>
+              </div>
+            </form>
 
             <form phx-submit="slot_command" class="px-6 pb-6">
               <input
@@ -1180,6 +1265,9 @@ defmodule ToreWeb.PlannerLive do
       do: gettext("%{range} · %{meals} meals planned", range: range, meals: meals),
       else: range
   end
+
+  defp decimal_value(nil), do: nil
+  defp decimal_value(%Decimal{} = amount), do: Decimal.to_string(amount, :normal)
 
   defp plan_id(week_start), do: "plan:#{Date.to_iso8601(week_start)}"
   defp shop_id(week_start), do: "shop_list:#{Date.to_iso8601(week_start)}"

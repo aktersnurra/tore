@@ -696,7 +696,7 @@ defmodule ToreWeb.CoreComponents do
   attr :label, :string, default: nil
   attr :placeholder, :string, default: nil
   attr :errors, :list, default: []
-  attr :rest, :global, include: ~w(required disabled autocomplete inputmode pattern)
+  attr :rest, :global, include: ~w(required disabled autocomplete inputmode pattern step min)
 
   def field(assigns) do
     assigns = assign_new(assigns, :id, fn -> assigns.name end)

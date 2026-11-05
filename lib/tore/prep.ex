@@ -19,10 +19,13 @@ defmodule Tore.Prep do
 
   defp build_plan_for_prompt(plan_state, week_start) do
     days =
-      Enum.map(plan_state.slots, fn {slot_key, slot} ->
-        recipe = if slot.recipe_id, do: Recipes.get!(slot.recipe_id), else: nil
-        %{slot_key: slot_key, recipe_title: recipe && recipe.title, servings: slot.servings}
-      end)
+      for {slot_key, %{recipe_id: recipe_id} = slot} <- plan_state.slots, recipe_id do
+        %{
+          slot_key: slot_key,
+          recipe_title: Recipes.get!(recipe_id).title,
+          servings: slot.servings
+        }
+      end
 
     %{week_start: week_start, days: days}
   end
