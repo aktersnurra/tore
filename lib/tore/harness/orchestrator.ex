@@ -19,7 +19,6 @@ defmodule Tore.Harness.Orchestrator do
   alias Tore.Harness.Capsules
 
   alias Tore.Harness.{
-    AmbientScan,
     KitchenMemorySynthesis,
     PantryUpdate,
     ReceiptIngestion,
@@ -35,7 +34,7 @@ defmodule Tore.Harness.Orchestrator do
     RunBundle
   }
 
-  alias Tore.{CounterNotes, Recipes, SpendGuard}
+  alias Tore.Recipes
 
   alias Tore.Harness.Capsules.{
     HouseholdPreferencesCapsule,
@@ -187,39 +186,6 @@ defmodule Tore.Harness.Orchestrator do
            artifact = KitchenMemorySynthesis.build_artifact(insights),
            {:ok, state} <- enter(state, :verifying, metadata),
            {:ok, state} <- verify_and_finish_memory(state, artifact, metadata) do
-        {:ok, state}
-      else
-        {:error, reason} -> {:error, {:step_failed, reason}}
-      end
-    end)
-  end
-
-  def dispatch(:ambient_scan_run, ctx) do
-    stream_id = Run.next_stream_id()
-    metadata = %{household_id: ctx.household_id}
-
-    open_cmd = %Commands.Open{
-      household_id: ctx.household_id,
-      kind: "ambient_scan_run",
-      surface: :plan,
-      started_by: Map.get(ctx, :started_by, "system"),
-      user_id: Map.get(ctx, :user_id),
-      input: %{}
-    }
-
-    run_dispatch(stream_id, metadata, "ambient_scan_run", fn ->
-      with {:ok, state} <- open_run(stream_id, open_cmd, metadata),
-           {:ok, state} <- enter(state, :gathering_context, metadata),
-           context = AmbientScan.build_context(ctx),
-           system_prompt = ambient_scan_system_prompt(),
-           {:ok, state} <- enter(state, :proposing, metadata),
-           {:ok, notes, usage} <- ambient_scan_call(system_prompt, context),
-           {:ok, plan} <- Planning.load_plan(ctx.plan_stream_id),
-           slot_keys = AmbientScan.slot_keys(plan),
-           verified = AmbientScan.verify_and_cap(notes, slot_keys),
-           attrs_list = Enum.map(verified, &AmbientScan.to_attrs/1),
-           {:ok, state} <- enter(state, :verifying, metadata),
-           {:ok, state} <- finish_ambient_scan(state, attrs_list, usage, metadata) do
         {:ok, state}
       else
         {:error, reason} -> {:error, {:step_failed, reason}}
@@ -945,47 +911,6 @@ defmodule Tore.Harness.Orchestrator do
 
       other ->
         other
-    end
-  end
-
-  defp ambient_scan_system_prompt do
-    case household_locale() do
-      nil -> AmbientScan.system_prompt()
-      locale -> AmbientScan.system_prompt() <> "\nWrite title and body in #{locale}."
-    end
-  end
-
-  defp ambient_scan_call(system_prompt, context) do
-    case Tore.LLM.text(system_prompt, context, []) do
-      {:ok, %{"notes" => notes}, usage} when is_list(notes) -> {:ok, notes, usage}
-      {:ok, _, usage} -> {:ok, [], usage}
-      {:error, _} = err -> err
-    end
-  end
-
-  defp finish_ambient_scan(state, attrs_list, usage, metadata) do
-    usage_cmd = %Commands.ObserveModelUsage{
-      prompt_tokens: usage.prompt_tokens,
-      completion_tokens: usage.completion_tokens,
-      cost_usd: usage.cost_usd
-    }
-
-    with {:ok, state} <- apply_command(state.stream_id, usage_cmd, state, metadata),
-         {:ok, _notes} <- CounterNotes.replace_scan_notes(attrs_list),
-         :ok <- SpendGuard.log_usage(:ambient_scan, usage) do
-      run_summary = RunSummary.from_artifacts([], :applied)
-
-      with {:ok, state} <-
-             apply_command(
-               state.stream_id,
-               %Commands.AddArtifact{artifact: run_summary},
-               state,
-               metadata
-             ) do
-        apply_command(state.stream_id, commit_command(state), state, metadata)
-      end
-    else
-      {:error, reason} -> {:error, {:step_failed, reason}}
     end
   end
 

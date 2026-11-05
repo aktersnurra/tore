@@ -1,7 +1,7 @@
 defmodule ToreWeb.HomeLive do
   use ToreWeb, :live_view
 
-  alias Tore.{Recipes, Planning, CounterNotes}
+  alias Tore.{Recipes, Planning}
 
   @days ~w[mon tue wed thu fri sat sun]
 
@@ -23,12 +23,6 @@ defmodule ToreWeb.HomeLive do
         Map.get(recipes_by_id, tonight_slot.recipe_id)
       end
 
-    home_notes = CounterNotes.list_for_surface("home")
-    hero_note = Enum.find(home_notes, &(!is_nil(&1.proposed_run)))
-
-    home_notes =
-      if hero_note, do: Enum.reject(home_notes, &(&1.id == hero_note.id)), else: home_notes
-
     {:ok,
      assign(socket,
        plan_id: plan_id,
@@ -36,8 +30,6 @@ defmodule ToreWeb.HomeLive do
        today_key: today_key,
        tonight_recipe: tonight_recipe,
        recipes_by_id: recipes_by_id,
-       home_notes: home_notes,
-       hero_note: hero_note,
        tonight_sheet: false
      )}
   end
@@ -45,16 +37,6 @@ defmodule ToreWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_path="/">
-      <%!-- Counter notes for home surface --%>
-      <div :if={@home_notes != []} class="mb-4 flex flex-col gap-2">
-        <div
-          :for={note <- @home_notes}
-          class="rounded-lg px-4 py-3 bg-[var(--surface)] border border-[color:var(--border)] text-sm text-[color:var(--text)]"
-        >
-          {note.body}
-        </div>
-      </div>
-
       <.link
         :if={@inbox_count > 0}
         navigate={~p"/inbox"}
@@ -90,15 +72,6 @@ defmodule ToreWeb.HomeLive do
                 {gettext("Start cooking")}
               </.link>
               <button
-                :if={@hero_note}
-                phx-click="follow_note"
-                phx-value-id={@hero_note.id}
-                class="flex-1 rounded-xl border border-[color:var(--border)] text-[color:var(--text)] py-3 text-sm font-semibold"
-              >
-                {@hero_note.title}
-              </button>
-              <button
-                :if={is_nil(@hero_note)}
                 phx-click="something_else"
                 class="flex-1 rounded-xl border border-[color:var(--border)] text-[color:var(--text)] py-3 text-sm font-semibold"
               >
@@ -145,18 +118,6 @@ defmodule ToreWeb.HomeLive do
         </div>
 
         <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <div :for={note <- scoped_notes(@home_notes, @today_key)}>
-            <button
-              type="button"
-              phx-click="follow_note"
-              phx-value-id={note.id}
-              class="w-full text-left rounded-xl border border-[color:var(--border)] px-4 py-3"
-            >
-              <p class="text-sm text-[color:var(--text)]">{note.title}</p>
-              <p class="text-xs text-[color:var(--muted)] mt-0.5">{note.body}</p>
-            </button>
-          </div>
-
           <form phx-submit="tonight_command">
             <input
               type="text"
@@ -229,28 +190,6 @@ defmodule ToreWeb.HomeLive do
 
   def handle_event("tonight_command", _params, socket), do: {:noreply, socket}
 
-  def handle_event("follow_note", %{"id" => id}, socket) do
-    pid = self()
-
-    actor = %{
-      household_id: socket.assigns.current_user.household_id,
-      user_id: socket.assigns.current_user.id
-    }
-
-    Task.start(fn ->
-      result =
-        try do
-          Tore.CounterNotes.follow_up(String.to_integer(id), actor)
-        rescue
-          e -> {:error, e}
-        end
-
-      send(pid, {:run_dispatched, result})
-    end)
-
-    {:noreply, socket}
-  end
-
   def handle_info({:run_dispatched, result}, socket) do
     %{plan_id: plan_id, today_key: today_key, recipes_by_id: recipes_by_id} = socket.assigns
     {:ok, plan_state} = Planning.load_plan(plan_id)
@@ -261,15 +200,9 @@ defmodule ToreWeb.HomeLive do
         Map.get(recipes_by_id, tonight_slot.recipe_id)
       end
 
-    home_notes = CounterNotes.list_for_surface("home")
-    hero_note = Enum.find(home_notes, &(!is_nil(&1.proposed_run)))
-
-    home_notes =
-      if hero_note, do: Enum.reject(home_notes, &(&1.id == hero_note.id)), else: home_notes
-
     socket =
       socket
-      |> assign(tonight_recipe: tonight_recipe, home_notes: home_notes, hero_note: hero_note)
+      |> assign(tonight_recipe: tonight_recipe)
       |> then(fn socket ->
         case result do
           {:ok, _} ->
@@ -285,10 +218,6 @@ defmodule ToreWeb.HomeLive do
       end)
 
     {:noreply, socket}
-  end
-
-  defp scoped_notes(notes, slot_key) do
-    Enum.filter(notes, &match?(%{"scoped_slot" => ^slot_key}, &1.proposed_run))
   end
 
   defp today_slot_key(today) do

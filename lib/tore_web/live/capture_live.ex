@@ -2,16 +2,11 @@ defmodule ToreWeb.CaptureLive do
   use ToreWeb, :live_view
 
   alias Tore.Capture.Router
-  alias Tore.{CounterNotes, Harness.RunReceipts}
+  alias Tore.Harness.RunReceipts
 
   @impl true
   def mount(params, _session, socket) do
     return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
-
-    predictions =
-      surface_for(return_to)
-      |> CounterNotes.list_for_surface()
-      |> Enum.filter(& &1.proposed_run)
 
     socket =
       socket
@@ -19,18 +14,12 @@ defmodule ToreWeb.CaptureLive do
         messages: [],
         input: "",
         loading: false,
-        return_to: return_to,
-        predictions: predictions
+        return_to: return_to
       )
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
     {:ok, socket}
   end
-
-  defp surface_for("/"), do: "home"
-  defp surface_for("/plan" <> _), do: "week"
-  defp surface_for("/shop" <> _), do: "groceries"
-  defp surface_for(_), do: "home"
 
   @impl true
   def handle_event("validate", _params, socket), do: {:noreply, socket}
@@ -88,30 +77,6 @@ defmodule ToreWeb.CaptureLive do
     end
   end
 
-  def handle_event("follow_note", %{"id" => id}, socket) do
-    pid = self()
-
-    actor = %{
-      household_id: socket.assigns.current_user.household_id,
-      user_id: socket.assigns.current_user.id
-    }
-
-    note = Enum.find(socket.assigns.predictions, &(&1.id == String.to_integer(id)))
-
-    Task.start(fn ->
-      result =
-        try do
-          CounterNotes.follow_up(String.to_integer(id), actor)
-        rescue
-          e -> {:error, e}
-        end
-
-      send(pid, {:run_dispatched, note, result})
-    end)
-
-    {:noreply, assign(socket, loading: true)}
-  end
-
   defp user_bubble_for("", images), do: %{role: :user, text: photo_label(length(images))}
   defp user_bubble_for(text, []), do: %{role: :user, text: text}
 
@@ -138,24 +103,6 @@ defmodule ToreWeb.CaptureLive do
     {:noreply,
      socket
      |> assign(:loading, false)
-     |> update(:messages, &(&1 ++ [bubble]))}
-  end
-
-  def handle_info({:run_dispatched, note, result}, socket) do
-    bubble =
-      case result do
-        {:ok, _} ->
-          %{role: :assistant, text: gettext("Done — %{title}", title: note.title)}
-
-        {:error, _} ->
-          %{role: :assistant, text: gettext("Sorry, I couldn't process that. Please try again.")}
-      end
-
-    predictions = Enum.reject(socket.assigns.predictions, &(&1.id == note.id))
-
-    {:noreply,
-     socket
-     |> assign(loading: false, predictions: predictions)
      |> update(:messages, &(&1 ++ [bubble]))}
   end
 
@@ -192,19 +139,6 @@ defmodule ToreWeb.CaptureLive do
           <.icon name="hero-arrow-left" class="size-5" />
         </.link>
         <span class="font-semibold text-[color:var(--text)]">{gettext("Ask Tore")}</span>
-      </div>
-
-      <div :if={@messages == [] && @predictions != []} class="px-4 py-3 space-y-2">
-        <button
-          :for={note <- @predictions}
-          type="button"
-          phx-click="follow_note"
-          phx-value-id={note.id}
-          class="w-full text-left rounded-xl border border-[color:var(--border)] px-4 py-3"
-        >
-          <p class="text-sm text-[color:var(--text)]">{note.title}</p>
-          <p class="text-xs text-[color:var(--muted)] mt-0.5">{note.body}</p>
-        </button>
       </div>
 
       <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">

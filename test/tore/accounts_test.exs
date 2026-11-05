@@ -1,7 +1,6 @@
 defmodule Tore.AccountsTest do
   use Tore.DataCase, async: false
   alias Tore.Accounts
-  alias Tore.Accounts.DeviceToken
 
   describe "setup_complete?/0" do
     test "returns false when no users exist" do
@@ -96,67 +95,11 @@ defmodule Tore.AccountsTest do
     end
   end
 
-  describe "generate_device_token/1" do
-    test "returns a 64-char hex token and stores hashed record" do
-      assert {:ok, {record, raw_token}} = Accounts.generate_device_token("kitchen kiosk")
-      assert record.name == "kitchen kiosk"
-      assert String.length(raw_token) == 64
-      assert String.match?(raw_token, ~r/^[0-9a-f]{64}$/)
-      refute record.token_hash == raw_token
-    end
-
-    test "returns error for blank name" do
-      assert {:error, changeset} = Accounts.generate_device_token("")
-      assert %{name: [_ | _]} = errors_on(changeset)
-    end
-  end
-
-  describe "verify_device_token/1" do
-    test "returns {:ok, :kiosk} for valid token" do
-      {:ok, {_, raw}} = Accounts.generate_device_token("kiosk")
-      assert {:ok, :kiosk} = Accounts.verify_device_token(raw)
-    end
-
-    test "returns error for wrong token" do
-      {:ok, _} = Accounts.generate_device_token("kiosk")
-      assert {:error, :invalid} = Accounts.verify_device_token("deadbeef")
-    end
-
-    test "returns error for revoked token" do
-      {:ok, {record, raw}} = Accounts.generate_device_token("kiosk")
-      :ok = Accounts.revoke_device_token(record.id)
-      assert {:error, :invalid} = Accounts.verify_device_token(raw)
-    end
-
-    test "returns error for empty string" do
-      assert {:error, :invalid} = Accounts.verify_device_token("")
-    end
-  end
-
-  describe "revoke_device_token/1" do
-    test "sets revoked_at timestamp" do
-      {:ok, {record, _}} = Accounts.generate_device_token("kiosk")
-      assert :ok = Accounts.revoke_device_token(record.id)
-      token = Repo.get!(DeviceToken, record.id)
-      refute is_nil(token.revoked_at)
-    end
-
-    test "returns error for unknown id" do
-      assert {:error, :not_found} = Accounts.revoke_device_token(999_999)
-    end
-  end
-
-  describe "list_users/0 and list_device_tokens/0" do
+  describe "list_users/0" do
     test "returns all users" do
       {:ok, _} = Accounts.create_admin("A")
       {:ok, _} = Accounts.create_user(%{name: "B"})
       assert length(Accounts.list_users()) == 2
-    end
-
-    test "lists device tokens" do
-      {:ok, _} = Accounts.generate_device_token("kiosk1")
-      {:ok, _} = Accounts.generate_device_token("kiosk2")
-      assert length(Accounts.list_device_tokens()) == 2
     end
   end
 

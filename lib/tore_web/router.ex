@@ -19,10 +19,6 @@ defmodule ToreWeb.Router do
     plug ToreWeb.Plugs.Auth
   end
 
-  pipeline :require_device_token do
-    plug ToreWeb.Plugs.KioskAuth
-  end
-
   # Public routes — no authentication required
   scope "/", ToreWeb do
     pipe_through :browser
@@ -30,17 +26,6 @@ defmodule ToreWeb.Router do
     live "/setup", SetupLive
     live "/login", LoginLive
     get "/login/session", SessionController, :confirm
-  end
-
-  # Kiosk (device-token authenticated)
-  scope "/kiosk", ToreWeb do
-    pipe_through [:browser, :require_device_token]
-
-    live_session :kiosk,
-      on_mount: [{ToreWeb.Live.Auth, :require_device_token}] do
-      live "/", KioskLive
-      live "/capture", KioskCaptureLive
-    end
   end
 
   # Authenticated users (member + admin)

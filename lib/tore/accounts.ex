@@ -1,7 +1,7 @@
 defmodule Tore.Accounts do
   import Ecto.Query
   alias Tore.Repo
-  alias Tore.Accounts.{User, DeviceToken}
+  alias Tore.Accounts.User
 
   @spec setup_complete?() :: boolean()
   def setup_complete? do
@@ -13,9 +13,6 @@ defmodule Tore.Accounts do
 
   @spec list_users() :: [User.t()]
   def list_users, do: Repo.all(User)
-
-  @spec list_device_tokens() :: [DeviceToken.t()]
-  def list_device_tokens, do: Repo.all(DeviceToken)
 
   @spec create_admin(String.t()) :: {:ok, {User.t(), String.t()}} | {:error, Ecto.Changeset.t()}
   def create_admin(name), do: create_with_role(name, :admin)
@@ -57,45 +54,6 @@ defmodule Tore.Accounts do
     |> Repo.update()
   end
 
-  @spec generate_device_token(String.t()) ::
-          {:ok, {DeviceToken.t(), String.t()}} | {:error, Ecto.Changeset.t()}
-  def generate_device_token(name) do
-    raw_token = Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
-    token_hash = sha256(raw_token)
-
-    %DeviceToken{}
-    |> DeviceToken.changeset(%{name: name, token_hash: token_hash})
-    |> Repo.insert()
-    |> case do
-      {:ok, record} -> {:ok, {record, raw_token}}
-      {:error, cs} -> {:error, cs}
-    end
-  end
-
-  @spec revoke_device_token(term()) :: :ok | {:error, :not_found}
-  def revoke_device_token(token_id) do
-    case Repo.get(DeviceToken, token_id) do
-      nil ->
-        {:error, :not_found}
-
-      token ->
-        token |> DeviceToken.revoke_changeset() |> Repo.update!()
-        :ok
-    end
-  end
-
-  @spec verify_device_token(String.t()) :: {:ok, :kiosk} | {:error, :invalid}
-  def verify_device_token(raw_token) when is_binary(raw_token) and raw_token != "" do
-    hash = sha256(raw_token)
-
-    case Repo.one(from t in DeviceToken, where: t.token_hash == ^hash and is_nil(t.revoked_at)) do
-      nil -> {:error, :invalid}
-      _token -> {:ok, :kiosk}
-    end
-  end
-
-  def verify_device_token(_), do: {:error, :invalid}
-
   defp create_with_role(name, role) do
     code = generate_code()
     hash = Argon2.hash_pwd_salt(code)
@@ -115,9 +73,5 @@ defmodule Tore.Accounts do
     |> Enum.map(&rem(&1, 10))
     |> Enum.map(&Integer.to_string/1)
     |> Enum.join()
-  end
-
-  defp sha256(value) do
-    :crypto.hash(:sha256, value) |> Base.encode64()
   end
 end

@@ -45,4 +45,3 @@ config :tore, :http_client, Tore.MockHTTP
 config :tore, :llm_spec, Tore.MockLLM
 config :tore, :storage_client, Tore.Storage.Mock
 config :tore, :env, :test
-config :tore, :ambient_scan_quiet_ms, :timer.hours(24)

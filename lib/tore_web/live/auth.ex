@@ -36,19 +36,6 @@ defmodule ToreWeb.Live.Auth do
     end
   end
 
-  def on_mount(:require_device_token, _params, session, socket) do
-    case session["device_token"] do
-      nil ->
-        {:halt, redirect(socket, to: "/login")}
-
-      raw_token ->
-        case Accounts.verify_device_token(raw_token) do
-          {:ok, :kiosk} -> {:cont, socket}
-          {:error, _} -> {:halt, redirect(socket, to: "/login")}
-        end
-    end
-  end
-
   defp attach_current_path(socket) do
     socket
     |> assign(:current_path, "/")

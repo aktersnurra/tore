@@ -6,7 +6,6 @@ defmodule ToreWeb.HomeLiveTest do
   alias Tore.Accounts
   alias Tore.Harness.Run
   alias Tore.Harness.Run.{Commands, State}
-  alias Tore.CounterNotes.CounterNote
 
   setup :verify_on_exit!
   setup :set_mox_from_context
@@ -155,54 +154,6 @@ defmodule ToreWeb.HomeLiveTest do
 
     Tore.Planning.assign_recipe(plan_id_for_today(), today_slot_key(), recipe.id, 4)
     recipe
-  end
-
-  describe "hero note follow-up" do
-    test "hero action is replaced by the top actionable prediction, and tapping follows it",
-         %{conn: conn} do
-      seed_tonight_recipe()
-
-      {:ok, note} =
-        Tore.CounterNotes.create(%{
-          surface: "home",
-          kind: "swap_suggestion",
-          title: "Swap with Thursday's gratäng",
-          body: "Tuesdays go quick.",
-          proposed_run: %{
-            "kind" => "planner_command",
-            "command" => "swap today with thursday",
-            "scoped_slot" => today_slot_key()
-          }
-        })
-
-      {:ok, view, html} = live(conn, ~p"/")
-
-      assert html =~ "Swap with Thursday&#39;s gratäng"
-      refute html =~ "Något annat"
-
-      test_pid = self()
-
-      expect(Tore.MockLLM, :chat_with_tools, fn _s, _m, _t, _o ->
-        send(test_pid, :hero_note_dispatched)
-
-        {:ok, {:message, "done"},
-         %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-      end)
-
-      view |> element(~s(button[phx-click="follow_note"])) |> render_click()
-
-      assert_receive :hero_note_dispatched, 2_000
-
-      eventually(fn ->
-        Tore.Repo.get!(CounterNote, note.id).status == "accepted"
-      end)
-    end
-
-    test "hero keeps its generic action when no prediction exists", %{conn: conn} do
-      seed_tonight_recipe()
-      {:ok, _view, html} = live(conn, ~p"/")
-      assert html =~ "Något annat"
-    end
   end
 
   describe "tonight object sheet" do

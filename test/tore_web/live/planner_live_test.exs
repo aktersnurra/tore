@@ -160,68 +160,6 @@ defmodule ToreWeb.PlannerLiveTest do
       refute has_element?(view, ~s(form[phx-submit="slot_command"]))
     end
 
-    test "slot sheet lists predictions scoped to the touched slot and tapping follows",
-         %{conn: conn, user: user} do
-      conn = authed(conn, user)
-
-      {:ok, note} =
-        Tore.CounterNotes.create(%{
-          surface: "week",
-          kind: "freezer_fallback",
-          title: "Frozen bolognese for Monday?",
-          body: "Busy evening.",
-          proposed_run: %{
-            "kind" => "planner_command",
-            "command" => "assign frozen bolognese",
-            "scoped_slot" => "mon_dinner"
-          }
-        })
-
-      {:ok, view, _} = live(conn, "/plan")
-
-      view
-      |> element(~s([phx-click="open_slot"][phx-value-slot_key="mon_dinner"]))
-      |> render_click()
-
-      assert render(view) =~ "Frozen bolognese for Monday?"
-
-      Mox.expect(Tore.MockLLM, :chat_with_tools, fn _s, _m, _t, _o ->
-        {:ok, {:message, "done"},
-         %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-      end)
-
-      view
-      |> element(~s(button[phx-click="follow_note"][phx-value-id="#{note.id}"]))
-      |> render_click()
-
-      eventually_renders(view, "Tore justerade planen")
-      assert Tore.Repo.get!(Tore.CounterNotes.CounterNote, note.id).status == "accepted"
-    end
-
-    test "slot sheet shows no prediction rows for other slots", %{conn: conn, user: user} do
-      conn = authed(conn, user)
-
-      {:ok, _} =
-        Tore.CounterNotes.create(%{
-          surface: "week",
-          kind: "freezer_fallback",
-          title: "Tuesday note",
-          body: "b",
-          proposed_run: %{
-            "kind" => "planner_command",
-            "command" => "x",
-            "scoped_slot" => "tue_dinner"
-          }
-        })
-
-      {:ok, view, _} = live(conn, "/plan")
-
-      view
-      |> element(~s([phx-click="open_slot"][phx-value-slot_key="mon_dinner"]))
-      |> render_click()
-
-      refute render(view) =~ "Tuesday note"
-    end
   end
 
   describe "command bar" do

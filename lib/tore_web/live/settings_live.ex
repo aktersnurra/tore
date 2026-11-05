@@ -233,34 +233,6 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- Device tokens --%>
-          <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
-              {gettext("Kiosk")}
-            </h2>
-            <div class="flex items-center gap-3">
-              <.icon name="hero-device-tablet" class="size-5 text-[color:var(--muted)] shrink-0" />
-              <div class="flex-1 min-w-0">
-                <p class="font-medium" style="font-size: var(--t-body);">
-                  {gettext("Kitchen kiosk")}
-                </p>
-                <p class="text-[color:var(--accent)]" style="font-size: var(--t-meta);">
-                  {gettext("active")}
-                </p>
-              </div>
-              <button
-                :if={@current_user.role == :admin}
-                type="button"
-                class="text-[color:var(--danger)] hover:underline"
-                style="font-size: var(--t-meta);"
-              >
-                {gettext("Revoke")}
-              </button>
-            </div>
-          </section>
-
           <%!-- Kitchen memory --%>
           <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
             <h2

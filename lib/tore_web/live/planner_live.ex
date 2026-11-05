@@ -31,7 +31,6 @@ defmodule ToreWeb.PlannerLive do
        plan_state: plan_state,
        recipes: recipes,
        slot_action: nil,
-       counter_notes: Tore.CounterNotes.list_for_surface("week"),
        plan_health: PlanHealth.compute(plan_state),
        current_week_mode: Tore.WeekMode.get_current_mode(),
        current_run: current_run,
@@ -209,31 +208,6 @@ defmodule ToreWeb.PlannerLive do
     {:noreply, socket}
   end
 
-  def handle_event("accept_note", %{"id" => id}, socket) do
-    note = Enum.find(socket.assigns.counter_notes, &(to_string(&1.id) == id))
-
-    if note && note.proposed_run do
-      follow_note_async(id, socket)
-    else
-      Tore.CounterNotes.accept(String.to_integer(id))
-    end
-
-    {:noreply, assign(socket, counter_notes: Tore.CounterNotes.list_for_surface("week"))}
-  end
-
-  def handle_event("follow_note", %{"id" => id}, socket) do
-    follow_note_async(id, socket)
-
-    # Close the sheet like slot_command does: persist pending edits first.
-    socket = auto_save_slot(socket)
-    {:noreply, assign(socket, slot_action: nil, quick_loading: true)}
-  end
-
-  def handle_event("ignore_note", %{"id" => id}, socket) do
-    Tore.CounterNotes.ignore(String.to_integer(id))
-    {:noreply, assign(socket, counter_notes: Tore.CounterNotes.list_for_surface("week"))}
-  end
-
   def handle_event("set_week_mode", %{"mode" => mode}, socket) do
     case Tore.WeekMode.set_mode(mode) do
       {:ok, _} ->
@@ -343,7 +317,6 @@ defmodule ToreWeb.PlannerLive do
     socket =
       assign(socket,
         plan_state: plan_state,
-        counter_notes: Tore.CounterNotes.list_for_surface("week"),
         plan_health: PlanHealth.compute(plan_state)
       )
 
@@ -380,26 +353,6 @@ defmodule ToreWeb.PlannerLive do
       _ ->
         {:noreply, socket}
     end
-  end
-
-  defp follow_note_async(id, socket) do
-    pid = self()
-
-    actor = %{
-      household_id: socket.assigns.current_user.household_id,
-      user_id: socket.assigns.current_user.id
-    }
-
-    Task.start(fn ->
-      result =
-        try do
-          Tore.CounterNotes.follow_up(String.to_integer(id), actor)
-        rescue
-          e -> {:error, e}
-        end
-
-      send(pid, {:run_dispatched, result})
-    end)
   end
 
   defp update_slot(socket, fun) do
@@ -526,37 +479,6 @@ defmodule ToreWeb.PlannerLive do
           <% end %>
         </div>
 
-        <%!-- Counter notes — slot-scoped ones surface in their slot sheet, not here --%>
-        <%= if unscoped_notes(@counter_notes) != [] do %>
-          <div class="flex flex-col gap-3 mb-4">
-            <%= for note <- unscoped_notes(@counter_notes) do %>
-              <div class="rounded-2xl border border-[color:var(--hairline)] bg-[color:var(--surface-raised)] p-4">
-                <p class="text-[10px] font-semibold text-[color:var(--accent)] uppercase tracking-widest mb-1">
-                  {gettext("Tore noticed")}
-                </p>
-                <p class="font-semibold text-[var(--text)] text-sm mb-0.5">{note.title}</p>
-                <p class="text-sm text-[color:var(--muted)] mb-3">{note.body}</p>
-                <div class="flex gap-2">
-                  <button
-                    phx-click="accept_note"
-                    phx-value-id={note.id}
-                    class="flex-1 py-2 rounded-xl bg-[color:var(--accent)] text-white text-xs font-semibold"
-                  >
-                    {gettext("Accept")}
-                  </button>
-                  <button
-                    phx-click="ignore_note"
-                    phx-value-id={note.id}
-                    class="px-4 py-2 rounded-xl border border-[color:var(--hairline)] text-[color:var(--muted)] text-xs font-medium"
-                  >
-                    {gettext("Ignore")}
-                  </button>
-                </div>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
-
         <%!-- Plan health badge (placeholder until Task 3 wires real data) --%>
         <div class={[
           "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full mb-4",
@@ -623,7 +545,6 @@ defmodule ToreWeb.PlannerLive do
           slot_action={@slot_action}
           plan_state={@plan_state}
           recipes={@recipes}
-          counter_notes={@counter_notes}
         />
       </.page>
     </Layouts.app>
@@ -786,7 +707,6 @@ defmodule ToreWeb.PlannerLive do
   attr :slot_action, :map, required: true
   attr :plan_state, :any, required: true
   attr :recipes, :list, required: true
-  attr :counter_notes, :list, required: true
 
   defp slot_modal(assigns) do
     sa = assigns.slot_action
@@ -977,21 +897,6 @@ defmodule ToreWeb.PlannerLive do
                   class="size-4"
                 />
                 {if @slot_action.pinned, do: gettext("Pinned"), else: gettext("Pin this day")}
-              </button>
-            </div>
-
-            <div
-              :for={note <- scoped_notes(@counter_notes, @slot_action.slot_key)}
-              class="px-6 pb-2"
-            >
-              <button
-                type="button"
-                phx-click="follow_note"
-                phx-value-id={note.id}
-                class="w-full text-left rounded-lg px-3 py-2 hover:bg-[color:var(--hairline)]"
-              >
-                <span class="block text-sm text-[var(--text)]">{note.title}</span>
-                <span class="block text-xs text-[color:var(--muted)]">{note.body}</span>
               </button>
             </div>
 
@@ -1228,14 +1133,6 @@ defmodule ToreWeb.PlannerLive do
   defp slot_label(slot_key) do
     [day, meal] = String.split(slot_key, "_", parts: 2)
     "#{day_name(day)} · #{meal_name(meal)}"
-  end
-
-  defp scoped_notes(notes, slot_key) do
-    Enum.filter(notes, &match?(%{"scoped_slot" => ^slot_key}, &1.proposed_run))
-  end
-
-  defp unscoped_notes(notes) do
-    Enum.reject(notes, &match?(%{"scoped_slot" => slot} when is_binary(slot), &1.proposed_run))
   end
 
   defp days_after(slot_key) do

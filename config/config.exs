@@ -62,9 +62,7 @@ config :tore, :openrouter_app_name, "Tore"
 config :tore, Tore.Scheduler,
   jobs: [
     {"0 3 * * *", {Tore.Deals, :clear_expired, []}},
-    {"30 4 * * *", {Tore.CounterNotes, :expire_stale, []}},
     {"0 4 * * 0", {Tore.Harness.InboxSweeper, :sweep_weekly, []}},
-    {"0 5 * * *", {Tore.Harness.AmbientScan, :scan, []}},
     {"0 6 * * 6", {Tore.Harness.KitchenMemorySynthesis, :synthesise_weekly, []}},
     {"0 8 * * 6", {Tore.Deals, :scrape_all, []}},
     {"0 18 * * 6", {Tore.Planning, :plan_upcoming_week, []}},
@@ -73,8 +71,6 @@ config :tore, Tore.Scheduler,
        Tore.Prep.generate_guide("plan:current", Date.utc_today())
      end}
   ]
-
-config :tore, :ambient_scan_quiet_ms, :timer.minutes(5)
 
 config :tore, Tore.Mailer, adapter: Swoosh.Adapters.Local
 

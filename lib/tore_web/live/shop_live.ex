@@ -1,7 +1,7 @@
 defmodule ToreWeb.ShopLive do
   use ToreWeb, :live_view
 
-  alias Tore.{Shop, CounterNotes}
+  alias Tore.Shop
   alias Phoenix.PubSub
 
   def mount(_params, session, socket) do
@@ -23,15 +23,9 @@ defmodule ToreWeb.ShopLive do
        grocery_state: grocery_state,
        user_id: user_id,
        export_text: nil,
-       predicted_item: predicted_item(),
        item_sheet: nil,
        item_command_loading: false
      )}
-  end
-
-  defp predicted_item do
-    CounterNotes.list_for_surface("groceries")
-    |> Enum.find(&match?(%{"kind" => "add_item"}, &1.proposed_run))
   end
 
   def handle_event("toggle_item", %{"item_id" => id}, socket) do
@@ -65,38 +59,22 @@ defmodule ToreWeb.ShopLive do
   def handle_event("add_item", %{"name" => name} = params, socket) do
     name = String.trim(name)
 
-    cond do
-      name != "" ->
-        qty = Map.get(params, "quantity", "")
-        unit = Map.get(params, "unit", "")
-        quantity = if qty == "", do: nil, else: parse_qty(qty)
-        unit = if unit == "", do: nil, else: unit
+    if name != "" do
+      qty = Map.get(params, "quantity", "")
+      unit = Map.get(params, "unit", "")
+      quantity = if qty == "", do: nil, else: parse_qty(qty)
+      unit = if unit == "", do: nil, else: unit
 
-        Shop.add_item(
-          socket.assigns.list_id,
-          name,
-          quantity,
-          unit,
-          socket.assigns.user_id
-        )
-
-        {:noreply, socket}
-
-      socket.assigns.predicted_item ->
-        actor = %{
-          household_id: socket.assigns.current_user.household_id,
-          user_id: socket.assigns.current_user.id
-        }
-
-        CounterNotes.follow_up(socket.assigns.predicted_item.id, actor)
-
-        {:ok, grocery_state} = Shop.load_list(socket.assigns.list_id)
-
-        {:noreply, assign(socket, grocery_state: grocery_state, predicted_item: predicted_item())}
-
-      true ->
-        {:noreply, socket}
+      Shop.add_item(
+        socket.assigns.list_id,
+        name,
+        quantity,
+        unit,
+        socket.assigns.user_id
+      )
     end
+
+    {:noreply, socket}
   end
 
   def handle_event("open_item_sheet", %{"item_id" => id}, socket) do
@@ -154,8 +132,7 @@ defmodule ToreWeb.ShopLive do
 
   def handle_info({:events, _events}, socket) do
     {:ok, grocery_state} = Shop.load_list(socket.assigns.list_id)
-
-    {:noreply, assign(socket, grocery_state: grocery_state, predicted_item: predicted_item())}
+    {:noreply, assign(socket, grocery_state: grocery_state)}
   end
 
   def handle_info(
@@ -267,10 +244,8 @@ defmodule ToreWeb.ShopLive do
               <input
                 type="text"
                 name="name"
-                placeholder={
-                  (@predicted_item && "#{@predicted_item.proposed_run["name"]}?") ||
-                    gettext("Add item…")
-                }
+                placeholder={gettext("Add item…")}
+                required
                 class="flex-1 h-10 bg-transparent border-0 text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
                 style="font-size: var(--t-body);"
               />
