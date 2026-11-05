@@ -7,12 +7,14 @@ import Config
 # Run `mix help test` for more information.
 config :tore, Tore.Repo,
   database: Path.expand("../tore_test.db", __DIR__),
-  pool_size: 5,
+  pool_size: 1,
   pool: Ecto.Adapters.SQL.Sandbox,
-  # SQLite has a single write lock. A modest busy_timeout lets a briefly-blocked
-  # writer wait rather than immediately erroring. (Tests that write a shared,
-  # un-isolated row — e.g. HouseholdTest — are additionally marked async: false,
-  # since a write deadlock can't be resolved by waiting.)
+  # SQLite has a single write lock, and the sandbox holds a transaction open for
+  # each test. Processes outliving a test can leave its connection holding that
+  # lock while the next test runs; a second connection then fails with "Database
+  # busy" without waiting, because it has already read. One connection rules that
+  # out. (Tests that write a shared, un-isolated row — e.g. HouseholdTest — are
+  # additionally marked async: false.)
   busy_timeout: 5_000
 
 # We don't run a server during test. If one is required,
