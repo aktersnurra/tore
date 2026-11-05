@@ -8,7 +8,8 @@ defmodule Tore.Harness.Artifact.PantrySnapshot do
   Each item is `%{item_id, before, after}`:
 
     * `before == nil` → the row didn't exist before the run; revert deletes it.
-    * `before == %{quantity, unit, last_seen_at, provenance, belief}` →
+    * `before == %{quantity, unit, last_seen_at, provenance, belief, added_at,
+      expires_at, expires_source}` →
       revert restores those fields on the same row.
   """
 
@@ -25,7 +26,10 @@ defmodule Tore.Harness.Artifact.PantrySnapshot do
               unit: String.t() | nil,
               last_seen_at: DateTime.t() | nil,
               provenance: String.t() | nil,
-              belief: String.t() | nil
+              belief: String.t() | nil,
+              added_at: Date.t() | String.t() | nil,
+              expires_at: Date.t() | String.t() | nil,
+              expires_source: String.t() | nil
             }
 
   @type item :: %{
@@ -80,7 +84,10 @@ defmodule Tore.Harness.Artifact.PantrySnapshot do
       "unit" => attrs[:unit],
       "last_seen_at" => datetime_to_iso(attrs[:last_seen_at]),
       "provenance" => attrs[:provenance],
-      "belief" => attrs[:belief]
+      "belief" => attrs[:belief],
+      "added_at" => date_to_iso(attrs[:added_at]),
+      "expires_at" => date_to_iso(attrs[:expires_at]),
+      "expires_source" => attrs[:expires_source]
     }
   end
 
@@ -92,9 +99,15 @@ defmodule Tore.Harness.Artifact.PantrySnapshot do
       unit: attrs["unit"],
       last_seen_at: iso_to_datetime(attrs["last_seen_at"]),
       provenance: attrs["provenance"],
-      belief: attrs["belief"]
+      belief: attrs["belief"],
+      added_at: attrs["added_at"],
+      expires_at: attrs["expires_at"],
+      expires_source: attrs["expires_source"]
     }
   end
+
+  defp date_to_iso(%Date{} = date), do: Date.to_iso8601(date)
+  defp date_to_iso(other), do: other
 
   defp decimal_to_string(nil), do: nil
   defp decimal_to_string(%Decimal{} = d), do: Decimal.to_string(d)

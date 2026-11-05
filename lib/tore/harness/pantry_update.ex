@@ -40,6 +40,7 @@ defmodule Tore.Harness.PantryUpdate do
             quantity: it[:quantity] || it["quantity"],
             unit: it[:unit] || it["unit"],
             category: it[:category] || it["category"],
+            expires_on: it[:expires_on],
             provenance: provenance,
             last_seen_at: now
           }
@@ -99,7 +100,10 @@ defmodule Tore.Harness.PantryUpdate do
       unit: item.unit,
       last_seen_at: item.last_seen_at,
       provenance: item.provenance,
-      belief: item.belief
+      belief: item.belief,
+      added_at: item.added_at,
+      expires_at: item.expires_at,
+      expires_source: item.expires_source
     }
   end
 
@@ -111,5 +115,6 @@ defmodule Tore.Harness.PantryUpdate do
     |> Map.put(:matched_key, n.matched_key)
     |> Map.put(:category, it[:category] || n.category)
     |> Map.put(:default_unit, n.default_unit)
+    |> Map.put(:shelf_life_days, n[:shelf_life_days])
   end
 end

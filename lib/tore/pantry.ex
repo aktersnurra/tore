@@ -1,7 +1,7 @@
 defmodule Tore.Pantry do
   import Ecto.Query
   alias Tore.Repo
-  alias Tore.Pantry.PantryItem
+  alias Tore.Pantry.{Expiry, PantryItem}
   alias Tore.Recipes.Ingredient
 
   def parse_image(image_binary) do
@@ -17,7 +17,8 @@ defmodule Tore.Pantry do
             name: it["name"],
             quantity: parse_decimal(it["quantity"]),
             unit: it["unit"],
-            category: it["category"]
+            category: it["category"],
+            expires_on: Expiry.parse_date(it["expires_on"])
           }
         end)
 
@@ -56,7 +57,8 @@ defmodule Tore.Pantry do
              catalogue_name: it["catalogue_name"],
              category: it["category"],
              default_unit: it["default_unit"],
-             matched_key: it["matched_key"]
+             matched_key: it["matched_key"],
+             shelf_life_days: Expiry.parse_shelf_life(it["shelf_life_days"])
            }
          end)}
 
@@ -72,7 +74,8 @@ defmodule Tore.Pantry do
   Upsert a single canonicalised pantry belief.
 
   Expects an attrs map with `catalogue_name`, optional `matched_key`, plus
-  `quantity`, `unit`, `category`, `default_unit`, `provenance`, `last_seen_at`.
+  `quantity`, `unit`, `category`, `default_unit`, `provenance`, `last_seen_at`,
+  and optional `shelf_life_days` and `expires_on`. See `Tore.Pantry.Expiry`.
   Resolves the ingredient by key (find-or-create), then bumps an existing
   pantry row keyed on ingredient_id, or inserts a new one. The pantry row
   always shows the catalogue name — never the receipt's product variant.
@@ -91,13 +94,14 @@ defmodule Tore.Pantry do
             attrs
             |> base_pantry_attrs(ingredient)
             |> Map.put(:quantity, attrs[:quantity])
+            |> Map.merge(expiry_attrs(%{expires_at: nil, expires_source: nil}, attrs, ingredient))
             |> add_item()
 
           {item, :added, nil}
 
         existing ->
           before = snapshot_attrs(existing)
-          {:ok, item} = bump_existing(existing, attrs)
+          {:ok, item} = bump_existing(existing, attrs, ingredient)
           {item, :bumped, before}
       end
     end)
@@ -113,8 +117,18 @@ defmodule Tore.Pantry do
       unit: item.unit,
       last_seen_at: item.last_seen_at,
       provenance: item.provenance,
-      belief: item.belief
+      belief: item.belief,
+      added_at: item.added_at,
+      expires_at: item.expires_at,
+      expires_source: item.expires_source
     }
+  end
+
+  defp expiry_attrs(current, attrs, ingredient) do
+    {expires_at, expires_source} =
+      Expiry.next(current, attrs, ingredient.shelf_life_days, Date.utc_today())
+
+    %{expires_at: expires_at, expires_source: expires_source}
   end
 
   defp find_or_create_ingredient(attrs) do
@@ -132,16 +146,24 @@ defmodule Tore.Pantry do
             name: attrs[:catalogue_name] || attrs[:name],
             key: key,
             category: attrs[:category],
-            default_unit: attrs[:default_unit] || attrs[:unit]
+            default_unit: attrs[:default_unit] || attrs[:unit],
+            shelf_life_days: attrs[:shelf_life_days]
           })
           |> Repo.insert()
 
         ing
 
       ing ->
-        ing
+        fill_shelf_life(ing, attrs[:shelf_life_days])
     end
   end
+
+  # Only fills a gap, so a correction from the household is never overwritten.
+  # `change/2` rather than the changeset, which would re-derive the key.
+  defp fill_shelf_life(%Ingredient{shelf_life_days: nil} = ingredient, days) when is_integer(days),
+    do: ingredient |> Ecto.Changeset.change(shelf_life_days: days) |> Repo.update!()
+
+  defp fill_shelf_life(ingredient, _days), do: ingredient
 
   # Pantry row always shows the ingredient's catalogue name — receipt-specific
   # variants (brand, pack size, fat percentage) live on the cost ledger, not
@@ -157,19 +179,23 @@ defmodule Tore.Pantry do
     }
   end
 
-  defp bump_existing(%PantryItem{} = item, attrs) do
+  defp bump_existing(%PantryItem{} = item, attrs, ingredient) do
     {new_qty, new_unit} = next_quantity(item, attrs)
 
     next_provenance = attrs[:provenance] || item.provenance
 
     item
-    |> PantryItem.changeset(%{
-      quantity: new_qty,
-      unit: new_unit,
-      last_seen_at: attrs[:last_seen_at] || now(),
-      provenance: next_provenance,
-      belief: stronger_belief(item.belief, PantryItem.derive_belief(next_provenance))
-    })
+    |> PantryItem.changeset(
+      %{
+        quantity: new_qty,
+        unit: new_unit,
+        added_at: if(Expiry.bought?(attrs), do: Date.utc_today(), else: item.added_at),
+        last_seen_at: attrs[:last_seen_at] || now(),
+        provenance: next_provenance,
+        belief: stronger_belief(item.belief, PantryItem.derive_belief(next_provenance))
+      }
+      |> Map.merge(expiry_attrs(item, attrs, ingredient))
+    )
     |> Repo.update()
   end
 
@@ -247,6 +273,59 @@ defmodule Tore.Pantry do
       nil -> {:error, :not_found}
       item -> Repo.delete(item) |> then(fn _ -> :ok end)
     end
+  end
+
+  @doc """
+  Set or clear an item's expiry date by hand. The date stays until the item is
+  bought again, and the days since it came in become the ingredient's shelf
+  life, so the next guess is better.
+  """
+  @spec set_expiry(integer(), Date.t() | nil) ::
+          {:ok, PantryItem.t()} | {:error, :not_found | Ecto.Changeset.t()}
+  def set_expiry(item_id, expires_at) do
+    case Repo.get(PantryItem, item_id) do
+      nil ->
+        {:error, :not_found}
+
+      item ->
+        Repo.transaction(fn ->
+          learn_shelf_life(item, expires_at)
+
+          item
+          |> PantryItem.changeset(%{
+            expires_at: expires_at,
+            expires_source: expires_at && "manual"
+          })
+          |> Repo.update()
+          |> case do
+            {:ok, updated} -> updated
+            {:error, changeset} -> Repo.rollback(changeset)
+          end
+        end)
+    end
+  end
+
+  defp learn_shelf_life(%PantryItem{ingredient_id: id} = item, %Date{} = expires_at)
+       when not is_nil(id) do
+    case Expiry.parse_shelf_life(Date.diff(expires_at, item.added_at)) do
+      nil ->
+        :ok
+
+      days ->
+        Ingredient
+        |> Repo.get!(id)
+        |> Ecto.Changeset.change(shelf_life_days: days)
+        |> Repo.update!()
+    end
+  end
+
+  defp learn_shelf_life(_item, _expires_at), do: :ok
+
+  @doc "What's in the pantry and still within its date, if it has one."
+  @spec list_usable() :: [PantryItem.t()]
+  def list_usable do
+    today = Date.utc_today()
+    Enum.reject(list_inventory(), &PantryItem.past_date?(&1, today))
   end
 
   @spec list_inventory() :: [PantryItem.t()]

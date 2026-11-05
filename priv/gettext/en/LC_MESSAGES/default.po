@@ -496,8 +496,8 @@ msgid "Recipes"
 msgstr ""
 
 #: lib/tore_web/live/cost_live.ex:420
-#: lib/tore_web/live/pantry_live.ex:50
-#: lib/tore_web/live/pantry_live.ex:52
+#: lib/tore_web/live/pantry_live.ex:85
+#: lib/tore_web/live/pantry_live.ex:87
 #: lib/tore_web/live/settings_live.ex:342
 #: lib/tore_web/live/shop_live.ex:364
 #, elixir-autogen, elixir-format
@@ -1576,7 +1576,7 @@ msgstr ""
 msgid "Adjusted servings on %{day}"
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:27
+#: lib/tore_web/live/pantry_live.ex:45
 #: lib/tore_web/live/settings_live.ex:437
 #, elixir-autogen, elixir-format
 msgid "Approximate inventory"
@@ -1859,7 +1859,7 @@ msgstr ""
 msgid "Verifying"
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:29
+#: lib/tore_web/live/pantry_live.ex:47
 #, elixir-autogen, elixir-format
 msgid "What Tore thinks you have. Remove anything that's wrong."
 msgstr ""
@@ -1971,7 +1971,7 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:71
+#: lib/tore_web/live/pantry_live.ex:106
 #, elixir-autogen, elixir-format
 msgid "Confirmed at home"
 msgstr ""
@@ -2038,12 +2038,12 @@ msgstr ""
 msgid "Plan"
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:72
+#: lib/tore_web/live/pantry_live.ex:107
 #, elixir-autogen, elixir-format
 msgid "Probably at home"
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:74
+#: lib/tore_web/live/pantry_live.ex:109
 #, elixir-autogen, elixir-format
 msgid "Probably missing"
 msgstr ""
@@ -2084,7 +2084,7 @@ msgstr ""
 msgid "Undone."
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:73
+#: lib/tore_web/live/pantry_live.ex:108
 #, elixir-autogen, elixir-format
 msgid "Unknown"
 msgstr ""
@@ -2217,9 +2217,19 @@ msgstr ""
 msgid "No items parsed."
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:62
+#: lib/tore_web/live/pantry_live.ex:97
 #, elixir-autogen, elixir-format
 msgid "Nothing in the pantry yet. Items appear here when you check off groceries or send a photo of your shelves."
+msgstr ""
+
+#: lib/tore_web/live/pantry_live.ex:69
+#, elixir-autogen, elixir-format
+msgid "Keeps until"
+msgstr ""
+
+#: lib/tore_web/live/pantry_live.ex:77
+#, elixir-autogen, elixir-format
+msgid "approximately"
 msgstr ""
 
 #: lib/tore_web/live/shop_live.ex:304

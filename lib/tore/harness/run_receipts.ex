@@ -271,8 +271,13 @@ defmodule Tore.Harness.RunReceipts do
 
   defp restore_attrs(before) do
     before
-    |> Map.take([:last_seen_at, :provenance, :belief])
+    |> Map.take([:last_seen_at, :provenance, :belief, :added_at])
     |> Map.reject(fn {_, v} -> is_nil(v) end)
-    |> Map.merge(%{quantity: before[:quantity], unit: before[:unit]})
+    |> Map.merge(%{
+      quantity: before[:quantity],
+      unit: before[:unit],
+      expires_at: before[:expires_at],
+      expires_source: before[:expires_source]
+    })
   end
 end

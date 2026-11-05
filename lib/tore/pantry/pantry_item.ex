@@ -16,6 +16,7 @@ defmodule Tore.Pantry.PantryItem do
 
   @provenances ~w[manual receipt vision belief grocery_checkoff]
   @beliefs ~w[confirmed probable uncertain missing]
+  @expires_sources ~w[label estimate manual]
 
   def categories, do: @categories
 
@@ -38,9 +39,10 @@ defmodule Tore.Pantry.PantryItem do
   def derive_belief(_), do: "confirmed"
 
   # Belief decays with recency: the longer since we last observed the
-  # item, the less confident we are it's still there. Pure read-side
-  # projection — the stored row keeps the strongest observation; the UI
-  # asks for the *effective* belief at render time.
+  # item, the less confident we are it's still there. An expiry date replaces
+  # the fixed schedule, so fresh fish and salt don't lose belief alike. Pure
+  # read-side projection — the stored row keeps the strongest observation; the
+  # UI asks for the *effective* belief at render time.
   @confirmed_max_age_days 14
   @probable_max_age_days 30
 
@@ -51,6 +53,17 @@ defmodule Tore.Pantry.PantryItem do
   path) keep their stored belief.
   """
   @spec effective_belief(%__MODULE__{}, DateTime.t()) :: :confirmed | :probable | :uncertain | :missing
+  def effective_belief(%__MODULE__{belief: "missing"}, _now), do: :missing
+  def effective_belief(%__MODULE__{belief: "uncertain"}, _now), do: :uncertain
+
+  def effective_belief(%__MODULE__{expires_at: %Date{}} = item, %DateTime{} = now) do
+    cond do
+      past_date?(item, DateTime.to_date(now)) -> :uncertain
+      item.belief == "confirmed" and age_days(item, now) <= @confirmed_max_age_days -> :confirmed
+      true -> :probable
+    end
+  end
+
   def effective_belief(%__MODULE__{belief: belief, last_seen_at: nil}, _now),
     do: String.to_existing_atom(belief || "uncertain")
 
@@ -58,6 +71,15 @@ defmodule Tore.Pantry.PantryItem do
     age_days = DateTime.diff(now, seen, :day)
     decay(belief, age_days)
   end
+
+  @spec past_date?(%__MODULE__{}, Date.t()) :: boolean()
+  def past_date?(%__MODULE__{expires_at: %Date{} = expires_at}, %Date{} = today),
+    do: Date.after?(today, expires_at)
+
+  def past_date?(%__MODULE__{}, %Date{}), do: false
+
+  defp age_days(%__MODULE__{last_seen_at: nil}, _now), do: 0
+  defp age_days(%__MODULE__{last_seen_at: seen}, now), do: DateTime.diff(now, seen, :day)
 
   defp decay("confirmed", age) when age > @probable_max_age_days, do: :uncertain
   defp decay("confirmed", age) when age > @confirmed_max_age_days, do: :probable
@@ -75,6 +97,7 @@ defmodule Tore.Pantry.PantryItem do
     field :category, :string
     field :added_at, :date
     field :expires_at, :date
+    field :expires_source, :string
     field :provenance, :string, default: "manual"
     field :belief, :string, default: "confirmed"
     field :last_seen_at, :utc_datetime
@@ -92,6 +115,7 @@ defmodule Tore.Pantry.PantryItem do
       :ingredient_id,
       :added_at,
       :expires_at,
+      :expires_source,
       :provenance,
       :belief,
       :last_seen_at
@@ -101,6 +125,7 @@ defmodule Tore.Pantry.PantryItem do
     |> validate_inclusion(:category, category_values())
     |> validate_inclusion(:provenance, @provenances)
     |> validate_inclusion(:belief, @beliefs)
+    |> validate_inclusion(:expires_source, @expires_sources)
   end
 
   defp normalize_name(name), do: name |> String.trim() |> String.downcase()

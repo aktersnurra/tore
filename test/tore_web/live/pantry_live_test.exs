@@ -41,4 +41,42 @@ defmodule ToreWeb.PantryLiveTest do
     view |> element("button[phx-value-id=\"#{item.id}\"]") |> render_click()
     refute render(view) =~ "Olive oil"
   end
+
+  test "a guessed date is marked approximate, and setting one moves the item's belief", %{
+    conn: conn,
+    user: user
+  } do
+    conn = authed(conn, user)
+
+    {:ok, item, :added, _} =
+      Pantry.upsert_belief(%{name: "mjölk", provenance: "manual", shelf_life_days: 7})
+
+    {:ok, lv, html} = live(conn, "/settings/pantry")
+    assert html =~ Date.to_iso8601(Date.add(Date.utc_today(), 7))
+    assert html =~ "ungefär"
+    assert html =~ "Bekräftat hemma"
+
+    html =
+      lv
+      |> form("#expiry-#{item.id}", %{
+        "expires_at" => Date.to_iso8601(Date.add(Date.utc_today(), -1))
+      })
+      |> render_change()
+
+    refute html =~ "ungefär"
+    assert html =~ "Okänd"
+    assert Tore.Repo.get!(Tore.Pantry.PantryItem, item.id).expires_source == "manual"
+  end
+
+  test "clearing the date removes it", %{conn: conn, user: user} do
+    conn = authed(conn, user)
+
+    {:ok, item, :added, _} =
+      Pantry.upsert_belief(%{name: "mjölk", provenance: "manual", shelf_life_days: 7})
+
+    {:ok, lv, _html} = live(conn, "/settings/pantry")
+    lv |> form("#expiry-#{item.id}", %{"expires_at" => ""}) |> render_change()
+
+    assert Tore.Repo.get!(Tore.Pantry.PantryItem, item.id).expires_at == nil
+  end
 end

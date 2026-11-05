@@ -319,10 +319,12 @@ defmodule Tore.LLM.PlannerTools do
     %Tool{
       name: "pantry_snapshot",
       description:
-        "Approximate pantry inventory. Treat results as inexact — items may be missing or stale. Use before suggesting recipes that depend on specific ingredients.",
+        "Approximate pantry inventory. Treat results as inexact — items may be missing or stale. Use before suggesting recipes that depend on specific ingredients. Prefer recipes that use items whose expires_on is soon. Don't count items past expires_on as available.",
       kind: :read,
       parameters: %{type: "object", properties: %{}, required: []},
       run: fn _args, _ctx, plan ->
+        now = DateTime.utc_now()
+
         items =
           Tore.Pantry.list_inventory()
           |> Enum.map(fn it ->
@@ -331,7 +333,9 @@ defmodule Tore.LLM.PlannerTools do
               name: it.name,
               quantity: it.quantity && Decimal.to_string(it.quantity),
               unit: it.unit,
-              category: it.category
+              category: it.category,
+              expires_on: it.expires_at && Date.to_iso8601(it.expires_at),
+              belief: Tore.Pantry.PantryItem.effective_belief(it, now)
             }
           end)
 

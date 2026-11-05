@@ -347,7 +347,7 @@ defmodule Tore.Planning do
   end
 
   defp pantry_ingredient_names do
-    Pantry.list_inventory()
+    Pantry.list_usable()
     |> Enum.map(&String.downcase(&1.name))
     |> MapSet.new()
   end

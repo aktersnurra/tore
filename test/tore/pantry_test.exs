@@ -254,4 +254,152 @@ defmodule Tore.PantryTest do
 
     assert keys == [:confirmed, :probable, :uncertain]
   end
+
+  describe "shelf life" do
+    alias Tore.Pantry.PantryItem
+    alias Tore.Recipes.Ingredient
+
+    defp seen(belief, days_ago, expires_at) do
+      now = ~U[2026-11-05 12:00:00Z]
+
+      PantryItem.effective_belief(
+        %PantryItem{
+          belief: belief,
+          last_seen_at: DateTime.add(now, -days_ago, :day),
+          expires_at: expires_at
+        },
+        now
+      )
+    end
+
+    test "with a date, an item is confirmed for up to 14 days, then probable until the date" do
+      assert seen("confirmed", 3, ~D[2027-01-01]) == :confirmed
+      assert seen("confirmed", 15, ~D[2027-01-01]) == :probable
+      assert seen("confirmed", 200, ~D[2027-01-01]) == :probable
+      assert seen("probable", 200, ~D[2027-01-01]) == :probable
+    end
+
+    test "past its date an item is uncertain, however recently it was seen" do
+      assert seen("confirmed", 0, ~D[2026-11-05]) == :confirmed
+      assert seen("confirmed", 0, ~D[2026-11-04]) == :uncertain
+      assert seen("probable", 0, ~D[2026-11-04]) == :uncertain
+    end
+
+    test "a date doesn't bring back an item we believe is missing" do
+      assert seen("missing", 0, ~D[2027-01-01]) == :missing
+      assert seen("uncertain", 0, ~D[2027-01-01]) == :uncertain
+    end
+
+    test "with no date, the fixed decay still applies" do
+      assert seen("confirmed", 15, nil) == :probable
+      assert seen("confirmed", 31, nil) == :uncertain
+    end
+
+    test "buying an item stores the guess on the ingredient and dates the row" do
+      {:ok, item, :added, _} =
+        Pantry.upsert_belief(%{
+          catalogue_name: "Mjölk",
+          provenance: "grocery_checkoff",
+          shelf_life_days: 7
+        })
+
+      assert Repo.get(Ingredient, item.ingredient_id).shelf_life_days == 7
+      assert item.expires_at == Date.add(Date.utc_today(), 7)
+      assert item.expires_source == "estimate"
+    end
+
+    test "a new guess doesn't overwrite the shelf life we have" do
+      attrs = %{catalogue_name: "Mjölk", provenance: "grocery_checkoff"}
+      {:ok, item, :added, _} = Pantry.upsert_belief(Map.put(attrs, :shelf_life_days, 7))
+      {:ok, item, :bumped, _} = Pantry.upsert_belief(Map.put(attrs, :shelf_life_days, 30))
+
+      assert Repo.get(Ingredient, item.ingredient_id).shelf_life_days == 7
+      assert item.expires_at == Date.add(Date.utc_today(), 7)
+    end
+
+    test "a guess fills in an ingredient that has no shelf life, keeping its key" do
+      {:ok, ingredient} =
+        %Ingredient{}
+        |> Ingredient.changeset(%{name: "Mjölk", key: "mellanmjolk"})
+        |> Repo.insert()
+
+      {:ok, _, :added, _} =
+        Pantry.upsert_belief(%{
+          catalogue_name: "Mjölk",
+          matched_key: "mellanmjolk",
+          provenance: "grocery_checkoff",
+          shelf_life_days: 7
+        })
+
+      updated = Repo.get(Ingredient, ingredient.id)
+      assert updated.shelf_life_days == 7
+      assert updated.key == "mellanmjolk"
+    end
+
+    test "changing a date sticks through a photo and teaches the shelf life" do
+      {:ok, item, :added, _} =
+        Pantry.upsert_belief(%{
+          catalogue_name: "Mjölk",
+          provenance: "grocery_checkoff",
+          shelf_life_days: 7
+        })
+
+      chosen = Date.add(Date.utc_today(), 12)
+      assert {:ok, updated} = Pantry.set_expiry(item.id, chosen)
+      assert updated.expires_at == chosen
+      assert updated.expires_source == "manual"
+      assert Repo.get(Ingredient, item.ingredient_id).shelf_life_days == 12
+
+      {:ok, seen, :bumped, _} =
+        Pantry.upsert_belief(%{
+          catalogue_name: "Mjölk",
+          provenance: "vision",
+          expires_on: ~D[2030-01-01]
+        })
+
+      assert seen.expires_at == chosen
+
+      {:ok, bought, :bumped, _} =
+        Pantry.upsert_belief(%{catalogue_name: "Mjölk", provenance: "grocery_checkoff"})
+
+      assert bought.expires_at == Date.add(Date.utc_today(), 12)
+      assert bought.expires_source == "estimate"
+    end
+
+    test "clearing a date teaches nothing" do
+      {:ok, item, :added, _} =
+        Pantry.upsert_belief(%{
+          catalogue_name: "Mjölk",
+          provenance: "grocery_checkoff",
+          shelf_life_days: 7
+        })
+
+      assert {:ok, %{expires_at: nil, expires_source: nil}} = Pantry.set_expiry(item.id, nil)
+      assert Repo.get(Ingredient, item.ingredient_id).shelf_life_days == 7
+    end
+
+    test "a date already passed teaches nothing" do
+      {:ok, item, :added, _} =
+        Pantry.upsert_belief(%{
+          catalogue_name: "Mjölk",
+          provenance: "grocery_checkoff",
+          shelf_life_days: 7
+        })
+
+      assert {:ok, _} = Pantry.set_expiry(item.id, Date.add(Date.utc_today(), -1))
+      assert Repo.get(Ingredient, item.ingredient_id).shelf_life_days == 7
+    end
+
+    test "setting a date on an item that's gone says so" do
+      assert Pantry.set_expiry(-1, ~D[2026-12-01]) == {:error, :not_found}
+    end
+
+    test "list_usable leaves out items past their date" do
+      {:ok, _} = Pantry.add_item(%{name: "färsk", expires_at: Date.utc_today()})
+      {:ok, _} = Pantry.add_item(%{name: "gammal", expires_at: Date.add(Date.utc_today(), -1)})
+      {:ok, _} = Pantry.add_item(%{name: "utan datum"})
+
+      assert Pantry.list_usable() |> Enum.map(& &1.name) |> Enum.sort() == ["färsk", "utan datum"]
+    end
+  end
 end

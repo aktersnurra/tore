@@ -496,8 +496,8 @@ msgid "Recipes"
 msgstr "Recept"
 
 #: lib/tore_web/live/cost_live.ex:420
-#: lib/tore_web/live/pantry_live.ex:50
-#: lib/tore_web/live/pantry_live.ex:52
+#: lib/tore_web/live/pantry_live.ex:85
+#: lib/tore_web/live/pantry_live.ex:87
 #: lib/tore_web/live/settings_live.ex:342
 #: lib/tore_web/live/shop_live.ex:364
 #, elixir-autogen, elixir-format
@@ -1576,7 +1576,7 @@ msgstr "La till en måltid på %{day}"
 msgid "Adjusted servings on %{day}"
 msgstr "Justerade portioner på %{day}"
 
-#: lib/tore_web/live/pantry_live.ex:27
+#: lib/tore_web/live/pantry_live.ex:45
 #: lib/tore_web/live/settings_live.ex:437
 #, elixir-autogen, elixir-format
 msgid "Approximate inventory"
@@ -1859,7 +1859,7 @@ msgstr "Använd skafferi"
 msgid "Verifying"
 msgstr "Verifierar"
 
-#: lib/tore_web/live/pantry_live.ex:29
+#: lib/tore_web/live/pantry_live.ex:47
 #, elixir-autogen, elixir-format
 msgid "What Tore thinks you have. Remove anything that's wrong."
 msgstr "Vad Tore tror att du har. Ta bort allt som är fel."
@@ -1971,10 +1971,10 @@ msgstr "Lägg till vara"
 msgid "Back"
 msgstr "Tillbaka"
 
-#: lib/tore_web/live/pantry_live.ex:71
+#: lib/tore_web/live/pantry_live.ex:106
 #, elixir-autogen, elixir-format
 msgid "Confirmed at home"
-msgstr ""
+msgstr "Bekräftat hemma"
 
 #: lib/tore_web/live/run_review_live.ex:296
 #, elixir-autogen, elixir-format
@@ -2038,15 +2038,15 @@ msgstr "Klistra in en recept-URL eller släpp ett foto i Fånga"
 msgid "Plan"
 msgstr "Plan"
 
-#: lib/tore_web/live/pantry_live.ex:72
+#: lib/tore_web/live/pantry_live.ex:107
 #, elixir-autogen, elixir-format
 msgid "Probably at home"
-msgstr ""
+msgstr "Troligen hemma"
 
-#: lib/tore_web/live/pantry_live.ex:74
+#: lib/tore_web/live/pantry_live.ex:109
 #, elixir-autogen, elixir-format
 msgid "Probably missing"
-msgstr ""
+msgstr "Troligen slut"
 
 #: lib/tore_web/live/run_review_live.ex:494
 #, elixir-autogen, elixir-format
@@ -2084,7 +2084,7 @@ msgstr "Ångra"
 msgid "Undone."
 msgstr ""
 
-#: lib/tore_web/live/pantry_live.ex:73
+#: lib/tore_web/live/pantry_live.ex:108
 #, elixir-autogen, elixir-format
 msgid "Unknown"
 msgstr "Okänd"
@@ -2217,10 +2217,20 @@ msgstr "Varor"
 msgid "No items parsed."
 msgstr "Inga varor lästes in."
 
-#: lib/tore_web/live/pantry_live.ex:62
+#: lib/tore_web/live/pantry_live.ex:97
 #, elixir-autogen, elixir-format
 msgid "Nothing in the pantry yet. Items appear here when you check off groceries or send a photo of your shelves."
 msgstr "Inget i skafferiet än. Varor dyker upp här när du bockar av inköp eller skickar en bild på dina hyllor."
+
+#: lib/tore_web/live/pantry_live.ex:69
+#, elixir-autogen, elixir-format
+msgid "Keeps until"
+msgstr "Håller till"
+
+#: lib/tore_web/live/pantry_live.ex:77
+#, elixir-autogen, elixir-format
+msgid "approximately"
+msgstr "ungefär"
 
 #: lib/tore_web/live/shop_live.ex:304
 #, elixir-autogen, elixir-format

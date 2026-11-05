@@ -36,4 +36,23 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
     assert capsule.total == 0
     assert Capsule.to_prompt(capsule) == nil
   end
+
+  test "items that need using soon come first and are called out" do
+    for n <- 1..25, do: Tore.Pantry.add_item(%{name: "item #{n}", quantity: 1})
+    {:ok, _} = Tore.Pantry.add_item(%{name: "öl", expires_at: Date.add(Date.utc_today(), 90)})
+    {:ok, _} = Tore.Pantry.add_item(%{name: "ägg", expires_at: Date.add(Date.utc_today(), 3)})
+    {:ok, _} = Tore.Pantry.add_item(%{name: "ål", expires_at: Date.utc_today()})
+
+    capsule = Capsule.build(@ctx)
+
+    assert Enum.take(capsule.names, 2) == ["ål", "ägg"]
+    assert capsule.use_soon == ["ål", "ägg"]
+    assert Capsule.to_prompt(capsule) =~ "Use soon: ål, ägg."
+  end
+
+  test "items past their date aren't in the pantry" do
+    {:ok, _} = Tore.Pantry.add_item(%{name: "gammal", expires_at: Date.add(Date.utc_today(), -1)})
+
+    assert Capsule.build(@ctx) |> Capsule.to_prompt() == nil
+  end
 end

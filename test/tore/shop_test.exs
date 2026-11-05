@@ -168,4 +168,24 @@ defmodule Tore.ShopTest do
 
     assert annotated.pantry_belief == nil
   end
+
+  test "build_list filters only against pantry items still within their date" do
+    {:ok, _} = Tore.Pantry.add_item(%{name: "färsk ost", expires_at: Date.utc_today()})
+
+    {:ok, _} =
+      Tore.Pantry.add_item(%{name: "gammal ost", expires_at: Date.add(Date.utc_today(), -1)})
+
+    test_pid = self()
+
+    stub(Tore.MockLLM, :text, fn _system, user, _opts ->
+      send(test_pid, {:filter_prompt, user})
+      {:ok, %{"items" => []}, %{}}
+    end)
+
+    Shop.build_list("shop_list:2026-11-02", ~D[2026-11-02], [])
+
+    assert_received {:filter_prompt, prompt}
+    assert prompt =~ "färsk ost"
+    refute prompt =~ "gammal ost"
+  end
 end

@@ -18,6 +18,7 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
           quantity: Decimal.t() | nil,
           unit: String.t() | nil,
           category: String.t() | nil,
+          expires_on: Date.t() | nil,
           provenance: String.t(),
           last_seen_at: DateTime.t()
         }
@@ -66,6 +67,7 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
       "quantity" => decimal_to_string(it[:quantity]),
       "unit" => it[:unit],
       "category" => it[:category],
+      "expires_on" => it[:expires_on] && Date.to_iso8601(it[:expires_on]),
       "provenance" => it.provenance,
       "last_seen_at" => DateTime.to_iso8601(it.last_seen_at)
     }
@@ -78,6 +80,7 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
       quantity: to_decimal(m["quantity"]),
       unit: m["unit"],
       category: m["category"],
+      expires_on: m["expires_on"] && Date.from_iso8601!(m["expires_on"]),
       provenance: m["provenance"],
       last_seen_at: parse_dt(m["last_seen_at"])
     }

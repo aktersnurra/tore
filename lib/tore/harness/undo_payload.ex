@@ -270,6 +270,9 @@ defmodule Tore.Harness.UndoPayload do
     }
   end
 
+  defp date_to_iso(%Date{} = date), do: Date.to_iso8601(date)
+  defp date_to_iso(other), do: other
+
   defp before_to_json(nil), do: nil
 
   defp before_to_json(b) when is_map(b) do
@@ -278,7 +281,10 @@ defmodule Tore.Harness.UndoPayload do
       "unit" => b[:unit],
       "last_seen_at" => datetime_to_iso(b[:last_seen_at]),
       "provenance" => b[:provenance],
-      "belief" => b[:belief]
+      "belief" => b[:belief],
+      "added_at" => date_to_iso(b[:added_at]),
+      "expires_at" => date_to_iso(b[:expires_at]),
+      "expires_source" => b[:expires_source]
     }
   end
 
@@ -290,7 +296,10 @@ defmodule Tore.Harness.UndoPayload do
       unit: b["unit"],
       last_seen_at: iso_to_datetime(b["last_seen_at"]),
       provenance: b["provenance"],
-      belief: b["belief"]
+      belief: b["belief"],
+      added_at: b["added_at"],
+      expires_at: b["expires_at"],
+      expires_source: b["expires_source"]
     }
   end
 

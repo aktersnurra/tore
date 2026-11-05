@@ -14,6 +14,24 @@ defmodule ToreWeb.PantryLive do
     {:noreply, assign(socket, groups: Pantry.list_inventory_by_belief())}
   end
 
+  def handle_event("set_expiry", %{"item_id" => id, "expires_at" => value}, socket) do
+    case parse_expiry(value) do
+      {:ok, expires_at} -> Pantry.set_expiry(String.to_integer(id), expires_at)
+      :error -> :ok
+    end
+
+    {:noreply, assign(socket, groups: Pantry.list_inventory_by_belief())}
+  end
+
+  defp parse_expiry(""), do: {:ok, nil}
+
+  defp parse_expiry(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> {:ok, date}
+      {:error, _} -> :error
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -41,6 +59,23 @@ defmodule ToreWeb.PantryLive do
                 <p :if={item.quantity} class="text-xs text-stone-500">
                   {format_quantity(item.quantity, item.unit)}
                 </p>
+                <form
+                  id={"expiry-#{item.id}"}
+                  phx-change="set_expiry"
+                  class="mt-1 flex flex-wrap items-center gap-2 text-xs text-stone-500"
+                >
+                  <input type="hidden" name="item_id" value={item.id} />
+                  <label class="flex items-center gap-2">
+                    {gettext("Keeps until")}
+                    <input
+                      type="date"
+                      name="expires_at"
+                      value={item.expires_at}
+                      class="rounded border border-stone-200 bg-transparent px-1 py-0.5"
+                    />
+                  </label>
+                  <span :if={item.expires_source == "estimate"}>{gettext("approximately")}</span>
+                </form>
               </div>
               <button
                 type="button"

@@ -7,13 +7,14 @@ defmodule Tore.Recipes.Ingredient do
     field :key, :string
     field :category, :string
     field :default_unit, :string
+    field :shelf_life_days, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
     timestamps()
   end
 
   def changeset(ingredient, attrs) do
     ingredient
-    |> cast(attrs, [:name, :key, :category, :default_unit])
+    |> cast(attrs, [:name, :key, :category, :default_unit, :shelf_life_days])
     |> validate_required([:name])
     |> derive_key()
     |> unique_constraint(:name)

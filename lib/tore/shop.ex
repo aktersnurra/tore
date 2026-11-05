@@ -11,7 +11,7 @@ defmodule Tore.Shop do
 
   def build_list(list_id, week_start, recipe_ids) do
     all_items = Aggregator.aggregate_by_ids(recipe_ids)
-    pantry = Pantry.list_inventory()
+    pantry = Pantry.list_usable()
 
     items =
       if pantry == [] do

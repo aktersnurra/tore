@@ -387,12 +387,16 @@ defmodule Tore.LLM.Prompts do
         type: "array",
         items: %{
           type: "object",
-          required: ["name", "quantity", "unit", "category"],
+          required: ["name", "quantity", "unit", "category", "expires_on"],
           additionalProperties: false,
           properties: %{
             name: %{type: "string"},
             quantity: %{type: ["number", "null"]},
             unit: %{type: ["string", "null"]},
+            expires_on: %{
+              type: ["string", "null"],
+              description: "ISO 8601 yyyy-mm-dd date printed on the item; null if not readable."
+            },
             category: %{
               type: "string",
               enum: [
@@ -554,7 +558,14 @@ defmodule Tore.LLM.Prompts do
         type: "array",
         items: %{
           type: "object",
-          required: ["raw_name", "catalogue_name", "category", "default_unit", "matched_key"],
+          required: [
+            "raw_name",
+            "catalogue_name",
+            "category",
+            "default_unit",
+            "matched_key",
+            "shelf_life_days"
+          ],
           additionalProperties: false,
           properties: %{
             raw_name: %{type: "string"},
@@ -574,7 +585,8 @@ defmodule Tore.LLM.Prompts do
               ]
             },
             default_unit: %{type: ["string", "null"]},
-            matched_key: %{type: ["string", "null"]}
+            matched_key: %{type: ["string", "null"]},
+            shelf_life_days: %{type: ["integer", "null"]}
           }
         }
       }
@@ -633,6 +645,9 @@ defmodule Tore.LLM.Prompts do
       emit that key. Otherwise null (a new ingredient will be created).
       Match at the INGREDIENT level, not the product variant — different
       brands, pack sizes, fat percentages, or grades all map to one key.
+    - shelf_life_days: roughly how many days this ingredient keeps at home from
+      when it's bought, unopened and stored normally. Your best estimate is
+      fine. Use null only when the item isn't food.
 
     #{locale_phrase}
 

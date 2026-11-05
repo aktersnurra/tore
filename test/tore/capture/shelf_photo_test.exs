@@ -163,4 +163,94 @@ defmodule Tore.Capture.ShelfPhotoTest do
     refute Map.has_key?(bubble, :run_stream_id)
     assert Pantry.list_inventory() == []
   end
+
+  describe "shelf life" do
+    defp expect_guess(name, days, printed \\ nil) do
+      expect(Tore.MockLLM, :vision, fn _blobs, _system, _user, _opts ->
+        {:ok, %{"items" => [item(name) |> Map.put("expires_on", printed)]}, @usage}
+      end)
+
+      expect(Tore.MockLLM, :text, fn _system, _user, _opts ->
+        {:ok,
+         %{
+           "items" => [
+             %{
+               "raw_name" => name,
+               "catalogue_name" => name,
+               "category" => "other",
+               "default_unit" => nil,
+               "matched_key" => nil,
+               "shelf_life_days" => days
+             }
+           ]
+         }, @usage}
+      end)
+    end
+
+    test "with no printed date, the guess sets one", %{ctx: ctx} do
+      expect_guess("mjölk", 7)
+      Dispatch.update_pantry_from_shelf(photo(1), ctx)
+
+      assert row("mjölk").expires_at == Date.add(Date.utc_today(), 7)
+      assert row("mjölk").expires_source == "estimate"
+    end
+
+    test "a printed date beats the guess", %{ctx: ctx} do
+      expect_guess("mjölk", 7, "2026-12-24")
+      Dispatch.update_pantry_from_shelf(photo(1), ctx)
+
+      assert row("mjölk").expires_at == ~D[2026-12-24]
+      assert row("mjölk").expires_source == "label"
+    end
+
+    test "a guess that makes no sense and a date that can't be read leave no date", %{ctx: ctx} do
+      expect_guess("mjölk", 99_999, "snart")
+      Dispatch.update_pantry_from_shelf(photo(1), ctx)
+
+      assert row("mjölk").expires_at == nil
+      assert Repo.get!(Tore.Recipes.Ingredient, row("mjölk").ingredient_id).shelf_life_days == nil
+    end
+
+    test "a second photo doesn't make an item fresher", %{ctx: ctx} do
+      expect_guess("mjölk", 7)
+      Dispatch.update_pantry_from_shelf(photo(1), ctx)
+
+      {:ok, _} =
+        row("mjölk") |> Ecto.Changeset.change(expires_at: ~D[2026-11-06]) |> Repo.update()
+
+      expect_guess("mjölk", 7)
+      Dispatch.update_pantry_from_shelf(photo(2), ctx)
+
+      assert row("mjölk").expires_at == ~D[2026-11-06]
+    end
+
+    test "undo restores the date", %{ctx: ctx} do
+      {:ok, _, :added, _} = Pantry.upsert_belief(%{name: "mjölk", provenance: "manual"})
+
+      {:ok, _} = Pantry.set_expiry(row("mjölk").id, ~D[2026-12-01])
+
+      {:ok, _} =
+        row("mjölk") |> Ecto.Changeset.change(expires_source: "estimate") |> Repo.update()
+
+      expect_guess("mjölk", 7, "2027-02-02")
+      bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
+      assert row("mjölk").expires_at == ~D[2027-02-02]
+
+      assert :ok = RunReceipts.revert(bubble.run_stream_id)
+
+      assert row("mjölk").expires_at == ~D[2026-12-01]
+      assert row("mjölk").expires_source == "estimate"
+    end
+
+    test "undo clears a date the item didn't have before", %{ctx: ctx} do
+      {:ok, _, :added, _} = Pantry.upsert_belief(%{name: "mjölk", provenance: "manual"})
+
+      expect_guess("mjölk", 7)
+      bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
+      assert :ok = RunReceipts.revert(bubble.run_stream_id)
+
+      assert row("mjölk").expires_at == nil
+      assert row("mjölk").expires_source == nil
+    end
+  end
 end
