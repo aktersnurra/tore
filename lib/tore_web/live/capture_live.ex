@@ -62,8 +62,7 @@ defmodule ToreWeb.CaptureLive do
 
       ctx = %{
         household_id: Tore.Household.get_household!().id,
-        user_id: socket.assigns.current_user && socket.assigns.current_user.id,
-        locale: socket.assigns.current_user && socket.assigns.current_user.locale
+        user_id: socket.assigns.current_user && socket.assigns.current_user.id
       }
 
       pid = self()

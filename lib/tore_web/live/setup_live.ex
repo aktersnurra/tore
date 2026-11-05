@@ -110,7 +110,7 @@ defmodule ToreWeb.SetupLive do
                 </option>
               </select>
               <p class="mt-1 text-[color:var(--subtle)]" style="font-size: var(--t-meta);">
-                {gettext("Used for reading receipts, recipes and grocery labels.")}
+                {gettext("Used for reading receipts, recipes and grocery labels. You can't change this later.")}
               </p>
             </div>
 

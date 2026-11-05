@@ -59,7 +59,12 @@ defmodule Tore.Accounts do
     hash = Argon2.hash_pwd_salt(code)
 
     %User{}
-    |> User.registration_changeset(%{name: name, role: role, account_code_hash: hash})
+    |> User.registration_changeset(%{
+      name: name,
+      role: role,
+      account_code_hash: hash,
+      locale: Tore.Household.locale()
+    })
     |> Repo.insert()
     |> case do
       {:ok, user} -> {:ok, {user, code}}

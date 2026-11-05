@@ -90,8 +90,7 @@ defmodule Tore.Capture.Router do
 
   @type ctx :: %{
           required(:household_id) => integer(),
-          optional(:user_id) => integer() | nil,
-          optional(:locale) => String.t() | nil
+          optional(:user_id) => integer() | nil
         }
   @type reply :: map()
 
@@ -284,9 +283,9 @@ defmodule Tore.Capture.Router do
     end
   end
 
-  defp run_call(%{name: "import_recipe_from_url", args: %{"url" => url}}, _images, _count, ctx)
+  defp run_call(%{name: "import_recipe_from_url", args: %{"url" => url}}, _images, _count, _ctx)
        when is_binary(url) do
-    {:ok, [Dispatch.import_recipe_from_url(url, ctx[:locale])]}
+    {:ok, [Dispatch.import_recipe_from_url(url)]}
   end
 
   defp run_call(%{name: "report_unrecognised_image", args: args}, _images, _count, _ctx) do

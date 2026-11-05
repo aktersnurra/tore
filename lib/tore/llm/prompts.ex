@@ -424,14 +424,21 @@ defmodule Tore.LLM.Prompts do
     }
   end
 
-  def parse_pantry_image do
+  def parse_pantry_image(locale) do
     system = """
     You are a kitchen inventory assistant. Identify food and household items from photos.
     Respond with a JSON object only. No prose.
     """
 
-    user = File.read!(Path.join(@prompts_dir, "parse_pantry_image.eex"))
+    user = render("parse_pantry_image.eex", %{name_rule: pantry_name_rule(locale)})
     {system, user}
+  end
+
+  defp pantry_name_rule(locale) do
+    case Map.get(@locale_names, locale) do
+      nil -> "Keep each name in the language shown on the item"
+      language -> "name must be in #{language} (translate if needed)"
+    end
   end
 
   def parse_receipt do

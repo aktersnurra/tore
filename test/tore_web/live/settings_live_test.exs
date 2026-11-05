@@ -66,4 +66,12 @@ defmodule ToreWeb.SettingsLiveTest do
 
     assert Deals.list_store_configs() == []
   end
+
+  test "the household's language is shown and can't be changed", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/settings")
+
+    assert html =~ "Svenska"
+    refute has_element?(view, ~s(select[name="locale"]))
+    refute has_element?(view, ~s(form[phx-change="update_locale"]))
+  end
 end

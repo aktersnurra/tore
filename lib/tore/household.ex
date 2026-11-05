@@ -19,6 +19,10 @@ defmodule Tore.Household do
     end
   end
 
+  @doc "The language everything the household stores is written in."
+  @spec locale() :: String.t() | nil
+  def locale, do: get_household!().locale
+
   @doc """
   Update the singleton household. Used by Setup and Settings to change
   household-level fields like `:locale`.
@@ -43,9 +47,10 @@ defmodule Tore.Household do
     |> Enum.sort_by(&elem(&1, 1))
   end
 
-  defp locale_label("en"), do: "English"
-  defp locale_label("sv"), do: "Svenska"
-  defp locale_label(code), do: code
+  @spec locale_label(String.t()) :: String.t()
+  def locale_label("en"), do: "English"
+  def locale_label("sv"), do: "Svenska"
+  def locale_label(code), do: code
 
   @spec create_household(map()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
   def create_household(attrs) do

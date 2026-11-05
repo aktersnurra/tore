@@ -14,7 +14,7 @@ defmodule Tore.Accounts.User do
 
   def registration_changeset(user, attrs) do
     user
-    |> cast(attrs, [:name, :role, :account_code_hash])
+    |> cast(attrs, [:name, :role, :account_code_hash, :locale])
     |> validate_required([:name, :role, :account_code_hash])
     |> validate_length(:name, min: 1, max: 100)
   end

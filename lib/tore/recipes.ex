@@ -124,10 +124,8 @@ defmodule Tore.Recipes do
     :ok
   end
 
-  @spec scrape_from_url(String.t(), String.t() | nil) :: {:ok, Recipe.t()} | {:error, term()}
-  def scrape_from_url(url, locale \\ nil) do
-    scrape_and_create(url, locale || household_locale())
-  end
+  @spec scrape_from_url(String.t()) :: {:ok, Recipe.t()} | {:error, term()}
+  def scrape_from_url(url), do: scrape_and_create(url)
 
   @doc """
   Fetch and parse a recipe URL **without** writing it to the catalog. Used by
@@ -144,9 +142,9 @@ defmodule Tore.Recipes do
     end
   end
 
-  @spec extract_from_images([binary()], String.t() | nil) :: {:ok, map()} | {:error, term()}
-  def extract_from_images(binaries, locale \\ nil) do
-    system = Tore.LLM.Prompts.parse_recipe_images(locale)
+  @spec extract_from_images([binary()]) :: {:ok, map()} | {:error, term()}
+  def extract_from_images(binaries) do
+    system = Tore.LLM.Prompts.parse_recipe_images(household_locale())
     blobs = Enum.map(binaries, &{:image, &1})
 
     with {:ok, data, _usage} <-

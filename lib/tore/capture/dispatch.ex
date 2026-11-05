@@ -157,9 +157,9 @@ defmodule Tore.Capture.Dispatch do
 
   # ── URL import ─────────────────────────────────────────────────────────
 
-  @spec import_recipe_from_url(String.t(), String.t() | nil) :: bubble()
-  def import_recipe_from_url(url, locale) when is_binary(url) do
-    case Tore.Recipes.scrape_from_url(url, locale) do
+  @spec import_recipe_from_url(String.t()) :: bubble()
+  def import_recipe_from_url(url) when is_binary(url) do
+    case Tore.Recipes.scrape_from_url(url) do
       {:ok, recipe} ->
         %{role: :assistant, recipe_card: true, recipe_id: recipe.id, title: recipe.title}
 

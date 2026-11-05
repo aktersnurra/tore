@@ -5,7 +5,7 @@ defmodule Tore.Pantry do
   alias Tore.Recipes.Ingredient
 
   def parse_image(image_binary) do
-    {system, user} = Tore.LLM.Prompts.parse_pantry_image()
+    {system, user} = Tore.LLM.Prompts.parse_pantry_image(Tore.Household.locale())
 
     with {:ok, data, _usage} <-
            Tore.LLM.vision([{:image, image_binary}], system, user,

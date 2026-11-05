@@ -22,13 +22,12 @@ defmodule ToreWeb.PrepLive do
 
   def handle_event("generate_guide", _params, socket) do
     %{plan_id: plan_id, week_start: week_start} = socket.assigns
-    locale = socket.assigns[:current_user] && socket.assigns.current_user.locale
     lv = self()
 
     Task.start(fn ->
       result =
         try do
-          Prep.generate_guide(plan_id, week_start, locale)
+          Prep.generate_guide(plan_id, week_start)
         rescue
           e -> {:error, e}
         catch

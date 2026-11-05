@@ -6,7 +6,7 @@ Return a JSON object with this exact structure:
 {
   "items": [
     {
-      "name": "string — item name in Swedish",
+      "name": "string — item name",
       "quantity": 1,
       "unit": "string or null — e.g. g, kg, ml, dl, st, förp",
       "category": "string — one of the fixed values listed below",
@@ -19,7 +19,7 @@ Rules:
 - Include every distinct food or household item you can identify
 - Estimate quantity if visible (e.g. "3" eggs, "500" for a 500g pack); use null if unclear
 - Use null for unit when it cannot be determined
-- name must be in Swedish (translate if needed)
+- <%= @name_rule %>
 - Use null for expires_on unless a date is clearly readable on the item. Do not guess it
 - category must be exactly one of these values (use "other" if unsure):
   dairy, meat, produce, frozen, dry_goods, canned, herbs_spices, condiments, other
