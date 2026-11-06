@@ -13,6 +13,8 @@ defmodule Tore.Capture.Router do
   and the model gets one more shot. Capped at @max_tool_loop_iterations.
   """
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.AiOperations
   alias Tore.Capture.Dispatch
   alias Tore.Harness.Capsules
@@ -793,6 +795,6 @@ defmodule Tore.Capture.Router do
   end
 
   defp fallback_text do
-    Gettext.dgettext(ToreWeb.Gettext, "default", "Sorry, I couldn't process that. Please try again.")
+    gettext("Sorry, I couldn't process that. Please try again.")
   end
 end

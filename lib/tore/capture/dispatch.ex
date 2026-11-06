@@ -23,7 +23,6 @@ defmodule Tore.Capture.Dispatch do
   alias Tore.Storage.RunPhotos
 
   @days ~w(mon tue wed thu fri sat sun)
-  @day_long ~w(Monday Tuesday Wednesday Thursday Friday Saturday Sunday)
   @default_servings 4
   @suggestion_limit 4
 
@@ -138,12 +137,9 @@ defmodule Tore.Capture.Dispatch do
 
         text =
           if names == "" do
-            Gettext.dgettext(ToreWeb.Gettext, "default", "I can see your fridge but it looks empty.")
+            gettext("I can see your fridge but it looks empty.")
           else
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "I can see %{names} in your fridge. Want me to suggest some recipes?",
+            gettext("I can see %{names} in your fridge. Want me to suggest some recipes?",
               names: names
             )
           end
@@ -164,13 +160,13 @@ defmodule Tore.Capture.Dispatch do
         %{role: :assistant, recipe_card: true, recipe_id: recipe.id, title: recipe.title}
 
       {:error, :not_a_recipe} ->
-        %{role: :assistant, text: Gettext.dgettext(ToreWeb.Gettext, "default", "That page doesn't look like a recipe.")}
+        %{role: :assistant, text: gettext("That page doesn't look like a recipe.")}
 
       {:error, :timeout} ->
-        %{role: :assistant, text: Gettext.dgettext(ToreWeb.Gettext, "default", "The site didn't respond. Try again in a moment.")}
+        %{role: :assistant, text: gettext("The site didn't respond. Try again in a moment.")}
 
       {:error, _reason} ->
-        %{role: :assistant, text: Gettext.dgettext(ToreWeb.Gettext, "default", "Couldn't import that URL.")}
+        %{role: :assistant, text: gettext("Couldn't import that URL.")}
     end
   end
 
@@ -183,9 +179,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
+            gettext(
               "I couldn't find a recipe matching \"%{q}\". Want me to import one from a URL?",
               q: query
             )
@@ -201,7 +195,7 @@ defmodule Tore.Capture.Dispatch do
           top_recipe_id: top.id,
           top_title: top.title,
           candidate_ids: Enum.map(candidates, & &1.id),
-          text: Gettext.dgettext(ToreWeb.Gettext, "default", "I found: %{titles}.", titles: titles)
+          text: gettext("I found: %{titles}.", titles: titles)
         }
     end
   end
@@ -225,10 +219,7 @@ defmodule Tore.Capture.Dispatch do
         {%{
            role: :assistant,
            text:
-             Gettext.dgettext(
-               ToreWeb.Gettext,
-               "default",
-               "Added %{title} to %{day} %{date}.",
+             gettext("Added %{title} to %{day} %{date}.",
                title: title,
                day: long_day_for(date),
                date: Date.to_iso8601(date)
@@ -254,10 +245,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Cleared %{day} %{date}.",
+            gettext("Cleared %{day} %{date}.",
               day: long_day_for(date),
               date: Date.to_iso8601(date)
             )
@@ -282,9 +270,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
+            gettext(
               "Your recipe library is empty. Import a recipe and I'll suggest from your pantry next time."
             )
         }
@@ -300,12 +286,7 @@ defmodule Tore.Capture.Dispatch do
           role: :assistant,
           pantry_suggestions: true,
           suggestions: suggestions,
-          text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Here's what works with what you have:"
-            )
+          text: gettext("Here's what works with what you have:")
         }
 
       {:error, reason} ->
@@ -326,10 +307,7 @@ defmodule Tore.Capture.Dispatch do
           role: :assistant,
           shop_link: true,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Added %{label} to the shopping list.",
+            gettext("Added %{label} to the shopping list.",
               label: shopping_label(name, qty, unit)
             )
         }
@@ -358,10 +336,7 @@ defmodule Tore.Capture.Dispatch do
               role: :assistant,
               shop_link: true,
               text:
-                Gettext.dgettext(
-                  ToreWeb.Gettext,
-                  "default",
-                  "Checked off %{name}.",
+                gettext("Checked off %{name}.",
                   name: item.name
                 )
             }
@@ -376,10 +351,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Multiple shopping items match \"%{q}\": %{names}. Which one?",
+            gettext("Multiple shopping items match \"%{q}\": %{names}. Which one?",
               q: name,
               names: names
             )
@@ -389,10 +361,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "No shopping item matches \"%{q}\".",
+            gettext("No shopping item matches \"%{q}\".",
               q: name
             )
         }
@@ -408,7 +377,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           shop_link: true,
-          text: Gettext.dgettext(ToreWeb.Gettext, "default", "Your shopping list is empty.")
+          text: gettext("Your shopping list is empty.")
         }
 
       {:ok, %{items: items}} ->
@@ -428,10 +397,7 @@ defmodule Tore.Capture.Dispatch do
           shop_link: true,
           shopping_items: rendered,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Shopping list (%{n} items):",
+            gettext("Shopping list (%{n} items):",
               n: length(rendered)
             )
         }
@@ -463,9 +429,7 @@ defmodule Tore.Capture.Dispatch do
               role: :assistant,
               shop_link: true,
               text:
-                Gettext.dgettext(
-                  ToreWeb.Gettext,
-                  "default",
+                gettext(
                   "Built a shopping list for the week of %{date} from %{n} planned recipes.",
                   date: Date.to_iso8601(week_start),
                   n: length(recipe_ids)
@@ -497,7 +461,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(ToreWeb.Gettext, "default", "Added %{name} to the pantry.",
+            gettext("Added %{name} to the pantry.",
               name: item.name
             )
         }
@@ -506,10 +470,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Bumped %{name} in the pantry.",
+            gettext("Bumped %{name} in the pantry.",
               name: item.name
             )
         }
@@ -528,7 +489,7 @@ defmodule Tore.Capture.Dispatch do
             %{
               role: :assistant,
               text:
-                Gettext.dgettext(ToreWeb.Gettext, "default", "Removed %{name} from the pantry.",
+                gettext("Removed %{name} from the pantry.",
                   name: item.name
                 )
             }
@@ -543,10 +504,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Multiple pantry items match \"%{q}\": %{names}. Which one?",
+            gettext("Multiple pantry items match \"%{q}\": %{names}. Which one?",
               q: name,
               names: names
             )
@@ -556,10 +514,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Nothing in the pantry matches \"%{q}\".",
+            gettext("Nothing in the pantry matches \"%{q}\".",
               q: name
             )
         }
@@ -580,7 +535,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(ToreWeb.Gettext, "default", "Yes — %{name}%{qty} is in the pantry.",
+            gettext("Yes — %{name}%{qty} is in the pantry.",
               name: item.name,
               qty: qty_str
             )
@@ -592,10 +547,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Several pantry items match: %{names}.",
+            gettext("Several pantry items match: %{names}.",
               names: names
             )
         }
@@ -604,7 +556,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(ToreWeb.Gettext, "default", "No, %{name} isn't in the pantry.",
+            gettext("No, %{name} isn't in the pantry.",
               name: name
             )
         }
@@ -619,7 +571,7 @@ defmodule Tore.Capture.Dispatch do
 
     %{
       role: :assistant,
-      text: Gettext.dgettext(ToreWeb.Gettext, "default", "Marked the recipe as cooked tonight.")
+      text: gettext("Marked the recipe as cooked tonight.")
     }
   end
 
@@ -634,10 +586,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(
-              ToreWeb.Gettext,
-              "default",
-              "Set servings on %{day} %{date} to %{n}.",
+            gettext("Set servings on %{day} %{date} to %{n}.",
               day: long_day_for(date),
               date: Date.to_iso8601(date),
               n: servings
@@ -666,12 +615,12 @@ defmodule Tore.Capture.Dispatch do
         text =
           if pinned?,
             do:
-              Gettext.dgettext(ToreWeb.Gettext, "default", "Pinned %{day} %{date}.",
+              gettext("Pinned %{day} %{date}.",
                 day: long_day_for(date),
                 date: Date.to_iso8601(date)
               ),
             else:
-              Gettext.dgettext(ToreWeb.Gettext, "default", "Unpinned %{day} %{date}.",
+              gettext("Unpinned %{day} %{date}.",
                 day: long_day_for(date),
                 date: Date.to_iso8601(date)
               )
@@ -693,7 +642,7 @@ defmodule Tore.Capture.Dispatch do
         %{
           role: :assistant,
           text:
-            Gettext.dgettext(ToreWeb.Gettext, "default", "Marked %{day} %{date} as skipped.",
+            gettext("Marked %{day} %{date} as skipped.",
               day: long_day_for(date),
               date: Date.to_iso8601(date)
             )
@@ -726,8 +675,13 @@ defmodule Tore.Capture.Dispatch do
   def report_unrecognised_image(suggestion) do
     text =
       case suggestion do
-        s when is_binary(s) and s != "" -> s
-        _ -> Gettext.dgettext(ToreWeb.Gettext, "default", "I wasn't sure what that photo showed. Could you tell me — is it a receipt, a recipe, or your fridge?")
+        s when is_binary(s) and s != "" ->
+          s
+
+        _ ->
+          gettext(
+            "I wasn't sure what that photo showed. Could you tell me — is it a receipt, a recipe, or your fridge?"
+          )
       end
 
     %{role: :assistant, text: text}
@@ -800,7 +754,17 @@ defmodule Tore.Capture.Dispatch do
     "#{day_abbrev}_dinner"
   end
 
-  defp long_day_for(%Date{} = date), do: Enum.at(@day_long, Date.day_of_week(date) - 1)
+  defp long_day_for(%Date{} = date) do
+    case Date.day_of_week(date) do
+      1 -> pgettext("in a sentence", "Monday")
+      2 -> pgettext("in a sentence", "Tuesday")
+      3 -> pgettext("in a sentence", "Wednesday")
+      4 -> pgettext("in a sentence", "Thursday")
+      5 -> pgettext("in a sentence", "Friday")
+      6 -> pgettext("in a sentence", "Saturday")
+      7 -> pgettext("in a sentence", "Sunday")
+    end
+  end
 
   defp next_empty_slot_key(%Date{} = today) do
     week_start = Date.add(today, -(Date.day_of_week(today) - 1))
@@ -831,15 +795,6 @@ defmodule Tore.Capture.Dispatch do
     require Logger
     Logger.warning("Capture.Dispatch #{kind} failed: #{inspect(reason)}")
 
-    %{
-      role: :assistant,
-      text:
-        Gettext.dgettext(
-          ToreWeb.Gettext,
-          "default",
-          "Something went wrong processing the %{kind} photo.",
-          kind: to_string(kind)
-        )
-    }
+    %{role: :assistant, text: gettext("Something went wrong. Please try again.")}
   end
 end
