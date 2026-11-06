@@ -1,4 +1,4 @@
-It assumes Tore is **not** a CRUD planner with AI bolted on. It is a **calm, agentic kitchen operating surface**: the plan is already there, the grocery list is reliable, the AI is visible only when useful, and the kiosk stays brutally focused on tonight. That lines up with your current product philosophy: good guesses, easy corrections, no nags, grocery list as reliability anchor, and a two-interface model for phone/laptop plus kiosk. 
+It assumes Tore is **not** a CRUD planner with AI bolted on. It is a **calm, agentic kitchen operating surface**: the plan is already there, the grocery list is reliable, and the AI is visible only when useful. That lines up with your current product philosophy: good guesses, easy corrections, no nags, and the grocery list as reliability anchor.
 
 ---
 
@@ -46,7 +46,6 @@ Shop      → What do we need to buy?
 Capture   → What can Tore understand from text/photo?
 Cook      → What do I do right now?
 Settings  → What does Tore know and how does it behave?
-Kiosk     → What is dinner tonight?
 ```
 
 A screen fails review if it has more than one dominant action.
@@ -95,29 +94,11 @@ Ambient intelligence appears only where it helps:
 Home:      "Use the yoghurt before Friday?"
 Plan:      "Thursday is fragile. Make it leftovers?"
 Shop:      "This list changed after Tuesday's swap."
-Kiosk:     "Rice is already prepped."
 ```
 
 No push notifications. No nags. No streaks. Your current spec already requires proactive intelligence to appear inline and explicitly forbids interruption. 
 
-**Three rules for predictions (shipped, 2026-08 — the anticipation layer,
-see `docs/specs/2026-07-04-surface-consolidation-design.md`
-§3):**
-
-```md
-Rule 1 — Replace, never add. Predictions replace a surface's generic
-affordance (a button label, a placeholder, a form) instead of adding a new
-element. Same element count with or without a prediction.
-
-Rule 2 — Precomputed, never awaited. Predictions render instantly from
-notes materialized by the daily/debounced ambient scan. No LLM call, no
-spinner, no "predicting…" state on page load. Nothing precomputed → the
-surface shows its ordinary generic affordance.
-
-Rule 3 — Dismissal is signal. Swiping a prediction away tombstones it and
-feeds the next scan's prompt ("do not re-propose this"). The system learns
-what not to predict, not just what to predict.
-```
+Plan 3 built predictions on Today, the plan slot sheet, Shop and the Capture tray. They were removed on 2026-11-08 (SPEC.md §3).
 
 ### 2.4 The user never has to maintain the machine
 
@@ -171,11 +152,10 @@ Pantry
 Deals
 Costs
 Prep
-Inbox
 ```
 
-Those are system resources, not user destinations. The run inbox is reached
-through Today's review pill and Settings → Run history, never from the nav.
+Those are system resources, not user destinations. A pending review is reached
+through Today's review pill, never from the nav.
 
 ### 3.2 Route map
 
@@ -188,16 +168,13 @@ through Today's review pill and Settings → Run history, never from the nav.
 /settings      → Settings
 /settings/pantry
 /settings/costs
-/inbox         → Run history (not in nav; via review pill + Settings)
-/runs/:id      → Run review (not in nav; deep-linkable)
+/review        → Opens the oldest pending review (not in nav; via review pill)
+/runs/:id      → Run review: a receipt to check, or a recipe proposal to save or discard (not in nav; deep-linkable)
 /recipes       → Recipe catalog (system resource, not in nav)
-/prep          → Prep guide (system resource, not in nav)
-/deals         → Deals (system resource, not in nav)
-/kiosk         → Kiosk Today
-/kiosk/capture
+/prep          → Prep guide (system resource, via Plan's "Prep this week")
 ```
 
-Surfaces stay routable so deep links work, but capture/inbox/run-review are
+Surfaces stay routable so deep links work, but capture and run-review are
 presented as layers, not destinations.
 
 ### 3.3 Navigation behavior
@@ -215,15 +192,6 @@ On desktop/tablet:
 Header:
 Today · Plan · Shop · Capture · Settings
 ```
-
-On kiosk:
-
-```md
-No nav.
-Only Tonight, Cook, and restricted Kiosk Capture.
-```
-
-The kiosk must remain narrow: tonight’s recipe, prepped components, one counter note, next three days, and no planning/editing. 
 
 ---
 
@@ -406,7 +374,6 @@ Floating command bar
 Bottom sheets
 Run receipt drawer
 Active dragged meal
-Kiosk hero card
 ```
 
 ## 4.8 Motion
@@ -497,7 +464,6 @@ Examples:
 - Tonight’s meal
 - Current week plan status
 - Grocery list readiness
-- Kiosk dinner card
 ```
 
 Structure:
@@ -555,26 +521,6 @@ Seen 7 times
 ```
 
 AI memory needs transparent controls. Microsoft’s Human-AI guidelines emphasize that systems should learn from behavior, adapt cautiously, and convey the consequences of user actions. ([Microsoft][7])
-
-### Counter note
-
-Inline, small, dismissible.
-
-```md
-Use the yoghurt before Friday?
-Chicken marinade would use what Tore thinks is left.
-
-[Add to Wednesday] [Dismiss]
-```
-
-Rules:
-
-```md
-Only one primary counter note per surface.
-Never stack more than two.
-Never interrupt.
-Never use red unless it is truly destructive or unsafe.
-```
 
 ## 5.3 Buttons
 
@@ -689,8 +635,7 @@ Hero
 
 Secondary
 - Tomorrow compact card
-- One opportunity/counter note
-- Review pill ("N to review") — only when runs await the user; links to run history; never red, never badge-styled
+- Review pill ("N to review") — only when runs await the user; opens the oldest pending review, then returns here; never red, never badge-styled
 
 Bar
 - [Today] [Plan] (pill) [Shop] — the pill is the Capture entry; no floating FAB
@@ -718,6 +663,8 @@ Rice is already prepped
 [Swap]
 ```
 
+On a night marked as eating out, the hero says "Eating out tonight" instead, with no cooking action.
+
 ### Rules
 
 ```md
@@ -728,14 +675,6 @@ Today must not show spending charts.
 Today must not show more than one proactive note by default.
 ```
 
-### Hero card prediction (shipped, 2026-08)
-
-Rule 1 applied to the hero card: the second action button is replaced by
-the top actionable home-surface prediction, max one. Tapping it follows the
-prediction (accepts the note and dispatches its `proposed_run`) instead of
-opening a generic flow. No prediction → the button reverts to its generic
-label ("Swap").
-
 ### Tonight-card long-press sheet (shipped, 2026-08)
 
 Long-pressing the tonight card (500 ms) raises a sheet scoped to today,
@@ -743,8 +682,6 @@ mirroring §6.2's slot sheet:
 
 ```md
 Tonight · Pork skewers with cucumber yoghurt
-─────────────────────────────
-Swap with Thursday's gratäng   ← scoped predictions (max one, §2.3)
 ─────────────────────────────
 [ input field scoped to tonight ]
 ```
@@ -772,10 +709,11 @@ Header
 - Generate/refresh subtle action
 
 Top
-- One counter note or run receipt
+- Run receipt, when there is one
 
 Main
 - Seven-day meal board
+- "Prep this week" link, a quiet way to the prep guide. Optional and on demand: nothing asks you to prep
 
 Bottom
 - Sticky command bar
@@ -826,6 +764,17 @@ Mark leftover
 Set servings
 Pin
 Remove
+Eating out
+```
+
+Eating out:
+
+```md
+Works on any day, with or without a recipe. Cancels any recipe that day
+Optional place and amount, now or later from the same sheet
+The row reads "Eating out"
+"Not eating out", or picking a recipe, removes it and its cost entry
+Not a plan gap. Tore's planner leaves the day alone
 ```
 
 Drag meal:
@@ -859,11 +808,6 @@ Quiet placeholder copy ("Anything about this day…")
 No AI branding, no AI iconography
 Silent until used — no idle affordance calling attention to itself
 ```
-
-Slot sheet predictions (shipped, 2026-08): the open slot sheet also lists
-predictions scoped to that slot, above the command input, as tappable rows
-(§2.3 Rule 1) — the top-level week counter-note list (§5.2) shows only
-unscoped predictions, so a scoped prediction is never shown twice.
 
 ### Critical rule
 
@@ -960,13 +904,6 @@ Do not show pantry as exact truth.
 
 This follows your spec’s rule that groceries are the reliability anchor and must survive missing plans, missing pantry data, and LLM failure. 
 
-### Predicted add (shipped, 2026-08)
-
-Rule 1 applied to the add-item input: the field's placeholder becomes the
-predicted item's name instead of the generic "Add item…". Submitting with
-an empty name accepts the prediction; typed text always wins over the
-prediction. No prediction → the placeholder reverts to "Add item…".
-
 ### Grocery-row long-press sheet (shipped, 2026-08)
 
 Long-pressing a grocery row (500 ms) raises an item sheet, mirroring §6.2's
@@ -1040,18 +977,6 @@ Suggested:
 
 The default outcome should be a useful artifact, not a question. Your current spec says the fridge-photo flow must end in three concrete recipe suggestions with “add to tonight,” not stop at “Want me to suggest some recipes?” 
 
-### Tray half state (shipped, 2026-08)
-
-Per `docs/specs/2026-07-04-surface-consolidation-design.md` §4,
-Capture is reached as the command pill's tray, not a page. Its default
-("half") state lists the origin surface's actionable predictions (Home →
-`home`, Plan → `week`, Shop → `groceries`) above the multimodal input, as
-tappable rows — the same notes §2.3/§6.1/§6.2/§6.3 render on their home
-surfaces. The list renders only while no message has been sent in the
-session; once the user sends one, the predictions are gone for that tray
-open (no transcript, closing discards the view). No AI branding — no
-sparkle/robot iconography, no "Ask AI" label, matter-of-fact row copy.
-
 ## 6.5 Cooking mode
 
 ### Job
@@ -1104,62 +1029,7 @@ Greek yoghurt · garlic · lemon · salt
 [Next]
 ```
 
-## 6.6 Kiosk
-
-### Job
-
-Answer in two seconds:
-
-```md
-What is dinner tonight?
-```
-
-### Layout
-
-```md
-Full-screen warm background
-
-Hero:
-- Large meal image or tonal placeholder
-- Recipe name
-- Time
-- Servings
-- Start cooking
-
-Below:
-- Already prepped
-- Next 3 days strip
-- One kiosk note
-```
-
-### Kiosk card
-
-```md
-Tonight
-
-Pork skewers
-35 min · 2 servings
-
-Rice is already prepped
-
-[Start cooking]
-```
-
-### Kiosk rules
-
-```md
-No week calendar.
-No edit controls.
-No grocery management.
-No pantry.
-No spending.
-No settings.
-No multi-card dashboard.
-```
-
-The current spec is already correct here: kiosk root is intentionally narrow and planning happens on phone/laptop. 
-
-## 6.7 Settings
+## 6.6 Settings
 
 ### Job
 
@@ -1172,18 +1042,33 @@ What does Tore know, and how can I correct it?
 ### Sections
 
 ```md
+Users
 Household
 Kitchen Memory
-Devices
+Stores
+AI usage
 Pantry belief
 Spending
-Run history
-Account
 ```
 
-Run history is the full kitchen-runs audit list (the old inbox): everything
-Tore has done and how to undo it. Reachable, never surfaced — the calm home
-for the rare "what happened last month?" dig.
+Household shows the language, chosen once at setup and locked afterwards.
+
+### Stores
+
+```md
+Paste a link to a store's offers
+[Add]
+
+ICA Supermarket Danvikstull    [On] [Remove]
+```
+
+Rules:
+
+```md
+The link is all it asks for. The store's name and chain come from the link.
+A link Tore has no parser for gets "Tore can't read that store yet".
+No page of deals. Tore's planner reads them.
+```
 
 ### Kitchen Memory
 
@@ -1211,6 +1096,40 @@ No AI debug logs for normal users.
 ```
 
 Google’s PAIR guidance emphasizes that AI products need clear mental models, staged expectation-setting, and feedback/control mechanisms, especially because AI systems adapt over time. ([Pair][8])
+
+## 6.7 Costs
+
+### Job
+
+Answer:
+
+```md
+What did food cost this month?
+```
+
+### Layout
+
+```md
+Header
+- "Food costs"
+
+Main
+- Total this month, with the change from last month
+- Recent receipts (five)
+- Eating out this month
+
+Bottom
+- Scan receipt photo, or enter a total by hand
+```
+
+Rules:
+
+```md
+One page, reached from Settings. Not in the nav.
+No tabs, charts or breakdowns: nothing here that changes what Tore does next.
+A receipt photo opens its review card, then returns here.
+Receipts record cost only. They never change the pantry or the list.
+```
 
 ---
 
@@ -1393,16 +1312,6 @@ Full-width board for Plan
 Keyboard shortcuts allowed
 ```
 
-## Kiosk
-
-```md
-No scroll on root if possible
-Large typography
-Large buttons
-Touch-first
-Readable at 1–2 meters
-```
-
 WCAG’s reflow guidance also matters for the web app: content should adapt without loss of information/functionality and avoid two-dimensional scrolling except where the layout itself requires it. ([W3C][4])
 
 ---
@@ -1466,7 +1375,6 @@ LLM
 Agent
 Tool call
 Inference
-CounterNote
 Aggregate
 Decider
 Pipeline
@@ -1539,7 +1447,6 @@ ToreWeb.UI.LeftRail
 ToreWeb.UI.Card
 ToreWeb.UI.HeroCard
 ToreWeb.UI.DecisionCard
-ToreWeb.UI.CounterNote
 ToreWeb.UI.RunReceipt
 ToreWeb.UI.CommandBar
 ToreWeb.UI.BottomSheet
@@ -1547,7 +1454,6 @@ ToreWeb.UI.WeekStrip
 ToreWeb.UI.MealSlot
 ToreWeb.UI.GroceryItem
 ToreWeb.UI.EmptyState
-ToreWeb.UI.KioskHero
 ```
 
 ## 12.2 Design tokens
@@ -1659,7 +1565,6 @@ Can the user undo meaningful changes?
 Does the UI explain AI changes without exposing internals?
 Does the screen work if the LLM fails?
 Does manual grocery add still work?
-Does the kiosk remain edit-free?
 Are pantry and costs still demoted?
 Are touch targets large enough?
 Is focus visible?

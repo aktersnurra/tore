@@ -8,15 +8,16 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 
 ## What it does
 
-- **Weekly meal planning** — AI generates a full week of dinners from your recipe catalog, respecting pantry stock, current supermarket deals, and dietary guidance you configure.
-- **Recipe management** — scrape recipes from URLs, parse receipts from photos, store and browse your collection. Recipes are translated into your locale at import time.
-- **Pantry tracking** — log what you have at home; the planner and grocery list use it automatically.
-- **Grocery list** — auto-generated from the week's plan, aggregated by ingredient.
-- **Deal scraping** — pulls current deals from ICA and Coop; the planner biases toward cheap ingredients.
-- **Cost tracking** — log receipts and dining-out expenses; summarised on the cost view.
-- **Per-slot suggestions** — open any meal slot to get ranked recipe suggestions (rule-based + one LLM pick).
-- **Dietary guidance** — free-text field in settings, injected as a constraint into every LLM prompt.
-- **Localisation** — full Swedish UI via Gettext; locale stored per user.
+- **Weekly meal planning** — fills open dinners on Saturdays from your recipe catalog, respecting the pantry, current deals and what it has learned about your household. Tell it what to change in plain words, or tap. It can also find a recipe on the web or adapt one of yours, for you to save or discard.
+- **Recipes** — import from a link or a photo, and browse your collection. Recipes come in your household's language.
+- **Pantry as a belief** — Tore keeps a rough idea of what you have from checked-off groceries, shelf photos and what you tell it. It guesses shelf life, and uses that in planning and on the list.
+- **Shopping list** — built from the week's plan, aggregated by ingredient. Adding by hand always works.
+- **Capture** — send text or photos. A photo can be a receipt, a recipe, a shelf or your fridge.
+- **Deals** — add a store by pasting a link to its offers; the planner reads them. ICA only so far, and the fetch has known problems (see `SPEC.md` §8).
+- **Costs** — one page with the month's total, recent receipts and eating out.
+- **Eating out** — mark a day and it cancels the recipe, with an optional place and amount.
+- **Prep guide** — optional, on demand, from the week's plan.
+- **Language** — chosen once at setup, with a full Swedish UI through Gettext.
 
 ---
 
@@ -31,7 +32,7 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 | Structured outputs | OpenRouter `json_schema` response format |
 | Markdown rendering | MDEx (CommonMark, Rust NIF) |
 | Scheduling | Quantum |
-| Auth | Magic-link tokens + device tokens for kiosk mode |
+| Auth | 16-digit login codes (Pocket ID replaces them next) |
 
 ---
 
@@ -40,29 +41,34 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 ```
 lib/
 ├── tore/
-│   ├── accounts/         # Users, login tokens, device tokens, rate limiter
-│   ├── adapters/         # OpenRouter LLM/image adapter, Req HTTP adapter, stubs
-│   ├── costs/            # Receipts, line items, dining-out, LLM usage tracking
-│   ├── deals/            # Deal schema, store configs, ICA/Coop parsers
-│   ├── groceries/        # Grocery list decider (event-sourced)
-│   ├── handlers/         # Application layer: planning, recipe, costs, deals, prep, groceries
-│   ├── llm/              # Prompt builders (plan_weekly, suggest_slot_recipe, extract_recipe, …)
-│   ├── pantry/           # Pantry inventory
+│   ├── accounts/         # Users, login tokens, rate limiter
+│   ├── adapters/         # Req HTTP adapter, image stub
+│   ├── image_gen/        # Recipe images through the open_router library
+│   ├── capture/          # Capture: the LLM router, its tools, uploads
+│   ├── costs/            # Receipts, line items, eating out, LLM usage
+│   ├── deals/            # Deal schema, store configs, one parser per chain
+│   ├── harness/          # Runs: orchestrator, artifacts, capsules, verifiers, undo
+│   ├── household/        # Household, preferences, learned insights
+│   ├── llm/              # LLM facade, prompts, planner agent and tools
+│   ├── pantry/           # Pantry beliefs and expiry
 │   ├── planning/         # Weekly plan decider (event-sourced), commands, events, state
 │   ├── prep/             # Prep guides
-│   └── recipes/          # Recipe, Ingredient (with canonical keys), Tag, Parser
+│   ├── recipes/          # Recipe, Ingredient (with canonical keys), Tag, Parser
+│   └── shop/             # Shopping list decider (event-sourced)
 └── tore_web/
     ├── components/       # Core UI components, layouts
-    ├── controllers/      # Page, session, error controllers
-    ├── live/             # All LiveView modules (planner, recipe, pantry, grocery, cost, settings, …)
-    └── plugs/            # Auth, device auth, locale
+    ├── controllers/      # Session, review, images, error controllers
+    ├── live/             # LiveViews (home, planner, capture, shop, recipe, settings, …)
+    └── plugs/            # Auth, locale
 ```
 
 ### Key patterns
 
-**Event sourcing** — planning and grocery list state are derived from an append-only event log (`Tore.EventStore`). The `Decider` pattern: `decide(command, state) → events`, `evolve(state, event) → state`.
+**Event sourcing** — planning and shopping list state are derived from an append-only event log (`Tore.EventStore`). The `Decider` pattern: `decide(command, state) → events`, `evolve(state, event) → state`.
 
-**Handler layer** — `Tore.Handlers.*` sit between LiveViews and domain logic. They orchestrate DB reads, LLM calls, SpendGuard checks, and PubSub broadcasts.
+**Harness** — every state-changing AI action is meant to be a run: the LLM proposes, a pure verifier checks, the change applies in one transaction, and you get a receipt with undo. See `SPEC.md`.
+
+**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts.
 
 **SpendGuard** — rate-limits LLM operations so a runaway loop can't drain API credits.
 
@@ -119,4 +125,4 @@ Tests use an in-memory storage mock, so `mix test` needs nothing running.
 mix test
 ```
 
-232 tests, no external dependencies required (LLM and HTTP are mocked in test).
+No external dependencies required (LLM and HTTP are mocked in test).

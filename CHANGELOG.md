@@ -7,6 +7,51 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Recipe proposals (plan 4)
+
+- The planner can find recipe pages on the web, import one, or adapt a recipe from the catalog. Each becomes a proposal that a verifier checks and a person saves or discards on the run review page.
+- LLM calls go through the `open_router` library instead of a hand-written adapter.
+
+### Anticipation (plan 3)
+
+- Long-press the tonight card or a grocery row for a sheet with a command scoped to it.
+- `resolve_slot` resolves a slot from plain words, without the LLM.
+- The ambient scan and its predictions also landed here, and were removed again in the trim.
+
+### Trim
+
+Everything now has to pass one test: does it change what Tore does next, without the household having to
+maintain it? `SPEC.md` records this as a core rule, and each feature now has a status.
+
+**Removed**
+
+- The kiosk and device tokens, which nothing could issue, so the kiosk couldn't be used.
+- Plan 3's predictions: the ambient scan, counter notes and their verifier, the 05:00 scan and the re-scan after edits. The long-press object sheets stay.
+- The `/deals` page and the Coop stub. The planner reads deals, and stores moved to Settings.
+- `/inbox`. Today's review pill opens the oldest pending review directly.
+- The Saturday 18:30 prep job, whose result the page never looked up.
+- Most of the cost page: tabs, charts, weekly bars and restaurant stats (1,104 lines down to 323).
+- The unbuilt run kinds from `SPEC.md`.
+
+**Changed**
+
+- Receipts record cost only and never touch the pantry or the list, because a misread line would drop an item off the list.
+- Shelf photos apply straight away with undo, and replace quantities.
+- Eating out is a state of a day in the plan. It cancels any recipe, works on an empty day, and takes an optional place and amount.
+- Stores are added by pasting a link, and the link picks the parser. Only https links on a parser's hosts get fetched.
+- The household's language is chosen once at setup and then locked, and everything stored uses it.
+- Prep is optional and on demand, through a "Prep this week" link on Plan.
+
+**Added**
+
+- Shelf life: the LLM guesses it per ingredient. It feeds belief, planning and the list, and a date set by hand teaches it.
+
+**Fixed**
+
+- The cost page no longer crashes when a background run finishes while it's open.
+- Capture's replies, and 22 strings on other pages, appeared in English in a Swedish household. A test now fails on any empty or fuzzy Swedish string.
+- Flaky database busy errors in tests, by using one connection.
+
 ### All-handlers Tiger-Style rename
 
 The `Tore.Handlers.*Handler` family is retired — "handler" is filler; each
