@@ -3,14 +3,14 @@ defmodule ToreWeb.CostLiveTest do
   import Phoenix.LiveViewTest
   import Mox
 
-  alias Tore.{Accounts, Costs, Planning}
+  alias Tore.{Costs, Planning}
   alias Tore.Capture.Uploads
 
   setup :set_mox_global
   setup :verify_on_exit!
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_admin("Tester")
+    user = user_fixture(name: "Tester")
     household_id = Tore.Household.get_household!().id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)

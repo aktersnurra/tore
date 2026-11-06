@@ -7,7 +7,7 @@ defmodule ToreWeb.CaptureLiveTest do
   setup :set_mox_from_context
 
   setup do
-    {:ok, {user, _code}} = Tore.Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
   end

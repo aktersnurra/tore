@@ -1,11 +1,10 @@
 defmodule ToreWeb.RecipeImageControllerTest do
   use ToreWeb.ConnCase, async: false
-  alias Tore.Accounts
   alias Tore.Storage.{Buckets, Mock}
 
   setup do
     Mock.reset()
-    {:ok, {user, _code}} = Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     # Insert directly via Repo — Recipes.create/1 spawns an async image-generation
     # Task that would race this test by populating image_path behind our backs.
     {:ok, recipe} =

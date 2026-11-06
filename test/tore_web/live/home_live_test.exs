@@ -3,7 +3,6 @@ defmodule ToreWeb.HomeLiveTest do
   import Phoenix.LiveViewTest
   import Mox
 
-  alias Tore.Accounts
   alias Tore.Harness.Run
   alias Tore.Harness.Run.{Commands, State}
 
@@ -15,7 +14,7 @@ defmodule ToreWeb.HomeLiveTest do
       {:ok, %{"prompt" => "A plate of food."}, %{}}
     end)
 
-    {:ok, {user, _code}} = Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
   end
@@ -185,6 +184,9 @@ defmodule ToreWeb.HomeLiveTest do
       refute render(view) =~ ~s(phx-submit="tonight_command")
 
       assert_receive :tonight_command_dispatched, 2_000
+
+      # Wait for the run to finish, or it keeps writing after the test's database is gone.
+      eventually(fn -> render(view) =~ "Klar" end)
     end
 
     test "escape closes the tonight sheet without dispatching", %{conn: conn} do

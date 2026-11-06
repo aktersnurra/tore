@@ -2,10 +2,10 @@ defmodule ToreWeb.SettingsLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
 
-  alias Tore.{Accounts, Deals}
+  alias Tore.Deals
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
   end
@@ -14,6 +14,21 @@ defmodule ToreWeb.SettingsLiveTest do
 
   defp add_store(view, url) do
     view |> form(~s(form[phx-submit="add_store"]), %{url: url}) |> render_submit()
+  end
+
+  test "lists the members, with no codes or roles", %{conn: conn, user: user} do
+    {:ok, view, html} = live(conn, ~p"/settings")
+
+    assert html =~ "Gustaf"
+    assert html =~ user.username
+    refute has_element?(view, ~s(button[phx-click="regenerate_code"]))
+    refute has_element?(view, ~s(form[phx-submit="add_user"]))
+  end
+
+  test "has a way to sign out", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/settings")
+
+    assert has_element?(view, ~s(a[href="/logout"][data-method="delete"]))
   end
 
   test "settings no longer links to run history", %{conn: conn} do

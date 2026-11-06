@@ -10,7 +10,7 @@ defmodule ToreWeb.RunReviewRecipeTest do
 
   setup do
     household = Tore.Household.get_household!()
-    {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+    user = user_fixture(name: "Tester")
 
     conn = Plug.Test.init_test_session(build_conn(), %{user_id: user.id})
 

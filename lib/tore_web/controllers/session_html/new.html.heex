@@ -1,0 +1,19 @@
+<Layouts.flash_group flash={@flash} />
+<div class="min-h-screen flex items-center justify-center bg-[var(--bg)] px-4 py-8">
+  <div class="w-full max-w-sm">
+    <div class="flex items-center justify-center gap-2 mb-6">
+      <.icon name="hero-cake" class="size-5 text-[color:var(--accent)]" />
+      <span class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
+        {gettext("Tore")}
+      </span>
+    </div>
+    <.link
+      :if={dev_routes?()}
+      href="/dev/login"
+      class="block text-center text-[color:var(--accent)] hover:underline"
+      style="font-size: var(--t-body);"
+    >
+      {gettext("Sign in as dev")}
+    </.link>
+  </div>
+</div>

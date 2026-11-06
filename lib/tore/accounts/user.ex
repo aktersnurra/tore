@@ -4,19 +4,23 @@ defmodule Tore.Accounts.User do
 
   schema "users" do
     field :name, :string
-    field :account_code_hash, :string
-    field :role, Ecto.Enum, values: [:admin, :member], default: :member
+    field :username, :string
+    field :oidc_sub, :string
+    field :ai_enabled, :boolean, default: false
     field :preferences, :map, default: %{}
     field :locale, :string, default: "sv"
     belongs_to :household, Tore.Household.HouseholdSchema
     timestamps()
   end
 
-  def registration_changeset(user, attrs) do
+  @doc "What Pocket ID says about this person, refreshed at each sign-in."
+  def sign_in_changeset(user, attrs) do
     user
-    |> cast(attrs, [:name, :role, :account_code_hash, :locale])
-    |> validate_required([:name, :role, :account_code_hash])
+    |> cast(attrs, [:name, :username, :oidc_sub, :ai_enabled])
+    |> validate_required([:name, :username, :oidc_sub, :household_id])
     |> validate_length(:name, min: 1, max: 100)
+    |> unique_constraint(:username)
+    |> unique_constraint(:oidc_sub)
   end
 
   def preferences_changeset(user, attrs) do

@@ -12,7 +12,7 @@ defmodule Tore.Harness.ReceiptIngestionTest do
   @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
 
   setup do
-    {:ok, {user, _code}} = Tore.Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     %{user: user}
   end
 

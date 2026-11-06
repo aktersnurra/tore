@@ -1,116 +1,99 @@
 defmodule Tore.AccountsTest do
   use Tore.DataCase, async: false
-  alias Tore.Accounts
 
-  describe "setup_complete?/0" do
-    test "returns false when no users exist" do
-      refute Accounts.setup_complete?()
+  alias Tore.{Accounts, Household, Repo}
+  alias Tore.Household.HouseholdSchema
+
+  @claims %{"sub" => "abc", "preferred_username" => "gustaf", "name" => "Gustaf R"}
+
+  describe "sign_in/1" do
+    test "a new person joins the household" do
+      assert {:ok, user} = Accounts.sign_in(@claims)
+
+      assert user.oidc_sub == "abc"
+      assert user.username == "gustaf"
+      assert user.name == "Gustaf R"
+      assert user.household_id == Household.get_household!().id
+      assert user.ai_enabled == false
     end
 
-    test "returns true after admin is created" do
-      {:ok, _} = Accounts.create_admin("Gustaf")
-      assert Accounts.setup_complete?()
+    test "a new person starts in the household's language" do
+      Household.get_household!() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
+
+      assert {:ok, %{locale: "en"}} = Accounts.sign_in(@claims)
     end
 
-    test "returns false with only member users" do
-      {:ok, _} = Accounts.create_user(%{name: "Member"})
-      refute Accounts.setup_complete?()
-    end
-  end
+    test "someone returning is the same user, with fresh claims" do
+      {:ok, first} = Accounts.sign_in(@claims)
 
-  describe "create_admin/1" do
-    test "creates user with admin role and returns 16-digit code" do
-      assert {:ok, {user, code}} = Accounts.create_admin("Gustaf")
-      assert user.role == :admin
-      assert user.name == "Gustaf"
-      assert String.length(code) == 16
-      assert String.match?(code, ~r/^\d{16}$/)
-    end
+      {:ok, again} =
+        Accounts.sign_in(%{
+          "sub" => "abc",
+          "preferred_username" => "gr",
+          "name" => "G",
+          "tore_ai" => true
+        })
 
-    test "hashes the code in the database" do
-      {:ok, {user, code}} = Accounts.create_admin("Gustaf")
-      refute user.account_code_hash == code
-      assert String.starts_with?(user.account_code_hash, "$argon2")
+      assert again.id == first.id
+      assert again.username == "gr"
+      assert again.name == "G"
+      assert again.ai_enabled == true
+      assert length(Accounts.list_users()) == 1
     end
 
-    test "returns error for blank name" do
-      assert {:error, changeset} = Accounts.create_admin("")
-      assert %{name: [_ | _]} = errors_on(changeset)
-    end
-  end
+    test "losing the claim takes effect at the next sign-in" do
+      {:ok, _} = Accounts.sign_in(Map.put(@claims, "tore_ai", "true"))
 
-  describe "create_user/1" do
-    test "creates user with member role and returns 16-digit code" do
-      assert {:ok, {user, code}} = Accounts.create_user(%{name: "Alice"})
-      assert user.role == :member
-      assert String.length(code) == 16
-      assert String.match?(code, ~r/^\d{16}$/)
+      assert {:ok, %{ai_enabled: false}} = Accounts.sign_in(@claims)
     end
 
-    test "each code is unique" do
-      {:ok, {_, code1}} = Accounts.create_admin("User1")
-      {:ok, {_, code2}} = Accounts.create_user(%{name: "User2"})
-      refute code1 == code2
-    end
-  end
-
-  describe "authenticate/1" do
-    test "returns user for correct code" do
-      {:ok, {user, code}} = Accounts.create_admin("Gustaf")
-      assert {:ok, authed} = Accounts.authenticate(code)
-      assert authed.id == user.id
+    test "falls back to the username when there's no name" do
+      for claims <- [Map.delete(@claims, "name"), %{@claims | "name" => "  "}] do
+        assert {:ok, %{name: "gustaf"}} = Accounts.sign_in(claims)
+      end
     end
 
-    test "returns error for wrong code" do
-      {:ok, _} = Accounts.create_admin("Gustaf")
-      assert {:error, :invalid_code} = Accounts.authenticate("0000000000000000")
+    test "refuses claims with no username" do
+      for claims <- [
+            Map.delete(@claims, "preferred_username"),
+            %{@claims | "preferred_username" => ""}
+          ] do
+        assert {:error, :username_missing} = Accounts.sign_in(claims)
+      end
+
+      assert Accounts.list_users() == []
     end
 
-    test "strips spaces from code" do
-      {:ok, {_user, code}} = Accounts.create_admin("Gustaf")
+    test "refuses a username held by another identity" do
+      {:ok, _} = Accounts.sign_in(@claims)
 
-      spaced =
-        code
-        |> String.graphemes()
-        |> Enum.chunk_every(4)
-        |> Enum.map(&Enum.join/1)
-        |> Enum.join(" ")
-
-      assert {:ok, _} = Accounts.authenticate(spaced)
-    end
-
-    test "returns error when no users exist" do
-      assert {:error, :invalid_code} = Accounts.authenticate("1234567890123456")
+      assert {:error, :username_taken} = Accounts.sign_in(%{@claims | "sub" => "someone-else"})
+      assert length(Accounts.list_users()) == 1
     end
   end
 
-  describe "update_preferences/2" do
-    test "updates preferences map" do
-      {:ok, {user, _}} = Accounts.create_admin("Gustaf")
+  describe "get_session_user/1" do
+    test "finds a user with a household" do
+      user = user_fixture()
+      assert Accounts.get_session_user(user.id).id == user.id
+    end
 
-      assert {:ok, updated} =
-               Accounts.update_preferences(user, %{preferences: %{dietary: "vegan"}})
+    test "a user with no household has no session" do
+      user = user_fixture()
+      user |> Ecto.Changeset.change(household_id: nil) |> Repo.update!()
 
-      assert updated.preferences == %{dietary: "vegan"}
+      assert Accounts.get_session_user(user.id) == nil
+    end
+
+    test "a user who is gone has no session" do
+      assert Accounts.get_session_user(999_999) == nil
     end
   end
 
-  describe "list_users/0" do
-    test "returns all users" do
-      {:ok, _} = Accounts.create_admin("A")
-      {:ok, _} = Accounts.create_user(%{name: "B"})
-      assert length(Accounts.list_users()) == 2
-    end
-  end
+  test "update_preferences/2 stores preferences" do
+    assert {:ok, updated} =
+             Accounts.update_preferences(user_fixture(), %{preferences: %{dietary: "vegan"}})
 
-  describe "get_user!/1" do
-    test "returns user by id" do
-      {:ok, {user, _}} = Accounts.create_admin("Gustaf")
-      assert Accounts.get_user!(user.id).id == user.id
-    end
-
-    test "raises for unknown id" do
-      assert_raise Ecto.NoResultsError, fn -> Accounts.get_user!(999_999) end
-    end
+    assert updated.preferences == %{dietary: "vegan"}
   end
 end

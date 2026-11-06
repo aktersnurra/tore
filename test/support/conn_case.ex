@@ -28,6 +28,7 @@ defmodule ToreWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import ToreWeb.ConnCase
+      import Tore.AccountsFixtures
     end
   end
 

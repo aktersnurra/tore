@@ -1,24 +1,19 @@
 defmodule ToreWeb.SessionController do
   use ToreWeb, :controller
-  alias Tore.Accounts.LoginToken
 
-  def confirm(conn, %{"t" => token}) do
-    case LoginToken.consume(token) do
-      {:ok, user_id} ->
-        conn
-        |> put_session(:user_id, user_id)
-        |> redirect(to: "/")
+  alias ToreWeb.UserSession
 
-      {:error, _} ->
-        conn
-        |> put_flash(:error, "Login link expired. Please try again.")
-        |> redirect(to: "/login")
+  def new(conn, _params) do
+    if get_session(conn, :user_id) do
+      redirect(conn, to: ~p"/")
+    else
+      render(conn, :new)
     end
   end
 
-  def confirm(conn, _params) do
+  def delete(conn, _params) do
     conn
-    |> put_flash(:error, "Invalid login attempt.")
-    |> redirect(to: "/login")
+    |> UserSession.log_out()
+    |> redirect(to: ~p"/login")
   end
 end

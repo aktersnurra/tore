@@ -2,6 +2,7 @@ defmodule Tore.PlanningTest do
   use ExUnit.Case, async: false
 
   import Mox
+  import Tore.AccountsFixtures
 
   alias Tore.Planning
 
@@ -300,7 +301,7 @@ defmodule Tore.PlanningTest do
 
   describe "eat_out/3" do
     setup do
-      {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+      user = user_fixture(name: "Tester")
       %{user_id: user.id}
     end
 

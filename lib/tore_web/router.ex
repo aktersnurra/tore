@@ -23,12 +23,19 @@ defmodule ToreWeb.Router do
   scope "/", ToreWeb do
     pipe_through :browser
 
-    live "/setup", SetupLive
-    live "/login", LoginLive
-    get "/login/session", SessionController, :confirm
+    get "/login", SessionController, :new
+    delete "/logout", SessionController, :delete
   end
 
-  # Authenticated users (member + admin)
+  if Application.compile_env(:tore, :dev_routes) do
+    scope "/dev", ToreWeb do
+      pipe_through :browser
+
+      get "/login", DevSessionController, :create
+    end
+  end
+
+  # Authenticated users
   scope "/", ToreWeb do
     pipe_through [:browser, :require_auth]
 

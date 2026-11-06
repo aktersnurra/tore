@@ -1,13 +1,11 @@
 defmodule ToreWeb.ReviewControllerTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
-
-  alias Tore.Accounts
   alias Tore.Harness.Run
   alias Tore.Harness.Run.{Commands, State}
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     household_id = Tore.Household.get_household!().id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)

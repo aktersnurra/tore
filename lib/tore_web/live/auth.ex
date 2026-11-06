@@ -26,16 +26,6 @@ defmodule ToreWeb.Live.Auth do
     end
   end
 
-  def on_mount(:require_admin, _params, session, socket) do
-    socket = socket |> mount_current_user(session) |> attach_current_path()
-
-    case socket.assigns.current_user do
-      %{role: :admin} -> {:cont, socket}
-      nil -> {:halt, redirect(socket, to: "/login")}
-      _ -> {:halt, redirect(socket, to: "/")}
-    end
-  end
-
   defp attach_current_path(socket) do
     socket
     |> assign(:current_path, "/")
@@ -46,20 +36,14 @@ defmodule ToreWeb.Live.Auth do
   end
 
   defp mount_current_user(socket, session) do
-    case session["user_id"] do
+    case session["user_id"] && Accounts.get_session_user(session["user_id"]) do
       nil ->
-        Gettext.put_locale(ToreWeb.Gettext, "en")
         assign(socket, :current_user, nil)
 
-      user_id ->
-        user = Accounts.get_user!(user_id)
-        Gettext.put_locale(ToreWeb.Gettext, user.locale || "en")
+      user ->
+        Gettext.put_locale(ToreWeb.Gettext, user.locale)
         assign(socket, :current_user, user)
     end
-  rescue
-    Ecto.NoResultsError ->
-      Gettext.put_locale(ToreWeb.Gettext, "en")
-      assign(socket, :current_user, nil)
   end
 
   # Per-user PubSub topic for background jobs that need to surface a result

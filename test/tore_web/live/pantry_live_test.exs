@@ -1,10 +1,10 @@
 defmodule ToreWeb.PantryLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
-  alias Tore.{Accounts, Pantry}
+  alias Tore.Pantry
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_user(%{name: "Tester"})
+    user = user_fixture(name: "Tester")
     %{conn: build_conn(), user: user}
   end
 

@@ -24,6 +24,7 @@ defmodule Tore.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Tore.DataCase
+      import Tore.AccountsFixtures
     end
   end
 
@@ -37,15 +38,27 @@ defmodule Tore.DataCase do
   """
   def setup_sandbox(tags) do
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Tore.Repo, shared: not tags[:async])
-    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+
+    on_exit(fn ->
+      # A page starts its household's projector, which would outlive this test's database and
+      # carry the runs it remembers into the next test. Sync tests never overlap, so this is safe.
+      if !tags[:async], do: stop_projectors()
+      Ecto.Adapters.SQL.Sandbox.stop_owner(pid)
+    end)
+  end
+
+  defp stop_projectors do
+    for {_, pid, _, _} <- DynamicSupervisor.which_children(Tore.Harness.ProjectorSupervisor) do
+      DynamicSupervisor.terminate_child(Tore.Harness.ProjectorSupervisor, pid)
+    end
   end
 
   @doc """
   A helper that transforms changeset errors into a map of messages.
 
-      assert {:error, changeset} = Accounts.create_user(%{password: "short"})
-      assert "password is too short" in errors_on(changeset).password
-      assert %{password: ["password is too short"]} = errors_on(changeset)
+      assert {:error, changeset} = Accounts.update_preferences(user, %{preferences: nil})
+      assert "can't be blank" in errors_on(changeset).preferences
+      assert %{preferences: ["can't be blank"]} = errors_on(changeset)
 
   """
   def errors_on(changeset) do

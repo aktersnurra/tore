@@ -168,7 +168,6 @@ defmodule ToreWeb.CostLive do
           </.cost_section>
 
           <.add_receipt
-            :if={@current_user && @current_user.role in [:member, :admin]}
             scanning={@scanning}
             uploads={@uploads}
           />

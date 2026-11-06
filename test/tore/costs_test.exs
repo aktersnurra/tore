@@ -1,10 +1,10 @@
 defmodule Tore.CostsTest do
   use Tore.DataCase, async: false
 
-  alias Tore.{Costs, Accounts}
+  alias Tore.Costs
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_user(%{name: "Tester"})
+    user = user_fixture(name: "Tester")
     %{user_id: user.id}
   end
 

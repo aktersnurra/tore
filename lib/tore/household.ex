@@ -6,10 +6,6 @@ defmodule Tore.Household do
   def get_household! do
     case Repo.one(HouseholdSchema) do
       nil ->
-        # No locale here on purpose — the real value is set during /setup.
-        # Code paths that touch the household before setup completes will see
-        # locale: nil, which downstream prompts treat as locale-unspecified
-        # rather than silently lying with a hard-coded language.
         %HouseholdSchema{}
         |> HouseholdSchema.changeset(%{name: "Home"})
         |> Repo.insert!()
@@ -22,30 +18,6 @@ defmodule Tore.Household do
   @doc "The language everything the household stores is written in."
   @spec locale() :: String.t() | nil
   def locale, do: get_household!().locale
-
-  @doc """
-  Update the singleton household. Used by Setup and Settings to change
-  household-level fields like `:locale`.
-  """
-  @spec update_household(map()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
-  def update_household(attrs) do
-    get_household!()
-    |> HouseholdSchema.changeset(attrs)
-    |> Repo.update()
-  end
-
-  @doc """
-  Locales the app currently supports. Sourced from gettext so the picker
-  matches the actual translated `.po` catalogues — adding a new locale
-  means dropping a `priv/gettext/<code>/LC_MESSAGES/default.po` and it
-  shows up here automatically.
-  """
-  @spec supported_locales() :: [{String.t(), String.t()}]
-  def supported_locales do
-    Gettext.known_locales(ToreWeb.Gettext)
-    |> Enum.map(&{&1, locale_label(&1)})
-    |> Enum.sort_by(&elem(&1, 1))
-  end
 
   @spec locale_label(String.t()) :: String.t()
   def locale_label("en"), do: "English"

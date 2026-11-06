@@ -15,14 +15,10 @@ defmodule ToreWeb.Plugs.Auth do
         conn |> redirect(to: "/login") |> halt()
 
       user_id ->
-        user = Accounts.get_user!(user_id)
-        assign(conn, :current_user, user)
+        case Accounts.get_session_user(user_id) do
+          nil -> conn |> delete_session(:user_id) |> redirect(to: "/login") |> halt()
+          user -> assign(conn, :current_user, user)
+        end
     end
-  rescue
-    Ecto.NoResultsError ->
-      conn
-      |> delete_session(:user_id)
-      |> redirect(to: "/login")
-      |> halt()
   end
 end

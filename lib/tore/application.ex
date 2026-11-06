@@ -16,8 +16,6 @@ defmodule Tore.Application do
       {Phoenix.PubSub, name: Tore.PubSub},
       Tore.Harness.ProjectorRegistry,
       Tore.Harness.ProjectorSupervisor,
-      Tore.Accounts.RateLimiter,
-      Tore.Accounts.LoginToken,
       Tore.Scheduler,
       {Task.Supervisor, name: Tore.TaskSupervisor},
       # Start to serve requests, typically the last entry

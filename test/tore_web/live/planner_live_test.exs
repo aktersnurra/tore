@@ -3,12 +3,12 @@ defmodule ToreWeb.PlannerLiveTest do
   import Phoenix.LiveViewTest
   import Mox
 
-  alias Tore.{Accounts, Recipes, Planning}
+  alias Tore.{Recipes, Planning}
 
   setup :verify_on_exit!
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
 
     {:ok, recipe} =
       Recipes.create(%{
@@ -234,6 +234,9 @@ defmodule ToreWeb.PlannerLiveTest do
 
       # the modal closes after dispatch, same as close_slot
       refute has_element?(view, ~s(form[phx-submit="slot_command"]))
+
+      # A run still writing after the test ends lands in the next test's database.
+      assert eventually_renders(view, "Tore justerade planen")
     end
 
   end

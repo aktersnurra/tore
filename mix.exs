@@ -67,7 +67,6 @@ defmodule Tore.MixProject do
       {:open_router,
        git: "https://github.com/aktersnurra/open-router.git",
        rev: "7254e7c54754f77b5c6736b0f25aec7a553eb0d6"},
-      {:argon2_elixir, "~> 3.2"},
       {:floki, "~> 0.37"},
       {:quantum, "~> 3.5"},
       {:swoosh, "~> 1.16"},

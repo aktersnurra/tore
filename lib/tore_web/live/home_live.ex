@@ -223,6 +223,10 @@ defmodule ToreWeb.HomeLive do
     {:noreply, socket}
   end
 
+  # Every signed-in page hears about runs, for the review count.
+  def handle_info({:run_event, _stream_id, _event}, socket), do: {:noreply, socket}
+  def handle_info({:run_state_changed, _stream_id, _state}, socket), do: {:noreply, socket}
+
   defp today_slot_key(today) do
     dow = Date.day_of_week(today)
     day = Enum.at(@days, dow - 1)

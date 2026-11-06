@@ -16,9 +16,6 @@ defmodule ToreWeb.SettingsLive do
     {:ok,
      assign(socket,
        users: users,
-       new_user_name: "",
-       revealed_codes: %{},
-       add_error: nil,
        ai: ai,
        memory_insights: Household.list_active_insights(),
        household: Household.get_household!(),
@@ -57,61 +54,9 @@ defmodule ToreWeb.SettingsLive do
     {:noreply, assign(socket, stores: Deals.list_store_configs())}
   end
 
-  def handle_event("add_user", _params, %{assigns: %{current_user: %{role: role}}} = socket)
-      when role != :admin,
-      do: {:noreply, socket}
-
-  def handle_event("add_user", %{"name" => name}, socket) do
-    case Accounts.create_user(%{name: String.trim(name)}) do
-      {:ok, {user, code}} ->
-        users = Accounts.list_users()
-        revealed = Map.put(socket.assigns.revealed_codes, user.id, format_code(code))
-
-        {:noreply,
-         assign(socket, users: users, new_user_name: "", revealed_codes: revealed, add_error: nil)}
-
-      {:error, _} ->
-        {:noreply, assign(socket, add_error: gettext("Could not create user."))}
-    end
-  end
-
-  def handle_event(
-        "regenerate_code",
-        _params,
-        %{assigns: %{current_user: %{role: role}}} = socket
-      )
-      when role != :admin,
-      do: {:noreply, socket}
-
-  def handle_event("regenerate_code", %{"id" => id}, socket) do
-    user = Accounts.get_user!(id)
-
-    case Accounts.regenerate_code(user) do
-      {:ok, {_updated, code}} ->
-        revealed = Map.put(socket.assigns.revealed_codes, user.id, format_code(code))
-        {:noreply, assign(socket, revealed_codes: revealed)}
-
-      {:error, _} ->
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("dismiss_code", %{"id" => id}, socket) do
-    revealed = Map.delete(socket.assigns.revealed_codes, String.to_integer(id))
-    {:noreply, assign(socket, revealed_codes: revealed)}
-  end
-
   def handle_event("forget_insight", %{"id" => id}, socket) do
     Tore.Household.dismiss_insight(String.to_integer(id))
     {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights())}
-  end
-
-  defp format_code(code) do
-    code
-    |> String.graphemes()
-    |> Enum.chunk_every(4)
-    |> Enum.map(&Enum.join/1)
-    |> Enum.join(" ")
   end
 
   defp format_usd(nil), do: "$0.00"
@@ -139,13 +84,13 @@ defmodule ToreWeb.SettingsLive do
             </h1>
           </header>
 
-          <%!-- Users --%>
+          <%!-- Members --%>
           <section class="px-6 pt-3 pb-5 border-t border-[color:var(--hairline)]">
             <h2
               class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
               style="font-size: var(--t-micro); font-weight: 600;"
             >
-              {gettext("Users")}
+              {gettext("Members")}
             </h2>
 
             <div class="flex flex-col gap-3">
@@ -154,73 +99,27 @@ defmodule ToreWeb.SettingsLive do
                   class="size-9 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)] inline-flex items-center justify-center font-semibold shrink-0"
                   style="font-size: var(--t-meta);"
                 >
-                  {String.first(user.name || "?")}
+                  {String.first(user.name)}
                 </span>
                 <div class="flex-1 min-w-0">
                   <p class="font-medium text-[var(--text)] truncate" style="font-size: var(--t-body);">
                     {user.name}
                   </p>
-                  <p class="text-[color:var(--muted)] capitalize" style="font-size: var(--t-meta);">
-                    {user.role}
+                  <p class="text-[color:var(--muted)] truncate" style="font-size: var(--t-meta);">
+                    {user.username}
                   </p>
                 </div>
-                <div
-                  :if={@current_user.role == :admin and Map.has_key?(@revealed_codes, user.id)}
-                  class="flex items-center gap-2"
-                >
-                  <code
-                    class="bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)] px-2 py-0.5 rounded font-mono"
-                    style="font-size: var(--t-meta);"
-                  >
-                    {Map.get(@revealed_codes, user.id)}
-                  </code>
-                  <button
-                    type="button"
-                    phx-click="dismiss_code"
-                    phx-value-id={user.id}
-                    class="text-[color:var(--muted)] hover:text-[var(--text)]"
-                  >
-                    <.icon name="hero-x-mark" class="size-4" />
-                  </button>
-                </div>
-                <button
-                  :if={@current_user.role == :admin and not Map.has_key?(@revealed_codes, user.id)}
-                  type="button"
-                  phx-click="regenerate_code"
-                  phx-value-id={user.id}
-                  class="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline shrink-0"
-                  style="font-size: var(--t-meta);"
-                >
-                  <.icon name="hero-arrow-path" class="size-3.5" />{gettext("New code")}
-                </button>
               </div>
             </div>
 
-            <form
-              :if={@current_user.role == :admin}
-              phx-submit="add_user"
-              class="mt-4 flex items-center gap-2"
-            >
-              <input
-                type="text"
-                name="name"
-                value={@new_user_name}
-                placeholder={gettext("Name")}
-                required
-                class="flex-1 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-1.5 text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                style="font-size: var(--t-body);"
-              />
-              <.button type="submit" variant={:primary}>
-                <.icon name="hero-plus" class="size-4" />{gettext("Add user")}
-              </.button>
-            </form>
-            <p
-              :if={@add_error}
-              class="mt-1 text-[color:var(--danger)]"
+            <.link
+              href={~p"/logout"}
+              method="delete"
+              class="mt-4 inline-block text-[color:var(--accent)] hover:underline"
               style="font-size: var(--t-meta);"
             >
-              {@add_error}
-            </p>
+              {gettext("Sign out")}
+            </.link>
           </section>
 
           <%!-- Household --%>
@@ -237,7 +136,7 @@ defmodule ToreWeb.SettingsLive do
                   {gettext("Language")}
                 </p>
                 <p class="text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-                  {gettext("Used for reading receipts, recipes and grocery labels. Chosen once, at setup.")}
+                  {gettext("Used for reading receipts, recipes and grocery labels. Chosen once.")}
                 </p>
               </div>
               <p class="text-[var(--text)]" style="font-size: var(--t-body);">

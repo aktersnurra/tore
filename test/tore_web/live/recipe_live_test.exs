@@ -1,10 +1,10 @@
 defmodule ToreWeb.RecipeLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
-  alias Tore.{Accounts, Recipes}
+  alias Tore.Recipes
 
   setup do
-    {:ok, {user, _code}} = Accounts.create_admin("Gustaf")
+    user = user_fixture(name: "Gustaf")
     {:ok, recipe} = Recipes.create(%{title: "Roast chicken", recipe_type: :meal})
     %{user: user, recipe: recipe}
   end

@@ -72,7 +72,7 @@ defmodule Tore.Capture.RouterTest do
 
   describe "route/4 with mark_eating_out" do
     test "marks the day through Capture, even an empty one" do
-      {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+      user = user_fixture(name: "Tester")
 
       tool_call = %{
         id: "call_1",

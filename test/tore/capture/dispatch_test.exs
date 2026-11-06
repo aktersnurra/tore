@@ -78,7 +78,7 @@ defmodule Tore.Capture.DispatchTest do
 
   describe "mark_eating_out/3" do
     setup do
-      {:ok, {user, _code}} = Tore.Accounts.create_user(%{name: "Tester"})
+      user = user_fixture(name: "Tester")
       %{ctx: %{household_id: 1, user_id: user.id}}
     end
 

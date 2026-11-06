@@ -1,51 +1,43 @@
 defmodule Tore.Accounts do
   import Ecto.Query
-  alias Tore.Repo
+  alias Tore.{Household, Repo}
   alias Tore.Accounts.User
 
-  @spec setup_complete?() :: boolean()
-  def setup_complete? do
-    Repo.exists?(from u in User, where: u.role == :admin)
-  end
+  @type sign_in_error :: :username_missing | :username_taken | Ecto.Changeset.t()
 
-  @spec get_user!(term()) :: User.t()
-  def get_user!(id), do: Repo.get!(User, id)
+  @doc "The user a session belongs to. A user with no household has no session."
+  @spec get_session_user(term()) :: User.t() | nil
+  def get_session_user(id) do
+    Repo.one(from u in User, where: u.id == ^id and not is_nil(u.household_id))
+  end
 
   @spec list_users() :: [User.t()]
   def list_users, do: Repo.all(User)
 
-  @spec create_admin(String.t()) :: {:ok, {User.t(), String.t()}} | {:error, Ecto.Changeset.t()}
-  def create_admin(name), do: create_with_role(name, :admin)
+  @doc """
+  Signs in whoever Pocket ID vouches for, from the claims of their ID token. A new person joins the
+  one household and starts in its language. Someone returning gets their claims refreshed.
+  """
+  @spec sign_in(map()) :: {:ok, User.t()} | {:error, sign_in_error()}
+  def sign_in(%{"sub" => sub, "preferred_username" => username} = claims)
+      when is_binary(sub) and is_binary(username) and username != "" do
+    attrs = %{
+      oidc_sub: sub,
+      username: username,
+      name: display_name(claims["name"], username),
+      ai_enabled: ai_claim?(claims)
+    }
 
-  @spec create_user(map()) :: {:ok, {User.t(), String.t()}} | {:error, Ecto.Changeset.t()}
-  def create_user(attrs) when is_map(attrs) do
-    name = Map.get(attrs, :name) || Map.get(attrs, "name", "")
-    create_with_role(name, :member)
-  end
-
-  @spec authenticate(String.t()) :: {:ok, User.t()} | {:error, :invalid_code}
-  def authenticate(code) when is_binary(code) do
-    normalized = String.replace(code, ~r/\D/, "")
-
-    Repo.all(User)
-    |> Enum.find_value({:error, :invalid_code}, fn user ->
-      if Argon2.verify_pass(normalized, user.account_code_hash), do: {:ok, user}
-    end)
-  end
-
-  @spec regenerate_code(User.t()) :: {:ok, {User.t(), String.t()}} | {:error, Ecto.Changeset.t()}
-  def regenerate_code(user) do
-    code = generate_code()
-    hash = Argon2.hash_pwd_salt(code)
-
-    user
-    |> User.registration_changeset(%{name: user.name, role: user.role, account_code_hash: hash})
-    |> Repo.update()
+    (Repo.get_by(User, oidc_sub: sub) || new_user())
+    |> User.sign_in_changeset(attrs)
+    |> Repo.insert_or_update()
     |> case do
-      {:ok, updated} -> {:ok, {updated, code}}
-      {:error, cs} -> {:error, cs}
+      {:ok, user} -> {:ok, user}
+      {:error, changeset} -> {:error, sign_in_error(changeset)}
     end
   end
+
+  def sign_in(_claims), do: {:error, :username_missing}
 
   @spec update_preferences(User.t(), map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def update_preferences(user, attrs) do
@@ -54,29 +46,23 @@ defmodule Tore.Accounts do
     |> Repo.update()
   end
 
-  defp create_with_role(name, role) do
-    code = generate_code()
-    hash = Argon2.hash_pwd_salt(code)
-
-    %User{}
-    |> User.registration_changeset(%{
-      name: name,
-      role: role,
-      account_code_hash: hash,
-      locale: Tore.Household.locale()
-    })
-    |> Repo.insert()
-    |> case do
-      {:ok, user} -> {:ok, {user, code}}
-      {:error, cs} -> {:error, cs}
-    end
+  defp new_user do
+    household = Household.get_household!()
+    %User{household_id: household.id, locale: household.locale}
   end
 
-  defp generate_code do
-    :crypto.strong_rand_bytes(16)
-    |> :binary.bin_to_list()
-    |> Enum.map(&rem(&1, 10))
-    |> Enum.map(&Integer.to_string/1)
-    |> Enum.join()
+  defp display_name(name, username) when is_binary(name) do
+    if String.trim(name) == "", do: username, else: name
+  end
+
+  defp display_name(_name, username), do: username
+
+  # A custom claim on a Pocket ID group. The app reads the claim, never a group name.
+  defp ai_claim?(claims) do
+    Map.get(claims, Application.get_env(:tore, :ai_claim, "tore_ai")) in [true, "true"]
+  end
+
+  defp sign_in_error(changeset) do
+    if Keyword.has_key?(changeset.errors, :username), do: :username_taken, else: changeset
   end
 end

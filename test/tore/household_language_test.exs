@@ -3,7 +3,8 @@ defmodule Tore.HouseholdLanguageTest do
   import Mox
   setup :verify_on_exit!
 
-  alias Tore.{Accounts, Household, Pantry, Prep, Recipes}
+  alias Tore.{Household, Pantry, Prep, Recipes, Repo}
+  alias Tore.Household.HouseholdSchema
   alias Tore.Capture.Dispatch
 
   @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
@@ -15,16 +16,12 @@ defmodule Tore.HouseholdLanguageTest do
   """
 
   setup do
-    {:ok, _} = Household.update_household(%{locale: "en"})
+    Household.get_household!() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
     :ok
   end
 
   test "a new person starts in the household's language" do
-    {:ok, {admin, _code}} = Accounts.create_admin("Admin")
-    {:ok, {user, _code}} = Accounts.create_user(%{name: "Partner"})
-
-    assert admin.locale == "en"
-    assert user.locale == "en"
+    assert user_fixture().locale == "en"
   end
 
   test "shelf photos are read into the household's language" do
