@@ -109,6 +109,34 @@ defmodule Tore.DealsScrapeTest do
       assert Deals.list_current(neither) == []
     end
 
+    test "different links to one store are the same store" do
+      other = scope_fixture(household_fixture())
+      {:ok, mine} = Deals.add_store(home_scope(), @store_url)
+
+      {:ok, theirs} =
+        Deals.add_store(
+          other,
+          "https://ica.se/erbjudanden/ica-supermarket-danvikstull-1156002?utm=x"
+        )
+
+      assert theirs.store_id == mine.store_id
+      assert theirs.store.url == @store_url
+    end
+
+    test "a store switched off in one household is still fetched for another, and hidden only where off" do
+      other = scope_fixture(household_fixture())
+      {:ok, mine} = Deals.add_store(home_scope(), @store_url)
+      {:ok, _} = Deals.add_store(other, @store_url)
+      {:ok, _} = Deals.toggle_scraping(home_scope(), mine.id)
+
+      Tore.MockHTTP
+      |> expect(:fetch, 1, fn @store_url -> {:ok, @ica_html} end)
+
+      assert :ok = Deals.scrape_all()
+      assert Deals.list_current(home_scope()) == []
+      assert [%{product_name: "Kycklingfilé"}] = Deals.list_current(other)
+    end
+
     test "a household's store list, switches and removal are its own" do
       other = scope_fixture(household_fixture())
       {:ok, mine} = Deals.add_store(home_scope(), @store_url)

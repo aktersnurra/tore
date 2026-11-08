@@ -30,7 +30,7 @@ defmodule Tore.Deals do
     {:ok, count}
   end
 
-  @doc "Current deals at the stores the household uses."
+  @doc "Current deals at the stores the household uses and has switched on."
   @spec list_current(Scope.t()) :: [Deal.t()]
   def list_current(%Scope{} = scope) do
     today = Date.utc_today()
@@ -39,7 +39,7 @@ defmodule Tore.Deals do
       join: s in Store,
       on: s.name == d.store,
       join: hs in HouseholdStore,
-      on: hs.store_id == s.id,
+      on: hs.store_id == s.id and hs.scrape_enabled,
       where: is_nil(d.valid_until) or d.valid_until >= ^today,
       distinct: true
     )
@@ -78,7 +78,10 @@ defmodule Tore.Deals do
     url = String.trim(url)
 
     with {:ok, parser} <- Parsers.for_url(url),
-         {:ok, name} <- parser.store_name(URI.parse(url)) do
+         uri = URI.parse(url),
+         {:ok, name} <- parser.store_name(uri) do
+      url = parser.canonical_url(uri)
+
       Repo.transaction(fn ->
         store =
           Repo.get_by(Store, url: url) ||
