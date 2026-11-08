@@ -3,7 +3,7 @@ defmodule Tore.Harness.Capsules.ActiveInsightsCapsuleTest do
 
   alias Tore.Harness.Capsules.ActiveInsightsCapsule, as: Capsule
 
-  @ctx %{household_id: 1, plan_stream_id: "plan:2026-06-08", week_start: ~D[2026-06-08]}
+  @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
 
   test "build/1 collects active insight bodies" do
     {:ok, _} =

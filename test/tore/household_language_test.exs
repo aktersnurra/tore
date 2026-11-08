@@ -63,6 +63,11 @@ defmodule Tore.HouseholdLanguageTest do
       {:error, :timeout}
     end)
 
-    assert {:error, :timeout} = Prep.generate_guide("plan:2026-11-02", ~D[2026-11-02])
+    assert {:error, :timeout} =
+             Prep.generate_guide(
+               home_scope(),
+               Tore.Streams.plan(home_scope(), ~D[2026-11-02]),
+               ~D[2026-11-02]
+             )
   end
 end

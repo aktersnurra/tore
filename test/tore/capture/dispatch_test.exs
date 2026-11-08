@@ -53,7 +53,7 @@ defmodule Tore.Capture.DispatchTest do
       assert bubble.role == :assistant
       assert bubble.text =~ "Carbonara"
       assert is_binary(child_sid)
-      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(child_sid)
+      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(home_scope(), child_sid)
     end
 
     test "returns {error_bubble, nil} when recipe does not exist" do
@@ -102,7 +102,9 @@ defmodule Tore.Capture.DispatchTest do
 
       Dispatch.mark_eating_out(date, %{description: nil, total_amount: 450}, ctx)
 
-      entry = Tore.Costs.get_dining_out("plan:2026-11-09", "fri_dinner")
+      entry =
+        Tore.Costs.get_dining_out(Tore.Streams.plan(home_scope(), ~D[2026-11-09]), "fri_dinner")
+
       assert entry.date == date
       assert entry.description == "Sushi"
       assert Decimal.equal?(entry.total_amount, 450)

@@ -52,7 +52,7 @@ defmodule Tore.CostsTest do
       Map.merge(
         %{
           date: ~D[2026-11-10],
-          plan_id: "plan:2026-11-09",
+          plan_id: Tore.Streams.plan(home_scope(), ~D[2026-11-09]),
           slot_key: "tue_dinner",
           user_id: user_id
         },

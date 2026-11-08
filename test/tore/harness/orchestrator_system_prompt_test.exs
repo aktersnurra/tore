@@ -27,7 +27,7 @@ defmodule Tore.Harness.OrchestratorSystemPromptTest do
       household_id: 1,
       user_id: nil,
       command: "what's for dinner",
-      plan_stream_id: "plan:#{Date.to_iso8601(week_start)}",
+      plan_stream_id: Tore.Streams.plan(home_scope(), week_start),
       week_start: week_start
     }
 

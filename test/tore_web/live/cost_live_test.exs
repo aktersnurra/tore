@@ -90,12 +90,12 @@ defmodule ToreWeb.CostLiveTest do
   test "lists eating out from the plan, with and without an amount", %{conn: conn, user: user} do
     today = Date.utc_today()
     monday = Date.add(today, -(Date.day_of_week(today) - 1))
-    plan_id = "plan:#{Date.to_iso8601(monday)}"
+    plan_id = Tore.Streams.plan(home_scope(), monday)
     days = ~w(mon tue wed thu fri sat sun)
     key = "#{Enum.at(days, Date.day_of_week(today) - 1)}_dinner"
 
     {:ok, _} =
-      Planning.eat_out(plan_id, key, %{
+      Planning.eat_out(home_scope(), plan_id, key, %{
         description: "Sushi",
         total_amount: "450",
         user_id: user.id
@@ -107,7 +107,11 @@ defmodule ToreWeb.CostLiveTest do
     assert row =~ "450 kr"
 
     {:ok, _} =
-      Planning.eat_out(plan_id, key, %{description: "", total_amount: "", user_id: user.id})
+      Planning.eat_out(home_scope(), plan_id, key, %{
+        description: "",
+        total_amount: "",
+        user_id: user.id
+      })
 
     {:ok, lv, _html} = live(conn, "/settings/costs")
     row = lv |> element("#eating-out") |> render()

@@ -20,6 +20,7 @@ defmodule Tore.Capture.Dispatch do
   alias Tore.Planning
   alias Tore.Recipes
   alias Tore.Shop
+  alias Tore.Streams
   alias Tore.Storage.RunPhotos
 
   @days ~w(mon tue wed thu fri sat sun)
@@ -236,11 +237,11 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @spec clear_plan_slot(Date.t(), ctx()) :: bubble()
-  def clear_plan_slot(%Date{} = date, _ctx) do
-    plan_id = plan_stream_id_for(date)
+  def clear_plan_slot(%Date{} = date, ctx) do
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
-    case Planning.remove_recipe(plan_id, slot_key) do
+    case Planning.remove_recipe(scope(ctx), plan_id, slot_key) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -259,13 +260,12 @@ defmodule Tore.Capture.Dispatch do
   # ── pantry-driven suggestions ──────────────────────────────────────────
 
   @spec suggest_meals_from_pantry(pos_integer(), ctx()) :: bubble()
-  def suggest_meals_from_pantry(count, _ctx) when is_integer(count) and count > 0 do
+  def suggest_meals_from_pantry(count, ctx) when is_integer(count) and count > 0 do
     today = Date.utc_today()
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
-    next_empty = next_empty_slot_key(today)
+    plan_id = plan_stream_id_for(ctx, today)
+    next_empty = next_empty_slot_key(ctx, today)
 
-    case Planning.suggest_recipes_for_slot(plan_id, next_empty, limit: count) do
+    case Planning.suggest_recipes_for_slot(scope(ctx), plan_id, next_empty, limit: count) do
       {:ok, []} ->
         %{
           role: :assistant,
@@ -298,10 +298,10 @@ defmodule Tore.Capture.Dispatch do
 
   @spec add_to_shopping_list(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_shopping_list(name, quantity, unit, ctx) when is_binary(name) do
-    list_id = current_shop_list_id()
+    list_id = current_shop_list_id(ctx)
     qty = to_decimal(quantity)
 
-    case Shop.add_item(list_id, name, qty, unit, ctx[:user_id]) do
+    case Shop.add_item(scope(ctx), list_id, name, qty, unit, ctx[:user_id]) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -326,11 +326,11 @@ defmodule Tore.Capture.Dispatch do
 
   @spec check_off_shopping_item(String.t(), ctx()) :: bubble()
   def check_off_shopping_item(name, ctx) when is_binary(name) do
-    list_id = current_shop_list_id()
+    list_id = current_shop_list_id(ctx)
 
-    case Shop.find_item_fuzzy(list_id, name) do
+    case Shop.find_item_fuzzy(scope(ctx), list_id, name) do
       {:ok, {id, item}} ->
-        case Shop.check_item(list_id, id, ctx[:user_id]) do
+        case Shop.check_item(scope(ctx), list_id, id, ctx[:user_id]) do
           {:ok, _events} ->
             %{
               role: :assistant,
@@ -369,10 +369,10 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @spec list_shopping_list(boolean(), ctx()) :: bubble()
-  def list_shopping_list(unchecked_only?, _ctx) when is_boolean(unchecked_only?) do
-    list_id = current_shop_list_id()
+  def list_shopping_list(unchecked_only?, ctx) when is_boolean(unchecked_only?) do
+    list_id = current_shop_list_id(ctx)
 
-    case Shop.load_list(list_id) do
+    case Shop.load_list(scope(ctx), list_id) do
       {:ok, %{items: items}} when map_size(items) == 0 ->
         %{
           role: :assistant,
@@ -408,13 +408,13 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @spec generate_shopping_list_from_plan(Date.t() | nil, ctx()) :: bubble()
-  def generate_shopping_list_from_plan(date, _ctx) do
+  def generate_shopping_list_from_plan(date, ctx) do
     target_date = date || Date.utc_today()
-    week_start = Date.add(target_date, -(Date.day_of_week(target_date) - 1))
-    list_id = "shop_list:#{Date.to_iso8601(week_start)}"
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
+    week_start = Streams.monday(target_date)
+    list_id = Streams.shop_list(scope(ctx), week_start)
+    plan_id = Streams.plan(scope(ctx), week_start)
 
-    case Planning.load_plan(plan_id) do
+    case Planning.load_plan(scope(ctx), plan_id) do
       {:ok, state} ->
         recipe_ids =
           state.slots
@@ -423,7 +423,7 @@ defmodule Tore.Capture.Dispatch do
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
 
-        case Shop.build_list(list_id, week_start, recipe_ids) do
+        case Shop.build_list(scope(ctx), list_id, week_start, recipe_ids) do
           {:ok, _events} ->
             %{
               role: :assistant,
@@ -576,12 +576,12 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @spec set_plan_servings(Date.t(), pos_integer(), ctx()) :: bubble()
-  def set_plan_servings(%Date{} = date, servings, _ctx)
+  def set_plan_servings(%Date{} = date, servings, ctx)
       when is_integer(servings) and servings > 0 do
-    plan_id = plan_stream_id_for(date)
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
-    case Planning.set_servings(plan_id, slot_key, servings) do
+    case Planning.set_servings(scope(ctx), plan_id, slot_key, servings) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -599,15 +599,15 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @spec pin_plan_slot(Date.t(), boolean(), ctx()) :: bubble()
-  def pin_plan_slot(%Date{} = date, pinned?, _ctx) when is_boolean(pinned?) do
-    plan_id = plan_stream_id_for(date)
+  def pin_plan_slot(%Date{} = date, pinned?, ctx) when is_boolean(pinned?) do
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
     result =
       if pinned? do
-        Planning.pin_slot(plan_id, slot_key, true)
+        Planning.pin_slot(scope(ctx), plan_id, slot_key, true)
       else
-        Planning.unpin_slot(plan_id, slot_key)
+        Planning.unpin_slot(scope(ctx), plan_id, slot_key)
       end
 
     case result do
@@ -633,11 +633,11 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @spec skip_plan_meal(Date.t(), ctx()) :: bubble()
-  def skip_plan_meal(%Date{} = date, _ctx) do
-    plan_id = plan_stream_id_for(date)
+  def skip_plan_meal(%Date{} = date, ctx) do
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
-    case Planning.skip_meal(plan_id, slot_key) do
+    case Planning.skip_meal(scope(ctx), plan_id, slot_key) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -657,7 +657,7 @@ defmodule Tore.Capture.Dispatch do
   def mark_eating_out(%Date{} = date, attrs, ctx) do
     attrs = Map.put(attrs, :user_id, ctx[:user_id])
 
-    case Planning.eat_out(plan_stream_id_for(date), slot_key_for(date), attrs) do
+    case Planning.eat_out(scope(ctx), plan_stream_id_for(ctx, date), slot_key_for(date), attrs) do
       {:ok, _entry} ->
         %{
           role: :assistant,
@@ -728,11 +728,7 @@ defmodule Tore.Capture.Dispatch do
     %{role: :assistant, review_link: true, stream_id: sid, text: gettext("I parsed a receipt.")}
   end
 
-  defp current_shop_list_id do
-    today = Date.utc_today()
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
-    "shop_list:#{Date.to_iso8601(week_start)}"
-  end
+  defp current_shop_list_id(ctx), do: Streams.shop_list(scope(ctx), Date.utc_today())
 
   defp to_decimal(nil), do: nil
   defp to_decimal(%Decimal{} = d), do: d
@@ -746,10 +742,7 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp plan_stream_id_for(%Date{} = date) do
-    week_start = Date.add(date, -(Date.day_of_week(date) - 1))
-    "plan:#{Date.to_iso8601(week_start)}"
-  end
+  defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(scope(ctx), date)
 
   defp slot_key_for(%Date{} = date) do
     day_abbrev = Enum.at(@days, Date.day_of_week(date) - 1)
@@ -768,11 +761,8 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp next_empty_slot_key(%Date{} = today) do
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
-
-    case Planning.load_plan(plan_id) do
+  defp next_empty_slot_key(ctx, %Date{} = today) do
+    case Planning.load_plan(scope(ctx), plan_stream_id_for(ctx, today)) do
       {:ok, state} ->
         today_idx = Date.day_of_week(today) - 1
 

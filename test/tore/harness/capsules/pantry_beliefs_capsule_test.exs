@@ -3,7 +3,7 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
 
   alias Tore.Harness.Capsules.PantryBeliefsCapsule, as: Capsule
 
-  @ctx %{household_id: 1, plan_stream_id: "plan:2026-06-08", week_start: ~D[2026-06-08]}
+  @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
 
   test "build/1 caps names at 20 but keeps the full total" do
     for n <- 1..25, do: Tore.Pantry.add_item(home_scope(), %{name: "item #{n}", quantity: 1})

@@ -110,12 +110,16 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html =~ "Pizza"
     assert html =~ "Ångra"
 
-    {:ok, plan_state} = Tore.Planning.load_plan("plan:2026-06-22")
+    {:ok, plan_state} =
+      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
+
     assert Map.has_key?(plan_state.slots, "tue_dinner")
 
     lv |> element("button", "Ångra") |> render_click()
 
-    {:ok, plan_state2} = Tore.Planning.load_plan("plan:2026-06-22")
+    {:ok, plan_state2} =
+      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
+
     refute Map.has_key?(plan_state2.slots, "tue_dinner")
 
     html2 = render(lv)

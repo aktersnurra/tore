@@ -1,39 +1,42 @@
 defmodule Tore.Planning do
-  alias Tore.{Costs, Deals, EventStore, Repo, Recipes, SpendGuard}
+  alias Tore.{Costs, Deals, EventStore, Repo, Recipes, Scope, SpendGuard, Streams}
   alias Tore.Planning.{Commands, Decider, Events}
   alias Phoenix.PubSub
-  alias Tore.Household
 
   @pubsub Tore.PubSub
   @topic "plan"
 
-  def load_plan(plan_id) do
-    EventStore.load(plan_id, Decider)
+  def load_plan(%Scope{} = scope, plan_id) do
+    EventStore.load(scope, plan_id, Decider)
+  end
+
+  @doc "Cron entry: plan the upcoming week for every household."
+  def plan_upcoming_weeks do
+    Enum.each(Tore.Household.list_ids(), &plan_upcoming_week(Scope.for_household(&1)))
   end
 
   @doc """
-  Cron entry: plan the upcoming week (next Monday-Sunday) for the household by
-  dispatching a headless `:weekly_planning_run`.
+  Plan the upcoming week (next Monday-Sunday) for the household by dispatching a
+  headless `:weekly_planning_run`.
   """
-  def plan_upcoming_week do
-    household = Household.get_household!()
+  def plan_upcoming_week(%Scope{} = scope) do
     today = Date.utc_today()
     days_ahead = rem(8 - Date.day_of_week(today), 7)
     days_ahead = if days_ahead == 0, do: 7, else: days_ahead
     week_start = Date.add(today, days_ahead)
 
     ctx = %{
-      household_id: household.id,
+      household_id: scope.household_id,
       user_id: nil,
-      plan_stream_id: "plan:#{Date.to_iso8601(week_start)}",
+      plan_stream_id: Streams.plan(scope, week_start),
       week_start: week_start
     }
 
     Tore.Harness.Orchestrator.dispatch(:weekly_planning_run, ctx)
   end
 
-  def assign_recipe(plan_id, slot_key, recipe_id, servings) do
-    run(plan_id, %Commands.AssignRecipe{
+  def assign_recipe(%Scope{} = scope, plan_id, slot_key, recipe_id, servings) do
+    run(scope, plan_id, %Commands.AssignRecipe{
       slot_key: slot_key,
       recipe_id: recipe_id,
       servings: servings
@@ -46,9 +49,16 @@ defmodule Tore.Planning do
   All events are appended in one EventStore append + one PubSub broadcast,
   so the UI sees a single state change.
   """
-  def assign_with_leftovers(plan_id, slot_key, recipe_id, servings, leftover_days)
+  def assign_with_leftovers(
+        %Scope{} = scope,
+        plan_id,
+        slot_key,
+        recipe_id,
+        servings,
+        leftover_days
+      )
       when is_list(leftover_days) do
-    with {:ok, state} <- EventStore.load(plan_id, Decider) do
+    with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
       {:ok, primary_events} =
         Decider.decide(
           %Commands.AssignRecipe{slot_key: slot_key, recipe_id: recipe_id, servings: servings},
@@ -81,7 +91,7 @@ defmodule Tore.Planning do
 
       events = primary_events ++ leftover_events
 
-      with :ok <- apply_events(plan_id, events) do
+      with :ok <- apply_events(scope, plan_id, events) do
         {:ok, events}
       end
     end
@@ -115,14 +125,14 @@ defmodule Tore.Planning do
   append. If one slot is empty, the occupied recipe moves to the empty slot and
   the source is cleared. If both are empty, returns {:error, :nothing_to_swap}.
   """
-  def swap_slots(plan_id, slot_a, slot_b) do
-    with {:ok, state} <- EventStore.load(plan_id, Decider) do
+  def swap_slots(%Scope{} = scope, plan_id, slot_a, slot_b) do
+    with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
       case swap_events(state, slot_a, slot_b) do
         {:error, :nothing_to_swap} = err ->
           err
 
         {:ok, events, _final} ->
-          with :ok <- apply_events(plan_id, events) do
+          with :ok <- apply_events(scope, plan_id, events) do
             {:ok, events}
           end
       end
@@ -130,11 +140,11 @@ defmodule Tore.Planning do
   end
 
   @doc "Persist already-decided plan events in one append. Empty list is a no-op."
-  @spec apply_events(String.t(), [Tore.Planning.Events.t()]) :: :ok | {:error, term()}
-  def apply_events(_plan_id, []), do: :ok
+  @spec apply_events(Scope.t(), String.t(), [Tore.Planning.Events.t()]) :: :ok | {:error, term()}
+  def apply_events(%Scope{}, _plan_id, []), do: :ok
 
-  def apply_events(plan_id, events) do
-    with :ok <- EventStore.append(plan_id, events) do
+  def apply_events(%Scope{} = scope, plan_id, events) do
+    with :ok <- EventStore.append(scope, plan_id, events) do
       Costs.delete_dining_out(plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
       PubSub.broadcast(@pubsub, @topic, {:events, events})
       :ok
@@ -176,24 +186,24 @@ defmodule Tore.Planning do
     ]
   end
 
-  def remove_recipe(plan_id, slot_key) do
-    run(plan_id, %Commands.RemoveRecipe{slot_key: slot_key})
+  def remove_recipe(%Scope{} = scope, plan_id, slot_key) do
+    run(scope, plan_id, %Commands.RemoveRecipe{slot_key: slot_key})
   end
 
-  def set_servings(plan_id, slot_key, servings) do
-    run(plan_id, %Commands.SetServings{slot_key: slot_key, servings: servings})
+  def set_servings(%Scope{} = scope, plan_id, slot_key, servings) do
+    run(scope, plan_id, %Commands.SetServings{slot_key: slot_key, servings: servings})
   end
 
-  def pin_slot(plan_id, slot_key, pin) do
-    run(plan_id, %Commands.PinSlot{slot_key: slot_key, pin: pin})
+  def pin_slot(%Scope{} = scope, plan_id, slot_key, pin) do
+    run(scope, plan_id, %Commands.PinSlot{slot_key: slot_key, pin: pin})
   end
 
-  def unpin_slot(plan_id, slot_key) do
-    run(plan_id, %Commands.UnpinSlot{slot_key: slot_key})
+  def unpin_slot(%Scope{} = scope, plan_id, slot_key) do
+    run(scope, plan_id, %Commands.UnpinSlot{slot_key: slot_key})
   end
 
-  def skip_meal(plan_id, slot_key) do
-    run(plan_id, %Commands.SkipMeal{slot_key: slot_key})
+  def skip_meal(%Scope{} = scope, plan_id, slot_key) do
+    run(scope, plan_id, %Commands.SkipMeal{slot_key: slot_key})
   end
 
   @doc """
@@ -202,18 +212,18 @@ defmodule Tore.Planning do
   entry, so an amount can follow later. To undo it, remove the slot or give it a
   recipe; both drop the entry.
   """
-  @spec eat_out(String.t(), String.t(), map()) ::
+  @spec eat_out(Scope.t(), String.t(), String.t(), map()) ::
           {:ok, Costs.DiningOut.t()} | {:error, term()}
-  def eat_out(plan_id, slot_key, attrs) do
+  def eat_out(%Scope{} = scope, plan_id, slot_key, attrs) do
     entry_attrs =
       Map.merge(attrs, %{plan_id: plan_id, slot_key: slot_key, date: slot_date(plan_id, slot_key)})
 
     result =
       Repo.transaction(fn ->
-        with {:ok, state} <- EventStore.load(plan_id, Decider),
+        with {:ok, state} <- EventStore.load(scope, plan_id, Decider),
              {:ok, events} <- Decider.decide(%Commands.EatOut{slot_key: slot_key}, state),
              {:ok, entry} <- Costs.save_dining_out(entry_attrs),
-             :ok <- EventStore.append(plan_id, events) do
+             :ok <- EventStore.append(scope, plan_id, events) do
           {entry, events}
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -226,20 +236,20 @@ defmodule Tore.Planning do
     end
   end
 
-  defp slot_date("plan:" <> week_start, slot_key) do
+  defp slot_date(plan_id, slot_key) do
     [day, _meal] = String.split(slot_key, "_", parts: 2)
     days = ~w[mon tue wed thu fri sat sun]
-    week_start |> Date.from_iso8601!() |> Date.add(Enum.find_index(days, &(&1 == day)))
+    plan_id |> Streams.week_start() |> Date.add(Enum.find_index(days, &(&1 == day)))
   end
 
-  def mark_leftover(plan_id, slot_key) do
-    run(plan_id, %Commands.MarkLeftover{slot_key: slot_key})
+  def mark_leftover(%Scope{} = scope, plan_id, slot_key) do
+    run(scope, plan_id, %Commands.MarkLeftover{slot_key: slot_key})
   end
 
-  defp run(plan_id, command) do
-    with {:ok, state} <- EventStore.load(plan_id, Decider),
+  defp run(scope, plan_id, command) do
+    with {:ok, state} <- EventStore.load(scope, plan_id, Decider),
          {:ok, events} <- Decider.decide(command, state),
-         :ok <- apply_events(plan_id, events) do
+         :ok <- apply_events(scope, plan_id, events) do
       {:ok, events}
     end
   end
@@ -256,24 +266,22 @@ defmodule Tore.Planning do
 
   Returns `{:ok, [%{recipe, reasons, score}, ...]}`.
   """
-  def suggest_recipes_for_slot(plan_id, slot_key, opts \\ []) do
+  def suggest_recipes_for_slot(%Scope{} = scope, plan_id, slot_key, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
     include_llm = Keyword.get(opts, :include_llm, false)
     dietary_guidance = Keyword.get(opts, :dietary_guidance)
 
-    with {:ok, state} <- EventStore.load(plan_id, Decider) do
+    with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
       recipes =
-        Recipes.list(Tore.Scope.for_household(Tore.Household.get_household!().id),
+        Recipes.list(scope,
           sort: :alphabetical
         )
-        |> Enum.map(
-          &Recipes.get!(Tore.Scope.for_household(Tore.Household.get_household!().id), &1.id)
-        )
+        |> Enum.map(&Recipes.get!(scope, &1.id))
 
-      pantry_names = pantry_ingredient_names()
+      pantry_names = pantry_ingredient_names(scope)
       deals_names = deal_product_names()
       previous_slot_recipe = previous_day_recipe(state, slot_key, recipes)
-      recent_ids = recent_recipe_ids()
+      recent_ids = recent_recipe_ids(scope)
 
       ranked =
         recipes
@@ -391,8 +399,8 @@ defmodule Tore.Planning do
     |> Enum.join(", ")
   end
 
-  defp pantry_ingredient_names do
-    Pantry.list_usable(Tore.Scope.for_household(Tore.Household.get_household!().id))
+  defp pantry_ingredient_names(scope) do
+    Pantry.list_usable(scope)
     |> Enum.map(&String.downcase(&1.name))
     |> MapSet.new()
   end
@@ -436,7 +444,7 @@ defmodule Tore.Planning do
     end
   end
 
-  defp recent_recipe_ids do
+  defp recent_recipe_ids(scope) do
     cutoff = DateTime.add(DateTime.utc_now(), -@recency_window_days * 86_400, :second)
 
     import Ecto.Query
@@ -446,7 +454,7 @@ defmodule Tore.Planning do
         where: not is_nil(r.last_used_at) and r.last_used_at >= ^cutoff,
         select: r.id
       ),
-      Tore.Scope.repo_opts(Tore.Scope.for_household(Tore.Household.get_household!().id))
+      Tore.Scope.repo_opts(scope)
     )
     |> MapSet.new()
   end

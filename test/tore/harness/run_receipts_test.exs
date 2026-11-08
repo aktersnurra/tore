@@ -5,13 +5,13 @@ defmodule Tore.Harness.RunReceiptsTest do
   alias Tore.Harness.Run.{Commands, Events, State}
   alias Tore.Harness.Artifact.{PantryBeliefUpdate, PlanDiff, RunSummary}
 
-  defp seed_applied_run(household_id, artifacts) do
+  defp seed_applied_run(scope, artifacts) do
     sid = Run.next_stream_id()
 
     {:ok, [opened]} =
       Run.decide(
         %Commands.Open{
-          household_id: household_id,
+          household_id: scope.household_id,
           kind: "planner_command_run",
           surface: :plan,
           started_by: "user",
@@ -26,7 +26,7 @@ defmodule Tore.Harness.RunReceiptsTest do
     payload = UndoPayload.from_artifacts(artifacts)
     committed = %Events.Committed{at: ~U[2026-06-28 12:00:00Z], undo_payload: payload}
 
-    :ok = Run.append(sid, [opened] ++ artifact_events ++ [committed])
+    :ok = Run.append(scope, sid, [opened] ++ artifact_events ++ [committed])
     sid
   end
 
@@ -63,9 +63,9 @@ defmodule Tore.Harness.RunReceiptsTest do
 
   describe "get/1" do
     test "returns a receipt for an Applied run" do
-      sid = seed_applied_run(1, [plan_diff()])
+      sid = seed_applied_run(home_scope(), [plan_diff()])
 
-      assert {:ok, receipt} = RunReceipts.get(sid)
+      assert {:ok, receipt} = RunReceipts.get(home_scope(), sid)
       assert receipt.stream_id == sid
       assert receipt.household_id == 1
       assert receipt.applied_at == ~U[2026-06-28 12:00:00Z]
@@ -89,12 +89,12 @@ defmodule Tore.Harness.RunReceiptsTest do
           %State.Draft{stream_id: sid}
         )
 
-      :ok = Run.append(sid, [opened])
-      assert {:error, :not_applied} = RunReceipts.get(sid)
+      :ok = Run.append(home_scope(), sid, [opened])
+      assert {:error, :not_applied} = RunReceipts.get(home_scope(), sid)
     end
 
     test "returns {:error, :not_found} for an unknown stream" do
-      assert {:error, :not_found} = RunReceipts.get("run-never-seen")
+      assert {:error, :not_found} = RunReceipts.get(home_scope(), "run-never-seen")
     end
   end
 
@@ -128,13 +128,14 @@ defmodule Tore.Harness.RunReceiptsTest do
     end
   end
 
-  describe "list_for_household/2" do
+  describe "list/1" do
     test "returns Applied receipts for the given household, newest first" do
-      sid1 = seed_applied_run(7, [plan_diff()])
-      sid2 = seed_applied_run(7, [pantry_update()])
-      _other = seed_applied_run(8, [plan_diff()])
+      mine = scope_fixture(household_fixture())
+      sid1 = seed_applied_run(mine, [plan_diff()])
+      sid2 = seed_applied_run(mine, [pantry_update()])
+      _other = seed_applied_run(scope_fixture(household_fixture()), [plan_diff()])
 
-      receipts = RunReceipts.list_for_household(7)
+      receipts = RunReceipts.list(mine)
       stream_ids = Enum.map(receipts, & &1.stream_id)
 
       assert sid1 in stream_ids
@@ -145,10 +146,10 @@ defmodule Tore.Harness.RunReceiptsTest do
 
   describe "revert/1" do
     test "transitions an Applied run to Reverted" do
-      sid = seed_applied_run(1, [plan_diff()])
+      sid = seed_applied_run(home_scope(), [plan_diff()])
 
-      assert :ok = RunReceipts.revert(sid)
-      {:ok, state} = Run.load(sid)
+      assert :ok = RunReceipts.revert(home_scope(), sid)
+      {:ok, state} = Run.load(home_scope(), sid)
       assert %State.Reverted{} = state
     end
 
@@ -172,16 +173,16 @@ defmodule Tore.Harness.RunReceiptsTest do
           servings: 4
         })
 
-      plan_id = "plan:2026-06-22"
-      {:ok, before_revert} = Tore.Planning.load_plan(plan_id)
+      plan_id = Tore.Streams.plan(home_scope(), ~D[2026-06-22])
+      {:ok, before_revert} = Tore.Planning.load_plan(home_scope(), plan_id)
       assert Map.has_key?(before_revert.slots, "tue_dinner")
 
-      assert :ok = RunReceipts.revert(sid)
+      assert :ok = RunReceipts.revert(home_scope(), sid)
 
-      {:ok, after_revert} = Tore.Planning.load_plan(plan_id)
+      {:ok, after_revert} = Tore.Planning.load_plan(home_scope(), plan_id)
       refute Map.has_key?(after_revert.slots, "tue_dinner")
 
-      {:ok, state} = Run.load(sid)
+      {:ok, state} = Run.load(home_scope(), sid)
       assert %State.Reverted{} = state
     end
 
@@ -193,15 +194,15 @@ defmodule Tore.Harness.RunReceiptsTest do
         line_items: []
       }
 
-      sid = seed_applied_run(1, [cost])
+      sid = seed_applied_run(home_scope(), [cost])
 
-      assert {:error, :irreversible} = RunReceipts.revert(sid)
-      {:ok, state} = Run.load(sid)
+      assert {:error, :irreversible} = RunReceipts.revert(home_scope(), sid)
+      {:ok, state} = Run.load(home_scope(), sid)
       assert %State.Applied{} = state
     end
 
     test "returns {:error, :not_applied} for a run that is not Applied" do
-      assert {:error, :not_found} = RunReceipts.revert("run-never-seen")
+      assert {:error, :not_found} = RunReceipts.revert(home_scope(), "run-never-seen")
     end
 
     test "compensates a PantrySnapshot by deleting newly-added rows" do
@@ -224,9 +225,9 @@ defmodule Tore.Harness.RunReceiptsTest do
         items: [%{item_id: item.id, before: nil, after: %{quantity: nil}}]
       }
 
-      sid = seed_applied_run(1, [snapshot])
+      sid = seed_applied_run(home_scope(), [snapshot])
 
-      assert :ok = RunReceipts.revert(sid)
+      assert :ok = RunReceipts.revert(home_scope(), sid)
 
       assert Tore.Repo.get(Tore.Pantry.PantryItem, item.id, Tore.Scope.repo_opts(home_scope())) ==
                nil
@@ -272,9 +273,9 @@ defmodule Tore.Harness.RunReceiptsTest do
         ]
       }
 
-      sid = seed_applied_run(1, [snapshot])
+      sid = seed_applied_run(home_scope(), [snapshot])
 
-      assert :ok = RunReceipts.revert(sid)
+      assert :ok = RunReceipts.revert(home_scope(), sid)
 
       restored =
         Tore.Repo.get(Tore.Pantry.PantryItem, item.id, Tore.Scope.repo_opts(home_scope()))
@@ -303,8 +304,8 @@ defmodule Tore.Harness.RunReceiptsTest do
           servings: 4
         })
 
-      plan_id = "plan:2026-06-22"
-      {:ok, before_state} = Tore.Planning.load_plan(plan_id)
+      plan_id = Tore.Streams.plan(home_scope(), ~D[2026-06-22])
+      {:ok, before_state} = Tore.Planning.load_plan(home_scope(), plan_id)
       assert Map.has_key?(before_state.slots, "tue_dinner")
 
       # Splice a failing snapshot child onto the existing payload so the
@@ -325,7 +326,7 @@ defmodule Tore.Harness.RunReceiptsTest do
           provenance: "manual"
         })
 
-      {:ok, %State.Applied{} = applied} = Run.load(sid)
+      {:ok, %State.Applied{} = applied} = Run.load(home_scope(), sid)
 
       bad_snapshot = %UndoPayload{
         kind: :snapshot,
@@ -350,12 +351,12 @@ defmodule Tore.Harness.RunReceiptsTest do
 
       assert {:error, _} = RunReceipts.revert_applied(doctored_applied)
 
-      {:ok, after_state} = Tore.Planning.load_plan(plan_id)
+      {:ok, after_state} = Tore.Planning.load_plan(home_scope(), plan_id)
 
       assert Map.has_key?(after_state.slots, "tue_dinner"),
              "planning slot was wiped despite a downstream compensator failure"
 
-      {:ok, state} = Run.load(sid)
+      {:ok, state} = Run.load(home_scope(), sid)
       assert %State.Applied{} = state
     end
   end

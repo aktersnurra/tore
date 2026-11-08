@@ -107,6 +107,6 @@ defmodule ToreWeb.RunReviewRecipeTest do
     await_run_tasks()
 
     assert Tore.Recipes.list(home_scope()) == []
-    assert {:ok, %State.Discarded{}} = Tore.Harness.Run.load(state.stream_id)
+    assert {:ok, %State.Discarded{}} = Tore.Harness.Run.load(home_scope(), state.stream_id)
   end
 end

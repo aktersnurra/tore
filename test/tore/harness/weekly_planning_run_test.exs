@@ -12,7 +12,7 @@ defmodule Tore.Harness.WeeklyPlanningRunTest do
     %{
       household_id: Tore.Household.get_household!().id,
       user_id: nil,
-      plan_stream_id: "plan:#{Date.to_iso8601(week_start)}",
+      plan_stream_id: Tore.Streams.plan(home_scope(), week_start),
       week_start: week_start
     }
   end
@@ -39,9 +39,9 @@ defmodule Tore.Harness.WeeklyPlanningRunTest do
         cook_time_minutes: 15
       })
 
-    Planning.assign_recipe(ctx.plan_stream_id, "mon_dinner", pinned_recipe.id, 4)
-    Planning.pin_slot(ctx.plan_stream_id, "mon_dinner", true)
-    Planning.assign_recipe(ctx.plan_stream_id, "tue_dinner", chosen.id, 4)
+    Planning.assign_recipe(home_scope(), ctx.plan_stream_id, "mon_dinner", pinned_recipe.id, 4)
+    Planning.pin_slot(home_scope(), ctx.plan_stream_id, "mon_dinner", true)
+    Planning.assign_recipe(home_scope(), ctx.plan_stream_id, "tue_dinner", chosen.id, 4)
 
     Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, _msgs, _tools, _opts ->
       {:ok,
@@ -89,7 +89,7 @@ defmodule Tore.Harness.WeeklyPlanningRunTest do
 
     assert {:ok, %State.Applied{}} = Orchestrator.dispatch(:weekly_planning_run, ctx)
 
-    {:ok, plan} = Planning.load_plan(ctx.plan_stream_id)
+    {:ok, plan} = Planning.load_plan(home_scope(), ctx.plan_stream_id)
     assert plan.slots["wed_dinner"].recipe_id == chosen.id
     assert plan.slots["mon_dinner"].recipe_id == pinned_recipe.id
     assert Map.has_key?(plan.pins, "mon_dinner")

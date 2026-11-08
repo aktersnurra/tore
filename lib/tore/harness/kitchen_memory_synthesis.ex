@@ -29,17 +29,18 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
 
   @max_active 10
 
-  @doc """
-  Cron entry: dispatch the weekly memory synthesis run for the household.
-  """
-  @spec synthesise_weekly() :: {:ok, term()} | {:error, term()}
+  @doc "Cron entry: dispatch the weekly memory synthesis run for every household."
+  @spec synthesise_weekly() :: :ok
   def synthesise_weekly do
-    household = Household.get_household!()
+    Enum.each(Household.list_ids(), &synthesise_for(Tore.Scope.for_household(&1)))
+  end
 
+  @spec synthesise_for(Tore.Scope.t()) :: {:ok, term()} | {:error, term()}
+  def synthesise_for(%Tore.Scope{} = scope) do
     ctx = %{
-      household_id: household.id,
+      household_id: scope.household_id,
       user_id: nil,
-      plan_stream_id: "plan:#{Date.to_iso8601(Date.utc_today())}",
+      plan_stream_id: Tore.Streams.plan(scope, Date.utc_today()),
       week_start: Date.utc_today()
     }
 

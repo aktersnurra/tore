@@ -35,9 +35,9 @@ defmodule Tore.Harness.RunReceipts do
           reverted_at: DateTime.t() | nil
         }
 
-  @spec get(String.t()) :: {:ok, receipt()} | {:error, :not_applied | :not_found}
-  def get(stream_id) do
-    case Run.load(stream_id) do
+  @spec get(Tore.Scope.t(), String.t()) :: {:ok, receipt()} | {:error, :not_applied | :not_found}
+  def get(%Tore.Scope{} = scope, stream_id) do
+    case Run.load(scope, stream_id) do
       {:ok, %State.Draft{}} -> {:error, :not_found}
       {:ok, %State.Applied{} = s} -> {:ok, to_receipt(s)}
       {:ok, %State.Reverted{} = s} -> {:ok, to_receipt(s)}
@@ -45,17 +45,16 @@ defmodule Tore.Harness.RunReceipts do
     end
   end
 
-  @spec list_for_household(term()) :: [receipt()]
-  def list_for_household(household_id) do
+  @spec list(Tore.Scope.t()) :: [receipt()]
+  def list(%Tore.Scope{} = scope) do
     from(e in Event,
       where: e.stream_type == "run" and e.event_type == "Opened",
-      where: fragment("json_extract(?, '$.household_id') = ?", e.data, ^household_id),
       select: e.stream_id,
       order_by: [desc: e.id]
     )
-    |> Repo.all()
+    |> Repo.all(Tore.Scope.repo_opts(scope))
     |> Enum.flat_map(fn sid ->
-      case get(sid) do
+      case get(scope, sid) do
         {:ok, r} -> [r]
         _ -> []
       end
@@ -66,9 +65,9 @@ defmodule Tore.Harness.RunReceipts do
   def to_diff_rows(artifacts) when is_list(artifacts),
     do: Enum.flat_map(artifacts, &rows_for/1)
 
-  @spec revert(String.t()) :: :ok | {:error, term()}
-  def revert(stream_id) do
-    with {:ok, applied} <- load_applied(stream_id) do
+  @spec revert(Tore.Scope.t(), String.t()) :: :ok | {:error, term()}
+  def revert(%Tore.Scope{} = scope, stream_id) do
+    with {:ok, applied} <- load_applied(scope, stream_id) do
       revert_applied(applied)
     end
   end
@@ -81,15 +80,17 @@ defmodule Tore.Harness.RunReceipts do
   error and can retry.
 
   Exposed for tests that need to drive a doctored `%State.Applied{}`
-  through the revert path without round-tripping through `Run.load/1`.
+  through the revert path without round-tripping through `Run.load/2`.
   """
   @spec revert_applied(State.Applied.t()) :: :ok | {:error, term()}
   def revert_applied(%State.Applied{undo_payload: payload} = applied) do
     with :ok <- reversible?(payload) do
       Repo.transaction(fn ->
-        with :ok <- compensate(Tore.Scope.for_household(applied.household_id), payload),
+        scope = Tore.Scope.for_household(applied.household_id)
+
+        with :ok <- compensate(scope, payload),
              {:ok, events} <- Run.decide(%Commands.Revert{}, applied),
-             :ok <- Run.append(applied.stream_id, events, %{household_id: applied.household_id}) do
+             :ok <- Run.append(scope, applied.stream_id, events) do
           :ok
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -198,8 +199,8 @@ defmodule Tore.Harness.RunReceipts do
 
   # ----- revert plumbing ------------------------------------------------------
 
-  defp load_applied(stream_id) do
-    case Run.load(stream_id) do
+  defp load_applied(scope, stream_id) do
+    case Run.load(scope, stream_id) do
       {:ok, %State.Draft{}} -> {:error, :not_found}
       {:ok, %State.Applied{} = s} -> {:ok, s}
       {:ok, _other} -> {:error, :not_applied}
@@ -220,12 +221,12 @@ defmodule Tore.Harness.RunReceipts do
     end)
   end
 
-  defp compensate(_scope, %UndoPayload{
+  defp compensate(scope, %UndoPayload{
          kind: :event_sourced,
          data: %{stream_type: "planning"} = data
        }) do
     events = Enum.map(data.compensating_events, &to_planning_event/1)
-    Tore.Planning.apply_events(data.stream_id, events)
+    Tore.Planning.apply_events(scope, data.stream_id, events)
   end
 
   defp compensate(scope, %UndoPayload{

@@ -136,7 +136,7 @@ defmodule Tore.Capture.Router do
         0
       )
 
-    close_turn_run(parent_sid, result)
+    close_turn_run(parent_sid, ctx, result)
   end
 
   defp open_turn_run(ctx) do
@@ -146,15 +146,15 @@ defmodule Tore.Capture.Router do
     end
   end
 
-  defp close_turn_run(nil, result), do: drop_sids(result)
+  defp close_turn_run(nil, _ctx, result), do: drop_sids(result)
 
-  defp close_turn_run(parent_sid, {:ok, bubbles, child_sids}) do
-    _ = Orchestrator.end_turn(parent_sid, child_sids)
+  defp close_turn_run(parent_sid, ctx, {:ok, bubbles, child_sids}) do
+    _ = Orchestrator.end_turn(Tore.Scope.for_household(ctx.household_id), parent_sid, child_sids)
     {:ok, bubbles}
   end
 
-  defp close_turn_run(parent_sid, {:error, _} = err) do
-    _ = Orchestrator.end_turn(parent_sid, [])
+  defp close_turn_run(parent_sid, ctx, {:error, _} = err) do
+    _ = Orchestrator.end_turn(Tore.Scope.for_household(ctx.household_id), parent_sid, [])
     err
   end
 
@@ -829,12 +829,11 @@ defmodule Tore.Capture.Router do
   end
 
   defp chat_ctx(ctx) do
-    today = Date.utc_today()
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
+    week_start = Tore.Streams.monday(Date.utc_today())
 
     %{
       household_id: ctx.household_id,
-      plan_stream_id: "plan:#{Date.to_iso8601(week_start)}",
+      plan_stream_id: Tore.Streams.plan(Tore.Scope.for_household(ctx.household_id), week_start),
       week_start: week_start
     }
   end

@@ -1,6 +1,8 @@
 defmodule Tore.PrepGuideTest do
   use ExUnit.Case, async: false
 
+  import Tore.AccountsFixtures, only: [home_scope: 0]
+
   import Mox
 
   alias Tore.Prep
@@ -12,7 +14,7 @@ defmodule Tore.PrepGuideTest do
     :ok
   end
 
-  defp plan_id, do: "plan:2026-04-27"
+  defp plan_id, do: Tore.Streams.plan(home_scope(), ~D[2026-04-27])
   defp week_start, do: ~D[2026-04-27]
 
   defp mock_usage, do: %{prompt_tokens: 500, completion_tokens: 100, cost_usd: 0.0005}
@@ -37,7 +39,7 @@ defmodule Tore.PrepGuideTest do
        }, mock_usage()}
     end)
 
-    assert {:ok, guide} = Prep.generate_guide(plan_id(), week_start())
+    assert {:ok, guide} = Prep.generate_guide(home_scope(), plan_id(), week_start())
     assert guide.week_start == week_start()
     assert length(guide.timeline) == 1
     assert guide.storage_notes == "Chicken: 3 days"
@@ -45,7 +47,7 @@ defmodule Tore.PrepGuideTest do
 
   test "generate_guide returns error when LLM fails" do
     Tore.MockLLM |> expect(:text, fn _system, _user, _opts -> {:error, :timeout} end)
-    assert {:error, :timeout} = Prep.generate_guide(plan_id(), week_start())
+    assert {:error, :timeout} = Prep.generate_guide(home_scope(), plan_id(), week_start())
   end
 
   test "generate_guide returns budget_exceeded when over limit" do
@@ -56,6 +58,6 @@ defmodule Tore.PrepGuideTest do
       cost_usd: 20.0
     })
 
-    assert {:error, :budget_exceeded} = Prep.generate_guide(plan_id(), week_start())
+    assert {:error, :budget_exceeded} = Prep.generate_guide(home_scope(), plan_id(), week_start())
   end
 end

@@ -52,7 +52,8 @@ defmodule Tore.Harness.ReceiptIngestionTest do
     state = dispatch_receipt()
     cost = Enum.find(state.artifacts, &match?(%CostEntry{}, &1))
 
-    assert {:ok, %State.Applied{}} = Orchestrator.commit_receipt(state.stream_id, cost, user.id)
+    assert {:ok, %State.Applied{}} =
+             Orchestrator.commit_receipt(home_scope(), state.stream_id, cost, user.id)
 
     receipt = Repo.one!(Receipt) |> Repo.preload(:line_items)
     assert receipt.store_name == "ICA"
@@ -65,20 +66,22 @@ defmodule Tore.Harness.ReceiptIngestionTest do
   end
 
   test "saving a receipt leaves the pantry and the shopping list alone", %{user: user} do
-    list_id = "shop_list:2026-11-02"
+    list_id = Tore.Streams.shop_list(home_scope(), ~D[2026-11-02])
     # Adding to the list classifies the item once. Any further call would fail.
     expect(Tore.MockLLM, :text, fn _system, _user, _opts ->
       {:ok, %{"section" => "dairy"}, @usage}
     end)
 
-    {:ok, _} = Shop.add_item(list_id, "Mjölk", Decimal.new(1), "l", nil)
+    {:ok, _} = Shop.add_item(home_scope(), list_id, "Mjölk", Decimal.new(1), "l", nil)
 
     state = dispatch_receipt()
     cost = Enum.find(state.artifacts, &match?(%CostEntry{}, &1))
-    assert {:ok, %State.Applied{}} = Orchestrator.commit_receipt(state.stream_id, cost, user.id)
+
+    assert {:ok, %State.Applied{}} =
+             Orchestrator.commit_receipt(home_scope(), state.stream_id, cost, user.id)
 
     assert Pantry.list_inventory(home_scope()) == []
-    {:ok, %{items: items}} = Shop.load_list(list_id)
+    {:ok, %{items: items}} = Shop.load_list(home_scope(), list_id)
     assert [%{checked: false}] = Map.values(items)
   end
 end

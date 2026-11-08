@@ -2,12 +2,13 @@ defmodule Tore.WeekMode do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
-  alias Tore.Repo
+  alias Tore.{Repo, Scope}
 
   @valid_modes ~w(normal low_effort budget_week use_pantry more_leftovers
                   high_protein freezer_week guest_week)
 
   schema "week_modes" do
+    field :household_id, :integer
     field :mode, :string, default: "normal"
     field :week_start, :date
     timestamps(updated_at: false)
@@ -18,25 +19,32 @@ defmodule Tore.WeekMode do
     |> cast(attrs, [:mode, :week_start])
     |> validate_required([:mode, :week_start])
     |> validate_inclusion(:mode, @valid_modes)
-    |> unique_constraint(:week_start)
+    |> unique_constraint([:household_id, :week_start])
   end
 
-  def get_current_mode do
+  def get_current_mode(%Scope{} = scope) do
     week_start = current_week_start()
 
-    case Repo.one(from wm in __MODULE__, where: wm.week_start == ^week_start) do
+    case Repo.one(
+           from(wm in __MODULE__, where: wm.week_start == ^week_start),
+           Scope.repo_opts(scope)
+         ) do
       nil -> "normal"
       wm -> wm.mode
     end
   end
 
-  def set_mode(mode) do
+  def set_mode(%Scope{} = scope, mode) do
     week_start = current_week_start()
     attrs = %{mode: mode, week_start: week_start}
 
-    existing = Repo.one(from wm in __MODULE__, where: wm.week_start == ^week_start)
+    existing =
+      Repo.one(
+        from(wm in __MODULE__, where: wm.week_start == ^week_start),
+        Scope.repo_opts(scope)
+      )
 
-    (existing || %__MODULE__{})
+    (existing || %__MODULE__{household_id: scope.household_id})
     |> changeset(attrs)
     |> Repo.insert_or_update()
   end

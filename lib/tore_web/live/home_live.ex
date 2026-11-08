@@ -8,10 +8,11 @@ defmodule ToreWeb.HomeLive do
   def mount(_params, _session, socket) do
     today = Date.utc_today()
     week_start = week_start(today)
-    plan_id = plan_id(week_start)
+    scope = socket.assigns.current_scope
+    plan_id = Tore.Streams.plan(scope, week_start)
     today_key = today_slot_key(today)
 
-    {:ok, plan_state} = Planning.load_plan(plan_id)
+    {:ok, plan_state} = Planning.load_plan(scope, plan_id)
 
     recipes = Recipes.list(socket.assigns.current_scope)
     recipes_by_id = Map.new(recipes, &{&1.id, &1})
@@ -138,8 +139,9 @@ defmodule ToreWeb.HomeLive do
 
   def handle_event("something_else", _params, socket) do
     %{plan_id: plan_id, today_key: today_key, recipes_by_id: recipes_by_id} = socket.assigns
-    Planning.skip_meal(plan_id, today_key)
-    {:ok, plan_state} = Planning.load_plan(plan_id)
+    scope = socket.assigns.current_scope
+    Planning.skip_meal(scope, plan_id, today_key)
+    {:ok, plan_state} = Planning.load_plan(scope, plan_id)
     tonight_slot = Map.get(plan_state.slots, today_key)
 
     tonight_recipe =
@@ -195,7 +197,7 @@ defmodule ToreWeb.HomeLive do
 
   def handle_info({:run_dispatched, result}, socket) do
     %{plan_id: plan_id, today_key: today_key, recipes_by_id: recipes_by_id} = socket.assigns
-    {:ok, plan_state} = Planning.load_plan(plan_id)
+    {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, plan_id)
     tonight_slot = Map.get(plan_state.slots, today_key)
 
     tonight_recipe =
@@ -237,6 +239,4 @@ defmodule ToreWeb.HomeLive do
     dow = Date.day_of_week(date)
     Date.add(date, -(dow - 1))
   end
-
-  defp plan_id(week_start), do: "plan:#{Date.to_iso8601(week_start)}"
 end

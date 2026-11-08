@@ -10,9 +10,10 @@ defmodule ToreWeb.PlannerLive do
   def mount(_params, _session, socket) do
     today = Date.utc_today()
     week_start = week_start(today)
-    plan_id = plan_id(week_start)
+    scope = socket.assigns.current_scope
+    plan_id = plan_id(scope, week_start)
 
-    household_id = socket.assigns.current_user.household_id
+    household_id = scope.household_id
 
     if connected?(socket) do
       PubSub.subscribe(Tore.PubSub, "plan")
@@ -20,8 +21,8 @@ defmodule ToreWeb.PlannerLive do
       Phoenix.PubSub.subscribe(Tore.PubSub, "harness:household:#{household_id}")
     end
 
-    {:ok, plan_state} = Planning.load_plan(plan_id)
-    recipes = Recipes.list(socket.assigns.current_scope, sort: :alphabetical)
+    {:ok, plan_state} = Planning.load_plan(scope, plan_id)
+    recipes = Recipes.list(scope, sort: :alphabetical)
     current_run = Tore.Harness.Projector.latest_on_surface(household_id, :plan)
 
     {:ok,
@@ -33,7 +34,7 @@ defmodule ToreWeb.PlannerLive do
        recipes: recipes,
        slot_action: nil,
        plan_health: PlanHealth.compute(plan_state),
-       current_week_mode: Tore.WeekMode.get_current_mode(),
+       current_week_mode: Tore.WeekMode.get_current_mode(scope),
        current_run: current_run,
        quick_loading: false,
        focused_slots: MapSet.new()
@@ -92,13 +93,13 @@ defmodule ToreWeb.PlannerLive do
     }
 
     parent = self()
-    plan_id = socket.assigns.plan_id
+    %{plan_id: plan_id, current_scope: scope} = socket.assigns
 
     dietary_guidance =
       Tore.Household.get_preferences() |> Tore.Household.prefs_to_dietary_guidance()
 
     Task.start(fn ->
-      case Planning.suggest_recipes_for_slot(plan_id, sk,
+      case Planning.suggest_recipes_for_slot(scope, plan_id, sk,
              limit: 5,
              dietary_guidance: dietary_guidance
            ) do
@@ -178,7 +179,7 @@ defmodule ToreWeb.PlannerLive do
     %{plan_id: plan_id, slot_action: %{slot_key: sk}, current_user: user} = socket.assigns
     attrs = %{description: place, total_amount: amount, user_id: user.id}
 
-    case Planning.eat_out(plan_id, sk, attrs) do
+    case Planning.eat_out(socket.assigns.current_scope, plan_id, sk, attrs) do
       {:ok, _entry} ->
         {:noreply, assign(socket, slot_action: nil)}
 
@@ -189,7 +190,7 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_event("clear_eating_out", _, socket) do
     %{plan_id: plan_id, slot_action: %{slot_key: sk}} = socket.assigns
-    Planning.remove_recipe(plan_id, sk)
+    Planning.remove_recipe(socket.assigns.current_scope, plan_id, sk)
     {:noreply, assign(socket, slot_action: nil)}
   end
 
@@ -198,8 +199,8 @@ defmodule ToreWeb.PlannerLive do
     plan_id = socket.assigns.plan_id
 
     if was_pinned,
-      do: Planning.unpin_slot(plan_id, sk),
-      else: Planning.pin_slot(plan_id, sk, true)
+      do: Planning.unpin_slot(socket.assigns.current_scope, plan_id, sk),
+      else: Planning.pin_slot(socket.assigns.current_scope, plan_id, sk, true)
 
     {:noreply, update_slot(socket, fn s -> %{s | pinned: !was_pinned} end)}
   end
@@ -210,7 +211,7 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_event("regenerate_suggestion", _, socket) do
     s = socket.assigns.slot_action
-    plan_id = socket.assigns.plan_id
+    %{plan_id: plan_id, current_scope: scope} = socket.assigns
     parent = self()
     sk = s.slot_key
 
@@ -218,7 +219,7 @@ defmodule ToreWeb.PlannerLive do
       Tore.Household.get_preferences() |> Tore.Household.prefs_to_dietary_guidance()
 
     Task.start(fn ->
-      case Planning.suggest_recipes_for_slot(plan_id, sk,
+      case Planning.suggest_recipes_for_slot(scope, plan_id, sk,
              limit: 5,
              include_llm: true,
              dietary_guidance: dietary_guidance
@@ -232,12 +233,12 @@ defmodule ToreWeb.PlannerLive do
   end
 
   def handle_event("remove_meal", %{"slot_key" => sk}, socket) do
-    Planning.remove_recipe(socket.assigns.plan_id, sk)
+    Planning.remove_recipe(socket.assigns.current_scope, socket.assigns.plan_id, sk)
     {:noreply, socket}
   end
 
   def handle_event("set_week_mode", %{"mode" => mode}, socket) do
-    case Tore.WeekMode.set_mode(mode) do
+    case Tore.WeekMode.set_mode(socket.assigns.current_scope, mode) do
       {:ok, _} ->
         {:noreply, assign(socket, current_week_mode: mode)}
 
@@ -338,7 +339,7 @@ defmodule ToreWeb.PlannerLive do
   def handle_info({:run_event, _stream_id, _event}, socket), do: {:noreply, socket}
 
   def handle_info({:events, _events}, socket) do
-    {:ok, plan_state} = Planning.load_plan(socket.assigns.plan_id)
+    {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, socket.assigns.plan_id)
     old_ids = assigned_recipe_ids(socket.assigns.plan_state)
     new_ids = assigned_recipe_ids(plan_state)
 
@@ -396,15 +397,16 @@ defmodule ToreWeb.PlannerLive do
         socket
 
       s ->
-        plan_id = socket.assigns.plan_id
+        %{plan_id: plan_id, current_scope: scope} = socket.assigns
 
         cond do
           s.skipped ->
             slot = Map.get(socket.assigns.plan_state.slots, s.slot_key)
-            if slot, do: Planning.skip_meal(plan_id, s.slot_key)
+            if slot, do: Planning.skip_meal(scope, plan_id, s.slot_key)
 
           s.selected_recipe_id ->
             Planning.assign_with_leftovers(
+              scope,
               plan_id,
               s.slot_key,
               s.selected_recipe_id,
@@ -430,12 +432,12 @@ defmodule ToreWeb.PlannerLive do
   end
 
   defp rebuild_grocery_list(socket) do
-    %{week_start: week_start} = socket.assigns
+    %{week_start: week_start, current_scope: scope} = socket.assigns
     recipe_ids = assigned_recipe_ids(socket.assigns.plan_state)
 
     if recipe_ids != [] do
       Task.start(fn ->
-        Shop.build_list(shop_id(week_start), week_start, recipe_ids)
+        Shop.build_list(scope, shop_id(scope, week_start), week_start, recipe_ids)
       end)
     end
   end
@@ -1158,8 +1160,9 @@ defmodule ToreWeb.PlannerLive do
   end
 
   defp load_week(socket, week_start) do
-    plan_id = plan_id(week_start)
-    {:ok, plan_state} = Planning.load_plan(plan_id)
+    scope = socket.assigns.current_scope
+    plan_id = plan_id(scope, week_start)
+    {:ok, plan_state} = Planning.load_plan(scope, plan_id)
 
     assign(socket,
       week_start: week_start,
@@ -1269,8 +1272,8 @@ defmodule ToreWeb.PlannerLive do
   defp decimal_value(nil), do: nil
   defp decimal_value(%Decimal{} = amount), do: Decimal.to_string(amount, :normal)
 
-  defp plan_id(week_start), do: "plan:#{Date.to_iso8601(week_start)}"
-  defp shop_id(week_start), do: "shop_list:#{Date.to_iso8601(week_start)}"
+  defp plan_id(scope, week_start), do: Tore.Streams.plan(scope, week_start)
+  defp shop_id(scope, week_start), do: Tore.Streams.shop_list(scope, week_start)
 
   defp health_dot_color(:ready), do: "background:#16a34a"
   defp health_dot_color(:flexible), do: "background:#ca8a04"

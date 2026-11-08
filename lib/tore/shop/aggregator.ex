@@ -1,13 +1,13 @@
 defmodule Tore.Shop.Aggregator do
   alias Tore.Recipes
 
-  @spec aggregate_by_ids([integer()]) :: [map()]
-  def aggregate_by_ids([]), do: []
+  @spec aggregate_by_ids(Tore.Scope.t(), [integer()]) :: [map()]
+  def aggregate_by_ids(_scope, []), do: []
 
-  def aggregate_by_ids(recipe_ids) do
+  def aggregate_by_ids(scope, recipe_ids) do
     recipe_ids
     |> Enum.flat_map(fn id ->
-      recipe = Recipes.get!(Tore.Scope.for_household(Tore.Household.get_household!().id), id)
+      recipe = Recipes.get!(scope, id)
 
       Enum.map(recipe.recipe_ingredients, fn ri ->
         %{name: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}

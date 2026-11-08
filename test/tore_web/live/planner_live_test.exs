@@ -28,7 +28,7 @@ defmodule ToreWeb.PlannerLiveTest do
     today = Date.utc_today()
     dow = Date.day_of_week(today)
     week_start = Date.add(today, -(dow - 1))
-    "plan:#{Date.to_iso8601(week_start)}"
+    Tore.Streams.plan(home_scope(), week_start)
   end
 
   describe "slot modal" do
@@ -58,7 +58,7 @@ defmodule ToreWeb.PlannerLiveTest do
       render_click(lv, "pick_recipe", %{"id" => to_string(recipe.id)})
       render_click(lv, "save_slot", %{})
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["tue_dinner"].recipe_id == recipe.id
     end
 
@@ -75,7 +75,7 @@ defmodule ToreWeb.PlannerLiveTest do
       render_click(lv, "toggle_leftover_day", %{"day" => "tue_dinner"})
       render_click(lv, "save_slot", %{})
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["mon_dinner"].recipe_id == recipe.id
       assert state.slots["tue_dinner"].leftover == true
     end
@@ -86,7 +86,7 @@ defmodule ToreWeb.PlannerLiveTest do
       recipe: recipe
     } do
       # Pre-assign a meal so skip has something to act on
-      Planning.assign_recipe(this_plan_id(), "wed_dinner", recipe.id, 4)
+      Planning.assign_recipe(home_scope(), this_plan_id(), "wed_dinner", recipe.id, 4)
 
       conn = authed(conn, user)
       {:ok, lv, _html} = live(conn, "/plan")
@@ -95,7 +95,7 @@ defmodule ToreWeb.PlannerLiveTest do
       render_click(lv, "toggle_skipped", %{})
       render_click(lv, "save_slot", %{})
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["wed_dinner"].skipped == true
     end
 
@@ -108,7 +108,7 @@ defmodule ToreWeb.PlannerLiveTest do
       |> form("#eating-out-form", %{place: "Sushi", amount: "450"})
       |> render_submit()
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert Tore.Planning.State.eating_out?(state.slots["thu_dinner"])
 
       entry = Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner")
@@ -123,19 +123,22 @@ defmodule ToreWeb.PlannerLiveTest do
       user: user,
       recipe: recipe
     } do
-      Planning.assign_recipe(this_plan_id(), "wed_dinner", recipe.id, 4)
+      Planning.assign_recipe(home_scope(), this_plan_id(), "wed_dinner", recipe.id, 4)
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       render_click(lv, "open_slot", %{"slot_key" => "wed_dinner"})
       render_click(lv, "toggle_eating_out", %{})
       lv |> form("#eating-out-form", %{place: "", amount: ""}) |> render_submit()
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["wed_dinner"].recipe_id == nil
       assert Tore.Costs.get_dining_out(this_plan_id(), "wed_dinner").total_amount == nil
     end
 
     test "the sheet shows what was saved, and can add an amount later", %{conn: conn, user: user} do
-      Planning.eat_out(this_plan_id(), "thu_dinner", %{description: "Sushi", user_id: user.id})
+      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{
+        description: "Sushi",
+        user_id: user.id
+      })
 
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       html = render_click(lv, "open_slot", %{"slot_key" => "thu_dinner"})
@@ -150,19 +153,19 @@ defmodule ToreWeb.PlannerLiveTest do
     end
 
     test "'Not eating out' clears the day and the cost entry", %{conn: conn, user: user} do
-      Planning.eat_out(this_plan_id(), "thu_dinner", %{user_id: user.id})
+      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{user_id: user.id})
 
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       render_click(lv, "open_slot", %{"slot_key" => "thu_dinner"})
       render_click(lv, "clear_eating_out", %{})
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       refute Map.has_key?(state.slots, "thu_dinner")
       assert Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner") == nil
     end
 
     test "picking a recipe replaces eating out", %{conn: conn, user: user, recipe: recipe} do
-      Planning.eat_out(this_plan_id(), "thu_dinner", %{user_id: user.id})
+      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{user_id: user.id})
 
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       render_click(lv, "open_slot", %{"slot_key" => "thu_dinner"})
@@ -170,7 +173,7 @@ defmodule ToreWeb.PlannerLiveTest do
       render_click(lv, "pick_recipe", %{"id" => to_string(recipe.id)})
       render_click(lv, "save_slot", %{})
 
-      {:ok, state} = Planning.load_plan(this_plan_id())
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["thu_dinner"].recipe_id == recipe.id
       assert Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner") == nil
     end
@@ -302,14 +305,14 @@ defmodule ToreWeb.PlannerLiveTest do
 
       lv |> element(~s(button[phx-click="toggle_pinned"])) |> render_click()
 
-      {:ok, state} = Planning.load_plan(plan)
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
       assert Map.has_key?(state.pins, "mon_dinner")
     end
 
     test "toggling pin off persists a SlotUnpinned event", %{conn: conn, user: user} do
       conn = authed(conn, user)
       plan = this_plan_id()
-      Planning.pin_slot(plan, "mon_dinner", true)
+      Planning.pin_slot(home_scope(), plan, "mon_dinner", true)
       {:ok, lv, _html} = live(conn, "/plan")
 
       lv
@@ -318,14 +321,14 @@ defmodule ToreWeb.PlannerLiveTest do
 
       lv |> element(~s(button[phx-click="toggle_pinned"])) |> render_click()
 
-      {:ok, state} = Planning.load_plan(plan)
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
       refute Map.has_key?(state.pins, "mon_dinner")
     end
 
     test "the day row shows a lock indicator when the slot is pinned", %{conn: conn, user: user} do
       conn = authed(conn, user)
       plan = this_plan_id()
-      Planning.pin_slot(plan, "mon_dinner", true)
+      Planning.pin_slot(home_scope(), plan, "mon_dinner", true)
       {:ok, lv, _html} = live(conn, "/plan")
 
       # structural: the indicator lives inside the pinned slot's row, not just somewhere
@@ -356,7 +359,7 @@ defmodule ToreWeb.PlannerLiveTest do
     } do
       conn = authed(conn, user)
       plan = this_plan_id()
-      Planning.pin_slot(plan, "mon_dinner", true)
+      Planning.pin_slot(home_scope(), plan, "mon_dinner", true)
       {:ok, lv, _html} = live(conn, "/plan")
 
       html =

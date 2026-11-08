@@ -9,7 +9,7 @@ defmodule Tore.Harness.CapsulesTest do
     PantryBeliefsCapsule
   }
 
-  @ctx %{household_id: 1, plan_stream_id: "plan:2026-06-08", week_start: ~D[2026-06-08]}
+  @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
 
   test "compose/2 joins rendered capsules and drops nils, preserving order" do
     {:ok, _} = Tore.Household.update_preferences(%{dietary_restrictions: ["vegetarian"]})

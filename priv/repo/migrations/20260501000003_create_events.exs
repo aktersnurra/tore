@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateEvents do
 
   def change do
     create table(:events) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :stream_id, :string, null: false
       add :stream_type, :string, null: false
       add :event_type, :string, null: false
@@ -11,6 +12,6 @@ defmodule Tore.Repo.Migrations.CreateEvents do
       timestamps(updated_at: false)
     end
 
-    create index(:events, [:stream_id, :id])
+    create index(:events, [:household_id, :stream_id, :id])
   end
 end

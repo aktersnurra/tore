@@ -27,11 +27,10 @@ defmodule Tore.Harness.InboxSweeper do
 
   @ttl_days 14
 
-  @doc "Cron entry. Sweeps the singleton household."
+  @doc "Cron entry. Sweeps every household."
   @spec sweep_weekly() :: :ok
   def sweep_weekly do
-    household_id = Household.get_household!().id
-    sweep(household_id)
+    Enum.each(Household.list_ids(), &sweep/1)
   end
 
   @doc "Run a sweep for `household_id`. Returns :ok always."
@@ -43,7 +42,7 @@ defmodule Tore.Harness.InboxSweeper do
     {:ok, _pid} = ProjectorSupervisor.start_or_lookup(household_id)
 
     {expired, _} = expire_stale_pending(household_id)
-    {reaped, kept} = reap_orphan_photos()
+    {reaped, kept} = reap_orphan_photos(household_id)
 
     Logger.info(
       "InboxSweeper done: ttl_expired=#{expired}, photos_reaped=#{reaped}, photos_kept=#{kept}"
@@ -60,7 +59,9 @@ defmodule Tore.Harness.InboxSweeper do
     Projector.list_pending(household_id)
     |> Enum.filter(&stale?(&1, cutoff))
     |> Enum.reduce({0, 0}, fn run, {ok_count, err_count} ->
-      case Orchestrator.discard_run(run.stream_id, reason: :ttl_expired) do
+      case Orchestrator.discard_run(Tore.Scope.for_household(household_id), run.stream_id,
+             reason: :ttl_expired
+           ) do
         {:ok, _} ->
           {ok_count + 1, err_count}
 
@@ -87,15 +88,16 @@ defmodule Tore.Harness.InboxSweeper do
   #
   # Strategy: each photo key lives under `<stream_id>/<uuid>.jpg`. The stream
   # id IS the directory name. We list all keys, group by stream_id, look up
-  # each run's state, and delete photos whose run is terminal.
-  defp reap_orphan_photos do
+  # each run's state, and delete photos whose run is terminal. A run of another
+  # household loads as a Draft here, so its photos are kept for that household's sweep.
+  defp reap_orphan_photos(household_id) do
     case Storage.client().list_object_keys(Buckets.runs(), "") do
       {:ok, keys} ->
         keys
         |> Enum.group_by(&stream_id_from_key/1)
         |> Enum.reject(fn {sid, _} -> is_nil(sid) end)
         |> Enum.reduce({0, 0}, fn {stream_id, keys}, {reaped, kept} ->
-          if reapable?(stream_id) do
+          if reapable?(household_id, stream_id) do
             Enum.each(keys, &Storage.client().delete_object(Buckets.runs(), &1))
             {reaped + length(keys), kept}
           else
@@ -116,8 +118,8 @@ defmodule Tore.Harness.InboxSweeper do
     end
   end
 
-  defp reapable?(stream_id) do
-    case Run.load(stream_id) do
+  defp reapable?(household_id, stream_id) do
+    case Run.load(Tore.Scope.for_household(household_id), stream_id) do
       {:ok, %State.Applied{}} -> true
       {:ok, %State.Failed{}} -> true
       {:ok, %State.Discarded{}} -> true

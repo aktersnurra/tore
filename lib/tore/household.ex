@@ -29,6 +29,10 @@ defmodule Tore.Household do
   def locale_label(code), do: code
 
   @spec create_household(map()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
+  @doc "Every household's id, for jobs that run for each of them."
+  @spec list_ids() :: [integer()]
+  def list_ids, do: Repo.all(from h in HouseholdSchema, order_by: h.id, select: h.id)
+
   def create_household(attrs) do
     %HouseholdSchema{}
     |> HouseholdSchema.changeset(attrs)

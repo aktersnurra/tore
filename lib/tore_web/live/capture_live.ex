@@ -29,7 +29,7 @@ defmodule ToreWeb.CaptureLive do
   end
 
   def handle_event("undo_run", %{"sid" => sid}, socket) do
-    case RunReceipts.revert(sid) do
+    case RunReceipts.revert(socket.assigns.current_scope, sid) do
       :ok ->
         messages =
           Enum.map(socket.assigns.messages, fn
@@ -61,7 +61,7 @@ defmodule ToreWeb.CaptureLive do
       messages = history ++ [user_bubble]
 
       ctx = %{
-        household_id: Tore.Household.get_household!().id,
+        household_id: socket.assigns.current_scope.household_id,
         user_id: socket.assigns.current_user && socket.assigns.current_user.id
       }
 

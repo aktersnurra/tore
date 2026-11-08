@@ -34,7 +34,7 @@ defmodule ToreWeb.ReviewControllerTest do
     running = Run.evolve(%State.Draft{stream_id: sid}, opened)
     {:ok, [raised]} = Run.decide(%Commands.RaiseQuestion{question: "Which store?"}, running)
 
-    :ok = Run.append(sid, [opened, raised], %{household_id: household_id})
+    :ok = Run.append(Tore.Scope.for_household(household_id), sid, [opened, raised])
     sid
   end
 

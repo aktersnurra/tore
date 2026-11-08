@@ -6,13 +6,14 @@ defmodule ToreWeb.ShopLive do
 
   def mount(_params, session, socket) do
     week_start = week_start(Date.utc_today())
-    list_id = shop_id(week_start)
+    scope = socket.assigns.current_scope
+    list_id = Tore.Streams.shop_list(scope, week_start)
 
     if connected?(socket) do
       PubSub.subscribe(Tore.PubSub, "shop_list")
     end
 
-    {:ok, grocery_state} = Shop.load_list(list_id)
+    {:ok, grocery_state} = Shop.load_list(scope, list_id)
     user_id = Map.get(session, "user_id")
 
     {:ok,
@@ -32,21 +33,37 @@ defmodule ToreWeb.ShopLive do
     item = Map.get(socket.assigns.grocery_state.items, id)
 
     if item && item.checked do
-      Shop.uncheck_item(socket.assigns.list_id, id, socket.assigns.user_id)
+      Shop.uncheck_item(
+        socket.assigns.current_scope,
+        socket.assigns.list_id,
+        id,
+        socket.assigns.user_id
+      )
     else
-      Shop.check_item(socket.assigns.list_id, id, socket.assigns.user_id)
+      Shop.check_item(
+        socket.assigns.current_scope,
+        socket.assigns.list_id,
+        id,
+        socket.assigns.user_id
+      )
     end
 
     {:noreply, socket}
   end
 
   def handle_event("remove_item", %{"item_id" => id}, socket) do
-    Shop.remove_item(socket.assigns.list_id, id, socket.assigns.user_id)
+    Shop.remove_item(
+      socket.assigns.current_scope,
+      socket.assigns.list_id,
+      id,
+      socket.assigns.user_id
+    )
+
     {:noreply, socket}
   end
 
   def handle_event("export_list", _params, socket) do
-    case Shop.export_list(socket.assigns.list_id) do
+    case Shop.export_list(socket.assigns.current_scope, socket.assigns.list_id) do
       {:ok, text} -> {:noreply, assign(socket, export_text: text)}
       _ -> {:noreply, socket}
     end
@@ -66,6 +83,7 @@ defmodule ToreWeb.ShopLive do
       unit = if unit == "", do: nil, else: unit
 
       Shop.add_item(
+        socket.assigns.current_scope,
         socket.assigns.list_id,
         name,
         quantity,
@@ -93,7 +111,7 @@ defmodule ToreWeb.ShopLive do
     pid = self()
 
     ctx = %{
-      household_id: Tore.Household.get_household!().id,
+      household_id: socket.assigns.current_scope.household_id,
       user_id: socket.assigns.current_user && socket.assigns.current_user.id,
       locale: socket.assigns.current_user && socket.assigns.current_user.locale
     }
@@ -131,7 +149,7 @@ defmodule ToreWeb.ShopLive do
   end
 
   def handle_info({:events, _events}, socket) do
-    {:ok, grocery_state} = Shop.load_list(socket.assigns.list_id)
+    {:ok, grocery_state} = Shop.load_list(socket.assigns.current_scope, socket.assigns.list_id)
     {:noreply, assign(socket, grocery_state: grocery_state)}
   end
 
@@ -148,7 +166,7 @@ defmodule ToreWeb.ShopLive do
     items =
       assigns.grocery_state.items
       |> sorted_items()
-      |> Shop.annotate_with_pantry_belief()
+      |> then(&Shop.annotate_with_pantry_belief(assigns.current_scope, &1))
 
     {unchecked, checked} = Enum.split_with(items, &(!&1.checked))
     groups = group_by_section(unchecked)
@@ -443,8 +461,6 @@ defmodule ToreWeb.ShopLive do
     {_y, w} = :calendar.iso_week_number({date.year, date.month, date.day})
     w
   end
-
-  defp shop_id(week_start), do: "shop_list:#{Date.to_iso8601(week_start)}"
 
   defp pantry_belief_hint(:confirmed, last_seen),
     do: gettext("confirmed at home%{when}", when: last_seen_suffix(last_seen))

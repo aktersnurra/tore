@@ -5,7 +5,7 @@ defmodule ToreWeb.PrepLive do
 
   def mount(_params, _session, socket) do
     week_start = week_start(Date.utc_today())
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
+    plan_id = Tore.Streams.plan(socket.assigns.current_scope, week_start)
     guide = Prep.get_guide_for_week(week_start)
 
     {:ok,
@@ -21,13 +21,13 @@ defmodule ToreWeb.PrepLive do
   def handle_event("set_tab", %{"tab" => tab}, socket), do: {:noreply, assign(socket, tab: tab)}
 
   def handle_event("generate_guide", _params, socket) do
-    %{plan_id: plan_id, week_start: week_start} = socket.assigns
+    %{plan_id: plan_id, week_start: week_start, current_scope: scope} = socket.assigns
     lv = self()
 
     Task.start(fn ->
       result =
         try do
-          Prep.generate_guide(plan_id, week_start)
+          Prep.generate_guide(scope, plan_id, week_start)
         rescue
           e -> {:error, e}
         catch

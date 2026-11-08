@@ -2,10 +2,10 @@ defmodule Tore.Prep do
   alias Tore.{Repo, Prep.PrepGuide, Planning, Recipes, SpendGuard}
   import Ecto.Query
 
-  def generate_guide(plan_id, week_start) do
+  def generate_guide(%Tore.Scope{} = scope, plan_id, week_start) do
     with :ok <- SpendGuard.allow?(:generate_prep_guide),
-         {:ok, plan_state} <- Planning.load_plan(plan_id) do
-      plan_for_prompt = build_plan_for_prompt(plan_state, week_start)
+         {:ok, plan_state} <- Planning.load_plan(scope, plan_id) do
+      plan_for_prompt = build_plan_for_prompt(scope, plan_state, week_start)
 
       {system, user} = Tore.LLM.Prompts.prep_guide(plan_for_prompt, Tore.Household.locale())
 
@@ -17,13 +17,12 @@ defmodule Tore.Prep do
     end
   end
 
-  defp build_plan_for_prompt(plan_state, week_start) do
+  defp build_plan_for_prompt(scope, plan_state, week_start) do
     days =
       for {slot_key, %{recipe_id: recipe_id} = slot} <- plan_state.slots, recipe_id do
         %{
           slot_key: slot_key,
-          recipe_title:
-            Recipes.get!(Tore.Scope.for_household(Tore.Household.get_household!().id), recipe_id).title,
+          recipe_title: Recipes.get!(scope, recipe_id).title,
           servings: slot.servings
         }
       end
