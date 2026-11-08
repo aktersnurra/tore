@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateDeals do
 
   def change do
     create table(:deals) do
+      add :chain, :string, null: false, default: "ica"
       add :store, :string, null: false
       add :store_location, :string
       add :product_name, :string, null: false
@@ -10,6 +11,8 @@ defmodule Tore.Repo.Migrations.CreateDeals do
       add :size, :string
       add :price, :decimal
       add :price_unit, :string
+      add :regular_price, :string
+      add :comparison_price, :string
       add :offer_condition, :string
       add :valid_from, :date
       add :valid_until, :date
@@ -18,5 +21,6 @@ defmodule Tore.Repo.Migrations.CreateDeals do
     end
 
     create index(:deals, [:store, :valid_until])
+    create unique_index(:deals, [:chain, :store, :product_name])
   end
 end

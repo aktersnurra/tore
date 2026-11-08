@@ -1,8 +1,8 @@
-defmodule Tore.Repo.Migrations.CreateFamilyInsights do
+defmodule Tore.Repo.Migrations.CreateHouseholdInsights do
   use Ecto.Migration
 
   def change do
-    create table(:family_insights) do
+    create table(:household_insights) do
       add :kind, :string, null: false
       add :body, :text, null: false
       add :confidence, :float, null: false, default: 0.5
@@ -12,6 +12,6 @@ defmodule Tore.Repo.Migrations.CreateFamilyInsights do
       timestamps(updated_at: false)
     end
 
-    create index(:family_insights, [:status])
+    create index(:household_insights, [:status])
   end
 end

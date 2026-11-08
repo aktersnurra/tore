@@ -7,7 +7,9 @@ defmodule Tore.Repo.Migrations.CreateUsers do
       add :username, :string, null: false
       add :oidc_sub, :string, null: false
       add :ai_enabled, :boolean, null: false, default: false
+      add :locale, :string, null: false, default: "sv"
       add :preferences, :map, null: false, default: %{}
+      add :household_id, references(:households, on_delete: :nilify_all)
       timestamps()
     end
 

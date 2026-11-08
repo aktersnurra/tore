@@ -10,6 +10,10 @@ defmodule Tore.Repo.Migrations.CreatePantryItems do
       add :ingredient_id, references(:ingredients, on_delete: :nilify_all)
       add :added_at, :date, null: false
       add :expires_at, :date
+      add :expires_source, :string
+      add :provenance, :string, null: false, default: "manual"
+      add :belief, :string, null: false, default: "confirmed"
+      add :last_seen_at, :utc_datetime
       timestamps()
     end
 

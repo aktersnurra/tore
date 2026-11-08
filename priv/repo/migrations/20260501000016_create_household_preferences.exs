@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateHouseholdPreferences do
 
   def change do
     create table(:household_preferences) do
+      add :household_id, references(:households, on_delete: :delete_all)
       add :dietary_restrictions, {:array, :string}, default: []
       add :allergies, {:array, :string}, default: []
       add :dislikes, {:array, :string}, default: []

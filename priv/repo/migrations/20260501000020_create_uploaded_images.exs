@@ -7,7 +7,6 @@ defmodule Tore.Repo.Migrations.CreateUploadedImages do
       add :stream_id, :string, null: false
       add :kind, :string, null: false
       add :household_id, references(:households, on_delete: :delete_all), null: false
-
       timestamps(updated_at: false)
     end
 
