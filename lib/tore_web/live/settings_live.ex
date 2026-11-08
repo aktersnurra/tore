@@ -15,6 +15,7 @@ defmodule ToreWeb.SettingsLive do
     {:ok,
      socket
      |> assign_members()
+     |> assign_ai_sponsor()
      |> assign(
        member_username: "",
        member_notice: nil,
@@ -115,6 +116,12 @@ defmodule ToreWeb.SettingsLive do
     {:noreply, redirect(socket, to: ~p"/")}
   end
 
+  def handle_event("toggle_ai_sponsor", _params, socket) do
+    %{current_scope: scope, current_user: user, sponsoring: sponsoring} = socket.assigns
+    {:ok, _} = Household.set_ai_sponsor(scope, user, !sponsoring)
+    {:noreply, assign_ai_sponsor(socket)}
+  end
+
   def handle_event("rename_household", %{"name" => name}, socket) do
     case Household.rename(socket.assigns.current_scope, name) do
       {:ok, household} -> {:noreply, assign(socket, household: household)}
@@ -131,6 +138,15 @@ defmodule ToreWeb.SettingsLive do
   defp assign_members(socket) do
     scope = socket.assigns.current_scope
     assign(socket, users: Accounts.list_members(scope), pending: Members.list_pending(scope))
+  end
+
+  defp assign_ai_sponsor(socket) do
+    sponsor = Household.ai_sponsor(socket.assigns.current_scope)
+
+    assign(socket,
+      ai_sponsor: sponsor,
+      sponsoring: sponsor != nil and sponsor.id == socket.assigns.current_user.id
+    )
   end
 
   defp member_error(:username_missing), do: gettext("Enter their Pocket ID username.")
@@ -447,6 +463,43 @@ defmodule ToreWeb.SettingsLive do
             >
               {gettext("AI usage")}
             </h2>
+            <div :if={@current_user.ai_enabled} class="mb-4 flex items-center justify-between gap-3">
+              <p class="flex-1 min-w-0 text-[var(--text)]" style="font-size: var(--t-body);">
+                {gettext("Use my credits for this household")}
+              </p>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={to_string(@sponsoring)}
+                phx-click="toggle_ai_sponsor"
+                class={[
+                  "font-medium hover:underline",
+                  if(@sponsoring,
+                    do: "text-[color:var(--accent)]",
+                    else: "text-[color:var(--muted)]"
+                  )
+                ]}
+                style="font-size: var(--t-meta);"
+              >
+                {if @sponsoring,
+                  do: gettext("On"),
+                  else: gettext("Off")}
+              </button>
+            </div>
+            <p
+              :if={@ai_sponsor && @ai_sponsor.id != @current_user.id}
+              class="mb-4 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {gettext("AI uses %{name}'s credits.", name: @ai_sponsor.name)}
+            </p>
+            <p
+              :if={!@ai_sponsor && !@current_user.ai_enabled}
+              class="mb-4 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {gettext("AI is off for this household.")}
+            </p>
             <div class="flex flex-col gap-2">
               <div class="flex justify-between">
                 <span class="text-[color:var(--muted)]" style="font-size: var(--t-body);">

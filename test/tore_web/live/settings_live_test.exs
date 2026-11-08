@@ -92,6 +92,27 @@ defmodule ToreWeb.SettingsLiveTest do
       assert id == other.id
     end
 
+    test "someone with the credits claim turns sponsorship on for the household" do
+      user =
+        user_fixture(name: "Sponsor")
+        |> Ecto.Changeset.change(ai_enabled: true)
+        |> Tore.Repo.update!()
+
+      conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      view |> element(~s(button[phx-click="toggle_ai_sponsor"])) |> render_click()
+
+      assert Tore.Household.ai_sponsor(home_scope()).id == user.id
+    end
+
+    test "someone without the claim sees no switch, and that AI is off", %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/settings")
+
+      refute has_element?(view, ~s(button[phx-click="toggle_ai_sponsor"]))
+      assert html =~ "AI är avstängt för det här hushållet."
+    end
+
     test "renames the household", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/settings")
 

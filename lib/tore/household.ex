@@ -2,6 +2,8 @@ defmodule Tore.Household do
   import Ecto.Query, warn: false
   require Logger
 
+  alias Tore.Accounts.{Membership, User}
+
   alias Tore.{
     Repo,
     Scope,
@@ -21,6 +23,44 @@ defmodule Tore.Household do
   def rename(%Scope{} = scope, name) do
     scope |> get!() |> HouseholdSchema.changeset(%{name: String.trim(name)}) |> Repo.update()
   end
+
+  @doc """
+  The member whose AI credits the household spends, or nil. Only someone still in the household and still
+  holding the credits claim counts, so a sponsor who leaves or loses the claim stops on their own.
+  """
+  @spec ai_sponsor(Scope.t()) :: User.t() | nil
+  def ai_sponsor(%Scope{household_id: household_id}) do
+    Repo.one(
+      from h in HouseholdSchema,
+        join: u in User,
+        on: u.id == h.ai_sponsor_id and u.ai_enabled,
+        join: m in Membership,
+        on: m.user_id == u.id and m.household_id == h.id,
+        where: h.id == ^household_id,
+        select: u
+    )
+  end
+
+  @doc """
+  Lets the household spend `user`'s AI credits, or stops it. Only the person themselves, with the
+  credits claim, can turn it on; being added to a household never does.
+  """
+  @spec set_ai_sponsor(Scope.t(), User.t(), boolean()) ::
+          {:ok, HouseholdSchema.t()} | {:error, :not_allowed}
+  def set_ai_sponsor(%Scope{user_id: user_id} = scope, %User{id: user_id} = user, true)
+      when user.ai_enabled do
+    {:ok, scope |> get!() |> Ecto.Changeset.change(ai_sponsor_id: user_id) |> Repo.update!()}
+  end
+
+  def set_ai_sponsor(%Scope{user_id: user_id} = scope, %User{id: user_id}, false) do
+    household = get!(scope)
+
+    if household.ai_sponsor_id == user_id,
+      do: {:ok, household |> Ecto.Changeset.change(ai_sponsor_id: nil) |> Repo.update!()},
+      else: {:ok, household}
+  end
+
+  def set_ai_sponsor(%Scope{}, %User{}, _on), do: {:error, :not_allowed}
 
   @doc "Sets the household's language. Only once: a household that has one keeps it."
   @spec set_locale(Scope.t(), String.t()) ::

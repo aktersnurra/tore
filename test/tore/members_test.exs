@@ -153,4 +153,65 @@ defmodule Tore.MembersTest do
       assert {:error, :not_member} = Members.switch(bo, home_scope().household_id)
     end
   end
+
+  describe "sponsorship" do
+    alias Tore.Household
+
+    defp with_claim(user), do: user |> Ecto.Changeset.change(ai_enabled: true) |> Repo.update!()
+
+    test "a member with the claim can sponsor, and a partner shares it" do
+      sponsor = with_claim(user_fixture())
+      partner = user_fixture()
+
+      {:ok, _} = Household.set_ai_sponsor(scope_fixture(sponsor), sponsor, true)
+
+      assert Household.ai_sponsor(scope_fixture(partner)).id == sponsor.id
+    end
+
+    test "nobody can sponsor for someone else, or without the claim" do
+      with_claim = with_claim(user_fixture())
+      without = user_fixture()
+
+      assert {:error, :not_allowed} =
+               Household.set_ai_sponsor(scope_fixture(without), with_claim, true)
+
+      assert {:error, :not_allowed} =
+               Household.set_ai_sponsor(scope_fixture(without), without, true)
+
+      assert Household.ai_sponsor(home_scope()) == nil
+    end
+
+    test "adding someone with the claim doesn't sponsor the household" do
+      _bo = signed_in_alone("bo", %{"tore_ai" => true})
+      Repo.insert!(%Tore.Recipes.Recipe{household_id: 1, title: "x", recipe_type: :meal})
+
+      {:ok, _} = Members.add(home_scope(), "bo")
+
+      assert Household.ai_sponsor(home_scope()) == nil
+    end
+
+    test "losing the claim or leaving stops it" do
+      sponsor = with_claim(user_fixture())
+      {:ok, _} = Household.set_ai_sponsor(scope_fixture(sponsor), sponsor, true)
+
+      lost = sponsor |> Ecto.Changeset.change(ai_enabled: false) |> Repo.update!()
+      assert Household.ai_sponsor(home_scope()) == nil
+
+      with_claim(lost)
+      assert Household.ai_sponsor(home_scope()).id == sponsor.id
+
+      :ok = Members.remove(home_scope(), sponsor.id)
+      assert Household.ai_sponsor(home_scope()) == nil
+    end
+
+    test "turning it off stops it" do
+      sponsor = with_claim(user_fixture())
+      scope = scope_fixture(sponsor)
+      {:ok, _} = Household.set_ai_sponsor(scope, sponsor, true)
+
+      {:ok, _} = Household.set_ai_sponsor(scope, sponsor, false)
+
+      assert Household.ai_sponsor(scope) == nil
+    end
+  end
 end
