@@ -19,17 +19,21 @@ defmodule ToreWeb.SettingsLive do
        ai: ai,
        memory_insights: Household.list_active_insights(socket.assigns.current_scope),
        household: Household.get!(socket.assigns.current_scope),
-       stores: Deals.list_store_configs(),
+       stores: Deals.list_stores(socket.assigns.current_scope),
        store_url: "",
        store_error: nil
      )}
   end
 
   def handle_event("add_store", %{"url" => url}, socket) do
-    case Deals.add_store(url) do
+    case Deals.add_store(socket.assigns.current_scope, url) do
       {:ok, _store} ->
         {:noreply,
-         assign(socket, stores: Deals.list_store_configs(), store_url: "", store_error: nil)}
+         assign(socket,
+           stores: Deals.list_stores(socket.assigns.current_scope),
+           store_url: "",
+           store_error: nil
+         )}
 
       {:error, :unsupported_store} ->
         {:noreply,
@@ -42,16 +46,15 @@ defmodule ToreWeb.SettingsLive do
   end
 
   def handle_event("toggle_store", %{"id" => id}, socket) do
-    store = Deals.get_store_config!(String.to_integer(id))
-    {:ok, _store} = Deals.update_store_config(store, %{scrape_enabled: !store.scrape_enabled})
-    {:noreply, assign(socket, stores: Deals.list_store_configs())}
+    scope = socket.assigns.current_scope
+    {:ok, _store} = Deals.toggle_scraping(scope, String.to_integer(id))
+    {:noreply, assign(socket, stores: Deals.list_stores(scope))}
   end
 
   def handle_event("remove_store", %{"id" => id}, socket) do
-    {:ok, _store} =
-      id |> String.to_integer() |> Deals.get_store_config!() |> Deals.delete_store_config()
-
-    {:noreply, assign(socket, stores: Deals.list_store_configs())}
+    scope = socket.assigns.current_scope
+    {:ok, _store} = Deals.remove_store(scope, String.to_integer(id))
+    {:noreply, assign(socket, stores: Deals.list_stores(scope))}
   end
 
   def handle_event("forget_insight", %{"id" => id}, socket) do
@@ -197,7 +200,7 @@ defmodule ToreWeb.SettingsLive do
                   class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
                   style="font-size: var(--t-body);"
                 >
-                  {store.name}
+                  {store.store.name}
                 </p>
                 <button
                   type="button"

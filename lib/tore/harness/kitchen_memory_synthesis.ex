@@ -32,7 +32,7 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
   @doc "Cron entry: dispatch the weekly memory synthesis run for every household."
   @spec synthesise_weekly() :: :ok
   def synthesise_weekly do
-    Enum.each(Household.list_ids(), &synthesise_for(Tore.Scope.for_household(&1)))
+    Household.each_scope(&synthesise_for/1)
   end
 
   @spec synthesise_for(Tore.Scope.t()) :: {:ok, term()} | {:error, term()}

@@ -15,7 +15,7 @@ defmodule Tore.Planning do
 
   @doc "Cron entry: plan the upcoming week for every household."
   def plan_upcoming_weeks do
-    Enum.each(Tore.Household.list_ids(), &plan_upcoming_week(Scope.for_household(&1)))
+    Tore.Household.each_scope(&plan_upcoming_week/1)
   end
 
   @doc """
@@ -290,7 +290,7 @@ defmodule Tore.Planning do
         |> Enum.map(&Recipes.get!(scope, &1.id))
 
       pantry_names = pantry_ingredient_names(scope)
-      deals_names = deal_product_names()
+      deals_names = deal_product_names(scope)
       previous_slot_recipe = previous_day_recipe(state, slot_key, recipes)
       recent_ids = recent_recipe_ids(scope)
 
@@ -416,8 +416,8 @@ defmodule Tore.Planning do
     |> MapSet.new()
   end
 
-  defp deal_product_names do
-    Deals.list_current()
+  defp deal_product_names(scope) do
+    Deals.list_current(scope)
     |> Enum.map(&String.downcase(&1.product_name))
     |> MapSet.new()
   end

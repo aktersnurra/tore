@@ -1,5 +1,6 @@
 defmodule Tore.Household do
   import Ecto.Query, warn: false
+  require Logger
 
   alias Tore.{
     Repo,
@@ -24,6 +25,24 @@ defmodule Tore.Household do
   @doc "Every household's id, for jobs that run for each of them."
   @spec list_ids() :: [integer()]
   def list_ids, do: Repo.all(from h in HouseholdSchema, order_by: h.id, select: h.id)
+
+  @doc """
+  Runs `fun` with each household's scope, for jobs that run for every household. A household whose
+  run raises or exits is logged, and the rest still run.
+  """
+  @spec each_scope((Scope.t() -> term())) :: :ok
+  def each_scope(fun) do
+    Enum.each(list_ids(), fn id ->
+      try do
+        fun.(Scope.for_household(id))
+      catch
+        kind, reason ->
+          Logger.error(
+            "job failed for household #{id}: " <> Exception.format(kind, reason, __STACKTRACE__)
+          )
+      end
+    end)
+  end
 
   @spec create_household(map()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
   def create_household(attrs) do

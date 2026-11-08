@@ -41,7 +41,7 @@ defmodule ToreWeb.SettingsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/settings")
 
     assert add_store(view, @store_url) =~ "ICA Supermarket Danvikstull"
-    assert [%{url: @store_url, scrape_enabled: true}] = Deals.list_store_configs()
+    assert [%{store: %{url: @store_url}, scrape_enabled: true}] = Deals.list_stores(home_scope())
   end
 
   test "says so when it can't read a store", %{conn: conn} do
@@ -50,36 +50,36 @@ defmodule ToreWeb.SettingsLiveTest do
     assert add_store(view, "https://www.coop.se/butiker/x/") =~
              "Tore kan inte läsa den butiken än"
 
-    assert Deals.list_store_configs() == []
+    assert Deals.list_stores(home_scope()) == []
   end
 
   test "says so when a store is already added", %{conn: conn} do
-    {:ok, _} = Deals.add_store(@store_url)
+    {:ok, _} = Deals.add_store(home_scope(), @store_url)
     {:ok, view, _html} = live(conn, ~p"/settings")
 
     assert add_store(view, @store_url) =~ "Den butiken är redan tillagd"
-    assert [_] = Deals.list_store_configs()
+    assert [_] = Deals.list_stores(home_scope())
   end
 
   test "switches a store off and on", %{conn: conn} do
-    {:ok, store} = Deals.add_store(@store_url)
+    {:ok, _} = Deals.add_store(home_scope(), @store_url)
     {:ok, view, _html} = live(conn, ~p"/settings")
 
     view |> element(~s(button[phx-click="toggle_store"])) |> render_click()
-    refute Deals.get_store_config!(store.id).scrape_enabled
+    refute hd(Deals.list_stores(home_scope())).scrape_enabled
 
     view |> element(~s(button[phx-click="toggle_store"])) |> render_click()
-    assert Deals.get_store_config!(store.id).scrape_enabled
+    assert hd(Deals.list_stores(home_scope())).scrape_enabled
   end
 
   test "removes a store", %{conn: conn} do
-    {:ok, _} = Deals.add_store(@store_url)
+    {:ok, _} = Deals.add_store(home_scope(), @store_url)
     {:ok, view, _html} = live(conn, ~p"/settings")
 
     refute view |> element(~s(button[phx-click="remove_store"])) |> render_click() =~
              "ICA Supermarket Danvikstull"
 
-    assert Deals.list_store_configs() == []
+    assert Deals.list_stores(home_scope()) == []
   end
 
   test "the household's language is shown and can't be changed", %{conn: conn} do

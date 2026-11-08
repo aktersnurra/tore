@@ -4,6 +4,10 @@ defmodule Tore.DealsScrapeTest do
   import Mox
   setup :verify_on_exit!
 
+  import Tore.AccountsFixtures, only: [home_scope: 0, household_fixture: 0, scope_fixture: 1]
+
+  alias Tore.Deals
+
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
   end
@@ -18,7 +22,7 @@ defmodule Tore.DealsScrapeTest do
 
     assert {:ok, 1} = Tore.Deals.scrape_url(@store_url, "Danvikstull")
 
-    deal = Enum.find(Tore.Deals.list_current(), &(&1.product_name == "Kycklingfilé"))
+    deal = Tore.Repo.get_by!(Tore.Deals.Deal, product_name: "Kycklingfilé")
     assert deal.store == "Danvikstull"
     assert deal.chain == "ica"
   end
@@ -42,41 +46,81 @@ defmodule Tore.DealsScrapeTest do
 
   describe "stores" do
     test "add_store takes only a link and starts switched on" do
-      assert {:ok, store} = Tore.Deals.add_store("  #{@store_url}\n")
+      assert {:ok, entry} = Deals.add_store(home_scope(), "  #{@store_url}\n")
 
-      assert store.url == @store_url
-      assert store.name == "ICA Supermarket Danvikstull"
-      assert store.scrape_enabled
+      assert entry.store.url == @store_url
+      assert entry.store.name == "ICA Supermarket Danvikstull"
+      assert entry.scrape_enabled
     end
 
     test "add_store refuses links no backend can read" do
-      assert {:error, :unsupported_store} = Tore.Deals.add_store("https://www.coop.se/x/")
-      assert {:error, :unsupported_store} = Tore.Deals.add_store("http://www.ica.se/x/")
-      assert {:error, :unsupported_store} = Tore.Deals.add_store("https://www.ica.se/recept/")
-      assert Tore.Deals.list_store_configs() == []
+      assert {:error, :unsupported_store} =
+               Deals.add_store(home_scope(), "https://www.coop.se/x/")
+
+      assert {:error, :unsupported_store} = Deals.add_store(home_scope(), "http://www.ica.se/x/")
+
+      assert {:error, :unsupported_store} =
+               Deals.add_store(home_scope(), "https://www.ica.se/recept/")
+
+      assert Deals.list_stores(home_scope()) == []
     end
 
-    test "add_store refuses the same link twice" do
-      assert {:ok, _} = Tore.Deals.add_store(@store_url)
-      assert {:error, %Ecto.Changeset{}} = Tore.Deals.add_store(@store_url)
+    test "add_store refuses the same link twice in one household" do
+      assert {:ok, _} = Deals.add_store(home_scope(), @store_url)
+      assert {:error, %Ecto.Changeset{}} = Deals.add_store(home_scope(), @store_url)
     end
 
     test "scrape_all skips stores switched off" do
-      {:ok, store} = Tore.Deals.add_store(@store_url)
-      {:ok, _} = Tore.Deals.update_store_config(store, %{scrape_enabled: false})
+      {:ok, entry} = Deals.add_store(home_scope(), @store_url)
+      {:ok, _} = Deals.toggle_scraping(home_scope(), entry.id)
 
       # No MockHTTP expectation: fetching a switched-off store fails the test.
-      assert :ok = Tore.Deals.scrape_all()
+      assert :ok = Deals.scrape_all()
     end
 
     test "scrape_all fetches stores switched on" do
-      {:ok, _} = Tore.Deals.add_store(@store_url)
+      {:ok, _} = Deals.add_store(home_scope(), @store_url)
 
       Tore.MockHTTP
       |> expect(:fetch, fn @store_url -> {:ok, @ica_html} end)
 
-      assert :ok = Tore.Deals.scrape_all()
-      assert Enum.any?(Tore.Deals.list_current(), &(&1.store == "ICA Supermarket Danvikstull"))
+      assert :ok = Deals.scrape_all()
+
+      assert Enum.any?(
+               Deals.list_current(home_scope()),
+               &(&1.store == "ICA Supermarket Danvikstull")
+             )
+    end
+
+    test "two households on one store share it: one fetch, and both see its deals" do
+      other = scope_fixture(household_fixture())
+      neither = scope_fixture(household_fixture())
+      {:ok, mine} = Deals.add_store(home_scope(), @store_url)
+      {:ok, theirs} = Deals.add_store(other, @store_url)
+      assert mine.store_id == theirs.store_id
+
+      Tore.MockHTTP
+      |> expect(:fetch, 1, fn @store_url -> {:ok, @ica_html} end)
+
+      assert :ok = Deals.scrape_all()
+
+      assert [%{product_name: "Kycklingfilé"}] = Deals.list_current(home_scope())
+      assert [%{product_name: "Kycklingfilé"}] = Deals.list_current(other)
+      assert Deals.list_current(neither) == []
+    end
+
+    test "a household's store list, switches and removal are its own" do
+      other = scope_fixture(household_fixture())
+      {:ok, mine} = Deals.add_store(home_scope(), @store_url)
+      {:ok, theirs} = Deals.add_store(other, @store_url)
+
+      {:ok, _} = Deals.toggle_scraping(home_scope(), mine.id)
+      {:ok, _} = Deals.remove_store(home_scope(), mine.id)
+
+      assert Deals.list_stores(home_scope()) == []
+      assert [%{id: id, scrape_enabled: true}] = Deals.list_stores(other)
+      assert id == theirs.id
+      assert_raise Ecto.NoResultsError, fn -> Deals.remove_store(home_scope(), theirs.id) end
     end
   end
 

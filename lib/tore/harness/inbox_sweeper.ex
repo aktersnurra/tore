@@ -30,7 +30,7 @@ defmodule Tore.Harness.InboxSweeper do
   @doc "Cron entry. Sweeps every household."
   @spec sweep_weekly() :: :ok
   def sweep_weekly do
-    Enum.each(Household.list_ids(), &sweep/1)
+    Household.each_scope(&sweep(&1.household_id))
   end
 
   @doc "Run a sweep for `household_id`. Returns :ok always."

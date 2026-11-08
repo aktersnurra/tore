@@ -22,6 +22,24 @@ defmodule Tore.HouseholdTest do
     assert Household.get_preferences(home_scope()).allergies == []
   end
 
+  test "each_scope/1 runs every household even when one fails" do
+    other = household_fixture()
+    home_id = home_scope().household_id
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert :ok =
+                 Household.each_scope(fn scope ->
+                   if scope.household_id == home_id, do: raise("boom")
+                   send(self(), {:ran, scope.household_id})
+                 end)
+      end)
+
+    assert_received {:ran, id} when id == other.id
+    refute_received {:ran, ^home_id}
+    assert log =~ "job failed for household #{home_id}"
+  end
+
   test "create_household/1 inserts a household" do
     assert {:ok, household} = Household.create_household(%{name: "Rydholm", locale: "sv"})
     assert household.name == "Rydholm"

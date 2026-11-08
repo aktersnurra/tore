@@ -1,6 +1,7 @@
 defmodule Tore.Deals do
   require Logger
-  alias Tore.{Alerts, Repo, Deals.Deal, Deals.Parsers, Deals.StoreConfig}
+  alias Tore.{Alerts, Household, Repo, Scope}
+  alias Tore.Deals.{Deal, HouseholdStore, Parsers, Store}
   import Ecto.Query
 
   @http Application.compile_env(:tore, :http_client)
@@ -29,10 +30,20 @@ defmodule Tore.Deals do
     {:ok, count}
   end
 
-  @spec list_current() :: [Deal.t()]
-  def list_current do
+  @doc "Current deals at the stores the household uses."
+  @spec list_current(Scope.t()) :: [Deal.t()]
+  def list_current(%Scope{} = scope) do
     today = Date.utc_today()
-    Repo.all(from d in Deal, where: is_nil(d.valid_until) or d.valid_until >= ^today)
+
+    from(d in Deal,
+      join: s in Store,
+      on: s.name == d.store,
+      join: hs in HouseholdStore,
+      on: hs.store_id == s.id,
+      where: is_nil(d.valid_until) or d.valid_until >= ^today,
+      distinct: true
+    )
+    |> Repo.all(Scope.repo_opts(scope))
   end
 
   @spec clear_expired() :: :ok
@@ -50,46 +61,70 @@ defmodule Tore.Deals do
     :ok
   end
 
-  @spec list_store_configs() :: [StoreConfig.t()]
-  def list_store_configs, do: Repo.all(StoreConfig)
+  @doc "The stores the household uses, oldest first, each with its `store` loaded."
+  @spec list_stores(Scope.t()) :: [HouseholdStore.t()]
+  def list_stores(%Scope{} = scope) do
+    from(hs in HouseholdStore, order_by: hs.id, preload: :store)
+    |> Repo.all(Scope.repo_opts(scope))
+  end
 
-  @doc "Adds a store from just its link, switched on. The backend supplies its name."
-  @spec add_store(String.t()) ::
-          {:ok, StoreConfig.t()} | {:error, :unsupported_store | Ecto.Changeset.t()}
-  def add_store(url) do
+  @doc """
+  Adds a store from just its link, switched on. The backend supplies its name. A store another
+  household already uses is shared rather than added twice.
+  """
+  @spec add_store(Scope.t(), String.t()) ::
+          {:ok, HouseholdStore.t()} | {:error, :unsupported_store | Ecto.Changeset.t()}
+  def add_store(%Scope{} = scope, url) do
     url = String.trim(url)
 
     with {:ok, parser} <- Parsers.for_url(url),
          {:ok, name} <- parser.store_name(URI.parse(url)) do
-      %StoreConfig{}
-      |> StoreConfig.changeset(%{url: url, name: name, scrape_enabled: true})
-      |> Repo.insert()
+      Repo.transaction(fn ->
+        store =
+          Repo.get_by(Store, url: url) ||
+            Repo.insert!(Store.changeset(%Store{}, %{url: url, name: name}))
+
+        %HouseholdStore{household_id: scope.household_id, store_id: store.id}
+        |> HouseholdStore.changeset(%{})
+        |> Repo.insert()
+        |> case do
+          {:ok, household_store} -> %{household_store | store: store}
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
     end
   end
 
-  @spec update_store_config(StoreConfig.t(), map()) ::
-          {:ok, StoreConfig.t()} | {:error, Ecto.Changeset.t()}
-  def update_store_config(config, attrs) do
-    config
-    |> StoreConfig.changeset(attrs)
+  @doc "Switches fetching the store's offers on or off for the household."
+  @spec toggle_scraping(Scope.t(), integer()) ::
+          {:ok, HouseholdStore.t()} | {:error, Ecto.Changeset.t()}
+  def toggle_scraping(%Scope{} = scope, id) do
+    household_store = Repo.get!(HouseholdStore, id, Scope.repo_opts(scope))
+
+    household_store
+    |> HouseholdStore.changeset(%{scrape_enabled: !household_store.scrape_enabled})
     |> Repo.update()
   end
 
-  @spec delete_store_config(StoreConfig.t()) ::
-          {:ok, StoreConfig.t()} | {:error, Ecto.Changeset.t()}
-  def delete_store_config(config), do: Repo.delete(config)
+  @doc "Stops the household using the store. The store stays for any other household using it."
+  @spec remove_store(Scope.t(), integer()) ::
+          {:ok, HouseholdStore.t()} | {:error, Ecto.Changeset.t()}
+  def remove_store(%Scope{} = scope, id) do
+    HouseholdStore |> Repo.get!(id, Scope.repo_opts(scope)) |> Repo.delete()
+  end
 
-  @spec get_store_config!(integer()) :: StoreConfig.t()
-  def get_store_config!(id), do: Repo.get!(StoreConfig, id)
-
+  @doc "Fetches each store some household has switched on, once however many households use it."
   @spec scrape_all() :: :ok
   def scrape_all do
-    StoreConfig
-    |> Repo.all()
-    |> Enum.filter(& &1.scrape_enabled)
+    Household.list_ids()
+    |> Enum.flat_map(&switched_on_stores(Scope.for_household(&1)))
+    |> Enum.uniq_by(& &1.id)
     |> Enum.each(&scrape_store/1)
+  end
 
-    :ok
+  defp switched_on_stores(scope) do
+    from(hs in HouseholdStore, join: s in assoc(hs, :store), where: hs.scrape_enabled, select: s)
+    |> Repo.all(Scope.repo_opts(scope))
   end
 
   @spec scrape_url(String.t(), String.t()) :: {:ok, integer()} | {:error, term()}
@@ -173,15 +208,15 @@ defmodule Tore.Deals do
     end
   end
 
-  defp scrape_store(store_config) do
-    case scrape_url(store_config.url, store_config.name) do
+  defp scrape_store(store) do
+    case scrape_url(store.url, store.name) do
       {:ok, count} ->
-        Logger.info("scraped #{count} deals", store: store_config.name, url: store_config.url)
+        Logger.info("scraped #{count} deals", store: store.name, url: store.url)
 
       {:error, reason} ->
         Logger.error("scrape failed",
-          store: store_config.name,
-          url: store_config.url,
+          store: store.name,
+          url: store.url,
           reason: inspect(reason)
         )
     end

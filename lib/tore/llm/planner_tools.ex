@@ -350,9 +350,9 @@ defmodule Tore.LLM.PlannerTools do
         "Currently active store deals across configured stores. Use before suggesting recipes that align with current promotions.",
       kind: :read,
       parameters: %{type: "object", properties: %{}, required: []},
-      run: fn _args, _ctx, plan ->
+      run: fn _args, ctx, plan ->
         deals =
-          Tore.Deals.list_current()
+          Tore.Deals.list_current(scope(ctx))
           |> Enum.map(fn d ->
             %{
               id: d.id,
