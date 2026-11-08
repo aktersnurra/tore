@@ -5,11 +5,13 @@ defmodule ToreWeb.SettingsLive do
   alias ToreWeb.UserSession
 
   def mount(_params, _session, socket) do
+    scope = socket.assigns.current_scope
+
     ai = %{
-      this_month: Costs.llm_spend_this_month(),
-      last_30_days: Costs.llm_spend_last_30_days(),
-      total: Costs.llm_spend_total(),
-      by_feature: Costs.llm_calls_this_month_by_feature()
+      this_month: Costs.llm_spend_this_month(scope),
+      last_30_days: Costs.llm_spend_last_30_days(scope),
+      total: Costs.llm_spend_total(scope),
+      by_feature: Costs.llm_calls_this_month_by_feature(scope)
     }
 
     {:ok,

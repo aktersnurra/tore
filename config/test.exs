@@ -45,6 +45,9 @@ config :tore, :uploads_dir, Path.expand("../tmp/uploads", __DIR__)
 config :tore, :image_gen_client, Tore.Adapters.StubImageGen
 config :tore, :http_client, Tore.MockHTTP
 config :tore, :llm_spec, Tore.MockLLM
+
+# A key is configured, so Home's sponsor (test_helper.exs) makes the LLM available; calls go to the mock.
+config :tore, :openrouter_api_key, "test-key"
 config :tore, :storage_client, Tore.Storage.Mock
 config :tore, :env, :test
 

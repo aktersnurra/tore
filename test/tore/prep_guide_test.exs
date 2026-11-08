@@ -60,7 +60,7 @@ defmodule Tore.PrepGuideTest do
   end
 
   test "generate_guide returns budget_exceeded when over limit" do
-    Tore.Costs.log_llm_usage(%{
+    Tore.Costs.log_llm_usage(home_scope(), %{
       feature: "seed",
       prompt_tokens: 0,
       completion_tokens: 0,

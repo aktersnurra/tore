@@ -5,7 +5,7 @@ defmodule Tore.AiOperationsTest do
 
   test "log/1 with run_stream_id inserts a row" do
     {:ok, op} =
-      AiOperations.log(%{
+      AiOperations.log(home_scope(), %{
         run_stream_id: "run-abc",
         kind: "planner_agent.message",
         step_index: 0,
@@ -18,7 +18,7 @@ defmodule Tore.AiOperationsTest do
   end
 
   test "list_for_run/1 returns rows ordered by step_index" do
-    AiOperations.log(%{
+    AiOperations.log(home_scope(), %{
       run_stream_id: "run-x",
       kind: "k",
       step_index: 1,
@@ -26,7 +26,7 @@ defmodule Tore.AiOperationsTest do
       result: "a"
     })
 
-    AiOperations.log(%{
+    AiOperations.log(home_scope(), %{
       run_stream_id: "run-x",
       kind: "k",
       step_index: 0,
@@ -34,7 +34,7 @@ defmodule Tore.AiOperationsTest do
       result: "b"
     })
 
-    AiOperations.log(%{
+    AiOperations.log(home_scope(), %{
       run_stream_id: "run-x",
       kind: "k",
       step_index: 2,
@@ -42,12 +42,12 @@ defmodule Tore.AiOperationsTest do
       result: "c"
     })
 
-    rows = AiOperations.list_for_run("run-x")
+    rows = AiOperations.list_for_run(home_scope(), "run-x")
     assert Enum.map(rows, & &1.step_index) == [0, 1, 2]
   end
 
   test "unique constraint on (run_stream_id, step_index)" do
-    AiOperations.log(%{
+    AiOperations.log(home_scope(), %{
       run_stream_id: "run-y",
       kind: "k",
       step_index: 0,
@@ -56,7 +56,7 @@ defmodule Tore.AiOperationsTest do
     })
 
     assert {:error, changeset} =
-             AiOperations.log(%{
+             AiOperations.log(home_scope(), %{
                run_stream_id: "run-y",
                kind: "k",
                step_index: 0,

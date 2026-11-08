@@ -154,12 +154,12 @@ defmodule Tore.Deals do
     end
   end
 
-  @spec parse_pdf(binary()) :: {:ok, integer()} | {:error, term()}
-  def parse_pdf(pdf_binary) do
+  @spec parse_pdf(Scope.t(), binary()) :: {:ok, integer()} | {:error, term()}
+  def parse_pdf(%Scope{} = scope, pdf_binary) do
     {system, user} = Tore.LLM.Prompts.parse_deals_pdf()
 
     with {:ok, data, _usage} <-
-           Tore.LLM.vision([{:pdf, pdf_binary}], system, user, []) do
+           Tore.LLM.vision(scope, [{:pdf, pdf_binary}], system, user, feature: :parse_deals_pdf) do
       raw_deals =
         cond do
           is_list(data) -> data

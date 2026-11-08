@@ -156,7 +156,7 @@ defmodule Tore.Recipes do
     locale = locale || Tore.Household.locale(scope)
 
     with {:ok, html} <- @http.fetch(url),
-         {:ok, attrs} <- parse_or_extract(html, locale) do
+         {:ok, attrs} <- parse_or_extract(scope, html, locale) do
       {:ok, Map.put(attrs, :source_url, url)}
     end
   end
@@ -167,16 +167,17 @@ defmodule Tore.Recipes do
     blobs = Enum.map(binaries, &{:image, &1})
 
     with {:ok, data, _usage} <-
-           Tore.LLM.vision(blobs, system, "Extract the recipe from these images.",
-             response_format: Tore.LLM.Prompts.recipe_json_schema()
+           Tore.LLM.vision(scope, blobs, system, "Extract the recipe from these images.",
+             response_format: Tore.LLM.Prompts.recipe_json_schema(),
+             feature: :extract_recipe
            ) do
       {:ok, recipe_attrs_from_raw(data)}
     end
   end
 
-  @spec suggest_substitution(String.t(), String.t()) ::
+  @spec suggest_substitution(Scope.t(), String.t(), String.t()) ::
           {:ok, %{suggestion: String.t(), updated_steps: String.t() | nil}} | {:error, term()}
-  def suggest_substitution(missing, recipe_context) do
+  def suggest_substitution(%Scope{} = scope, missing, recipe_context) do
     system = """
     You are a practical cooking assistant. The user is missing an ingredient mid-cook.
     Suggest a realistic substitution they can make right now with common kitchen items.
@@ -187,7 +188,7 @@ defmodule Tore.Recipes do
 
     user = "Recipe: #{recipe_context}\nMissing ingredient: #{missing}"
 
-    case Tore.LLM.text(system, user, []) do
+    case Tore.LLM.text(scope, system, user, feature: :suggest_substitution) do
       {:ok, %{"suggestion" => suggestion} = data, _usage} ->
         {:ok, %{suggestion: suggestion, updated_steps: data["updated_steps"]}}
 
@@ -199,10 +200,10 @@ defmodule Tore.Recipes do
     end
   end
 
-  @spec cook_mode_steps(map()) ::
+  @spec cook_mode_steps(Scope.t(), map()) ::
           {:ok, %{do_first: [String.t()], while_cooking: [String.t()], finish: [String.t()]}}
           | {:error, term()}
-  def cook_mode_steps(recipe) do
+  def cook_mode_steps(%Scope{} = scope, recipe) do
     system = """
     You are a cooking assistant. Compress recipe steps into a 3-phase action list.
     Phase 1 "do_first": things to start before anything else (pre-heat, prep, start slow things).
@@ -216,7 +217,7 @@ defmodule Tore.Recipes do
     instructions = recipe["instructions"] || recipe[:instructions] || "No instructions"
     user = "Recipe: #{title}\nSteps: #{instructions}"
 
-    case Tore.LLM.text(system, user, []) do
+    case Tore.LLM.text(scope, system, user, feature: :cook_mode) do
       {:ok, %{"do_first" => df, "while_cooking" => wc, "finish" => fin}, _usage} ->
         {:ok, %{do_first: df, while_cooking: wc, finish: fin}}
 
@@ -400,34 +401,40 @@ defmodule Tore.Recipes do
   # or we had to fall back to LLM extraction, the result goes through the
   # LLM normaliser so every scraped recipe ends up translated to the
   # household's locale and reformatted to the Tore schema.
-  defp parse_or_extract(html, locale) do
+  defp parse_or_extract(scope, html, locale) do
     case Tore.Recipes.Parser.parse_html(html) do
-      {:ok, scraped_attrs} -> normalise_recipe(scraped_attrs, locale)
-      {:error, :not_found} -> extract_from_html(html, locale)
+      {:ok, scraped_attrs} -> normalise_recipe(scope, scraped_attrs, locale)
+      {:error, :not_found} -> extract_from_html(scope, html, locale)
     end
   end
 
-  defp extract_from_html(html, locale) do
-    with :ok <- check_html_parseable(html) do
+  defp extract_from_html(scope, html, locale) do
+    with :ok <- check_html_parseable(scope, html) do
       {system, user} = Tore.LLM.Prompts.extract_recipe(html, locale)
 
       with {:ok, data, _usage} <-
-             Tore.LLM.text(system, user, response_format: Tore.LLM.Prompts.recipe_json_schema()) do
+             Tore.LLM.text(scope, system, user,
+               response_format: Tore.LLM.Prompts.recipe_json_schema(),
+               feature: :extract_recipe
+             ) do
         {:ok, recipe_attrs_from_raw(data)}
       end
     end
   end
 
-  defp normalise_recipe(scraped_attrs, locale) do
+  defp normalise_recipe(scope, scraped_attrs, locale) do
     {system, user} = Tore.LLM.Prompts.normalise_recipe(scraped_attrs, locale)
 
     with {:ok, data, _usage} <-
-           Tore.LLM.text(system, user, response_format: Tore.LLM.Prompts.recipe_json_schema()) do
+           Tore.LLM.text(scope, system, user,
+             response_format: Tore.LLM.Prompts.recipe_json_schema(),
+             feature: :extract_recipe
+           ) do
       {:ok, recipe_attrs_from_raw(data)}
     end
   end
 
-  defp check_html_parseable(html) do
+  defp check_html_parseable(scope, html) do
     {system, user} = Tore.LLM.Prompts.check_recipe_html(html)
     check_model = Application.get_env(:tore, :openrouter_check_model, "openai/gpt-oss-120b:free")
 
@@ -435,9 +442,12 @@ defmodule Tore.Recipes do
       Application.get_env(:tore, :openrouter_check_model_fallback, "openai/gpt-oss-120b")
 
     result =
-      case Tore.LLM.text(system, user, model: check_model) do
-        {:ok, _, _} = ok -> ok
-        {:error, _} -> Tore.LLM.text(system, user, model: fallback)
+      case Tore.LLM.text(scope, system, user, model: check_model, feature: :check_recipe_html) do
+        {:ok, _, _} = ok ->
+          ok
+
+        {:error, _} ->
+          Tore.LLM.text(scope, system, user, model: fallback, feature: :check_recipe_html)
       end
 
     case result do
@@ -464,8 +474,9 @@ defmodule Tore.Recipes do
     payload = recipe_for_image_prompt(recipe)
     {system, user} = Tore.LLM.Prompts.write_image_prompt(payload, locale)
 
-    case Tore.LLM.text(system, user,
-           response_format: Tore.LLM.Prompts.write_image_prompt_schema()
+    case Tore.LLM.text(scope, system, user,
+           response_format: Tore.LLM.Prompts.write_image_prompt_schema(),
+           feature: :image_prompt
          ) do
       {:ok, %{"prompt" => prompt}, _usage} when is_binary(prompt) and prompt != "" ->
         {:ok, prompt}

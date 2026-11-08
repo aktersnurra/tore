@@ -107,6 +107,10 @@ defmodule ToreWeb.SettingsLiveTest do
     end
 
     test "someone without the claim sees no switch, and that AI is off", %{conn: conn} do
+      Tore.Repo.update_all(Tore.Household.HouseholdSchema,
+        set: [ai_sponsor_id: nil]
+      )
+
       {:ok, view, html} = live(conn, ~p"/settings")
 
       refute has_element?(view, ~s(button[phx-click="toggle_ai_sponsor"]))

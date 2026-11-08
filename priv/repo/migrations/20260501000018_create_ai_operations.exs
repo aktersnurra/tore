@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateAiOperations do
 
   def change do
     create table(:ai_operations) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :run_stream_id, :string, null: false
       add :step_index, :integer, null: false, default: 0
       add :kind, :string, null: false

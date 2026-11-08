@@ -179,6 +179,15 @@ defmodule Tore.MembersTest do
 
     defp with_claim(user), do: user |> Ecto.Changeset.change(ai_enabled: true) |> Repo.update!()
 
+    # Home starts sponsored (test_helper.exs); these tests start from nobody sponsoring it.
+    setup do
+      Repo.update_all(from(h in Tore.Household.HouseholdSchema, where: h.id == 1),
+        set: [ai_sponsor_id: nil]
+      )
+
+      :ok
+    end
+
     test "a member with the claim can sponsor, and a partner shares it" do
       sponsor = with_claim(user_fixture())
       partner = user_fixture()

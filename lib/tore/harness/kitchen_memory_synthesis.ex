@@ -32,7 +32,9 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
   @doc "Cron entry: dispatch the weekly memory synthesis run for every household."
   @spec synthesise_weekly() :: :ok
   def synthesise_weekly do
-    Household.each_scope(&synthesise_for/1)
+    Household.each_scope(fn scope ->
+      if Tore.LLM.available?(scope), do: synthesise_for(scope)
+    end)
   end
 
   @spec synthesise_for(Tore.Scope.t()) :: {:ok, term()} | {:error, term()}
@@ -58,14 +60,14 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
     Capsules.compose(@capsules, ctx)
   end
 
-  @spec synthesise(String.t()) ::
+  @spec synthesise(Tore.Scope.t(), String.t()) ::
           {:ok,
            [%{kind: String.t(), body: String.t(), confidence: float(), evidence: [integer()]}]}
           | {:error, term()}
-  def synthesise(summary) do
+  def synthesise(%Tore.Scope{} = scope, summary) do
     {system, user} = Tore.LLM.Prompts.synthesise_insights(summary)
 
-    case Tore.LLM.text(system, user, []) do
+    case Tore.LLM.text(scope, system, user, feature: :memory_synthesis) do
       {:ok, %{"insights" => insights}, _usage} when is_list(insights) ->
         {:ok,
          Enum.map(insights, fn i ->

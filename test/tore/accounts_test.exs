@@ -18,7 +18,9 @@ defmodule Tore.AccountsTest do
     )
   end
 
-  defp user_count, do: Repo.aggregate(User, :count)
+  # Users besides Home's sponsor, seeded by test_helper.exs.
+  defp user_count,
+    do: Repo.aggregate(from(u in User, where: u.username != "home-sponsor"), :count)
 
   describe "sign_in_plan/2" do
     test "someone known is refreshed, whatever waits for them" do
@@ -151,8 +153,8 @@ defmodule Tore.AccountsTest do
     mine = user_fixture(name: "Ada")
     _theirs = user_fixture(name: "Bo", household: household_fixture())
 
-    assert [%User{id: id}] = Accounts.list_members(home_scope())
-    assert id == mine.id
+    assert Enum.map(Accounts.list_members(home_scope()), & &1.username) |> Enum.sort() ==
+             Enum.sort(["home-sponsor", mine.username])
   end
 
   test "update_preferences/2 stores preferences" do

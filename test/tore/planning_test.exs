@@ -75,8 +75,11 @@ defmodule Tore.PlanningTest do
           cook_time_minutes: 20
         }
 
-      {:ok, recipe} = Recipes.create(home_scope(), attrs)
-      recipe
+      # Straight to the Repo: Recipes.create/2 starts an image task whose LLM call would take this
+      # test's one expectation.
+      Tore.Repo.insert!(
+        struct(Recipes.Recipe, Map.put(attrs, :household_id, home_scope().household_id))
+      )
     end
 
     test "returns ranked recipes (rule-based, no LLM)" do
@@ -424,8 +427,9 @@ defmodule Tore.PlanningTest do
   end
 
   describe "households" do
-    test "the weekly cron plans every household" do
-      other = scope_fixture(household_fixture())
+    test "the weekly cron plans every household that can use AI, and no other" do
+      other = scope_fixture(sponsored_household())
+      unsponsored = scope_fixture(household_fixture())
 
       Tore.MockLLM
       |> Mox.expect(:chat_with_tools, 2, fn _sys, _msgs, _tools, _opts ->
@@ -436,6 +440,15 @@ defmodule Tore.PlanningTest do
       assert :ok = Planning.plan_upcoming_weeks()
       assert [_] = Tore.Harness.RunReceipts.list(home_scope())
       assert [_] = Tore.Harness.RunReceipts.list(other)
+      assert [] = Tore.Harness.RunReceipts.list(unsponsored)
+    end
+
+    defp sponsored_household do
+      household = household_fixture()
+      sponsor = user_fixture(household: household)
+      sponsor |> Ecto.Changeset.change(ai_enabled: true) |> Tore.Repo.update!()
+
+      household |> Ecto.Changeset.change(ai_sponsor_id: sponsor.id) |> Tore.Repo.update!()
     end
 
     test "a plan change is broadcast only to its own household" do

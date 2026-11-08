@@ -3,14 +3,14 @@ defmodule Tore.Prep do
   import Ecto.Query
 
   def generate_guide(%Scope{} = scope, plan_id, week_start) do
-    with :ok <- SpendGuard.allow?(:generate_prep_guide),
+    with :ok <- SpendGuard.allow?(scope, :generate_prep_guide),
          {:ok, plan_state} <- Planning.load_plan(scope, plan_id) do
       plan_for_prompt = build_plan_for_prompt(scope, plan_state, week_start)
 
       {system, user} = Tore.LLM.Prompts.prep_guide(plan_for_prompt, Tore.Household.locale(scope))
 
-      with {:ok, guide_data, usage} <- Tore.LLM.text(system, user, []),
-           :ok <- SpendGuard.log_usage(:generate_prep_guide, usage) do
+      with {:ok, guide_data, _usage} <-
+             Tore.LLM.text(scope, system, user, feature: :generate_prep_guide) do
         attrs = Map.put(guide_data, "week_start", week_start)
         save_guide(scope, attrs)
       end

@@ -117,7 +117,11 @@ defmodule Tore.Harness.Orchestrator do
       with {:ok, state} <- open_run(stream_id, open_cmd, metadata),
            {:ok, state} <- enter(state, :gathering_context, metadata),
            {:ok, parsed} <-
-             ReceiptIngestion.parse(ctx.image_binary, household_locale(ctx.household_id)),
+             ReceiptIngestion.parse(
+               scope_for(ctx.household_id),
+               ctx.image_binary,
+               household_locale(ctx.household_id)
+             ),
            {:ok, state} <- enter(state, :proposing, metadata),
            cost =
              ReceiptIngestion.build_cost_entry(parsed,
@@ -183,7 +187,8 @@ defmodule Tore.Harness.Orchestrator do
            {:ok, state} <- enter(state, :gathering_context, metadata),
            summary = KitchenMemorySynthesis.events_summary(memory_capsule_ctx(ctx)),
            {:ok, state} <- enter(state, :proposing, metadata),
-           {:ok, insights} <- KitchenMemorySynthesis.synthesise(summary),
+           {:ok, insights} <-
+             KitchenMemorySynthesis.synthesise(scope_for(ctx.household_id), summary),
            artifact = KitchenMemorySynthesis.build_artifact(scope_for(ctx.household_id), insights),
            {:ok, state} <- enter(state, :verifying, metadata),
            {:ok, state} <- verify_and_finish_memory(state, artifact, metadata) do
@@ -649,7 +654,7 @@ defmodule Tore.Harness.Orchestrator do
 
   defp absorb_trace(state, loop, metadata) do
     Enum.reduce_while(loop.tool_trace, {:ok, state}, fn entry, {:ok, acc} ->
-      ai_op_id = log_ai_operation(acc.stream_id, entry)
+      ai_op_id = log_ai_operation(scope_for(acc.household_id), acc.stream_id, entry)
 
       cmd = %Commands.RecordToolStep{
         step_index: entry.step_index,
@@ -955,9 +960,9 @@ defmodule Tore.Harness.Orchestrator do
   defp commit_command(%{artifacts: artifacts}),
     do: %Commands.Commit{undo_payload: UndoPayload.from_artifacts(artifacts)}
 
-  defp log_ai_operation(stream_id, entry) do
+  defp log_ai_operation(scope, stream_id, entry) do
     {:ok, op} =
-      AiOperations.log(%{
+      AiOperations.log(scope, %{
         run_stream_id: stream_id,
         kind: "planner_agent." <> Atom.to_string(entry.step_kind),
         step_index: entry.step_index,

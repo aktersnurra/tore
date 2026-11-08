@@ -2,54 +2,55 @@ defmodule Tore.Costs do
   alias Tore.{Repo, Scope, Costs.LLMUsage, Costs.Receipt, Costs.LineItem, Costs.DiningOut}
   import Ecto.Query
 
-  def log_llm_usage(attrs) do
-    %LLMUsage{} |> LLMUsage.changeset(attrs) |> Repo.insert()
+  @doc "Records what an LLM call cost the household. Only `Tore.LLM` calls this, after each call."
+  @spec log_llm_usage(Scope.t(), map()) :: {:ok, LLMUsage.t()} | {:error, Ecto.Changeset.t()}
+  def log_llm_usage(%Scope{} = scope, attrs) do
+    %LLMUsage{household_id: scope.household_id} |> LLMUsage.changeset(attrs) |> Repo.insert()
   end
 
-  def llm_spend_this_month do
-    month_start = Date.beginning_of_month(Date.utc_today())
-    threshold = NaiveDateTime.new!(month_start, ~T[00:00:00])
-
-    Repo.one(
-      from u in LLMUsage,
-        where: u.inserted_at >= ^threshold,
-        select: coalesce(sum(u.cost_usd), 0.0)
+  @spec llm_spend_this_month(Scope.t()) :: float()
+  def llm_spend_this_month(%Scope{} = scope) do
+    from(u in LLMUsage,
+      where: u.inserted_at >= ^month_start(),
+      select: coalesce(sum(u.cost_usd), 0.0)
     )
+    |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def last_llm_call(feature) do
-    Repo.one(
-      from u in LLMUsage,
-        where: u.feature == ^to_string(feature),
-        order_by: [desc: u.inserted_at],
-        limit: 1
+  def last_llm_call(%Scope{} = scope, feature) do
+    from(u in LLMUsage,
+      where: u.feature == ^to_string(feature),
+      order_by: [desc: u.inserted_at],
+      limit: 1
     )
+    |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def llm_spend_last_30_days do
+  def llm_spend_last_30_days(%Scope{} = scope) do
     threshold = NaiveDateTime.add(NaiveDateTime.utc_now(), -30 * 24 * 3600)
 
-    Repo.one(
-      from u in LLMUsage,
-        where: u.inserted_at >= ^threshold,
-        select: coalesce(sum(u.cost_usd), 0.0)
+    from(u in LLMUsage,
+      where: u.inserted_at >= ^threshold,
+      select: coalesce(sum(u.cost_usd), 0.0)
     )
+    |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def llm_spend_total do
-    Repo.one(from u in LLMUsage, select: coalesce(sum(u.cost_usd), 0.0))
+  def llm_spend_total(%Scope{} = scope) do
+    Repo.one(from(u in LLMUsage, select: coalesce(sum(u.cost_usd), 0.0)), Scope.repo_opts(scope))
   end
 
-  def llm_calls_this_month_by_feature do
-    month_start = Date.beginning_of_month(Date.utc_today())
-    threshold = NaiveDateTime.new!(month_start, ~T[00:00:00])
-
-    Repo.all(
-      from u in LLMUsage,
-        where: u.inserted_at >= ^threshold,
-        group_by: u.feature,
-        select: {u.feature, count(u.id), coalesce(sum(u.cost_usd), 0.0)}
+  def llm_calls_this_month_by_feature(%Scope{} = scope) do
+    from(u in LLMUsage,
+      where: u.inserted_at >= ^month_start(),
+      group_by: u.feature,
+      select: {u.feature, count(u.id), coalesce(sum(u.cost_usd), 0.0)}
     )
+    |> Repo.all(Scope.repo_opts(scope))
+  end
+
+  defp month_start do
+    Date.utc_today() |> Date.beginning_of_month() |> NaiveDateTime.new!(~T[00:00:00])
   end
 
   @spec recent_receipts(Scope.t(), integer()) :: [Receipt.t()]
@@ -81,12 +82,13 @@ defmodule Tore.Costs do
     end)
   end
 
-  def parse_receipt(image_binary, locale) do
+  def parse_receipt(%Scope{} = scope, image_binary, locale) do
     {system, user} = Tore.LLM.Prompts.parse_receipt(locale)
 
     with {:ok, data, _usage} <-
-           Tore.LLM.vision([{:image, image_binary}], system, user,
-             response_format: Tore.LLM.Prompts.receipt_json_schema()
+           Tore.LLM.vision(scope, [{:image, image_binary}], system, user,
+             response_format: Tore.LLM.Prompts.receipt_json_schema(),
+             feature: :parse_receipt
            ) do
       items =
         Enum.map(data["items"] || [], fn it ->

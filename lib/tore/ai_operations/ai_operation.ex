@@ -3,6 +3,7 @@ defmodule Tore.AiOperations.AiOperation do
   import Ecto.Changeset
 
   schema "ai_operations" do
+    field :household_id, :integer
     field :run_stream_id, :string
     field :kind, :string
     field :payload, :string

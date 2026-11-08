@@ -1,5 +1,5 @@
 defmodule Tore.LLM.OpenAIWebSearchTest do
-  use ExUnit.Case, async: false
+  use Tore.DataCase, async: false
 
   alias Tore.LLM.OpenAI
 
@@ -85,7 +85,9 @@ defmodule Tore.LLM.OpenAIWebSearchTest do
       {:ok, %{"candidates" => []}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0.0}}
     end)
 
-    assert {:ok, %{"candidates" => []}, _usage} = Tore.LLM.web_search("sys", "user", [])
+    assert {:ok, %{"candidates" => []}, _usage} =
+             Tore.LLM.web_search(home_scope(), "sys", "user", [])
+
     Mox.verify!(Tore.MockLLM)
   end
 end

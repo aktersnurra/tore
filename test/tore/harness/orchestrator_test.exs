@@ -55,7 +55,7 @@ defmodule Tore.Harness.OrchestratorTest do
     end)
 
     {:ok, state} = Orchestrator.dispatch(:planner_command_run, @ctx)
-    rows = Tore.AiOperations.list_for_run(state.stream_id)
+    rows = Tore.AiOperations.list_for_run(home_scope(), state.stream_id)
     assert rows != []
     assert Enum.all?(rows, fn r -> r.run_stream_id == state.stream_id end)
   end

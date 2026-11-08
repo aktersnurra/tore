@@ -1,5 +1,5 @@
 defmodule Tore.LLM.ChatTest do
-  use ExUnit.Case, async: false
+  use Tore.DataCase, async: false
   import Mox
 
   setup :verify_on_exit!
@@ -13,7 +13,7 @@ defmodule Tore.LLM.ChatTest do
     end)
 
     assert {:ok, "Try pasta!", _usage} =
-             Tore.LLM.chat("You are a cooking assistant.", [
+             Tore.LLM.chat(home_scope(), "You are a cooking assistant.", [
                %{"role" => "user", "content" => "What can I cook tonight?"}
              ])
   end
@@ -23,6 +23,6 @@ defmodule Tore.LLM.ChatTest do
     |> expect(:chat, fn _system, _messages, _opts -> {:error, :rate_limited} end)
 
     assert {:error, :rate_limited} =
-             Tore.LLM.chat("system", [%{"role" => "user", "content" => "hello"}])
+             Tore.LLM.chat(home_scope(), "system", [%{"role" => "user", "content" => "hello"}])
   end
 end

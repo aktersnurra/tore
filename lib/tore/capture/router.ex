@@ -104,7 +104,7 @@ defmodule Tore.Capture.Router do
       when is_binary(text) and is_list(images) and is_map(ctx) and is_list(history) do
     correlation_id = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
 
-    AiOperations.log(%{
+    AiOperations.log(Tore.Scope.for_household(ctx.household_id), %{
       run_stream_id: correlation_id,
       kind: "capture_route",
       payload: %{
@@ -194,7 +194,14 @@ defmodule Tore.Capture.Router do
     # be forced to keep calling tools forever.
     choice = if iter == 0, do: tool_choice(images), else: "auto"
 
-    case Tore.LLM.chat_with_tools(system, messages, tool_catalogue(), tool_choice: choice) do
+    case Tore.LLM.chat_with_tools(
+           Tore.Scope.for_household(ctx.household_id),
+           system,
+           messages,
+           tool_catalogue(),
+           tool_choice: choice,
+           feature: :capture
+         ) do
       {:ok, {:message, text}, _usage} ->
         {:ok, bubbles_acc ++ [%{role: :assistant, text: text}], sids_acc}
 

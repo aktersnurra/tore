@@ -45,7 +45,7 @@ defmodule Tore.LLM.PlannerAgentTest do
     {:ok, _} = PlannerAgent.run(@system_prompt, "x", @ctx, [])
 
     # No rows should have been inserted — the orchestrator owns persistence.
-    assert Tore.AiOperations.list_for_run("anything") == []
+    assert Tore.AiOperations.list_for_run(home_scope(), "anything") == []
   end
 
   test "run/4 assigns a unique step_index to every trace entry" do

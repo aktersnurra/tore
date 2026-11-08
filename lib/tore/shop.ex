@@ -20,7 +20,7 @@ defmodule Tore.Shop do
       if pantry == [] do
         all_items
       else
-        case filter_pantry_items(all_items, pantry) do
+        case filter_pantry_items(scope, all_items, pantry) do
           {:ok, filtered} -> filtered
           _ -> all_items
         end
@@ -32,7 +32,7 @@ defmodule Tore.Shop do
 
   def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
     section =
-      case classify_grocery_item(name) do
+      case classify_grocery_item(scope, name) do
         {:ok, s} -> s
         _ -> :other
       end
@@ -49,14 +49,15 @@ defmodule Tore.Shop do
 
   @valid_sections ~w(produce meat fish dairy deli frozen bread dry_goods canned beverages herbs_spices condiments household other)
 
-  defp filter_pantry_items(ingredients, pantry) do
+  defp filter_pantry_items(scope, ingredients, pantry) do
     {system, user} = Tore.LLM.Prompts.filter_pantry_items(ingredients, pantry)
 
     fallback = Application.get_env(:tore, :openrouter_check_model_fallback, "openai/gpt-oss-120b")
 
-    case Tore.LLM.text(system, user,
+    case Tore.LLM.text(scope, system, user,
            model: fallback,
-           response_format: Tore.LLM.Prompts.filter_pantry_schema()
+           response_format: Tore.LLM.Prompts.filter_pantry_schema(),
+           feature: :filter_pantry
          ) do
       {:ok, items, _usage} when is_list(items) -> {:ok, build_filter_result(items)}
       {:ok, %{"items" => items}, _usage} when is_list(items) -> {:ok, build_filter_result(items)}
@@ -65,10 +66,10 @@ defmodule Tore.Shop do
     end
   end
 
-  defp classify_grocery_item(name) do
+  defp classify_grocery_item(scope, name) do
     {system, user} = Tore.LLM.Prompts.classify_grocery_item(name)
 
-    case Tore.LLM.text(system, user, []) do
+    case Tore.LLM.text(scope, system, user, feature: :classify_item) do
       {:ok, %{"section" => section}, _usage} -> {:ok, to_section_atom(section)}
       {:ok, _, _} -> {:error, :invalid_response}
       {:error, _} = err -> err

@@ -15,7 +15,9 @@ defmodule Tore.Planning do
 
   @doc "Cron entry: plan the upcoming week for every household."
   def plan_upcoming_weeks do
-    Tore.Household.each_scope(&plan_upcoming_week/1)
+    Tore.Household.each_scope(fn scope ->
+      if Tore.LLM.available?(scope), do: plan_upcoming_week(scope)
+    end)
   end
 
   @doc """
@@ -312,6 +314,7 @@ defmodule Tore.Planning do
 
       if include_llm do
         case llm_extra_suggestion(
+               scope,
                state,
                slot_key,
                recipes,
@@ -471,6 +474,7 @@ defmodule Tore.Planning do
   end
 
   defp llm_extra_suggestion(
+         scope,
          state,
          slot_key,
          recipes,
@@ -515,9 +519,9 @@ defmodule Tore.Planning do
 
     {system, user} = Tore.LLM.Prompts.suggest_slot_recipe(context)
 
-    with :ok <- SpendGuard.allow?(:suggest_recipe),
-         {:ok, %{recipe_id: rid, reasoning: reasoning}, usage} <- suggest(system, user, context),
-         :ok <- SpendGuard.log_usage(:suggest_recipe, usage),
+    with :ok <- SpendGuard.allow?(scope, :suggest_recipe),
+         {:ok, %{recipe_id: rid, reasoning: reasoning}, _usage} <-
+           suggest(scope, system, user, context),
          recipe when not is_nil(recipe) <- Enum.find(recipes, &(&1.id == rid)) do
       {:ok, %{recipe: recipe, reasons: [reasoning], score: 999}}
     else
@@ -526,8 +530,8 @@ defmodule Tore.Planning do
     end
   end
 
-  defp suggest(system, user, context) do
-    case Tore.LLM.text(system, user, []) do
+  defp suggest(scope, system, user, context) do
+    case Tore.LLM.text(scope, system, user, feature: :suggest_recipe) do
       {:ok, %{"recipe_id" => rid} = data, usage} when is_integer(rid) ->
         candidates = MapSet.new(context.candidate_recipe_ids || [])
 

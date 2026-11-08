@@ -261,7 +261,7 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_info({:run_substitution, missing, recipe_context}, socket) do
     result =
-      case Recipes.suggest_substitution(missing, recipe_context) do
+      case Recipes.suggest_substitution(socket.assigns.current_scope, missing, recipe_context) do
         {:ok, r} ->
           r
 
@@ -277,7 +277,7 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_info({:load_cook_mode, recipe}, socket) do
     steps =
-      case Recipes.cook_mode_steps(Map.from_struct(recipe)) do
+      case Recipes.cook_mode_steps(socket.assigns.current_scope, Map.from_struct(recipe)) do
         {:ok, s} ->
           s
 

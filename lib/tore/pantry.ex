@@ -8,8 +8,9 @@ defmodule Tore.Pantry do
     {system, user} = Tore.LLM.Prompts.parse_pantry_image(Tore.Household.locale(scope))
 
     with {:ok, data, _usage} <-
-           Tore.LLM.vision([{:image, image_binary}], system, user,
-             response_format: Tore.LLM.Prompts.pantry_json_schema()
+           Tore.LLM.vision(scope, [{:image, image_binary}], system, user,
+             response_format: Tore.LLM.Prompts.pantry_json_schema(),
+             feature: :parse_shelf_photo
            ) do
       items =
         Enum.map(data["items"] || [], fn it ->
@@ -50,8 +51,9 @@ defmodule Tore.Pantry do
     {system, user} =
       Tore.LLM.Prompts.canonicalise_pantry_items(items, locale, catalogue(scope))
 
-    case Tore.LLM.text(system, user,
-           response_format: Tore.LLM.Prompts.canonicalise_pantry_schema()
+    case Tore.LLM.text(scope, system, user,
+           response_format: Tore.LLM.Prompts.canonicalise_pantry_schema(),
+           feature: :canonicalise_pantry
          ) do
       {:ok, %{"items" => norm}, _usage} when is_list(norm) ->
         {:ok,

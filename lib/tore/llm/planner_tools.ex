@@ -388,7 +388,7 @@ defmodule Tore.LLM.PlannerTools do
         required: ["query"]
       },
       run: fn args, ctx, plan ->
-        case SpendGuard.allow?(:recipe_web_search) do
+        case SpendGuard.allow?(scope(ctx), :recipe_web_search) do
           :ok -> search_web(ctx, args["query"], plan)
           {:error, _reason} -> {:ok, %{unavailable: true, reason: guard_message()}, [], plan}
         end
@@ -399,9 +399,11 @@ defmodule Tore.LLM.PlannerTools do
   defp search_web(ctx, query, plan) do
     {system, user} = Prompts.find_recipe_web(query, household_locale(ctx))
 
-    case Tore.LLM.web_search(system, user, response_format: Prompts.web_candidates_json_schema()) do
-      {:ok, payload, usage} ->
-        SpendGuard.log_usage(:recipe_web_search, usage)
+    case Tore.LLM.web_search(scope(ctx), system, user,
+           response_format: Prompts.web_candidates_json_schema(),
+           feature: :recipe_web_search
+         ) do
+      {:ok, payload, _usage} ->
         {:ok, candidates_result(payload["candidates"] || []), [], plan}
 
       {:error, _} = err ->
@@ -478,9 +480,13 @@ defmodule Tore.LLM.PlannerTools do
         # action tools only), so resolve the handle here.
         with {:ok, recipe_id} <- fetch_recipe_id(ctx, args["recipe_ref"]),
              recipe = Tore.Recipes.get!(scope(ctx), recipe_id),
-             {:ok, proposal, usage} <-
-               Tore.Recipes.Variant.build(recipe, args["instruction"], household_locale(ctx)) do
-          SpendGuard.log_usage(:recipe_variant, usage)
+             {:ok, proposal, _usage} <-
+               Tore.Recipes.Variant.build(
+                 scope(ctx),
+                 recipe,
+                 args["instruction"],
+                 household_locale(ctx)
+               ) do
           {:proposal, proposal, pending_assignment(args), plan}
         end
       end

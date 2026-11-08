@@ -11,11 +11,11 @@ defmodule Tore.Harness.ReceiptIngestion do
   alias Tore.Costs
   alias Tore.Harness.Artifact.CostEntry
 
-  @spec parse(binary(), String.t() | nil) ::
+  @spec parse(Tore.Scope.t(), binary(), String.t() | nil) ::
           {:ok, %{store_name: String.t() | nil, total: Decimal.t() | nil, items: [map()]}}
           | {:error, term()}
-  def parse(image_binary, locale \\ nil) do
-    Costs.parse_receipt(image_binary, locale)
+  def parse(%Tore.Scope{} = scope, image_binary, locale) do
+    Costs.parse_receipt(scope, image_binary, locale)
   end
 
   @spec build_cost_entry(map(), keyword()) :: CostEntry.t()
