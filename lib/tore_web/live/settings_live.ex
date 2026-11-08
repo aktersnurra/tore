@@ -1,11 +1,10 @@
 defmodule ToreWeb.SettingsLive do
   use ToreWeb, :live_view
 
-  alias Tore.{Accounts, Costs, Deals, Household}
+  alias Tore.{Accounts, Costs, Deals, Household, Members}
+  alias ToreWeb.UserSession
 
   def mount(_params, _session, socket) do
-    users = Accounts.list_members(socket.assigns.current_scope)
-
     ai = %{
       this_month: Costs.llm_spend_this_month(),
       last_30_days: Costs.llm_spend_last_30_days(),
@@ -14,8 +13,13 @@ defmodule ToreWeb.SettingsLive do
     }
 
     {:ok,
-     assign(socket,
-       users: users,
+     socket
+     |> assign_members()
+     |> assign(
+       member_username: "",
+       member_notice: nil,
+       member_error: nil,
+       households: Members.list_households(socket.assigns.current_user),
        ai: ai,
        memory_insights: Household.list_active_insights(socket.assigns.current_scope),
        household: Household.get!(socket.assigns.current_scope),
@@ -57,11 +61,81 @@ defmodule ToreWeb.SettingsLive do
     {:noreply, assign(socket, stores: Deals.list_stores(scope))}
   end
 
+  def handle_event("add_member", %{"username" => username}, socket) do
+    case Members.add(socket.assigns.current_scope, username) do
+      {:ok, result} ->
+        notice =
+          case result do
+            {:pending, name} ->
+              gettext("%{name} joins at their first sign-in.", name: name)
+
+            {:moved, user} ->
+              # Their empty household is gone, so their open pages move here.
+              UserSession.disconnect(user.id)
+              gettext("%{name} is now a member.", name: user.name)
+
+            {:added, user} ->
+              gettext("%{name} is now a member.", name: user.name)
+          end
+
+        {:noreply,
+         socket
+         |> assign_members()
+         |> assign(member_username: "", member_notice: notice, member_error: nil)}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           member_username: username,
+           member_notice: nil,
+           member_error: member_error(reason)
+         )}
+    end
+  end
+
+  def handle_event("remove_member", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    :ok = Members.remove(socket.assigns.current_scope, id)
+    UserSession.disconnect(id)
+
+    if id == socket.assigns.current_user.id,
+      do: {:noreply, redirect(socket, to: ~p"/")},
+      else: {:noreply, assign_members(socket)}
+  end
+
+  def handle_event("cancel_pending", %{"id" => id}, socket) do
+    :ok = Members.cancel_pending(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, assign_members(socket)}
+  end
+
+  def handle_event("switch_household", %{"id" => id}, socket) do
+    user = socket.assigns.current_user
+    :ok = Members.switch(user, String.to_integer(id))
+    UserSession.disconnect(user.id)
+    {:noreply, redirect(socket, to: ~p"/")}
+  end
+
+  def handle_event("rename_household", %{"name" => name}, socket) do
+    case Household.rename(socket.assigns.current_scope, name) do
+      {:ok, household} -> {:noreply, assign(socket, household: household)}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
+
   def handle_event("forget_insight", %{"id" => id}, socket) do
     scope = socket.assigns.current_scope
     Tore.Household.dismiss_insight(scope, String.to_integer(id))
     {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights(scope))}
   end
+
+  defp assign_members(socket) do
+    scope = socket.assigns.current_scope
+    assign(socket, users: Accounts.list_members(scope), pending: Members.list_pending(scope))
+  end
+
+  defp member_error(:username_missing), do: gettext("Enter their Pocket ID username.")
+  defp member_error(:already_member), do: gettext("They're already a member.")
+  defp member_error(:already_added), do: gettext("They're already added.")
 
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
@@ -113,8 +187,67 @@ defmodule ToreWeb.SettingsLive do
                     {user.username}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  phx-click="remove_member"
+                  phx-value-id={user.id}
+                  class="text-[color:var(--danger)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {if user.id == @current_user.id, do: gettext("Leave"), else: gettext("Remove")}
+                </button>
+              </div>
+              <div :for={pending <- @pending} class="flex items-center gap-3">
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-[var(--text)] truncate" style="font-size: var(--t-body);">
+                    {pending.username}
+                  </p>
+                  <p class="text-[color:var(--muted)] truncate" style="font-size: var(--t-meta);">
+                    {gettext("Joins at their first sign-in")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  phx-click="cancel_pending"
+                  phx-value-id={pending.id}
+                  class="text-[color:var(--danger)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Remove")}
+                </button>
               </div>
             </div>
+
+            <form phx-submit="add_member" class="mt-4 flex items-center gap-2">
+              <input
+                type="text"
+                name="username"
+                value={@member_username}
+                placeholder={gettext("Pocket ID username")}
+                aria-label={gettext("Pocket ID username")}
+                autocomplete="off"
+                required
+                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                style="font-size: var(--t-body);"
+              />
+              <.button type="submit" variant={:primary}>
+                <.icon name="hero-plus" class="size-4" />{gettext("Add")}
+              </.button>
+            </form>
+            <p
+              :if={@member_notice}
+              class="mt-1 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {@member_notice}
+            </p>
+            <p
+              :if={@member_error}
+              class="mt-1 text-[color:var(--danger)]"
+              style="font-size: var(--t-meta);"
+            >
+              {@member_error}
+            </p>
 
             <.link
               href={~p"/logout"}
@@ -126,6 +259,46 @@ defmodule ToreWeb.SettingsLive do
             </.link>
           </section>
 
+          <%!-- Households: a switcher for someone in two or more --%>
+          <section
+            :if={length(@households) >= 2}
+            class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]"
+          >
+            <h2
+              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
+              style="font-size: var(--t-micro); font-weight: 600;"
+            >
+              {gettext("Your households")}
+            </h2>
+            <div class="flex flex-col gap-3">
+              <div :for={entry <- @households} class="flex items-center gap-3">
+                <p
+                  class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
+                  style="font-size: var(--t-body);"
+                >
+                  {entry.household.name}
+                </p>
+                <span
+                  :if={entry.active}
+                  class="text-[color:var(--muted)]"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Current")}
+                </span>
+                <button
+                  :if={!entry.active}
+                  type="button"
+                  phx-click="switch_household"
+                  phx-value-id={entry.household.id}
+                  class="font-medium text-[color:var(--accent)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Switch")}
+                </button>
+              </div>
+            </div>
+          </section>
+
           <%!-- Household --%>
           <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
             <h2
@@ -134,6 +307,19 @@ defmodule ToreWeb.SettingsLive do
             >
               {gettext("Household")}
             </h2>
+            <form phx-submit="rename_household" class="mb-4 flex items-center gap-2">
+              <input
+                type="text"
+                name="name"
+                value={@household.name}
+                aria-label={gettext("Household name")}
+                required
+                maxlength="100"
+                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                style="font-size: var(--t-body);"
+              />
+              <.button type="submit" variant={:secondary}>{gettext("Rename")}</.button>
+            </form>
             <div class="flex items-center justify-between gap-3">
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-[var(--text)]" style="font-size: var(--t-body);">

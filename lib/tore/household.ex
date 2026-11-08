@@ -17,6 +17,11 @@ defmodule Tore.Household do
   @spec locale(Scope.t()) :: String.t() | nil
   def locale(%Scope{} = scope), do: get!(scope).locale
 
+  @spec rename(Scope.t(), String.t()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
+  def rename(%Scope{} = scope, name) do
+    scope |> get!() |> HouseholdSchema.changeset(%{name: String.trim(name)}) |> Repo.update()
+  end
+
   @doc "Sets the household's language. Only once: a household that has one keeps it."
   @spec set_locale(Scope.t(), String.t()) ::
           {:ok, HouseholdSchema.t()} | {:error, :already_set | Ecto.Changeset.t()}

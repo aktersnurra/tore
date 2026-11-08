@@ -25,6 +25,84 @@ defmodule ToreWeb.SettingsLiveTest do
     refute has_element?(view, ~s(form[phx-submit="add_user"]))
   end
 
+  describe "members" do
+    defp add_member(view, username) do
+      view |> form(~s(form[phx-submit="add_member"]), %{username: username}) |> render_submit()
+    end
+
+    test "adding someone who hasn't signed in says they join at their first sign-in", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      html = add_member(view, "bo")
+
+      assert html =~ "bo går med vid sin första inloggning."
+      assert html =~ "Går med vid första inloggningen"
+    end
+
+    test "adding someone already a member says so", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      assert add_member(view, user.username) =~ "Personen är redan medlem."
+    end
+
+    test "removing a member closes their open pages and their next request is elsewhere", %{
+      conn: conn
+    } do
+      partner = user_fixture(name: "Partner")
+      ToreWeb.Endpoint.subscribe("users_sessions:#{partner.id}")
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      html =
+        view
+        |> element(~s(button[phx-click="remove_member"][phx-value-id="#{partner.id}"]))
+        |> render_click()
+
+      refute html =~ "Partner"
+      assert_receive %Phoenix.Socket.Broadcast{event: "disconnect"}
+      {_partner, scope} = Tore.Accounts.get_session(partner.id)
+      assert scope.household_id != home_scope().household_id
+    end
+
+    test "the switcher appears only for someone in two or more households", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+      refute has_element?(view, ~s(button[phx-click="switch_household"]))
+
+      # Home holds something, so being added elsewhere adds a household rather than moving them.
+      Tore.Repo.insert!(%Tore.Recipes.Recipe{
+        household_id: home_scope().household_id,
+        title: "Ärtsoppa",
+        recipe_type: :meal
+      })
+
+      other = household_fixture(%{name: "Stugan"})
+      {:ok, {:added, _}} = Tore.Members.add(scope_fixture(other), user.username)
+      {:ok, view, html} = live(conn, ~p"/settings")
+      assert html =~ "Dina hushåll"
+
+      view
+      |> element(~s(button[phx-click="switch_household"][phx-value-id="#{other.id}"]))
+      |> render_click()
+
+      assert {_user, %{household_id: id}} = Tore.Accounts.get_session(user.id)
+      assert id == other.id
+    end
+
+    test "renames the household", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      view
+      |> form(~s(form[phx-submit="rename_household"]), %{name: "Rydholms"})
+      |> render_submit()
+
+      assert home_household().name == "Rydholms"
+    end
+  end
+
   test "has a way to sign out", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/settings")
 

@@ -116,18 +116,9 @@ defmodule Tore.Accounts do
     user
   end
 
-  # A household of their own, named after them. Its language is picked at /welcome. Someone with the
-  # credits claim spends them here unless they turn it off.
   defp start_household(attrs) do
     user = insert_user(attrs, nil)
-
-    household =
-      Repo.insert!(%HouseholdSchema{
-        name: user.name,
-        ai_sponsor_id: if(user.ai_enabled, do: user.id)
-      })
-
-    Repo.insert!(%Membership{user_id: user.id, household_id: household.id, active: true})
+    Tore.Members.start_own_household!(user)
     user
   end
 
