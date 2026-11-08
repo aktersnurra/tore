@@ -116,7 +116,8 @@ defmodule Tore.Harness.Orchestrator do
     run_dispatch(stream_id, metadata, "receipt_ingestion_run", fn ->
       with {:ok, state} <- open_run(stream_id, open_cmd, metadata),
            {:ok, state} <- enter(state, :gathering_context, metadata),
-           {:ok, parsed} <- ReceiptIngestion.parse(ctx.image_binary, household_locale()),
+           {:ok, parsed} <-
+             ReceiptIngestion.parse(ctx.image_binary, household_locale(ctx.household_id)),
            {:ok, state} <- enter(state, :proposing, metadata),
            cost =
              ReceiptIngestion.build_cost_entry(parsed,
@@ -183,7 +184,7 @@ defmodule Tore.Harness.Orchestrator do
            summary = KitchenMemorySynthesis.events_summary(memory_capsule_ctx(ctx)),
            {:ok, state} <- enter(state, :proposing, metadata),
            {:ok, insights} <- KitchenMemorySynthesis.synthesise(summary),
-           artifact = KitchenMemorySynthesis.build_artifact(insights),
+           artifact = KitchenMemorySynthesis.build_artifact(scope_for(ctx.household_id), insights),
            {:ok, state} <- enter(state, :verifying, metadata),
            {:ok, state} <- verify_and_finish_memory(state, artifact, metadata) do
         {:ok, state}
@@ -597,12 +598,7 @@ defmodule Tore.Harness.Orchestrator do
 
   defp scope_for(household_id), do: Tore.Scope.for_household(household_id)
 
-  defp household_locale do
-    case Tore.Household.get_household!() do
-      %{locale: locale} when is_binary(locale) -> locale
-      _ -> nil
-    end
-  end
+  defp household_locale(household_id), do: Tore.Household.locale(scope_for(household_id))
 
   defp run_dispatch(stream_id, metadata, kind, fun) do
     result =
@@ -838,7 +834,11 @@ defmodule Tore.Harness.Orchestrator do
              metadata
            ),
          {:ok, counts, snaps} <-
-           PantryUpdate.apply!(scope_for(state.household_id), artifact, household_locale()),
+           PantryUpdate.apply!(
+             scope_for(state.household_id),
+             artifact,
+             household_locale(state.household_id)
+           ),
          snapshot = %Tore.Harness.Artifact.PantrySnapshot{items: snaps},
          {:ok, state} <-
            apply_command(
@@ -883,7 +883,7 @@ defmodule Tore.Harness.Orchestrator do
       :ok ->
         run_summary = RunSummary.from_artifacts([artifact], :applied)
 
-        with {:ok, _} <- KitchenMemorySynthesis.apply!(artifact),
+        with {:ok, _} <- KitchenMemorySynthesis.apply!(scope_for(state.household_id), artifact),
              {:ok, state} <-
                apply_command(
                  state.stream_id,
@@ -914,7 +914,7 @@ defmodule Tore.Harness.Orchestrator do
   defp verify_ctx(loop, ctx) do
     %{
       plan_state: loop.working_plan,
-      preferences: Tore.Household.get_preferences(),
+      preferences: Tore.Household.get_preferences(scope_for(ctx.household_id)),
       scope: scope_for(ctx.household_id)
     }
   end

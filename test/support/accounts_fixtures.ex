@@ -27,7 +27,13 @@ defmodule Tore.AccountsFixtures do
   end
 
   @doc "The scope of the household people sign in to. Data a signed-in test user should see goes here."
-  def home_scope, do: Scope.for_household(Tore.Household.get_household!().id)
+  def home_scope, do: Scope.for_household(home_household().id)
+
+  @doc "The household people sign in to: the first one, seeded by the migrations."
+  def home_household do
+    import Ecto.Query
+    Tore.Repo.one!(from h in Tore.Household.HouseholdSchema, order_by: h.id, limit: 1)
+  end
 
   @doc "A scope for a user, or for a household with no user."
   def scope_fixture(user_or_household \\ user_fixture())

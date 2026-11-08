@@ -1,62 +1,48 @@
 defmodule Tore.Household do
   import Ecto.Query, warn: false
-  alias Tore.{Repo, Household.HouseholdSchema, Household.HouseholdInsight, Household.Preferences}
 
-  @spec get_household!() :: HouseholdSchema.t()
-  # The first household is the one people sign in to, until each person has their own.
-  def get_household! do
-    case Repo.one(from h in HouseholdSchema, order_by: h.id, limit: 1) do
-      nil ->
-        %HouseholdSchema{}
-        |> HouseholdSchema.changeset(%{name: "Home"})
-        |> Repo.insert!()
+  alias Tore.{
+    Repo,
+    Scope,
+    Household.HouseholdSchema,
+    Household.HouseholdInsight,
+    Household.Preferences
+  }
 
-      household ->
-        household
-    end
-  end
+  @spec get!(Scope.t()) :: HouseholdSchema.t()
+  def get!(%Scope{household_id: id}), do: Repo.get!(HouseholdSchema, id)
 
   @doc "The language everything the household stores is written in."
-  @spec locale() :: String.t() | nil
-  def locale, do: get_household!().locale
-
-  @spec locale(Tore.Scope.t()) :: String.t() | nil
-  def locale(%Tore.Scope{household_id: id}), do: Repo.get!(HouseholdSchema, id).locale
+  @spec locale(Scope.t()) :: String.t() | nil
+  def locale(%Scope{} = scope), do: get!(scope).locale
 
   @spec locale_label(String.t()) :: String.t()
   def locale_label("en"), do: "English"
   def locale_label("sv"), do: "Svenska"
   def locale_label(code), do: code
 
-  @spec create_household(map()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
   @doc "Every household's id, for jobs that run for each of them."
   @spec list_ids() :: [integer()]
   def list_ids, do: Repo.all(from h in HouseholdSchema, order_by: h.id, select: h.id)
 
+  @spec create_household(map()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
   def create_household(attrs) do
     %HouseholdSchema{}
     |> HouseholdSchema.changeset(attrs)
     |> Repo.insert()
   end
 
-  @spec get_preferences() :: Preferences.t()
-  def get_preferences do
-    household = get_household!()
-
-    case Repo.get_by(Preferences, household_id: household.id) do
-      nil -> %Preferences{household_id: household.id}
-      prefs -> prefs
-    end
+  @spec get_preferences(Scope.t()) :: Preferences.t()
+  def get_preferences(%Scope{} = scope) do
+    Repo.one(Preferences, Scope.repo_opts(scope)) ||
+      %Preferences{household_id: scope.household_id}
   end
 
-  @spec update_preferences(map()) :: {:ok, Preferences.t()} | {:error, Ecto.Changeset.t()}
-  def update_preferences(attrs) do
-    household = get_household!()
-
-    case Repo.get_by(Preferences, household_id: household.id) do
-      nil -> %Preferences{household_id: household.id}
-      existing -> existing
-    end
+  @spec update_preferences(Scope.t(), map()) ::
+          {:ok, Preferences.t()} | {:error, Ecto.Changeset.t()}
+  def update_preferences(%Scope{} = scope, attrs) do
+    scope
+    |> get_preferences()
     |> Preferences.changeset(attrs)
     |> Repo.insert_or_update()
   end
@@ -110,32 +96,33 @@ defmodule Tore.Household do
     end
   end
 
-  @spec list_active_insights() :: [HouseholdInsight.t()]
-  def list_active_insights do
+  @spec list_active_insights(Scope.t()) :: [HouseholdInsight.t()]
+  def list_active_insights(%Scope{} = scope) do
     from(i in HouseholdInsight,
       where: i.status == "active",
       order_by: [desc: i.confidence]
     )
-    |> Repo.all()
+    |> Repo.all(Scope.repo_opts(scope))
   end
 
-  @spec dismiss_insight(integer()) :: {:ok, HouseholdInsight.t()} | {:error, Ecto.Changeset.t()}
-  def dismiss_insight(id) do
-    Repo.get!(HouseholdInsight, id)
+  @spec dismiss_insight(Scope.t(), integer()) ::
+          {:ok, HouseholdInsight.t()} | {:error, Ecto.Changeset.t()}
+  def dismiss_insight(%Scope{} = scope, id) do
+    Repo.get!(HouseholdInsight, id, Scope.repo_opts(scope))
     |> HouseholdInsight.changeset(%{status: "dismissed"})
     |> Repo.update()
   end
 
-  @spec replace_insights([map()]) :: {:ok, [HouseholdInsight.t()]} | {:error, term()}
-  def replace_insights(new_insights) when is_list(new_insights) do
+  @spec replace_insights(Scope.t(), [map()]) :: {:ok, [HouseholdInsight.t()]} | {:error, term()}
+  def replace_insights(%Scope{} = scope, new_insights) when is_list(new_insights) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     Repo.transaction(fn ->
       from(i in HouseholdInsight, where: i.status == "active")
-      |> Repo.update_all(set: [status: "superseded"])
+      |> Repo.update_all([set: [status: "superseded"]], Scope.repo_opts(scope))
 
       Enum.map(new_insights, fn attrs ->
-        %HouseholdInsight{}
+        %HouseholdInsight{household_id: scope.household_id}
         |> HouseholdInsight.changeset(%{
           kind: attrs.kind || attrs["kind"],
           body: attrs.body || attrs["body"],

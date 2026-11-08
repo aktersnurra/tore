@@ -12,7 +12,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
   @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
 
   setup do
-    %{ctx: %{household_id: Tore.Household.get_household!().id, user_id: nil}}
+    %{ctx: %{household_id: home_scope().household_id, user_id: nil}}
   end
 
   defp item(name, quantity \\ nil, unit \\ nil) do

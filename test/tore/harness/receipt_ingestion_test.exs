@@ -33,7 +33,7 @@ defmodule Tore.Harness.ReceiptIngestionTest do
 
     {:ok, %State.NeedsUser{} = state} =
       Orchestrator.dispatch(:receipt_ingestion_run, %{
-        household_id: Tore.Household.get_household!().id,
+        household_id: home_scope().household_id,
         user_id: nil,
         image_binary: <<255, 216, 255>>
       })

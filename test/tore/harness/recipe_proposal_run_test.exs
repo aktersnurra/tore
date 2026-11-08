@@ -8,7 +8,7 @@ defmodule Tore.Harness.RecipeProposalRunTest do
   alias Tore.Harness.Run.State
 
   setup do
-    household = Tore.Household.get_household!()
+    household = home_household()
     plan_stream_id = "plan:" <> Ecto.UUID.generate()
     {:ok, household: household, plan_stream_id: plan_stream_id}
   end

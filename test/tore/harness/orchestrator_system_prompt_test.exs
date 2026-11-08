@@ -12,7 +12,8 @@ defmodule Tore.Harness.OrchestratorSystemPromptTest do
   end
 
   test "the planner run's system prompt carries the composed household + week context" do
-    {:ok, _} = Tore.Household.update_preferences(%{dietary_restrictions: ["vegetarian"]})
+    {:ok, _} =
+      Tore.Household.update_preferences(home_scope(), %{dietary_restrictions: ["vegetarian"]})
 
     test_pid = self()
 

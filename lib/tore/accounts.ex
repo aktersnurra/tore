@@ -47,8 +47,21 @@ defmodule Tore.Accounts do
   end
 
   defp new_user do
-    household = Household.get_household!()
+    household = sign_in_household!()
     %User{household_id: household.id, locale: household.locale}
+  end
+
+  # Everyone signs in to the first household until each person can have their own.
+  defp sign_in_household! do
+    case Repo.one(from h in Household.HouseholdSchema, order_by: h.id, limit: 1) do
+      nil ->
+        Repo.insert!(
+          Household.HouseholdSchema.changeset(%Household.HouseholdSchema{}, %{name: "Home"})
+        )
+
+      household ->
+        household
+    end
   end
 
   defp display_name(name, username) when is_binary(name) do

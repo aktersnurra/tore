@@ -114,7 +114,7 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   test "review pill shows when runs need attention", %{conn: conn, user: user} do
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
 

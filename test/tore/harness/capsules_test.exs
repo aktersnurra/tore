@@ -12,7 +12,9 @@ defmodule Tore.Harness.CapsulesTest do
   @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
 
   test "compose/2 joins rendered capsules and drops nils, preserving order" do
-    {:ok, _} = Tore.Household.update_preferences(%{dietary_restrictions: ["vegetarian"]})
+    {:ok, _} =
+      Tore.Household.update_preferences(home_scope(), %{dietary_restrictions: ["vegetarian"]})
+
     # no insights seeded → ActiveInsightsCapsule renders nil and is dropped
 
     prompt =
@@ -34,10 +36,11 @@ defmodule Tore.Harness.CapsulesTest do
   end
 
   test "compose/2 separates two rendered capsules with a blank line" do
-    {:ok, _} = Tore.Household.update_preferences(%{dietary_restrictions: ["vegetarian"]})
+    {:ok, _} =
+      Tore.Household.update_preferences(home_scope(), %{dietary_restrictions: ["vegetarian"]})
 
     {:ok, _} =
-      Tore.Household.replace_insights([
+      Tore.Household.replace_insights(home_scope(), [
         %{kind: "skip_pattern", body: "Mondays are often skipped.", confidence: 0.8, evidence: []}
       ])
 

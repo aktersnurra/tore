@@ -7,7 +7,7 @@ defmodule Tore.Harness.Capsules.ActiveInsightsCapsuleTest do
 
   test "build/1 collects active insight bodies" do
     {:ok, _} =
-      Tore.Household.replace_insights([
+      Tore.Household.replace_insights(home_scope(), [
         %{kind: "skip_pattern", body: "Mondays are often skipped.", confidence: 0.8, evidence: []}
       ])
 
@@ -21,14 +21,14 @@ defmodule Tore.Harness.Capsules.ActiveInsightsCapsuleTest do
         %{kind: "skip_pattern", body: "pattern #{n}", confidence: 0.5, evidence: []}
       end
 
-    {:ok, _} = Tore.Household.replace_insights(insights)
+    {:ok, _} = Tore.Household.replace_insights(home_scope(), insights)
 
     assert length(Capsule.build(@ctx).bodies) == 5
   end
 
   test "to_prompt/1 renders a bulleted patterns list" do
     {:ok, _} =
-      Tore.Household.replace_insights([
+      Tore.Household.replace_insights(home_scope(), [
         %{kind: "skip_pattern", body: "Mondays are often skipped.", confidence: 0.8, evidence: []}
       ])
 

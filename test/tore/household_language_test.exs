@@ -16,7 +16,7 @@ defmodule Tore.HouseholdLanguageTest do
   """
 
   setup do
-    Household.get_household!() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
+    home_household() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
     :ok
   end
 

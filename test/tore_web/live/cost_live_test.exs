@@ -11,7 +11,7 @@ defmodule ToreWeb.CostLiveTest do
 
   setup do
     user = user_fixture(name: "Tester")
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
 
@@ -161,7 +161,7 @@ defmodule ToreWeb.CostLiveTest do
     end
 
     test "says so when the photo was already uploaded", %{conn: conn} do
-      household_id = Tore.Household.get_household!().id
+      household_id = home_scope().household_id
 
       Uploads.record(
         Tore.Scope.for_household(household_id),

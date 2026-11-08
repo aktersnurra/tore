@@ -96,7 +96,7 @@ defmodule ToreWeb.PlannerLive do
     %{plan_id: plan_id, current_scope: scope} = socket.assigns
 
     dietary_guidance =
-      Tore.Household.get_preferences() |> Tore.Household.prefs_to_dietary_guidance()
+      Tore.Household.get_preferences(scope) |> Tore.Household.prefs_to_dietary_guidance()
 
     Task.start(fn ->
       case Planning.suggest_recipes_for_slot(scope, plan_id, sk,
@@ -216,7 +216,7 @@ defmodule ToreWeb.PlannerLive do
     sk = s.slot_key
 
     dietary_guidance =
-      Tore.Household.get_preferences() |> Tore.Household.prefs_to_dietary_guidance()
+      Tore.Household.get_preferences(scope) |> Tore.Household.prefs_to_dietary_guidance()
 
     Task.start(fn ->
       case Planning.suggest_recipes_for_slot(scope, plan_id, sk,

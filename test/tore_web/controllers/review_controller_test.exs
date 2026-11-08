@@ -6,7 +6,7 @@ defmodule ToreWeb.ReviewControllerTest do
 
   setup do
     user = user_fixture(name: "Gustaf")
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
 

@@ -6,14 +6,18 @@ defmodule Tore.Harness.Capsules.HouseholdPreferencesCapsuleTest do
   @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
 
   test "build/1 captures the dietary guidance string" do
-    {:ok, _} = Tore.Household.update_preferences(%{dietary_restrictions: ["vegetarian"]})
+    {:ok, _} =
+      Tore.Household.update_preferences(home_scope(), %{dietary_restrictions: ["vegetarian"]})
+
     capsule = Capsule.build(@ctx)
     assert is_binary(capsule.guidance)
     assert capsule.guidance =~ "vegetarian" or capsule.guidance =~ "Vegetarian"
   end
 
   test "to_prompt/1 renders the guidance into the household-preferences line" do
-    {:ok, _} = Tore.Household.update_preferences(%{dietary_restrictions: ["vegetarian"]})
+    {:ok, _} =
+      Tore.Household.update_preferences(home_scope(), %{dietary_restrictions: ["vegetarian"]})
+
     prompt = @ctx |> Capsule.build() |> Capsule.to_prompt()
     assert prompt =~ "Household preferences:"
     assert String.ends_with?(prompt, ".")

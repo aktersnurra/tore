@@ -13,9 +13,7 @@ defmodule Tore.Recipes.Variant do
 
   @spec build(Tore.Recipes.Recipe.t(), String.t(), String.t() | nil) ::
           {:ok, RecipeProposal.t(), LLM.usage()} | {:error, term()}
-  def build(source_recipe, instruction, locale \\ nil) do
-    locale = locale || household_locale()
-
+  def build(source_recipe, instruction, locale) do
     {system, user} =
       Prompts.generate_recipe_variant(summarise(source_recipe), instruction, locale)
 
@@ -97,12 +95,5 @@ defmodule Tore.Recipes.Variant do
     steps
     |> Enum.sort_by(& &1["order"])
     |> Enum.map_join("\n", & &1["action"])
-  end
-
-  defp household_locale do
-    case Tore.Household.get_household!() do
-      %{locale: locale} when is_binary(locale) -> locale
-      _ -> nil
-    end
   end
 end

@@ -10,7 +10,7 @@ defmodule Tore.Harness.WeeklyPlanningRunTest do
 
   defp ctx_for(week_start) do
     %{
-      household_id: Tore.Household.get_household!().id,
+      household_id: home_scope().household_id,
       user_id: nil,
       plan_stream_id: Tore.Streams.plan(home_scope(), week_start),
       week_start: week_start

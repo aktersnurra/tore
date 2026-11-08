@@ -387,17 +387,17 @@ defmodule Tore.LLM.PlannerTools do
         },
         required: ["query"]
       },
-      run: fn args, _ctx, plan ->
+      run: fn args, ctx, plan ->
         case SpendGuard.allow?(:recipe_web_search) do
-          :ok -> search_web(args["query"], plan)
+          :ok -> search_web(ctx, args["query"], plan)
           {:error, _reason} -> {:ok, %{unavailable: true, reason: guard_message()}, [], plan}
         end
       end
     }
   end
 
-  defp search_web(query, plan) do
-    {system, user} = Prompts.find_recipe_web(query, household_locale())
+  defp search_web(ctx, query, plan) do
+    {system, user} = Prompts.find_recipe_web(query, household_locale(ctx))
 
     case Tore.LLM.web_search(system, user, response_format: Prompts.web_candidates_json_schema()) do
       {:ok, payload, usage} ->
@@ -435,7 +435,7 @@ defmodule Tore.LLM.PlannerTools do
         required: ["url"]
       },
       run: fn args, ctx, plan ->
-        case Tore.Recipes.scrape_attrs_from_url(scope(ctx), args["url"], household_locale()) do
+        case Tore.Recipes.scrape_attrs_from_url(scope(ctx), args["url"], household_locale(ctx)) do
           {:ok, attrs} ->
             {:proposal, web_import_proposal(attrs, args["url"]), pending_assignment(args), plan}
 
@@ -479,7 +479,7 @@ defmodule Tore.LLM.PlannerTools do
         with {:ok, recipe_id} <- fetch_recipe_id(ctx, args["recipe_ref"]),
              recipe = Tore.Recipes.get!(scope(ctx), recipe_id),
              {:ok, proposal, usage} <-
-               Tore.Recipes.Variant.build(recipe, args["instruction"], household_locale()) do
+               Tore.Recipes.Variant.build(recipe, args["instruction"], household_locale(ctx)) do
           SpendGuard.log_usage(:recipe_variant, usage)
           {:proposal, proposal, pending_assignment(args), plan}
         end
@@ -536,12 +536,7 @@ defmodule Tore.LLM.PlannerTools do
 
   defp scope(ctx), do: Tore.Scope.for_household(ctx.household_id)
 
-  defp household_locale do
-    case Tore.Household.get_household!() do
-      %{locale: locale} when is_binary(locale) -> locale
-      _ -> nil
-    end
-  end
+  defp household_locale(ctx), do: Tore.Household.locale(scope(ctx))
 
   defp recipe_under_minutes?(%{prep_time_minutes: _, cook_time_minutes: _} = recipe, max) do
     total_minutes(recipe) <= max

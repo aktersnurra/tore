@@ -13,12 +13,12 @@ defmodule Tore.AccountsTest do
       assert user.oidc_sub == "abc"
       assert user.username == "gustaf"
       assert user.name == "Gustaf R"
-      assert user.household_id == Household.get_household!().id
+      assert user.household_id == home_scope().household_id
       assert user.ai_enabled == false
     end
 
     test "a new person starts in the household's language" do
-      Household.get_household!() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
+      home_household() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
 
       assert {:ok, %{locale: "en"}} = Accounts.sign_in(@claims)
     end

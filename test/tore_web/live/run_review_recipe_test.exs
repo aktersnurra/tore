@@ -9,7 +9,7 @@ defmodule ToreWeb.RunReviewRecipeTest do
   alias Tore.Harness.Run.State
 
   setup do
-    household = Tore.Household.get_household!()
+    household = home_household()
     user = user_fixture(name: "Tester")
 
     conn = Plug.Test.init_test_session(build_conn(), %{user_id: user.id})

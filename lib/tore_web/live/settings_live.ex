@@ -17,8 +17,8 @@ defmodule ToreWeb.SettingsLive do
      assign(socket,
        users: users,
        ai: ai,
-       memory_insights: Household.list_active_insights(),
-       household: Household.get_household!(),
+       memory_insights: Household.list_active_insights(socket.assigns.current_scope),
+       household: Household.get!(socket.assigns.current_scope),
        stores: Deals.list_store_configs(),
        store_url: "",
        store_error: nil
@@ -55,8 +55,9 @@ defmodule ToreWeb.SettingsLive do
   end
 
   def handle_event("forget_insight", %{"id" => id}, socket) do
-    Tore.Household.dismiss_insight(String.to_integer(id))
-    {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights())}
+    scope = socket.assigns.current_scope
+    Tore.Household.dismiss_insight(scope, String.to_integer(id))
+    {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights(scope))}
   end
 
   defp format_usd(nil), do: "$0.00"

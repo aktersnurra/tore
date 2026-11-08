@@ -85,9 +85,9 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
     end
   end
 
-  @spec build_artifact([map()]) :: MemoryUpdate.t()
-  def build_artifact(new_insights) do
-    active = Household.list_active_insights()
+  @spec build_artifact(Tore.Scope.t(), [map()]) :: MemoryUpdate.t()
+  def build_artifact(%Tore.Scope{} = scope, new_insights) do
+    active = Household.list_active_insights(scope)
     active_bodies = MapSet.new(active, & &1.body)
 
     added =
@@ -107,13 +107,14 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
     }
   end
 
-  @spec apply!(MemoryUpdate.t()) :: {:ok, [Household.HouseholdInsight.t()]} | {:error, term()}
-  def apply!(%MemoryUpdate{added: added, unchanged: unchanged}) do
-    # replace_insights/1 tombstones every active row and inserts the given set.
+  @spec apply!(Tore.Scope.t(), MemoryUpdate.t()) ::
+          {:ok, [Household.HouseholdInsight.t()]} | {:error, term()}
+  def apply!(%Tore.Scope{} = scope, %MemoryUpdate{added: added, unchanged: unchanged}) do
+    # replace_insights/2 tombstones every active row and inserts the given set.
     # Pass added + unchanged so unchanged insights re-land with a fresh
     # generated_at and identity (no in-place update). This is intentional: the
     # synthesis is the authoritative weekly snapshot.
-    Household.replace_insights(added ++ unchanged)
+    Household.replace_insights(scope, added ++ unchanged)
   end
 
   defp normalise(ins) do

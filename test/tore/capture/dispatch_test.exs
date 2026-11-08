@@ -69,7 +69,7 @@ defmodule Tore.Capture.DispatchTest do
   end
 
   test "a repeated photo links to review, not to a page that's gone" do
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     image = <<255, 216, 255, 1, 2, 3>>
 
     {:ok, _} =
