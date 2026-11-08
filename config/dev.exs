@@ -88,6 +88,13 @@ config :tore, :env, :dev
 # Enable dev routes for dashboard and mailbox
 config :tore, dev_routes: true
 
+# Pocket ID sign-in. Without these set, /login offers the dev sign-in instead.
+config :tore, :oidc,
+  issuer: System.get_env("OIDC_ISSUER"),
+  client_id: System.get_env("OIDC_CLIENT_ID"),
+  client_secret: System.get_env("OIDC_CLIENT_SECRET"),
+  redirect_uri: "http://localhost:4000/auth/oidc/callback"
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

@@ -2172,7 +2172,7 @@ msgstr "onsdag"
 msgid "Members"
 msgstr "Medlemmar"
 
-#: lib/tore_web/controllers/session_html/new.html.heex:16
+#: lib/tore_web/controllers/session_html/new.html.heex:25
 #, elixir-autogen, elixir-format
 msgid "Sign in as dev"
 msgstr "Logga in som dev"
@@ -2272,3 +2272,48 @@ msgstr "min förberedelse"
 #, elixir-autogen, elixir-format
 msgid "servings"
 msgstr "portioner"
+
+#: lib/tore_web/controllers/oidc_controller.ex:73
+#, elixir-autogen, elixir-format
+msgid "Couldn't finish signing in. Please try again."
+msgstr "Kunde inte slutföra inloggningen. Försök igen."
+
+#: lib/tore_web/controllers/oidc_controller.ex:28
+#, elixir-autogen, elixir-format
+msgid "Couldn't reach Pocket ID. Try again in a moment."
+msgstr "Kunde inte nå Pocket ID. Försök igen om en stund."
+
+#: lib/tore_web/controllers/oidc_controller.ex:65
+#, elixir-autogen, elixir-format
+msgid "Pocket ID didn't send a username."
+msgstr "Pocket ID skickade inget användarnamn."
+
+#: lib/tore_web/controllers/session_html/new.html.heex:17
+#, elixir-autogen, elixir-format
+msgid "Sign in with Pocket ID"
+msgstr "Logga in med Pocket ID"
+
+#: lib/tore_web/controllers/oidc_controller.ex:47
+#, elixir-autogen, elixir-format
+msgid "Sign-in couldn't be verified. Please try again."
+msgstr "Inloggningen kunde inte verifieras. Försök igen."
+
+#: lib/tore_web/controllers/oidc_controller.ex:54
+#, elixir-autogen, elixir-format
+msgid "Sign-in failed. Please try again."
+msgstr "Inloggningen misslyckades. Försök igen."
+
+#: lib/tore_web/controllers/oidc_controller.ex:34
+#, elixir-autogen, elixir-format
+msgid "Sign-in was cancelled or refused."
+msgstr "Inloggningen avbröts eller nekades."
+
+#: lib/tore_web/controllers/oidc_controller.ex:69
+#, elixir-autogen, elixir-format
+msgid "That username belongs to another Pocket ID account."
+msgstr "Användarnamnet tillhör ett annat Pocket ID-konto."
+
+#: lib/tore_web/controllers/oidc_controller.ex:43
+#, elixir-autogen, elixir-format
+msgid "Your sign-in expired. Please try again."
+msgstr "Inloggningen gick ut. Försök igen."

@@ -24,6 +24,8 @@ defmodule ToreWeb.Router do
     pipe_through :browser
 
     get "/login", SessionController, :new
+    get "/auth/oidc", OidcController, :request
+    get "/auth/oidc/callback", OidcController, :callback
     delete "/logout", SessionController, :delete
   end
 

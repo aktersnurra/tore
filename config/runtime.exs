@@ -22,6 +22,9 @@ end
 
 config :tore, ToreWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# The Pocket ID claim that lets someone use the server's LLM.
+config :tore, :ai_claim, System.get_env("AI_CLAIM", "tore_ai")
+
 if config_env() == :prod do
   config :tore,
          :uploads_dir,
@@ -77,6 +80,16 @@ if config_env() == :prod do
       """
 
   host = System.get_env("PHX_HOST") || "example.com"
+
+  config :tore, :oidc,
+    issuer:
+      System.get_env("OIDC_ISSUER") || raise("environment variable OIDC_ISSUER is missing."),
+    client_id:
+      System.get_env("OIDC_CLIENT_ID") || raise("environment variable OIDC_CLIENT_ID is missing."),
+    client_secret:
+      System.get_env("OIDC_CLIENT_SECRET") ||
+        raise("environment variable OIDC_CLIENT_SECRET is missing."),
+    redirect_uri: System.get_env("OIDC_REDIRECT_URI") || "https://#{host}/auth/oidc/callback"
 
   config :tore, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 

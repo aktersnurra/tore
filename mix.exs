@@ -64,6 +64,7 @@ defmodule Tore.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
+      {:oidcc, "~> 3.9"},
       {:open_router,
        git: "https://github.com/aktersnurra/open-router.git",
        rev: "7254e7c54754f77b5c6736b0f25aec7a553eb0d6"},

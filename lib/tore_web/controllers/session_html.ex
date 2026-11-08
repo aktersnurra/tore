@@ -3,5 +3,6 @@ defmodule ToreWeb.SessionHTML do
 
   embed_templates "session_html/*"
 
+  def oidc_configured?, do: Tore.Auth.Oidc.configured?()
   def dev_routes?, do: Application.get_env(:tore, :dev_routes, false)
 end

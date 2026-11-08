@@ -47,3 +47,13 @@ config :tore, :http_client, Tore.MockHTTP
 config :tore, :llm_spec, Tore.MockLLM
 config :tore, :storage_client, Tore.Storage.Mock
 config :tore, :env, :test
+
+# Tests never reach Pocket ID: the callback tests swap in a stub through :oidc_module.
+config :tore, :oidc,
+  issuer: "https://pocket-id.test",
+  client_id: "test-client-id",
+  client_secret: "test-client-secret",
+  redirect_uri: "http://localhost:4002/auth/oidc/callback"
+
+# The discovery worker would fail against the dummy issuer.
+config :tore, :oidc_start_worker, false

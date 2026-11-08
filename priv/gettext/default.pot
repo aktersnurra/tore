@@ -2172,7 +2172,7 @@ msgstr ""
 msgid "Members"
 msgstr ""
 
-#: lib/tore_web/controllers/session_html/new.html.heex:16
+#: lib/tore_web/controllers/session_html/new.html.heex:25
 #, elixir-autogen, elixir-format
 msgid "Sign in as dev"
 msgstr ""
@@ -2271,4 +2271,49 @@ msgstr ""
 #: lib/tore_web/live/run_review_live.ex:512
 #, elixir-autogen, elixir-format
 msgid "servings"
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:73
+#, elixir-autogen, elixir-format
+msgid "Couldn't finish signing in. Please try again."
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:28
+#, elixir-autogen, elixir-format
+msgid "Couldn't reach Pocket ID. Try again in a moment."
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:65
+#, elixir-autogen, elixir-format
+msgid "Pocket ID didn't send a username."
+msgstr ""
+
+#: lib/tore_web/controllers/session_html/new.html.heex:17
+#, elixir-autogen, elixir-format
+msgid "Sign in with Pocket ID"
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:47
+#, elixir-autogen, elixir-format
+msgid "Sign-in couldn't be verified. Please try again."
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:54
+#, elixir-autogen, elixir-format
+msgid "Sign-in failed. Please try again."
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:34
+#, elixir-autogen, elixir-format
+msgid "Sign-in was cancelled or refused."
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:69
+#, elixir-autogen, elixir-format
+msgid "That username belongs to another Pocket ID account."
+msgstr ""
+
+#: lib/tore_web/controllers/oidc_controller.ex:43
+#, elixir-autogen, elixir-format
+msgid "Your sign-in expired. Please try again."
 msgstr ""

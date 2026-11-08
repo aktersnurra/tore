@@ -8,7 +8,16 @@
       </span>
     </div>
     <.link
-      :if={dev_routes?()}
+      :if={oidc_configured?()}
+      href={~p"/auth/oidc"}
+      id="sign-in"
+      class="flex w-full items-center justify-center rounded-[var(--r-xl)] bg-[color:var(--accent)] py-3 font-semibold text-white"
+      style="font-size: var(--t-body);"
+    >
+      {gettext("Sign in with Pocket ID")}
+    </.link>
+    <.link
+      :if={dev_routes?() and not oidc_configured?()}
       href="/dev/login"
       class="block text-center text-[color:var(--accent)] hover:underline"
       style="font-size: var(--t-body);"
