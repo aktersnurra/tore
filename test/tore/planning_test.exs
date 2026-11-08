@@ -10,7 +10,7 @@ defmodule Tore.PlanningTest do
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
-    Phoenix.PubSub.subscribe(Tore.PubSub, "plan")
+    Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(home_scope()))
     :ok
   end
 
@@ -436,6 +436,17 @@ defmodule Tore.PlanningTest do
       assert :ok = Planning.plan_upcoming_weeks()
       assert [_] = Tore.Harness.RunReceipts.list(home_scope())
       assert [_] = Tore.Harness.RunReceipts.list(other)
+    end
+
+    test "a plan change is broadcast only to its own household" do
+      other = scope_fixture(household_fixture())
+      Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(other))
+
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", recipe(1), 4)
+
+      assert_receive {:events, [%Tore.Planning.Events.RecipeAssigned{}]}
+      refute_received {:events, _}
+      assert Planning.topic(other) != Planning.topic(home_scope())
     end
 
     test "a plan can't be given another household's recipe" do

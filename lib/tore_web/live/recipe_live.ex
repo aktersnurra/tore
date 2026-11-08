@@ -7,7 +7,8 @@ defmodule ToreWeb.RecipeLive do
   @time_filters [:any, 30, 45, 60]
 
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Phoenix.PubSub.subscribe(Tore.PubSub, "recipes")
+    if connected?(socket),
+      do: Phoenix.PubSub.subscribe(Tore.PubSub, Tore.Recipes.topic(socket.assigns.current_scope))
 
     {:ok,
      socket

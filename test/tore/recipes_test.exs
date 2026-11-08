@@ -30,7 +30,12 @@ defmodule Tore.RecipesTest do
       :ok = Recipes.generate_image(home_scope(), recipe, nil)
 
       reloaded = Recipes.get!(home_scope(), recipe.id)
-      assert String.starts_with?(reloaded.image_path, "recipes/#{recipe.id}/")
+
+      assert String.starts_with?(
+               reloaded.image_path,
+               "households/#{home_scope().household_id}/recipes/#{recipe.id}/"
+             )
+
       assert String.ends_with?(reloaded.image_path, ".jpg")
       refute String.contains?(reloaded.image_path, "://")
     end
@@ -38,13 +43,17 @@ defmodule Tore.RecipesTest do
     test "broadcasts {:recipe_image, id, key} on the recipes topic" do
       Tore.Storage.Mock.reset()
       {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
-      Phoenix.PubSub.subscribe(Tore.PubSub, "recipes")
+      Phoenix.PubSub.subscribe(Tore.PubSub, Recipes.topic(home_scope()))
 
       :ok = Recipes.generate_image(home_scope(), recipe, nil)
 
       assert_receive {:recipe_image, recipe_id, key}
       assert recipe_id == recipe.id
-      assert String.starts_with?(key, "recipes/#{recipe.id}/")
+
+      assert String.starts_with?(
+               key,
+               "households/#{home_scope().household_id}/recipes/#{recipe.id}/"
+             )
     end
   end
 

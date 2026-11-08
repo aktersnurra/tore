@@ -10,7 +10,7 @@ defmodule ToreWeb.ShopLive do
     list_id = Tore.Streams.shop_list(scope, week_start)
 
     if connected?(socket) do
-      PubSub.subscribe(Tore.PubSub, "shop_list")
+      PubSub.subscribe(Tore.PubSub, Shop.topic(scope))
     end
 
     {:ok, grocery_state} = Shop.load_list(scope, list_id)

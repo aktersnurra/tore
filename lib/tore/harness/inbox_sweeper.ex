@@ -86,15 +86,16 @@ defmodule Tore.Harness.InboxSweeper do
 
   # ── Orphan photo reap ───────────────────────────────────────────────────
   #
-  # Strategy: each photo key lives under `<stream_id>/<uuid>.jpg`. The stream
-  # id IS the directory name. We list all keys, group by stream_id, look up
-  # each run's state, and delete photos whose run is terminal. A run of another
-  # household loads as a Draft here, so its photos are kept for that household's sweep.
+  # Strategy: each photo key lives under `households/<id>/<stream_id>/<uuid>.jpg`.
+  # We list the household's keys, group by stream_id, look up each run's
+  # state, and delete photos whose run is terminal.
   defp reap_orphan_photos(household_id) do
-    case Storage.client().list_object_keys(Buckets.runs(), "") do
+    prefix = Tore.Storage.RunPhotos.prefix(Tore.Scope.for_household(household_id))
+
+    case Storage.client().list_object_keys(Buckets.runs(), prefix) do
       {:ok, keys} ->
         keys
-        |> Enum.group_by(&stream_id_from_key/1)
+        |> Enum.group_by(&stream_id_from_key(&1, prefix))
         |> Enum.reject(fn {sid, _} -> is_nil(sid) end)
         |> Enum.reduce({0, 0}, fn {stream_id, keys}, {reaped, kept} ->
           if reapable?(household_id, stream_id) do
@@ -111,8 +112,8 @@ defmodule Tore.Harness.InboxSweeper do
     end
   end
 
-  defp stream_id_from_key(key) when is_binary(key) do
-    case String.split(key, "/", parts: 2) do
+  defp stream_id_from_key(key, prefix) do
+    case key |> String.replace_prefix(prefix, "") |> String.split("/", parts: 2) do
       [sid, _filename] -> sid
       _ -> nil
     end

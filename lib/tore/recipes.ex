@@ -10,6 +10,10 @@ defmodule Tore.Recipes do
   @fp_sep "\x1f"
 
   @spec create(Scope.t(), map()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
+  @doc "The topic a household's recipe changes are broadcast on."
+  @spec topic(Scope.t()) :: String.t()
+  def topic(%Scope{household_id: id}), do: "recipes:household:#{id}"
+
   def create(%Scope{} = scope, attrs) do
     {tag_names, attrs} = Map.pop(attrs, :tags, [])
     {ingredients, attrs} = Map.pop(attrs, :ingredients, [])
@@ -373,7 +377,7 @@ defmodule Tore.Recipes do
   @spec generate_image(Scope.t(), Recipe.t(), String.t() | nil) :: :ok | {:error, term()}
   def generate_image(%Scope{} = scope, recipe, image_url) do
     storage = Tore.Storage.client()
-    key = "recipes/#{recipe.id}/#{Ecto.UUID.generate()}.jpg"
+    key = "households/#{scope.household_id}/recipes/#{recipe.id}/#{Ecto.UUID.generate()}.jpg"
 
     with {:ok, binary} <- fetch_or_generate(scope, recipe, image_url),
          {:ok, _url} <-
@@ -386,7 +390,7 @@ defmodule Tore.Recipes do
         Scope.repo_opts(scope)
       )
 
-      Phoenix.PubSub.broadcast(Tore.PubSub, "recipes", {:recipe_image, recipe.id, key})
+      Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:recipe_image, recipe.id, key})
 
       :ok
     end

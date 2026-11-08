@@ -16,7 +16,7 @@ defmodule ToreWeb.PlannerLive do
     household_id = scope.household_id
 
     if connected?(socket) do
-      PubSub.subscribe(Tore.PubSub, "plan")
+      PubSub.subscribe(Tore.PubSub, Tore.Planning.topic(scope))
       {:ok, _pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
       Phoenix.PubSub.subscribe(Tore.PubSub, "harness:household:#{household_id}")
     end

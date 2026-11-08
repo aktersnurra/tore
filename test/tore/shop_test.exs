@@ -9,7 +9,7 @@ defmodule Tore.ShopTest do
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
-    Phoenix.PubSub.subscribe(Tore.PubSub, "shop_list")
+    Phoenix.PubSub.subscribe(Tore.PubSub, Shop.topic(home_scope()))
 
     # Shop.add_item/build_list/check_item call Tore.LLM.text/3 to classify
     # items, filter the pantry, and canonicalise pantry beliefs. Stub a

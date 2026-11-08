@@ -51,6 +51,21 @@ defmodule ToreWeb.RecipeImageControllerTest do
     assert conn.status == 404
   end
 
+  test "another household's recipe image is a 404", %{conn: conn, user: user} do
+    {:ok, theirs} =
+      %Tore.Recipes.Recipe{
+        household_id: household_fixture().id,
+        title: "Kåldolmar",
+        recipe_type: :meal,
+        image_path: "households/0/recipes/0/theirs.jpg"
+      }
+      |> Tore.Repo.insert()
+
+    {:ok, _} = Mock.put_object(Buckets.recipes(), theirs.image_path, "their bytes")
+
+    assert_error_sent 404, fn -> get(authed(conn, user), ~p"/images/recipes/#{theirs.id}") end
+  end
+
   test "redirects unauthenticated requests to login", %{conn: conn, recipe: recipe} do
     conn = get(conn, ~p"/images/recipes/#{recipe.id}")
     assert redirected_to(conn) == "/login"

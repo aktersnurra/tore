@@ -3,6 +3,19 @@ defmodule Tore.AccountsFixtures do
 
   alias Tore.Scope
 
+  @doc "Someone who signs in to `household` rather than the first one."
+  def member_fixture(%Tore.Household.HouseholdSchema{} = household, attrs \\ []) do
+    id = System.unique_integer([:positive])
+
+    Tore.Repo.insert!(%Tore.Accounts.User{
+      name: Keyword.get(attrs, :name, "Member"),
+      username: "member-#{id}",
+      oidc_sub: "member-sub-#{id}",
+      household_id: household.id,
+      locale: household.locale
+    })
+  end
+
   def user_fixture(attrs \\ []) do
     id = System.unique_integer([:positive])
 

@@ -3,7 +3,10 @@ defmodule Tore.Shop do
   alias Phoenix.PubSub
 
   @pubsub Tore.PubSub
-  @topic "shop_list"
+
+  @doc "The topic a household's shopping-list changes are broadcast on."
+  @spec topic(Scope.t()) :: String.t()
+  def topic(%Scope{household_id: id}), do: "shop_list:household:#{id}"
 
   def load_list(%Scope{} = scope, list_id) do
     EventStore.load(scope, list_id, Decider)
@@ -172,7 +175,7 @@ defmodule Tore.Shop do
          {:ok, events} <-
            Decider.decide(%Commands.CheckItem{item_id: item_id, checked_by: user_id}, state),
          :ok <- EventStore.append(scope, list_id, events) do
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
+      PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       item = Map.get(state.items, item_id)
 
       if item do
@@ -244,7 +247,7 @@ defmodule Tore.Shop do
     with {:ok, state} <- EventStore.load(scope, list_id, Decider),
          {:ok, events} <- Decider.decide(command, state),
          :ok <- EventStore.append(scope, list_id, events) do
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
+      PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       {:ok, events}
     end
   end

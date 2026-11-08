@@ -4,7 +4,10 @@ defmodule Tore.Planning do
   alias Phoenix.PubSub
 
   @pubsub Tore.PubSub
-  @topic "plan"
+
+  @doc "The topic a household's plan changes are broadcast on."
+  @spec topic(Scope.t()) :: String.t()
+  def topic(%Scope{household_id: id}), do: "plan:household:#{id}"
 
   def load_plan(%Scope{} = scope, plan_id) do
     EventStore.load(scope, plan_id, Decider)
@@ -154,7 +157,7 @@ defmodule Tore.Planning do
   def apply_events(%Scope{} = scope, plan_id, events) do
     with :ok <- EventStore.append(scope, plan_id, events) do
       Costs.delete_dining_out(scope, plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
+      PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       :ok
     end
   end
@@ -239,7 +242,7 @@ defmodule Tore.Planning do
       end)
 
     with {:ok, {entry, events}} <- result do
-      if events != [], do: PubSub.broadcast(@pubsub, @topic, {:events, events})
+      if events != [], do: PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       {:ok, entry}
     end
   end

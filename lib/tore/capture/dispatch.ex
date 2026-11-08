@@ -38,7 +38,7 @@ defmodule Tore.Capture.Dispatch do
   @spec ingest_receipt(binary(), ctx()) :: bubble()
   def ingest_receipt(image, ctx) when is_binary(image) do
     with_dedup(image, ctx, "receipt", fn stream_id ->
-      image_path = stash_photo(stream_id, image)
+      image_path = stash_photo(Tore.Scope.for_household(ctx.household_id), stream_id, image)
 
       dispatch_ctx = %{
         household_id: ctx.household_id,
@@ -712,8 +712,8 @@ defmodule Tore.Capture.Dispatch do
     }
   end
 
-  defp stash_photo(stream_id, image) do
-    case RunPhotos.store(stream_id, image) do
+  defp stash_photo(scope, stream_id, image) do
+    case RunPhotos.store(scope, stream_id, image) do
       {:ok, key} ->
         key
 
