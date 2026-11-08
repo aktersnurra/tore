@@ -696,7 +696,7 @@ defmodule Tore.Capture.Dispatch do
     hash = Uploads.content_hash(image)
     stream_id = Run.next_stream_id()
 
-    case Uploads.record(ctx.household_id, hash, stream_id, kind) do
+    case Uploads.record(Tore.Scope.for_household(ctx.household_id), hash, stream_id, kind) do
       {:ok, ^stream_id} -> run_fn.(stream_id)
       {:duplicate, existing_stream_id} -> duplicate_bubble(kind, existing_stream_id)
     end

@@ -64,7 +64,7 @@ defmodule Tore.Capture.DispatchTest do
 
     {:ok, _} =
       Tore.Capture.Uploads.record(
-        household_id,
+        Tore.Scope.for_household(household_id),
         Tore.Capture.Uploads.content_hash(image),
         "kr_seen",
         "receipt"

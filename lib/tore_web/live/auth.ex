@@ -1,13 +1,13 @@
 defmodule ToreWeb.Live.Auth do
   import Phoenix.LiveView
-  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.Component, only: [assign: 2, assign: 3]
   alias Tore.Accounts
 
   def on_mount(:require_authenticated, _params, session, socket) do
     socket = socket |> mount_current_user(session) |> attach_current_path()
 
     if socket.assigns.current_user do
-      household_id = household_id()
+      household_id = socket.assigns.current_scope.household_id
 
       if Phoenix.LiveView.connected?(socket) do
         Phoenix.PubSub.subscribe(Tore.PubSub, "toasts:user:#{socket.assigns.current_user.id}")
@@ -38,11 +38,11 @@ defmodule ToreWeb.Live.Auth do
   defp mount_current_user(socket, session) do
     case session["user_id"] && Accounts.get_session_user(session["user_id"]) do
       nil ->
-        assign(socket, :current_user, nil)
+        assign(socket, current_user: nil, current_scope: nil)
 
       user ->
         Gettext.put_locale(ToreWeb.Gettext, user.locale)
-        assign(socket, :current_user, user)
+        assign(socket, current_user: user, current_scope: Tore.Scope.for_user(user))
     end
   end
 
@@ -70,8 +70,6 @@ defmodule ToreWeb.Live.Auth do
         {:cont, socket}
     end)
   end
-
-  defp household_id, do: Tore.Household.get_household!().id
 
   defp inbox_count(household_id) do
     Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)

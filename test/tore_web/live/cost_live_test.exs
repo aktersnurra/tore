@@ -147,7 +147,13 @@ defmodule ToreWeb.CostLiveTest do
 
     test "says so when the photo was already uploaded", %{conn: conn} do
       household_id = Tore.Household.get_household!().id
-      Uploads.record(household_id, Uploads.content_hash("receipt-bytes"), "kr_seen", "receipt")
+
+      Uploads.record(
+        Tore.Scope.for_household(household_id),
+        Uploads.content_hash("receipt-bytes"),
+        "kr_seen",
+        "receipt"
+      )
 
       {:ok, lv, _html} = live(conn, "/settings/costs")
       upload(lv)
