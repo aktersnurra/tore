@@ -5,7 +5,7 @@ defmodule ToreWeb.WelcomeLive do
   """
   use ToreWeb, :live_view
 
-  alias Tore.{Accounts, Household}
+  alias Tore.Household
 
   def mount(_params, _session, socket) do
     if Household.locale(socket.assigns.current_scope) do
@@ -16,16 +16,9 @@ defmodule ToreWeb.WelcomeLive do
   end
 
   def handle_event("pick", %{"locale" => locale}, socket) do
-    scope = socket.assigns.current_scope
-
-    case Household.set_locale(scope, locale) do
-      {:ok, _household} ->
-        {:ok, _user} = Accounts.set_locale(socket.assigns.current_user, locale)
-        {:noreply, push_navigate(socket, to: ~p"/")}
-
-      {:error, _} ->
-        {:noreply, push_navigate(socket, to: ~p"/")}
-    end
+    # Picked now, or by another member a moment ago: either way the household has a language.
+    _ = Household.set_locale(socket.assigns.current_scope, locale)
+    {:noreply, push_navigate(socket, to: ~p"/")}
   end
 
   def render(assigns) do

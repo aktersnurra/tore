@@ -65,9 +65,10 @@ defmodule Tore.Members do
   @doc """
   Removes a member from the scope's household. Their other households are untouched; if this one was
   active, the oldest of the others becomes active, and someone left with none gets a new one. A sponsor
-  who leaves stops sponsoring. The household's data stays with it.
+  who leaves stops sponsoring. The household's data stays with it, so its last member can't leave: that
+  would leave the data with nobody able to reach it.
   """
-  @spec remove(Scope.t(), pos_integer()) :: :ok | {:error, :not_member}
+  @spec remove(Scope.t(), pos_integer()) :: :ok | {:error, :not_member | :last_member}
   def remove(%Scope{household_id: household_id}, user_id) do
     Repo.transaction(fn ->
       case Repo.get_by(Membership, user_id: user_id, household_id: household_id) do
@@ -75,6 +76,8 @@ defmodule Tore.Members do
           Repo.rollback(:not_member)
 
         membership ->
+          if member_count(household_id) == 1, do: Repo.rollback(:last_member)
+
           Repo.delete!(membership)
 
           Repo.update_all(
@@ -97,20 +100,30 @@ defmodule Tore.Members do
   @doc "Makes `household_id` the user's active household."
   @spec switch(User.t(), pos_integer()) :: :ok | {:error, :not_member}
   def switch(%User{id: user_id}, household_id) do
-    if Repo.get_by(Membership, user_id: user_id, household_id: household_id) do
-      Repo.transaction(fn ->
-        Repo.update_all(from(m in Membership, where: m.user_id == ^user_id), set: [active: false])
+    Repo.transaction(fn ->
+      Repo.update_all(from(m in Membership, where: m.user_id == ^user_id), set: [active: false])
 
-        Repo.update_all(
-          from(m in Membership, where: m.user_id == ^user_id and m.household_id == ^household_id),
-          set: [active: true]
-        )
-      end)
-
-      :ok
-    else
-      {:error, :not_member}
+      # Checked here, not before: a membership removed meanwhile rolls the switch back.
+      case Repo.update_all(
+             from(m in Membership,
+               where: m.user_id == ^user_id and m.household_id == ^household_id
+             ),
+             set: [active: true]
+           ) do
+        {1, _} -> :ok
+        {0, _} -> Repo.rollback(:not_member)
+      end
+    end)
+    |> case do
+      {:ok, :ok} -> :ok
+      error -> error
     end
+  end
+
+  @doc "How many people belong to the household."
+  @spec member_count(pos_integer()) :: non_neg_integer()
+  def member_count(household_id) do
+    Repo.aggregate(from(m in Membership, where: m.household_id == ^household_id), :count)
   end
 
   @doc """
@@ -176,7 +189,7 @@ defmodule Tore.Members do
           active: true
         })
 
-        # Like any new member, they start in the household's language.
+        # Like any new member, they start in the household's language, or get it once it's picked.
         user = start_in_language(user, Repo.get!(HouseholdSchema, scope.household_id).locale)
         {:moved, user}
 

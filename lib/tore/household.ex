@@ -62,21 +62,38 @@ defmodule Tore.Household do
 
   def set_ai_sponsor(%Scope{}, %User{}, _on), do: {:error, :not_allowed}
 
-  @doc "Sets the household's language. Only once: a household that has one keeps it."
+  @doc """
+  Sets the household's language, and its members' with it, since each starts in the household's
+  language. Only once: a household that has one keeps it, even when two members pick at the same moment.
+  """
   @spec set_locale(Scope.t(), String.t()) ::
-          {:ok, HouseholdSchema.t()} | {:error, :already_set | Ecto.Changeset.t()}
-  def set_locale(%Scope{} = scope, locale) do
-    case get!(scope) do
-      %HouseholdSchema{locale: nil} = household ->
-        household
-        |> HouseholdSchema.changeset(%{locale: locale})
-        |> Ecto.Changeset.validate_required([:locale])
-        |> Repo.update()
+          {:ok, HouseholdSchema.t()} | {:error, :already_set | :invalid_locale}
+  def set_locale(%Scope{household_id: household_id} = scope, locale) when locale in ~w(sv en) do
+    Repo.transaction(fn ->
+      case Repo.update_all(
+             from(h in HouseholdSchema, where: h.id == ^household_id and is_nil(h.locale)),
+             set: [locale: locale]
+           ) do
+        {1, _} ->
+          Repo.update_all(
+            from(u in User,
+              where:
+                u.id in subquery(
+                  from m in Membership, where: m.household_id == ^household_id, select: m.user_id
+                )
+            ),
+            set: [locale: locale]
+          )
 
-      %HouseholdSchema{} ->
-        {:error, :already_set}
-    end
+          get!(scope)
+
+        {0, _} ->
+          Repo.rollback(:already_set)
+      end
+    end)
   end
+
+  def set_locale(%Scope{}, _locale), do: {:error, :invalid_locale}
 
   @spec locale_label(String.t()) :: String.t()
   def locale_label("en"), do: "English"

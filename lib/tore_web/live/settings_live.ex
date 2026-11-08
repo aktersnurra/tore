@@ -96,12 +96,18 @@ defmodule ToreWeb.SettingsLive do
 
   def handle_event("remove_member", %{"id" => id}, socket) do
     id = String.to_integer(id)
-    :ok = Members.remove(socket.assigns.current_scope, id)
-    UserSession.disconnect(id)
 
-    if id == socket.assigns.current_user.id,
-      do: {:noreply, redirect(socket, to: ~p"/")},
-      else: {:noreply, assign_members(socket)}
+    case Members.remove(socket.assigns.current_scope, id) do
+      :ok ->
+        UserSession.disconnect(id)
+
+        if id == socket.assigns.current_user.id,
+          do: {:noreply, redirect(socket, to: ~p"/")},
+          else: {:noreply, assign_members(socket)}
+
+      {:error, _} ->
+        {:noreply, assign_members(socket)}
+    end
   end
 
   def handle_event("cancel_pending", %{"id" => id}, socket) do
@@ -204,6 +210,7 @@ defmodule ToreWeb.SettingsLive do
                   </p>
                 </div>
                 <button
+                  :if={length(@users) > 1}
                   type="button"
                   phx-click="remove_member"
                   phx-value-id={user.id}

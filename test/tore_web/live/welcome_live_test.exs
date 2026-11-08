@@ -45,9 +45,25 @@ defmodule ToreWeb.WelcomeLiveTest do
     assert {:error, {:live_redirect, %{to: "/"}}} = live(authed(conn, user), ~p"/welcome")
   end
 
+  test "members who joined before it was picked get the household's language too", %{
+    user: user,
+    scope: scope
+  } do
+    {:ok, {:pending, _}} = Tore.Members.add(scope, "partner")
+
+    {:ok, partner} =
+      Accounts.sign_in(%{"sub" => "partner-sub", "preferred_username" => "partner"})
+
+    {:ok, _} = Household.set_locale(scope, "en")
+
+    assert {%{locale: "en"}, _} = Accounts.get_session(user.id)
+    assert {%{locale: "en"}, _} = Accounts.get_session(partner.id)
+  end
+
   test "the language is picked once", %{scope: scope} do
     assert {:ok, _} = Household.set_locale(scope, "en")
     assert {:error, :already_set} = Household.set_locale(scope, "sv")
+    assert {:error, :invalid_locale} = Household.set_locale(scope, "de")
     assert Household.locale(scope) == "en"
   end
 end

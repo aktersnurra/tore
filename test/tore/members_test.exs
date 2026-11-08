@@ -96,6 +96,7 @@ defmodule Tore.MembersTest do
       {:ok, _} = Tore.Recipes.create(theirs, %{title: "Pannkakor", recipe_type: :meal})
       {:ok, {:added, _}} = Members.add(home_scope(), "bo")
       :ok = Members.switch(bo, home_scope().household_id)
+      _partner = user_fixture()
 
       assert :ok = Members.remove(home_scope(), bo.id)
 
@@ -105,6 +106,7 @@ defmodule Tore.MembersTest do
 
     test "someone left with no household gets a new one, and the old one keeps its data" do
       member = user_fixture()
+      _partner = user_fixture()
       {:ok, recipe} = Tore.Recipes.create(home_scope(), %{title: "Ärtsoppa", recipe_type: :meal})
 
       assert :ok = Members.remove(home_scope(), member.id)
@@ -117,11 +119,29 @@ defmodule Tore.MembersTest do
 
     test "a sponsor who leaves stops sponsoring" do
       sponsor = user_fixture()
+      _partner = user_fixture()
       home_household() |> Ecto.Changeset.change(ai_sponsor_id: sponsor.id) |> Repo.update!()
 
       :ok = Members.remove(home_scope(), sponsor.id)
 
       assert home_household().ai_sponsor_id == nil
+    end
+
+    test "the last member can't leave, so the household's data isn't stranded" do
+      bo = signed_in_alone("bo")
+      theirs = active_household(bo)
+
+      assert {:error, :last_member} = Members.remove(theirs, bo.id)
+      assert households(bo) == [{theirs.household_id, true}]
+    end
+
+    test "a member can leave, and lands in another household" do
+      member = user_fixture()
+      _partner = user_fixture()
+
+      assert :ok = Members.remove(home_scope(), member.id)
+      assert [{id, true}] = households(member)
+      assert id != home_scope().household_id
     end
 
     test "only a member can be removed" do
@@ -192,6 +212,7 @@ defmodule Tore.MembersTest do
 
     test "losing the claim or leaving stops it" do
       sponsor = with_claim(user_fixture())
+      _partner = user_fixture()
       {:ok, _} = Household.set_ai_sponsor(scope_fixture(sponsor), sponsor, true)
 
       lost = sponsor |> Ecto.Changeset.change(ai_enabled: false) |> Repo.update!()
