@@ -101,7 +101,7 @@ defmodule Tore.Shop do
 
   @doc """
   Annotate shop list items with the pantry's belief about whether they're
-  already at home. UI_SPEC §16.5: items the user probably already has
+  already at home. docs/specs/ui.md §16.5: items the user probably already has
   render with a `?` prefix and inline copy. `:missing` rows don't count
   as "have it" and are ignored.
 

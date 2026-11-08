@@ -1277,7 +1277,7 @@ end
 **Files:**
 
 - Modify: `SPEC.md` (CounterNote catalog/§3 kind table, ambient scan, §A.6.2, §Status)
-- Modify: `UI_SPEC.md` (prediction rules + surfaces touched)
+- Modify: `docs/specs/ui.md` (prediction rules + surfaces touched)
 - Modify: `docs/specs/2026-07-04-surface-consolidation-design.md` (shipped notes)
 
 Doc-only task. Read the shipped code from Tasks 1–9 first and describe what IS, not what the design hoped. Match each document's voice and heading conventions (SPEC has a dated `## Status` log; the design doc uses bold-lead-in notes like `**Shipped** 2026-07 …`).
@@ -1287,7 +1287,7 @@ Doc-only task. Read the shipped code from Tasks 1–9 first and describe what IS
   - New `:ambient_scan_run` run kind: Tier 0, `started_by: "system"`, capsules used, single text call, SpendGuard `:ambient_scan {8_000 tokens, 600 s cooldown}`, triggers (05:00 cron + 5-min-debounced plan/shop mutation), dismissal-feedback rule ("recently ignored" in prompt).
   - §A.6.2: move `resolve_slot` from the deferred list to shipped, with the structural-key decision recorded: slot keys are a closed domain, so the resolver returns `slot_key` + label directly — no ref token, invented keys dead-end on existing tool validation. Deferred list now: `resolve_grocery_item`, `resolve_pantry_item`, grocery-item handles.
   - `## Status`: dated entry (2026-07-18 or the execution date) recording all of the above + the long-press object-sheet extension.
-- [ ] **Step 2: UI_SPEC.md.** In the relevant sections (grep for the counter-note / §2.3 anticipation text and each surface's section): the three prediction rules (replace-never-add; precomputed-never-awaited; dismissal-is-signal), hero-card max-one + follow/tap semantics, shop placeholder + empty-submit accept, tray half state (origin-surface predictions above the input, gone once a message is sent, no AI branding), tonight-card and grocery-row long-press sheets (calm rules as §6.2's slot sheet), Escape/scrim close.
+- [ ] **Step 2: docs/specs/ui.md.** In the relevant sections (grep for the counter-note / §2.3 anticipation text and each surface's section): the three prediction rules (replace-never-add; precomputed-never-awaited; dismissal-is-signal), hero-card max-one + follow/tap semantics, shop placeholder + empty-submit accept, tray half state (origin-surface predictions above the input, gone once a message is sent, no AI branding), tonight-card and grocery-row long-press sheets (calm rules as §6.2's slot sheet), Escape/scrim close.
 - [ ] **Step 3: Design doc.** §3: `**Shipped** <date> — ambient scan + four kinds + follow_up dispatch; cooking-view inline substitutions deferred.` §4: half state shipped note. §4.1: extend the Plan 2 shipped note — tonight card and grocery rows shipped (grocery scoping via text referent; item handles deferred until grocery action tools exist); `resolve_slot` shipped as structural.
 - [ ] **Step 4: Run** `mix test` (full suite) once — green (modulo the known Exqlite flake, verified in isolation).
 

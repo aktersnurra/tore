@@ -410,13 +410,13 @@ jj new
 
 ---
 
-### Task 7: Amend UI_SPEC.md and close out
+### Task 7: Amend docs/specs/ui.md and close out
 
 **Files:**
 
-- Modify: `UI_SPEC.md` §3.1-3.3 (nav + route map), §6.1 (Today: strip removed, review pill added, rules line), §6.7 (Run history section)
+- Modify: `docs/specs/ui.md` §3.1-3.3 (nav + route map), §6.1 (Today: strip removed, review pill added, rules line), §6.7 (Run history section)
 
-- [ ] **Step 1: Update UI_SPEC to match shipped reality**
+- [ ] **Step 1: Update docs/specs/ui.md to match shipped reality**
 
 - §3.1: four destinations → three tabs + command pill (paste the bar diagram from the design doc §1).
 - §3.2: route map — `/groceries` → `/shop` (already true in code), remove `/settings/*` sub-route claims only if Task 6 changed them (it did not — leave for Plan 3), annotate `/capture`, `/inbox`, `/runs/:id` as "routable, presented as layers, not in nav".

@@ -1,7 +1,7 @@
 # SPEC_FEAT_run_receipts — Reversible agent actions with run receipts
 
-> Companion to SPEC.md (§Agent Harness) and UI_SPEC.md (§7.1, §16).
-> This spec defines the backend work that makes the doctrine in UI_SPEC §16
+> Companion to SPEC.md (§Agent Harness) and docs/specs/ui.md (§7.1, §16).
+> This spec defines the backend work that makes the doctrine in docs/specs/ui.md §16
 > actually buildable.
 
 ## Status
@@ -11,7 +11,7 @@
   Not approval-gated proposals. Trust comes from visibility + reversibility.
 - **Scope:** the BE artifacts and machinery the UI needs in order to render
   run receipts, support Undo, surface belief states, and respect user locks.
-- **Out of scope:** the UI work itself (UI_SPEC owns that), the Today/Plan/Shop
+- **Out of scope:** the UI work itself (docs/specs/ui.md owns that), the Today/Plan/Shop
   visual rebuild (separate phase).
 
 ### Relationship to the KitchenRun harness (SPEC.md §A)
@@ -78,7 +78,7 @@ nothing in this spec contradicts them.
 
 ## 1. Why this spec exists
 
-UI_SPEC §16 says every agent-driven state change must produce a run receipt
+docs/specs/ui.md §16 says every agent-driven state change must produce a run receipt
 that the user can Undo. The harness already models the lifecycle for this
 (see Relationship section), but four concrete pieces are missing:
 
@@ -96,7 +96,7 @@ that the user can Undo. The harness already models the lifecycle for this
 - **No receipt-rendering facade.** The Run aggregate's typed artifacts
   (`PlanDiff`, `PantryBeliefUpdate`, `CostEntry`, …) are the source of
   truth, but there is no module that projects them into the unified
-  DiffRow shape UI_SPEC §16.4 specifies. Nothing in `lib/tore_web/` renders
+  DiffRow shape docs/specs/ui.md §16.4 specifies. Nothing in `lib/tore_web/` renders
   runs as receipts today.
 
 Without these, the UI either lies (renders confidence it doesn't have),
@@ -152,7 +152,7 @@ event stream.
 
 ### 3.2 DiffRow
 
-One line in a receipt. The four prefixes from UI_SPEC §16.4 (`+`, `-`, `~`, `?`)
+One line in a receipt. The four prefixes from docs/specs/ui.md §16.4 (`+`, `-`, `~`, `?`)
 map to the `op` field.
 
 ```
@@ -210,7 +210,7 @@ so that every state-changing tool path commits a Run.
 ### 4.2 Rendering
 
 CaptureLive subscribes to the receipt for the active correlation_id. On
-arrival, it renders a RunReceipt bubble (UI_SPEC §7.1) with:
+arrival, it renders a RunReceipt bubble (docs/specs/ui.md §7.1) with:
 - intent line
 - grouped diff rows (by surface)
 - assumptions block (if any)
@@ -243,7 +243,7 @@ audit but Undo is disabled.
 
 ## 5. Belief state on PantryItem
 
-UI_SPEC §16.5 requires belief vocabulary. Add to `Tore.Pantry.PantryItem`:
+docs/specs/ui.md §16.5 requires belief vocabulary. Add to `Tore.Pantry.PantryItem`:
 
 ```
 belief          enum   (:confirmed, :probable, :uncertain, :missing)
@@ -262,7 +262,7 @@ The current schema is largely boolean. Migration plan in §8.
 
 ## 6. Lock on plan slots
 
-UI_SPEC §16.6 requires user locks to outrank the agent. Add to the
+docs/specs/ui.md §16.6 requires user locks to outrank the agent. Add to the
 plan-slot event stream:
 
 ```
@@ -340,7 +340,7 @@ Reverted` plus `NeedsUser`, `Failed`, `Discarded`). `pantry_items` already
 has `provenance` (with values `manual | receipt | vision | belief |
 grocery_checkoff`) and `last_seen_at`.
 
-Phase 1 fills the four concrete gaps between what exists and what UI_SPEC
+Phase 1 fills the four concrete gaps between what exists and what docs/specs/ui.md
 §16 needs:
 
 1. **`belief` enum on `PantryItem`** — the column is missing. Provenance
@@ -469,15 +469,15 @@ Phase 1 fills the four concrete gaps between what exists and what UI_SPEC
   see how often Undo gets used past the same-session window.
 - **Q3.** Should run receipts surface in Today / Plan / Shop as small
   "Tore changed this 5 min ago — Undo" footers, not just in Capture?
-  Probably yes (UI_SPEC §16.3.2 implies it). Decide when building the
+  Probably yes (docs/specs/ui.md §16.3.2 implies it). Decide when building the
   UI for those surfaces.
 
 ## 11. Decision log
 
 - **2026-06-24:** Chose agent-acts-immediately over proposal-approval.
   Trust through visibility + reversibility, not friction. Doctrine
-  appended to UI_SPEC §16 reflects this.
-- **2026-06-24:** Named the artifact `RunReceipt` (matches UI_SPEC §7.1
+  appended to docs/specs/ui.md §16 reflects this.
+- **2026-06-24:** Named the artifact `RunReceipt` (matches docs/specs/ui.md §7.1
   vocabulary) instead of `Proposal`. The earlier draft used `Proposal`
   but that implied an approval gate we're not building.
 - **2026-06-27:** Reconciled with SPEC.md §Agent Harness. This spec is a

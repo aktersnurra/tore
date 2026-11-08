@@ -18,8 +18,9 @@
 - **2026-09-06:** Recipe proposals landed (plan 4). The planner can find recipe pages on the web (`find_recipe_web`), import one (`import_recipe_from_web`) or adapt a catalog recipe (`generate_recipe_variant`). Each ends the loop with a `RecipeProposal` that `RecipeProposalVerifier` checks, parked in `:needs_user` until a person saves or discards it on the run review page. The hand-rolled OpenRouter transport was replaced by the `open_router` library.
 - **2026-11-06:** Trim. New core rule: the upkeep test (§Core Philosophy). Removed the kiosk and device tokens, counter notes, `/inbox`, the `/deals` page, the Saturday prep job, and the unbuilt run kinds `:deal_capture_run`, `:grocery_reconciliation_run`, `:prep_generation_run` and `:recipe_generation_run`. `:fridge_rescue_run` was never built either: the Capture tool that replies with suggestions is all there is. Receipts now record cost only and never touch the pantry, because a misread line would drop an item off the shopping list. Shelf photos apply straight away with undo and replace quantities. Added shelf life, stores added by link with a parser per chain, one cost page, and eating out as a meal state. The household's language is chosen once at setup and then locked. §The Six LLM-Native Features became §Features, with a status on each. The anticipation layer waits for Plan 3's rewrite (§3).
 - **2026-11-08:** The trim was rebased onto plans 3 and 4, which it had not been based on. Cut by the owner: the ambient scan, `CounterNote`s, `CounterNoteVerifier`, the debouncer and the 05:00 scan. Kept from plan 3: the long-press object sheets and `resolve_slot`. Plan 4 stays whole.
+- **2026-11-08:** Pocket ID is the only login. Removed the 16-digit codes, the setup page, roles, the rate limiter and `argon2`. Pocket ID decides who may sign in through the groups on its client, and a `tore_ai` claim marks who may use the server's LLM. Settings lists members and has "Sign out". `docs/UI_SPEC.md` became `docs/specs/ui.md`, and `docs/LLM-NATIVE-FEATURES.md` became `docs/specs/llm-native-features.md`.
 - **Supersedes:** the original Scullion SPEC.md (2026-05-02), now archived in git history at commit `af0ad48`.
-- **Companion docs:** `docs/LLM-NATIVE-FEATURES.md` (the design brief this spec absorbs), `docs/UI_SPEC.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo). Per-feature design notes live under `docs/specs/`.
+- **Companion docs:** `docs/specs/llm-native-features.md` (the design brief this spec absorbs), `docs/specs/ui.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo). Per-feature design notes live under `docs/specs/`.
 - **Naming:** the project is *Tore*. Any remaining reference to Scullion or Family in code is legacy and slated for deletion (see §Removed in Rewrite).
 
 ---
@@ -48,7 +49,7 @@ Derived rules:
 ┌──────────────────────┐         ┌──────────────────────────────────┐
 │  Phone / laptop      │         │  VPS                             │
 │  Browser ──────────────HTTPS──▶  Phoenix + LiveView               │
-│  16-digit code auth  │         │  Ecto + SQLite                   │
+│  Pocket ID sign-in   │         │  Ecto + SQLite                   │
 └──────────────────────┘         │  OpenRouter (LLM + vision)       │
                                  │  Garage (S3) for images          │
                                  │  Quantum scheduler               │
@@ -132,7 +133,7 @@ columns on a table.
 - `household_id`
 - `kind` — one of the declared run kinds (see §Features)
 - `status` — `:draft | :running | :needs_user | :applied | :failed | :reverted | :discarded`
-- `phase` — when `status: :running`, one of `:gathering_context | :proposing | :verifying`; `nil` otherwise. Drives the UI's operational thinking-state strip (UI_SPEC §7.2) — *"Checking the week…", "Looking at deals…", "Verifying changes…"*
+- `phase` — when `status: :running`, one of `:gathering_context | :proposing | :verifying`; `nil` otherwise. Drives the UI's operational thinking-state strip (docs/specs/ui.md §7.2) — *"Checking the week…", "Looking at deals…", "Verifying changes…"*
 - `started_by` — `:user | :scheduler`
 - `surface` — `:home | :plan | :shop | :capture`
 - `input` — the typed input the run was started with
@@ -542,24 +543,24 @@ bill.
 - `AIOperations.model` is set on every row. Cost rollups on `KitchenRun.model_usage` aggregate by tier across the run's owned operations.
 - The schema-failure single-retry path is the only place the harness silently uses a different model than the callback declared. The retry is logged distinctly (`AIOperations.kind` ends with `.retry`). The monthly `SpendGuard` cap remains the runaway-cost guard.
 
-### A.9 — Meeting point with docs/UI_SPEC.md
+### A.9 — Meeting point with docs/specs/ui.md
 
 This spec owns the harness contract: run kinds, artifact shapes, capsule
-declarations, verifier checks, risk tiers, resolver handles. `docs/UI_SPEC.md`
+declarations, verifier checks, risk tiers, resolver handles. `docs/specs/ui.md`
 owns the surface contract: how artifacts render across Today / Plan / Shop /
 Capture / Cooking / Settings, the visual system, the run-receipt and
 thinking-state and failure-state and undo and "Why this?" patterns.
 
 The two specs meet at artifact schemas. Concretely:
 
-- `RunSummary.counts` (§A.3) drives UI_SPEC §7.1's run-receipt pluralisation and §5.2's receipt card body.
-- `KitchenRun.phase` (§A.2) drives UI_SPEC §7.2's operational thinking-state strip.
-- Verifier failures' `user_message` + `repair_action` (§A.5) drive UI_SPEC §7.3's failure-state card.
-- Per-item `rationale` and `evidence` on every artifact (§A.7) drive UI_SPEC §7.5's "Why this?" expansion.
+- `RunSummary.counts` (§A.3) drives docs/specs/ui.md §7.1's run-receipt pluralisation and §5.2's receipt card body.
+- `KitchenRun.phase` (§A.2) drives docs/specs/ui.md §7.2's operational thinking-state strip.
+- Verifier failures' `user_message` + `repair_action` (§A.5) drive docs/specs/ui.md §7.3's failure-state card.
+- Per-item `rationale` and `evidence` on every artifact (§A.7) drive docs/specs/ui.md §7.5's "Why this?" expansion.
 - `RecipeProposal` fields drive the recipe proposal on the run review page.
-- `MemoryUpdate.evidence_count` drives UI_SPEC §5.2's memory card "Seen 7 times" line.
+- `MemoryUpdate.evidence_count` drives docs/specs/ui.md §5.2's memory card "Seen 7 times" line.
 
-When UI_SPEC adds a surface that needs an artifact field this spec didn't
+When docs/specs/ui.md adds a surface that needs an artifact field this spec didn't
 name, that's a SPEC.md amendment, not a UI-side workaround. When this spec
 declares a field that no UI surface consumes, that's a SPEC.md trimming
 opportunity. Both specs evolve together at the artifact-schema boundary; no
@@ -593,14 +594,13 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
-1. Pocket ID as the only login.
-2. Several households on one server, with a gate on who may use the server's LLM.
-3. Run core: a simple runs table replaces the event-sourced `KitchenRun`, with household memory alongside.
-4. Pantry rules.
-5. MCP, so someone can use Tore through their own Claude or ChatGPT.
-6. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
-7. Instagram recipes.
-8. A prep upgrade.
+1. Several households on one server, with a gate on who may use the server's LLM.
+2. Run core: a simple runs table replaces the event-sourced `KitchenRun`, with household memory alongside.
+3. Pantry rules.
+4. MCP, so someone can use Tore through their own Claude or ChatGPT.
+5. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
+6. Instagram recipes.
+7. A prep upgrade.
 
 ### 1. Longitudinal Learning → `:kitchen_memory_synthesis_run`
 
@@ -827,8 +827,8 @@ dispatches a `:pantry_belief_update_run` (see §4).
 
 ### Settings (`/settings`)
 
-- Users, with their login codes.
-- Household: the language, chosen once at setup and shown locked.
+- Members, by name and Pocket ID username, and "Sign out".
+- Household: the language, chosen once and shown locked. The one household starts in Swedish until the households work adds the picker.
 - **Things Tore has learned:** active insights, each with a "Forget" button that dismisses without deleting.
 - **Stores:** add by link, switch on or off, remove (§8).
 - AI usage.
@@ -865,14 +865,16 @@ plans must remove these explicitly — they are not deprecated, they are gone.
 ## Module Map
 
 Files marked `PLANNED` are named by this spec but not yet in the tree;
-everything else reflects the code as of 2026-11-06.
+everything else reflects the code as of 2026-11-08.
 
 ```
 lib/tore/
   household.ex               # canonical household context (preferences, members, insights, language)
   household/
-  accounts.ex                # users, sessions, login codes
-  accounts/                  # user, login_token, rate_limiter
+  accounts.ex                # users; sign_in/1 from Pocket ID claims
+  accounts/                  # user
+  auth/
+    oidc.ex                  # Pocket ID: authorization code flow with PKCE, over oidcc
   recipes.ex                 # catalog; owns scrape_and_create/generate_image (folded)
   recipes/                   # schemas, parser, variant.ex (an adapted recipe as a proposal)
   deals.ex                   # owns add_store/scrape_all/scrape_url
@@ -953,11 +955,17 @@ lib/tore_web/live/
   shop_live.ex               # check → :pantry_belief_update_run
   recipe_live.ex
   prep_live.ex
-  settings_live.ex           # users, stores, learned insights, AI usage
+  settings_live.ex           # members, sign-out, stores, learned insights, AI usage
   pantry_live.ex             # /settings/pantry: approximate inventory
   cost_live.ex               # /settings/costs: one page
-  login_live.ex
-  setup_live.ex
+```
+
+```
+lib/tore_web/controllers/
+  session_controller.ex      # /login page, DELETE /logout
+  oidc_controller.ex         # /auth/oidc and its callback
+  dev_session_controller.ex  # /dev/login, dev only
+lib/tore_web/user_session.ex # starts and ends a session
 ```
 
 ---
@@ -1057,15 +1065,21 @@ and `scrape_all` are deterministic maintenance, not AI actions, and stay direct.
 ## Auth and Multi-Tenancy
 
 A *household* owns all data: plans, groceries, pantry, costs, insights.
-*Users* belong to a household. A user is created with a 16-digit code; sessions are long-lived browser cookies.
+*Users* belong to a household. Pocket ID is the only login: `Tore.Auth.Oidc` runs the authorization code
+flow with PKCE, and `OidcController` hands the ID token's claims to `Accounts.sign_in/1`. A first sign-in
+creates the user in the household and its language; a returning one refreshes name, username and LLM access.
+A missing username, or one held by another Pocket ID account, is refused. Sessions are browser cookies
+that last 90 days. "Sign out" in Settings ends the session in that browser and closes the app in its other
+open tabs; other devices stay signed in.
+
+Pocket ID decides access, not Tore. Its client for Tore allows only the `tore` group, so nobody else
+reaches the callback. Members of `tore-ai` carry the claim `tore_ai = true` (the name is set by
+`AI_CLAIM`), which sets `ai_enabled`. Nothing reads `ai_enabled` until the households work gates the LLM on it.
 `Tore.Household` is the canonical context. There is no `Tore.Family` module.
 
-**Single-household deployment.** Tore is self-hosted for one family; there is
-no plan to serve multiple households from one instance. The schema carries
-`household_id` throughout so the data model stays honest, but context
-functions may assume the single household (the 0-arity capsule sources in
-§A.4 are deliberate, not an oversight). Multi-household support is out of
-scope and must not drive API design.
+**One household, for now.** Context functions assume the single household (the 0-arity capsule sources
+in §A.4), and only `users`, `household_preferences` and `uploaded_images` carry `household_id` today. Several households
+on one server, sharing the app, come next: see `.docs/specs/households.md`.
 
 ---
 
@@ -1075,7 +1089,7 @@ Loose ideas captured here so they don't drift in a scratch file. Promote to a
 proper section or sub-spec when picked up.
 
 - **Locale on scraped recipes.** Scraped recipes should be translated into the household's locale at ingestion time.
-- **Per-household OpenRouter API key.** Set via an admin page in Settings. The app is unusable (every LLM-gated surface disabled) until a key is entered.
+- **Per-household OpenRouter API key.** Set in Settings. The app is unusable (every LLM-gated surface disabled) until a key is entered.
 - **Elixir 1.20 upgrade.** Move to the new type system and take advantage of it across `lib/tore/`.
 - **HTML in `.html.heex` files.** Move inline templates out of `*_live.ex` modules into colocated `.html.heex` files.
 - **Scraped recipe format** Even scraped recipes without llm should be sent to llm for translation if needed, and reformatted to the "tore format"

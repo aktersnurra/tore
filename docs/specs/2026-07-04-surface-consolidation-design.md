@@ -1,9 +1,9 @@
 # Surface consolidation — layers, not pages; predictions, not chat
 
-> Design delta against `UI_SPEC.md` (2026-07-04). Approved decisions from the
+> Design delta against `docs/specs/ui.md` (2026-07-04). Approved decisions from the
 > 2026-07-03/04 design discussion. This document changes navigation shape,
 > the primary interaction model, receipt placement, and surface compositions.
-> It does not change the visual system (UI_SPEC §4) or the harness contract
+> It does not change the visual system (docs/specs/ui.md §4) or the harness contract
 > (SPEC.md §A) except where §A.9 requires new artifact fields.
 
 ## Goal
@@ -28,7 +28,7 @@ Maximum depth from any nav destination: two (surface → sheet).
 | Receipts & reviews | Layered: inline strips + expand-in-place sheets + one review pill on Today; full audit list in Settings; no inbox page in nav |
 | Week strip on Today | Cut. The whole week is viewed on Plan, one tap away |
 | Deals | Suggestions-only, no browsing surface; deal-linked items must carry exact product identity (brand, size, price, store) |
-| Shop grouping | Store sections (already UI_SPEC §6.3 default; confirmed) |
+| Shop grouping | Store sections (already docs/specs/ui.md §6.3 default; confirmed) |
 | Navigation | Three tabs (Today · Plan · Shop) + the command pill, a global action, not a tab |
 | Primary interaction | The anticipation layer: precomputed one-tap predicted actions replace generic affordances; typing is the fallback for the unpredicted |
 | Text/photo entry | One command tray (tap the pill; drag as accelerator): multimodal input, no separate photo vs chat interfaces; no docked command bar anywhere, including Plan |
@@ -37,7 +37,7 @@ Maximum depth from any nav destination: two (surface → sheet).
 
 ## 1. Navigation
 
-**Delta to UI_SPEC §3.1–3.3.**
+**Delta to docs/specs/ui.md §3.1–3.3.**
 
 Mobile bottom bar: three tabs with a command pill in the center slot.
 
@@ -67,7 +67,7 @@ inbox/run-review  never in nav; run detail stays routable for deep links, presen
 
 ## 2. The layer doctrine
 
-**Addition to UI_SPEC §4.8 (motion) and §5 (components).**
+**Addition to docs/specs/ui.md §4.8 (motion) and §5 (components).**
 
 - The base surface never navigates away for detail. Detail expands in place
   (sheet or expanding card) and dismisses with a flick or scrim tap.
@@ -84,7 +84,7 @@ inbox/run-review  never in nav; run detail stays routable for deep links, presen
 
 ## 3. The anticipation layer
 
-**New; generalizes UI_SPEC §2.3 and the CounterNote machinery.**
+**New; generalizes docs/specs/ui.md §2.3 and the CounterNote machinery.**
 
 The LLM pre-computes the interactions the user was about to have, from
 facts and history: insights × weekday ("Tuesdays go quick — swap with
@@ -106,7 +106,7 @@ elements.** The hero card's [Swap] becomes "Swap with Thursday's gratäng".
 The Shop add-field's placeholder becomes the predicted item. The cooking
 view's ingredient row carries its substitution inline. Same element count;
 the intelligence is in the content of actions that would exist anyway.
-Today's max-one-counter-note rule (UI_SPEC §6.1) stands.
+Today's max-one-counter-note rule (docs/specs/ui.md §6.1) stands.
 
 **Rule 2 — precomputed, never awaited.** Surfaces render predictions
 instantly from materialized CounterNotes. No LLM call on page load, no
@@ -129,8 +129,8 @@ inline substitutions (§11 leaves Cooking mode unchanged).
 
 ## 4. The command tray
 
-**Replaces the Capture tab/page (UI_SPEC §6.4 content moves here) and the
-docked planner command bar (UI_SPEC §5.4 becomes the tray's input).**
+**Replaces the Capture tab/page (docs/specs/ui.md §6.4 content moves here) and the
+docked planner command bar (docs/specs/ui.md §5.4 becomes the tray's input).**
 
 **Tap is the primary affordance; gestures are accelerators, never the only
 path.** Tapping the pill opens the tray. Once open (and while opening) it
@@ -157,7 +157,7 @@ Each tier should visibly absorb demand from the one below it.
   input, and drops the list once a message is sent in the session (no AI
   branding).
 - **Full state:** keep pulling or focus the field — keyboard up, full
-  capture surface (UI_SPEC §6.4's layout and result pattern render here).
+  capture surface (docs/specs/ui.md §6.4's layout and result pattern render here).
   Text and photos route through the same classifier-and-dispatch path;
   results render as artifact cards in the tray; state changes leave receipt
   strips on their home surfaces (§5).
@@ -186,7 +186,7 @@ a character living in the app.
 Most utterances are about a thing already on screen ("swap *Tuesday*",
 "I don't have *heavy cream*", "more of *this*"). So commands attach to
 objects: long-pressing a plan slot, the tonight card, or a grocery row —
-or opening the object's existing tap-sheet where one exists (UI_SPEC §6.2
+or opening the object's existing tap-sheet where one exists (docs/specs/ui.md §6.2
 slot interactions) — raises a scoped sheet:
 
 ```
@@ -228,18 +228,18 @@ slot domain is closed.
 
 ## 5. Receipts and reviews, layered
 
-**Delta to UI_SPEC §7.1 (placement/behavior; content unchanged) and to the
+**Delta to docs/specs/ui.md §7.1 (placement/behavior; content unchanged) and to the
 route map. Replaces `inbox_live` and `run_review_live` as destinations.**
 
 - **Receipt strip.** When a run applies, a one-line receipt slides in at the
   bottom of the run's `surface` (the `KitchenRun.surface` field: Plan runs on
   Plan, grocery/pantry runs on Shop, capture ingestion in the tray).
   A run that changed multiple domains still gets one strip, on its starting
-  surface; the expanded sheet shows all changed domains (UI_SPEC §7.1 already
+  surface; the expanded sheet shows all changed domains (docs/specs/ui.md §7.1 already
   renders Plan + Shop sections in one receipt). If the user isn't on that
   surface when the run applies — scheduled runs especially — the receipt is
   simply unseen and reaches them through the review pill. Content per
-  UI_SPEC §7.1: summary counts + `[Undo] [See changes]`.
+  docs/specs/ui.md §7.1: summary counts + `[Undo] [See changes]`.
 - **Receipt sheet.** Tapping the strip expands it in place into the full
   receipt: diff rows (§16.4 alphabet), "Why this?", Undo. Flick down to
   dismiss. `run_review_live`'s content becomes this sheet.
@@ -255,7 +255,7 @@ route map. Replaces `inbox_live` and `run_review_live` as destinations.**
 
 ## 6. Today
 
-**Delta to UI_SPEC §6.1.**
+**Delta to docs/specs/ui.md §6.1.**
 
 Composition, top to bottom:
 
@@ -281,12 +281,12 @@ Today must not duplicate the week — that is Plan.
 
 ## 7. Plan
 
-**Delta to UI_SPEC §6.2.**
+**Delta to docs/specs/ui.md §6.2.**
 
 - **No docked command bar.** Plan commands go through the tray, whose
   half state on Plan shows plan-shaped predictions (skill chips like
   `Plan my week` / `Use the deals`, swap suggestions, fill-the-gap
-  proposals). UI_SPEC §5.4's command-bar behavior spec applies to the
+  proposals). docs/specs/ui.md §5.4's command-bar behavior spec applies to the
   tray's input field.
 - **Prep folds in.** The prep guide renders inside the week — an expandable
   prep layer anchored to the day it serves. `/prep` is removed as a
@@ -301,7 +301,7 @@ Today must not duplicate the week — that is Plan.
 
 ## 8. Shop
 
-**Delta to UI_SPEC §6.3 (small).**
+**Delta to docs/specs/ui.md §6.3 (small).**
 
 - Grouping: store sections — confirmed as decided, no change to the §6.3
   group list.
@@ -324,7 +324,7 @@ Today must not duplicate the week — that is Plan.
 
 ## 9. Settings
 
-**Delta to UI_SPEC §6.7 and route map.**
+**Delta to docs/specs/ui.md §6.7 and route map.**
 
 One flat scrollable page, anchored sections, zero sub-pages:
 
@@ -374,7 +374,7 @@ exist; this design only moves where they render.
 
 ## 11. Out of scope
 
-- Visual system changes (colors, type, shape — UI_SPEC §4 stands).
+- Visual system changes (colors, type, shape — docs/specs/ui.md §4 stands).
 - Kiosk changes beyond the naming already in SPEC.md.
 - Voice input, native apps, notifications (SPEC.md non-goals).
 - Rebuilding surfaces not named here (Cooking mode unchanged, except
@@ -399,5 +399,5 @@ exist; this design only moves where they render.
    card / Shop placeholder / tray half state / object sheets.
 8. Shop: deal product line (needs SPEC.md amendment #1 first).
 
-Each step is independently shippable; UI_SPEC gets amended alongside the
+Each step is independently shippable; docs/specs/ui.md gets amended alongside the
 step that changes it.

@@ -4,7 +4,7 @@ defmodule Tore.Harness.RunReceipts do
   from an `Applied` (or `Reverted`) run by:
 
     * reading the run's typed artifacts and projecting them into
-      cross-surface `DiffRow`s (UI_SPEC §16.4 alphabet);
+      cross-surface `DiffRow`s (docs/specs/ui.md §16.4 alphabet);
     * exposing the stored `UndoPayload` so the UI can decide whether the
       Undo button is enabled.
 

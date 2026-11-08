@@ -8,7 +8,7 @@
 ## Status
 
 - **Date:** 2026-06-02
-- **Under:** SPEC.md §A (Agent Harness Layer); UI_SPEC.md §7.1 (run receipt) and §7.2 (thinking state).
+- **Under:** SPEC.md §A (Agent Harness Layer); docs/specs/ui.md §7.1 (run receipt) and §7.2 (thinking state).
 - **Companion sub-specs (future):** `verifiers_v1`, `capsules_v1`, `resolver_handles`, `risk_tiers`, `kitchen_skills`, `rename_chat_to_capture`, then one per remaining run kind.
 - **Disciplines applied:** Decider pattern (already used by `Tore.Planning` and `Tore.Groceries`), type-driven design (illegal states unrepresentable), Tiger naming (verb-first, no `get_*`/`fetch_*` drift), S3-backed payloads where artifacts carry image data.
 

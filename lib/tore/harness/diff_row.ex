@@ -2,7 +2,7 @@ defmodule Tore.Harness.DiffRow do
   @moduledoc """
   One line in a run receipt — the cross-surface render shape derived from a
   run's typed artifacts (PlanDiff, PantryBeliefUpdate, …). `op` is the
-  UI_SPEC §16.4 prefix alphabet: `+` `-` `~` `?` mapped to `:added`,
+  docs/specs/ui.md §16.4 prefix alphabet: `+` `-` `~` `?` mapped to `:added`,
   `:removed`, `:changed`, `:assumed`.
 
   DiffRow is render-time only. The canonical record stays in the typed

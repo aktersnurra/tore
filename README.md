@@ -17,7 +17,7 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 - **Costs** — one page with the month's total, recent receipts and eating out.
 - **Eating out** — mark a day and it cancels the recipe, with an optional place and amount.
 - **Prep guide** — optional, on demand, from the week's plan.
-- **Language** — chosen once at setup, with a full Swedish UI through Gettext.
+- **Language** — chosen once for the household, with a full Swedish UI through Gettext.
 
 ---
 
@@ -32,7 +32,7 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 | Structured outputs | OpenRouter `json_schema` response format |
 | Markdown rendering | MDEx (CommonMark, Rust NIF) |
 | Scheduling | Quantum |
-| Auth | 16-digit login codes (Pocket ID replaces them next) |
+| Auth | [Pocket ID](https://pocket-id.org) over OIDC, through `oidcc` |
 
 ---
 
@@ -41,7 +41,8 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 ```
 lib/
 ├── tore/
-│   ├── accounts/         # Users, login tokens, rate limiter
+│   ├── accounts/         # Users, signed in from Pocket ID claims
+│   ├── auth/             # Pocket ID sign-in (OIDC with PKCE)
 │   ├── adapters/         # Req HTTP adapter, image stub
 │   ├── image_gen/        # Recipe images through the open_router library
 │   ├── capture/          # Capture: the LLM router, its tools, uploads
@@ -93,6 +94,25 @@ OPENROUTER_VISION_MODEL=google/gemini-2.5-flash-lite
 OPENROUTER_IMAGE_MODEL=google/gemini-3.1-flash-image-preview
 OPENROUTER_CHECK_MODEL=openai/gpt-oss-120b:free
 ```
+
+### Signing in with Pocket ID
+
+Tore has no passwords of its own. In Pocket ID:
+
+1. Create a `tore` group for everyone who may use Tore, and a `tore-ai` group for those who may use
+   the server's LLM. Give `tore-ai` the custom claim `tore_ai` with the value `true`.
+2. Create an OIDC client for Tore, allowed only for the `tore` group, with the callback
+   `http://localhost:4000/auth/oidc/callback` (and `https://<your host>/auth/oidc/callback` in production).
+
+Then set:
+
+- `OIDC_ISSUER` — your Pocket ID URL, for example `https://id.example.com`.
+- `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` — from the client.
+- `OIDC_REDIRECT_URI` — production only, if it isn't `https://$PHX_HOST/auth/oidc/callback`.
+- `AI_CLAIM` — optional, the claim that grants LLM access (default `tore_ai`).
+
+Production refuses to boot without the first three. In dev they're optional: without them, `/login`
+offers a dev sign-in instead.
 
 ### Local development with image storage (Garage)
 

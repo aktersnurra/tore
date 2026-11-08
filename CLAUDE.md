@@ -9,4 +9,4 @@
 - Skills/commands live under .claude/skills/ — reference them in docs and READMEs
 
 ## Docs
-- `SPEC.md` at the root is the source of truth. `docs/UI_SPEC.md` and `docs/LLM-NATIVE-FEATURES.md` sit beside it.
+- `SPEC.md` at the root is the source of truth. `docs/specs/ui.md` and `docs/specs/llm-native-features.md` go with it.

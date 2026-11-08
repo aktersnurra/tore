@@ -1042,7 +1042,7 @@ What does Tore know, and how can I correct it?
 ### Sections
 
 ```md
-Users
+Members
 Household
 Kitchen Memory
 Stores
@@ -1051,7 +1051,24 @@ Pantry belief
 Spending
 ```
 
-Household shows the language, chosen once at setup and locked afterwards.
+Household shows the language, chosen once and locked afterwards.
+
+### Members
+
+```md
+Gustaf      gustaf
+Anna        anna
+
+Sign out
+```
+
+Rules:
+
+```md
+Members come from Pocket ID: whoever signs in joins the household.
+No codes, no roles, no invites. Pocket ID's groups decide who may sign in.
+"Sign out" ends the session in this browser and closes its other open tabs.
+```
 
 ### Stores
 
@@ -1644,7 +1661,7 @@ This section is the non-negotiable checklist that turns the principles above int
 rules you can fail a PR on. The earlier sections explain *why*; this section
 states *what must be true* before UI work merges.
 
-Companion BE spec: `SPEC_FEAT_run_receipts.md` defines the artifact and undo
+Companion BE spec: `docs/specs/run-receipts.md` defines the artifact and undo
 machinery this section depends on.
 
 ## 16.1 The product is not what people think it is
@@ -1702,7 +1719,7 @@ visibility + reversibility rather than friction.
 
 Therefore every agent-driven state change must:
 
-1. Produce a **run receipt** (see UI_SPEC §7.1 and `SPEC_FEAT_run_receipts.md`).
+1. Produce a **run receipt** (see §7.1 and `docs/specs/run-receipts.md`).
 2. Be reversible by a single Undo for at least a short window.
 3. Be visible in Capture as a structured diff, not prose.
 4. Respect user locks (see §16.6).
@@ -1844,7 +1861,7 @@ template is:
 [Optional secondary action]
 ```
 
-See UI_SPEC §8 for the canonical empty-state copy for each surface.
+See §8 for the canonical empty-state copy for each surface.
 
 ## 16.12 Loading states name the work, not the system
 

@@ -365,7 +365,7 @@ defmodule Tore.Pantry do
   end
 
   # Confidence order: most-certain bucket first, missing items last.
-  # UI_SPEC §16.5 — pantry rows render as belief, not category.
+  # docs/specs/ui.md §16.5 — pantry rows render as belief, not category.
   @belief_order ~w[confirmed probable uncertain missing]a
 
   @spec list_inventory_by_belief() :: [{atom(), [PantryItem.t()]}]

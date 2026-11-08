@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Pocket ID login
+
+- Pocket ID is the only way to sign in. The 16-digit codes, the setup page, roles, the rate limiter and `argon2` are gone.
+- Pocket ID decides who may sign in, through the groups on its client. A `tore_ai` claim marks who may use the server's LLM.
+- Settings lists the members and has "Sign out", which also closes the app in other open tabs. Sessions last 90 days.
+- A dev-only sign-in at `/dev/login` for working without Pocket ID.
+- `docs/UI_SPEC.md` moved to `docs/specs/ui.md`, and `docs/LLM-NATIVE-FEATURES.md` to `docs/specs/llm-native-features.md`.
+
 ### Recipe proposals (plan 4)
 
 - The planner can find recipe pages on the web, import one, or adapt a recipe from the catalog. Each becomes a proposal that a verifier checks and a person saves or discards on the run review page.
