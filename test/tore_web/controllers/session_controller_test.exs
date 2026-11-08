@@ -18,8 +18,9 @@ defmodule ToreWeb.SessionControllerTest do
   end
 
   test "a session for a user with no household is turned away", %{conn: conn} do
+    import Ecto.Query
     user = user_fixture()
-    user |> Ecto.Changeset.change(household_id: nil) |> Tore.Repo.update!()
+    Tore.Repo.delete_all(from m in Tore.Accounts.Membership, where: m.user_id == ^user.id)
 
     conn = conn |> Plug.Test.init_test_session(%{user_id: user.id}) |> get(~p"/recipes")
 
@@ -61,7 +62,7 @@ defmodule ToreWeb.SessionControllerTest do
     assert redirected_to(conn) == ~p"/"
 
     assert get_session(conn, :user_id) ==
-             Tore.Accounts.get_session_user(get_session(conn, :user_id)).id
+             Tore.Accounts.get_session(get_session(conn, :user_id)) |> elem(0) |> Map.fetch!(:id)
 
     assert get_session(conn, :live_socket_id) == "users_sessions:#{get_session(conn, :user_id)}"
   end

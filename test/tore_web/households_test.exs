@@ -17,7 +17,7 @@ defmodule ToreWeb.HouseholdsTest do
 
   setup do
     household = household_fixture(%{name: "Andra"})
-    %{member: member_fixture(household), scope: scope_fixture(household)}
+    %{member: user_fixture(household: household), scope: scope_fixture(household)}
   end
 
   test "the recipe list shows the member's household only", %{

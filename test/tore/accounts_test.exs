@@ -1,26 +1,78 @@
 defmodule Tore.AccountsTest do
   use Tore.DataCase, async: false
 
-  alias Tore.{Accounts, Household, Repo}
+  import Ecto.Query
+
+  alias Tore.{Accounts, Repo}
+  alias Tore.Accounts.{Membership, PendingMember, User}
   alias Tore.Household.HouseholdSchema
 
   @claims %{"sub" => "abc", "preferred_username" => "gustaf", "name" => "Gustaf R"}
 
+  defp memberships(user) do
+    Repo.all(
+      from m in Membership,
+        where: m.user_id == ^user.id,
+        order_by: m.household_id,
+        select: {m.household_id, m.active}
+    )
+  end
+
+  defp user_count, do: Repo.aggregate(User, :count)
+
+  describe "sign_in_plan/2" do
+    test "someone known is refreshed, whatever waits for them" do
+      user = %User{id: 1}
+      assert Accounts.sign_in_plan(user, []) == {:refresh, user}
+      assert Accounts.sign_in_plan(user, [%PendingMember{}]) == {:refresh, user}
+    end
+
+    test "someone new who was added joins those households" do
+      pending = [%PendingMember{household_id: 1}]
+      assert Accounts.sign_in_plan(nil, pending) == {:join, pending}
+    end
+
+    test "someone new who wasn't added gets a household of their own" do
+      assert Accounts.sign_in_plan(nil, []) == :new_household
+    end
+  end
+
   describe "sign_in/1" do
-    test "a new person joins the household" do
+    test "a new person gets a household of their own, named after them, with no language yet" do
       assert {:ok, user} = Accounts.sign_in(@claims)
 
       assert user.oidc_sub == "abc"
       assert user.username == "gustaf"
       assert user.name == "Gustaf R"
-      assert user.household_id == home_scope().household_id
       assert user.ai_enabled == false
+      assert [{household_id, true}] = memberships(user)
+      assert household_id != home_scope().household_id
+
+      household = Repo.get!(HouseholdSchema, household_id)
+      assert household.name == "Gustaf R"
+      assert household.locale == nil
+      assert household.ai_sponsor_id == nil
     end
 
-    test "a new person starts in the household's language" do
-      home_household() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
+    test "a new person with the credits claim sponsors their own household" do
+      {:ok, user} = Accounts.sign_in(Map.put(@claims, "tore_ai", "true"))
+      [{household_id, true}] = memberships(user)
 
-      assert {:ok, %{locale: "en"}} = Accounts.sign_in(@claims)
+      assert Repo.get!(HouseholdSchema, household_id).ai_sponsor_id == user.id
+    end
+
+    test "someone added before their first sign-in joins, in that household's language, with no household of their own" do
+      english = household_fixture(%{locale: "en"})
+      households_before = Repo.aggregate(HouseholdSchema, :count)
+      Repo.insert!(%PendingMember{username: "gustaf", household_id: english.id})
+      Repo.insert!(%PendingMember{username: "gustaf", household_id: home_scope().household_id})
+
+      assert {:ok, user} = Accounts.sign_in(@claims)
+
+      assert user.locale == "en"
+      assert memberships(user) == [{home_scope().household_id, false}, {english.id, true}]
+      assert Repo.aggregate(HouseholdSchema, :count) == households_before
+      assert Repo.aggregate(PendingMember, :count) == 0
     end
 
     test "someone returning is the same user, with fresh claims" do
@@ -38,7 +90,8 @@ defmodule Tore.AccountsTest do
       assert again.username == "gr"
       assert again.name == "G"
       assert again.ai_enabled == true
-      assert length(Accounts.list_users()) == 1
+      assert user_count() == 1
+      assert length(memberships(again)) == 1
     end
 
     test "losing the claim takes effect at the next sign-in" do
@@ -61,33 +114,45 @@ defmodule Tore.AccountsTest do
         assert {:error, :username_missing} = Accounts.sign_in(claims)
       end
 
-      assert Accounts.list_users() == []
+      assert user_count() == 0
     end
 
-    test "refuses a username held by another identity" do
+    test "refuses a username held by another identity, and leaves no household behind" do
       {:ok, _} = Accounts.sign_in(@claims)
+      households = Repo.aggregate(HouseholdSchema, :count)
 
       assert {:error, :username_taken} = Accounts.sign_in(%{@claims | "sub" => "someone-else"})
-      assert length(Accounts.list_users()) == 1
+      assert user_count() == 1
+      assert Repo.aggregate(HouseholdSchema, :count) == households
     end
   end
 
-  describe "get_session_user/1" do
-    test "finds a user with a household" do
+  describe "get_session/1" do
+    test "gives the user and the scope of their active household" do
       user = user_fixture()
-      assert Accounts.get_session_user(user.id).id == user.id
+      assert {%User{id: id}, scope} = Accounts.get_session(user.id)
+      assert id == user.id
+      assert scope == %Tore.Scope{household_id: home_scope().household_id, user_id: user.id}
     end
 
-    test "a user with no household has no session" do
+    test "a user with no active membership has no session" do
       user = user_fixture()
-      user |> Ecto.Changeset.change(household_id: nil) |> Repo.update!()
+      Repo.delete_all(from m in Membership, where: m.user_id == ^user.id)
 
-      assert Accounts.get_session_user(user.id) == nil
+      assert Accounts.get_session(user.id) == nil
     end
 
     test "a user who is gone has no session" do
-      assert Accounts.get_session_user(999_999) == nil
+      assert Accounts.get_session(999_999) == nil
     end
+  end
+
+  test "list_members/1 lists the household's members only" do
+    mine = user_fixture(name: "Ada")
+    _theirs = user_fixture(name: "Bo", household: household_fixture())
+
+    assert [%User{id: id}] = Accounts.list_members(home_scope())
+    assert id == mine.id
   end
 
   test "update_preferences/2 stores preferences" do

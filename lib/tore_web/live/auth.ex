@@ -36,13 +36,13 @@ defmodule ToreWeb.Live.Auth do
   end
 
   defp mount_current_user(socket, session) do
-    case session["user_id"] && Accounts.get_session_user(session["user_id"]) do
+    case session["user_id"] && Accounts.get_session(session["user_id"]) do
       nil ->
         assign(socket, current_user: nil, current_scope: nil)
 
-      user ->
+      {user, scope} ->
         Gettext.put_locale(ToreWeb.Gettext, user.locale)
-        assign(socket, current_user: user, current_scope: Tore.Scope.for_user(user))
+        assign(socket, current_user: user, current_scope: scope)
     end
   end
 

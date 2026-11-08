@@ -3,26 +3,24 @@ defmodule Tore.AccountsFixtures do
 
   alias Tore.Scope
 
-  @doc "Someone who signs in to `household` rather than the first one."
-  def member_fixture(%Tore.Household.HouseholdSchema{} = household, attrs \\ []) do
-    id = System.unique_integer([:positive])
-
-    Tore.Repo.insert!(%Tore.Accounts.User{
-      name: Keyword.get(attrs, :name, "Member"),
-      username: "member-#{id}",
-      oidc_sub: "member-sub-#{id}",
-      household_id: household.id,
-      locale: household.locale
-    })
-  end
-
+  @doc """
+  Someone who has signed in, as a member of `:household` (default: `home_household/0`). They were added
+  by username first, the way a member joins, so sign-in creates no household of their own.
+  """
   def user_fixture(attrs \\ []) do
     id = System.unique_integer([:positive])
+    username = "user-#{id}"
+    household = Keyword.get_lazy(attrs, :household, &home_household/0)
+
+    Tore.Repo.insert!(%Tore.Accounts.PendingMember{
+      username: username,
+      household_id: household.id
+    })
 
     {:ok, user} =
       Tore.Accounts.sign_in(%{
         "sub" => "sub-#{id}",
-        "preferred_username" => "user-#{id}",
+        "preferred_username" => username,
         "name" => Keyword.get(attrs, :name, "Test User")
       })
 
@@ -42,14 +40,16 @@ defmodule Tore.AccountsFixtures do
   @doc "The scope of the household people sign in to. Data a signed-in test user should see goes here."
   def home_scope, do: Scope.for_household(home_household().id)
 
-  @doc "The household people sign in to: the first one, seeded by the migrations."
+  @doc "The household test users join: id 1, seeded by `test/test_helper.exs`."
   def home_household do
-    import Ecto.Query
-    Tore.Repo.one!(from h in Tore.Household.HouseholdSchema, order_by: h.id, limit: 1)
+    Tore.Repo.get!(Tore.Household.HouseholdSchema, 1)
   end
 
   @doc "A scope for a user, or for a household with no user."
   def scope_fixture(user_or_household \\ user_fixture())
-  def scope_fixture(%Tore.Accounts.User{} = user), do: Scope.for_user(user)
+
+  def scope_fixture(%Tore.Accounts.User{} = user),
+    do: user.id |> Tore.Accounts.get_session() |> elem(1)
+
   def scope_fixture(%Tore.Household.HouseholdSchema{id: id}), do: Scope.for_household(id)
 end

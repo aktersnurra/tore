@@ -9,7 +9,7 @@ defmodule Tore.Accounts.User do
     field :ai_enabled, :boolean, default: false
     field :preferences, :map, default: %{}
     field :locale, :string, default: "sv"
-    belongs_to :household, Tore.Household.HouseholdSchema
+    has_many :memberships, Tore.Accounts.Membership
     timestamps()
   end
 
@@ -17,7 +17,7 @@ defmodule Tore.Accounts.User do
   def sign_in_changeset(user, attrs) do
     user
     |> cast(attrs, [:name, :username, :oidc_sub, :ai_enabled])
-    |> validate_required([:name, :username, :oidc_sub, :household_id])
+    |> validate_required([:name, :username, :oidc_sub])
     |> validate_length(:name, min: 1, max: 100)
     |> unique_constraint(:username)
     |> unique_constraint(:oidc_sub)

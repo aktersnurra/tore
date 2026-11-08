@@ -4,7 +4,7 @@ defmodule ToreWeb.SettingsLive do
   alias Tore.{Accounts, Costs, Deals, Household}
 
   def mount(_params, _session, socket) do
-    users = Accounts.list_users()
+    users = Accounts.list_members(socket.assigns.current_scope)
 
     ai = %{
       this_month: Costs.llm_spend_this_month(),

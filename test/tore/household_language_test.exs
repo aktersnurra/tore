@@ -3,8 +3,7 @@ defmodule Tore.HouseholdLanguageTest do
   import Mox
   setup :verify_on_exit!
 
-  alias Tore.{Household, Pantry, Prep, Recipes, Repo}
-  alias Tore.Household.HouseholdSchema
+  alias Tore.{Pantry, Prep, Recipes, Repo}
   alias Tore.Capture.Dispatch
 
   @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
@@ -16,7 +15,8 @@ defmodule Tore.HouseholdLanguageTest do
   """
 
   setup do
-    home_household() |> HouseholdSchema.changeset(%{locale: "en"}) |> Repo.update!()
+    # Straight to the column: a household's language can't change once picked.
+    home_household() |> Ecto.Changeset.change(locale: "en") |> Repo.update!()
     :ok
   end
 
