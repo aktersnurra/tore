@@ -26,6 +26,13 @@ defmodule ToreWeb.Live.Auth do
     end
   end
 
+  # A household with no language yet sends its members to /welcome, which picks it.
+  def on_mount(:require_language, _params, _session, socket) do
+    if Tore.Household.locale(socket.assigns.current_scope),
+      do: {:cont, socket},
+      else: {:halt, redirect(socket, to: "/welcome")}
+  end
+
   defp attach_current_path(socket) do
     socket
     |> assign(:current_path, "/")

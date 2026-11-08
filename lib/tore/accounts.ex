@@ -83,6 +83,15 @@ defmodule Tore.Accounts do
 
   def sign_in(_claims), do: {:error, :username_missing}
 
+  @doc "The language the app speaks to the user in."
+  @spec set_locale(User.t(), String.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def set_locale(%User{} = user, locale) do
+    user
+    |> Ecto.Changeset.cast(%{locale: locale}, [:locale])
+    |> Ecto.Changeset.validate_inclusion(:locale, ~w(sv en))
+    |> Repo.update()
+  end
+
   @spec update_preferences(User.t(), map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def update_preferences(user, attrs) do
     user

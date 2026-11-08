@@ -17,6 +17,22 @@ defmodule Tore.Household do
   @spec locale(Scope.t()) :: String.t() | nil
   def locale(%Scope{} = scope), do: get!(scope).locale
 
+  @doc "Sets the household's language. Only once: a household that has one keeps it."
+  @spec set_locale(Scope.t(), String.t()) ::
+          {:ok, HouseholdSchema.t()} | {:error, :already_set | Ecto.Changeset.t()}
+  def set_locale(%Scope{} = scope, locale) do
+    case get!(scope) do
+      %HouseholdSchema{locale: nil} = household ->
+        household
+        |> HouseholdSchema.changeset(%{locale: locale})
+        |> Ecto.Changeset.validate_required([:locale])
+        |> Repo.update()
+
+      %HouseholdSchema{} ->
+        {:error, :already_set}
+    end
+  end
+
   @spec locale_label(String.t()) :: String.t()
   def locale_label("en"), do: "English"
   def locale_label("sv"), do: "Svenska"
