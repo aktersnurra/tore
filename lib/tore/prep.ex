@@ -1,18 +1,18 @@
 defmodule Tore.Prep do
-  alias Tore.{Repo, Prep.PrepGuide, Planning, Recipes, SpendGuard}
+  alias Tore.{Repo, Prep.PrepGuide, Planning, Recipes, Scope, SpendGuard}
   import Ecto.Query
 
-  def generate_guide(%Tore.Scope{} = scope, plan_id, week_start) do
+  def generate_guide(%Scope{} = scope, plan_id, week_start) do
     with :ok <- SpendGuard.allow?(:generate_prep_guide),
          {:ok, plan_state} <- Planning.load_plan(scope, plan_id) do
       plan_for_prompt = build_plan_for_prompt(scope, plan_state, week_start)
 
-      {system, user} = Tore.LLM.Prompts.prep_guide(plan_for_prompt, Tore.Household.locale())
+      {system, user} = Tore.LLM.Prompts.prep_guide(plan_for_prompt, Tore.Household.locale(scope))
 
       with {:ok, guide_data, usage} <- Tore.LLM.text(system, user, []),
            :ok <- SpendGuard.log_usage(:generate_prep_guide, usage) do
         attrs = Map.put(guide_data, "week_start", week_start)
-        save_guide(attrs)
+        save_guide(scope, attrs)
       end
     end
   end
@@ -30,18 +30,18 @@ defmodule Tore.Prep do
     %{week_start: week_start, days: days}
   end
 
-  def save_guide(attrs) do
-    %PrepGuide{}
+  def save_guide(%Scope{} = scope, attrs) do
+    %PrepGuide{household_id: scope.household_id}
     |> PrepGuide.changeset(attrs)
     |> Repo.insert(
       on_conflict:
         {:replace,
          [:timeline, :cascade_map, :storage_notes, :daily_assembly, :prep_session, :instructions]},
-      conflict_target: [:week_start]
+      conflict_target: [:household_id, :week_start]
     )
   end
 
-  def get_guide_for_week(week_start) do
-    Repo.one(from g in PrepGuide, where: g.week_start == ^week_start)
+  def get_guide_for_week(%Scope{} = scope, week_start) do
+    Repo.one(from(g in PrepGuide, where: g.week_start == ^week_start), Scope.repo_opts(scope))
   end
 end

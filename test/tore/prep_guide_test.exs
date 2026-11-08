@@ -14,6 +14,11 @@ defmodule Tore.PrepGuideTest do
     :ok
   end
 
+  defp other_household do
+    {:ok, household} = Tore.Household.create_household(%{name: "Other", locale: "sv"})
+    household
+  end
+
   defp plan_id, do: Tore.Streams.plan(home_scope(), ~D[2026-04-27])
   defp week_start, do: ~D[2026-04-27]
 
@@ -43,6 +48,10 @@ defmodule Tore.PrepGuideTest do
     assert guide.week_start == week_start()
     assert length(guide.timeline) == 1
     assert guide.storage_notes == "Chicken: 3 days"
+    assert Prep.get_guide_for_week(home_scope(), week_start()).id == guide.id
+
+    assert Prep.get_guide_for_week(Tore.Scope.for_household(other_household().id), week_start()) ==
+             nil
   end
 
   test "generate_guide returns error when LLM fails" do

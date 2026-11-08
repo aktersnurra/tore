@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreatePrepGuides do
 
   def change do
     create table(:prep_guides) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :week_start, :date, null: false
       add :instructions, :text
       add :timeline, :text
@@ -13,6 +14,6 @@ defmodule Tore.Repo.Migrations.CreatePrepGuides do
       timestamps()
     end
 
-    create unique_index(:prep_guides, [:week_start])
+    create unique_index(:prep_guides, [:household_id, :week_start])
   end
 end

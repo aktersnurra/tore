@@ -21,7 +21,7 @@ defmodule Tore.Repo do
 
   # Grows as each context takes a scope.
   @household_tables MapSet.new(
-                      ~w(uploaded_images recipes ingredients tags pantry_items events week_modes receipts dining_out)
+                      ~w(uploaded_images recipes ingredients tags pantry_items events week_modes receipts dining_out prep_guides)
                     )
 
   @doc false

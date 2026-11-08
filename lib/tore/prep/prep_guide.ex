@@ -3,6 +3,7 @@ defmodule Tore.Prep.PrepGuide do
   import Ecto.Changeset
 
   schema "prep_guides" do
+    field :household_id, :integer
     field :week_start, :date
     field :instructions, :string
     field :timeline, {:array, :map}
