@@ -4,7 +4,7 @@ defmodule Tore.Harness.InboxSweeperTest do
   import Tore.RunFixtures
 
   alias Tore.Harness.InboxSweeper
-  alias Tore.Storage.{Buckets, Mock}
+  alias Tore.Storage.{Buckets, Mock, RunPhotos}
 
   setup do
     Mock.reset()
@@ -24,5 +24,8 @@ defmodule Tore.Harness.InboxSweeperTest do
     assert Mock.get(Buckets.runs(), done_key) == nil
     assert Mock.get(Buckets.runs(), open_key) == "photo bytes"
     assert Mock.get(Buckets.runs(), their_key) == "photo bytes"
+    # The sweep lists only its own household's photos, so it never looks at theirs.
+    {:ok, listed} = Mock.list_object_keys(Buckets.runs(), RunPhotos.prefix(home_scope()))
+    refute their_key in listed
   end
 end

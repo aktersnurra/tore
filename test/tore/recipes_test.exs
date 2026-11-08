@@ -377,6 +377,17 @@ defmodule Tore.RecipesTest do
   end
 
   describe "households" do
+    test "a new recipe image is broadcast only to its own household" do
+      Tore.Storage.Mock.reset()
+      other = scope_fixture(household_fixture())
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
+      Phoenix.PubSub.subscribe(Tore.PubSub, Recipes.topic(other))
+
+      :ok = Recipes.generate_image(home_scope(), recipe, nil)
+
+      refute_received {:recipe_image, _, _}
+    end
+
     test "a household sees only its own recipes" do
       other = scope_fixture(household_fixture())
       {:ok, mine} = Recipes.create(home_scope(), recipe_attrs(%{title: "Ärtsoppa"}))

@@ -9,11 +9,11 @@ defmodule Tore.Recipes do
   # An ingredient name will never contain this, so joined names split cleanly.
   @fp_sep "\x1f"
 
-  @spec create(Scope.t(), map()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
   @doc "The topic a household's recipe changes are broadcast on."
   @spec topic(Scope.t()) :: String.t()
   def topic(%Scope{household_id: id}), do: "recipes:household:#{id}"
 
+  @spec create(Scope.t(), map()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
   def create(%Scope{} = scope, attrs) do
     {tag_names, attrs} = Map.pop(attrs, :tags, [])
     {ingredients, attrs} = Map.pop(attrs, :ingredients, [])

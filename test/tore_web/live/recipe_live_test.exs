@@ -55,7 +55,8 @@ defmodule ToreWeb.RecipeLiveTest do
       Phoenix.PubSub.broadcast(
         Tore.PubSub,
         Tore.Recipes.topic(home_scope()),
-        {:recipe_image, recipe.id, "recipes/#{recipe.id}/abc.jpg"}
+        {:recipe_image, recipe.id,
+         "households/#{home_scope().household_id}/recipes/#{recipe.id}/abc.jpg"}
       )
 
       assert render(lv) =~ "/images/recipes/#{recipe.id}"

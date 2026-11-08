@@ -47,6 +47,16 @@ defmodule Tore.ShopTest do
     assert_receive {:events, [%Tore.Shop.Events.ItemAdded{}]}
   end
 
+  test "a list change is broadcast only to its own household" do
+    other = Tore.AccountsFixtures.scope_fixture(Tore.AccountsFixtures.household_fixture())
+    Phoenix.PubSub.subscribe(Tore.PubSub, Shop.topic(other))
+
+    Shop.add_item(home_scope(), list_id(), "Eggs", nil, nil, 1)
+
+    assert_receive {:events, [%Tore.Shop.Events.ItemAdded{}]}
+    refute_received {:events, _}
+  end
+
   test "check_item persists ItemChecked and broadcasts" do
     Shop.add_item(home_scope(), list_id(), "Butter", nil, nil, 1)
     {:ok, state} = Shop.load_list(home_scope(), list_id())
