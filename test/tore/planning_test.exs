@@ -14,6 +14,17 @@ defmodule Tore.PlanningTest do
     :ok
   end
 
+  # A real recipe for each made-up number, the same one each time within a test.
+  defp recipe(n) do
+    Process.get({:recipe, n}) ||
+      tap(
+        Tore.Recipes.create(home_scope(), %{title: "Recipe #{n}", recipe_type: :meal})
+        |> elem(1)
+        |> Map.fetch!(:id),
+        &Process.put({:recipe, n}, &1)
+      )
+  end
+
   defp plan_id, do: Tore.Streams.plan(home_scope(), ~D[2026-04-27])
 
   defp mock_usage, do: %{prompt_tokens: 100, completion_tokens: 50, cost_usd: 0.001}
@@ -24,14 +35,16 @@ defmodule Tore.PlanningTest do
   end
 
   test "assign_recipe persists RecipeAssigned event" do
-    assert {:ok, _events} = Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", 1, 4)
+    assert {:ok, _events} =
+             Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", recipe(1), 4)
+
     assert {:ok, state} = Planning.load_plan(home_scope(), plan_id())
-    assert state.slots["mon_dinner"].recipe_id == 1
+    assert state.slots["mon_dinner"].recipe_id == recipe(1)
     assert state.slots["mon_dinner"].servings == 4
   end
 
   test "assign_recipe broadcasts to plan topic" do
-    Planning.assign_recipe(home_scope(), plan_id(), "tue_dinner", 2, 2)
+    Planning.assign_recipe(home_scope(), plan_id(), "tue_dinner", recipe(2), 2)
     assert_receive {:events, [%Tore.Planning.Events.RecipeAssigned{}]}
   end
 
@@ -40,13 +53,13 @@ defmodule Tore.PlanningTest do
   end
 
   test "load_plan returns current state after multiple events" do
-    Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", 10, 4)
-    Planning.assign_recipe(home_scope(), plan_id(), "tue_dinner", 11, 2)
+    Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", recipe(10), 4)
+    Planning.assign_recipe(home_scope(), plan_id(), "tue_dinner", recipe(11), 2)
     Planning.skip_meal(home_scope(), plan_id(), "mon_dinner")
 
     {:ok, state} = Planning.load_plan(home_scope(), plan_id())
     assert state.slots["mon_dinner"].skipped == true
-    assert state.slots["tue_dinner"].recipe_id == 11
+    assert state.slots["tue_dinner"].recipe_id == recipe(11)
   end
 
   describe "suggest_recipes_for_slot/3" do
@@ -271,38 +284,38 @@ defmodule Tore.PlanningTest do
   describe "swap_slots/3" do
     test "swaps two occupied slots, preserving both recipes and their servings" do
       plan = "plan:swap-1"
-      Planning.assign_recipe(home_scope(), plan, "fri_dinner", 101, 4)
-      Planning.assign_recipe(home_scope(), plan, "sun_dinner", 202, 2)
+      Planning.assign_recipe(home_scope(), plan, "fri_dinner", recipe(101), 4)
+      Planning.assign_recipe(home_scope(), plan, "sun_dinner", recipe(202), 2)
 
       assert {:ok, _events} = Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
-      assert state.slots["fri_dinner"].recipe_id == 202
+      assert state.slots["fri_dinner"].recipe_id == recipe(202)
       assert state.slots["fri_dinner"].servings == 2
-      assert state.slots["sun_dinner"].recipe_id == 101
+      assert state.slots["sun_dinner"].recipe_id == recipe(101)
       assert state.slots["sun_dinner"].servings == 4
     end
 
     test "one slot empty: moves the recipe and clears the source" do
       plan = "plan:swap-2"
-      Planning.assign_recipe(home_scope(), plan, "fri_dinner", 101, 4)
+      Planning.assign_recipe(home_scope(), plan, "fri_dinner", recipe(101), 4)
 
       assert {:ok, _events} = Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
-      assert state.slots["sun_dinner"].recipe_id == 101
+      assert state.slots["sun_dinner"].recipe_id == recipe(101)
       assert state.slots["sun_dinner"].servings == 4
       refute Map.has_key?(state.slots, "fri_dinner")
     end
 
     test "empty source, occupied target: moves target into source, clears target" do
       plan = "plan:swap-2b"
-      Planning.assign_recipe(home_scope(), plan, "sun_dinner", 202, 2)
+      Planning.assign_recipe(home_scope(), plan, "sun_dinner", recipe(202), 2)
 
       assert {:ok, _events} = Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
-      assert state.slots["fri_dinner"].recipe_id == 202
+      assert state.slots["fri_dinner"].recipe_id == recipe(202)
       refute Map.has_key?(state.slots, "sun_dinner")
     end
 
@@ -321,7 +334,7 @@ defmodule Tore.PlanningTest do
     end
 
     test "cancels the recipe and stores the entry on the right day", %{user_id: user_id} do
-      {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "wed_dinner", 1, 4)
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "wed_dinner", recipe(1), 4)
 
       assert {:ok, entry} =
                Planning.eat_out(home_scope(), plan_id(), "wed_dinner", %{
@@ -375,7 +388,7 @@ defmodule Tore.PlanningTest do
 
     test "a recipe or a cleared day drops the entry", %{user_id: user_id} do
       {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{user_id: user_id})
-      {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "fri_dinner", 1, 4)
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "fri_dinner", recipe(1), 4)
       assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "fri_dinner") == nil
 
       {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "sat_dinner", %{user_id: user_id})
@@ -405,12 +418,43 @@ defmodule Tore.PlanningTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), plan_id())
       assert state.slots["mon_dinner"].skipped == true
-      assert state.slots["mon_dinner"].recipe_id == 1
+      assert state.slots["mon_dinner"].recipe_id == recipe(1)
       refute Tore.Planning.State.eating_out?(state.slots["mon_dinner"])
     end
   end
 
   describe "households" do
+    test "the weekly cron plans every household" do
+      other = scope_fixture(household_fixture())
+
+      Tore.MockLLM
+      |> Mox.expect(:chat_with_tools, 2, fn _sys, _msgs, _tools, _opts ->
+        {:ok, {:message, "Nothing to do."},
+         %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
+      end)
+
+      assert :ok = Planning.plan_upcoming_weeks()
+      assert [_] = Tore.Harness.RunReceipts.list(home_scope())
+      assert [_] = Tore.Harness.RunReceipts.list(other)
+    end
+
+    test "a plan can't be given another household's recipe" do
+      other = scope_fixture(household_fixture())
+      {:ok, theirs} = Tore.Recipes.create(other, %{title: "Pannkakor", recipe_type: :meal})
+      mine = Tore.Streams.plan(home_scope(), ~D[2026-11-02])
+
+      assert {:error, :recipe_not_found} =
+               Planning.assign_recipe(home_scope(), mine, "mon_dinner", theirs.id, 4)
+
+      assert {:error, :recipe_not_found} =
+               Planning.assign_with_leftovers(home_scope(), mine, "mon_dinner", theirs.id, 4, [
+                 "tue_dinner"
+               ])
+
+      assert {:ok, %{slots: slots}} = Planning.load_plan(home_scope(), mine)
+      assert slots == %{}
+    end
+
     test "the same week is a separate plan in each household" do
       other = scope_fixture(household_fixture())
       {:ok, recipe} = Tore.Recipes.create(home_scope(), %{title: "Ärtsoppa", recipe_type: :meal})

@@ -3,12 +3,20 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
 
   alias Tore.Harness.Capsules.PantryBeliefsCapsule, as: Capsule
 
-  @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
+  defp ctx do
+    scope = home_scope()
+
+    %{
+      household_id: scope.household_id,
+      plan_stream_id: Tore.Streams.plan(scope, ~D[2026-06-08]),
+      week_start: ~D[2026-06-08]
+    }
+  end
 
   test "build/1 caps names at 20 but keeps the full total" do
     for n <- 1..25, do: Tore.Pantry.add_item(home_scope(), %{name: "item #{n}", quantity: 1})
 
-    capsule = Capsule.build(@ctx)
+    capsule = Capsule.build(ctx())
     assert length(capsule.names) == 20
     assert capsule.total == 25
   end
@@ -16,7 +24,7 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
   test "to_prompt/1 lists names and the overflow count" do
     for n <- 1..25, do: Tore.Pantry.add_item(home_scope(), %{name: "item #{n}", quantity: 1})
 
-    prompt = @ctx |> Capsule.build() |> Capsule.to_prompt()
+    prompt = ctx() |> Capsule.build() |> Capsule.to_prompt()
     assert prompt =~ "Pantry has:"
     assert prompt =~ "and 5 more"
     assert String.ends_with?(prompt, ".")
@@ -25,13 +33,13 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
   test "to_prompt/1 has no overflow clause at or below 20 items" do
     for n <- 1..3, do: Tore.Pantry.add_item(home_scope(), %{name: "item #{n}", quantity: 1})
 
-    prompt = @ctx |> Capsule.build() |> Capsule.to_prompt()
+    prompt = ctx() |> Capsule.build() |> Capsule.to_prompt()
     assert prompt =~ "Pantry has:"
     refute prompt =~ "more"
   end
 
   test "to_prompt/1 is nil for an empty pantry" do
-    capsule = Capsule.build(@ctx)
+    capsule = Capsule.build(ctx())
     assert capsule.names == []
     assert capsule.total == 0
     assert Capsule.to_prompt(capsule) == nil
@@ -48,7 +56,7 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
 
     {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ål", expires_at: Date.utc_today()})
 
-    capsule = Capsule.build(@ctx)
+    capsule = Capsule.build(ctx())
 
     assert Enum.take(capsule.names, 2) == ["ål", "ägg"]
     assert capsule.use_soon == ["ål", "ägg"]
@@ -62,6 +70,6 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
         expires_at: Date.add(Date.utc_today(), -1)
       })
 
-    assert Capsule.build(@ctx) |> Capsule.to_prompt() == nil
+    assert Capsule.build(ctx()) |> Capsule.to_prompt() == nil
   end
 end

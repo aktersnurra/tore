@@ -36,11 +36,18 @@ defmodule Tore.Planning do
   end
 
   def assign_recipe(%Scope{} = scope, plan_id, slot_key, recipe_id, servings) do
-    run(scope, plan_id, %Commands.AssignRecipe{
-      slot_key: slot_key,
-      recipe_id: recipe_id,
-      servings: servings
-    })
+    with :ok <- own_recipe(scope, recipe_id) do
+      run(scope, plan_id, %Commands.AssignRecipe{
+        slot_key: slot_key,
+        recipe_id: recipe_id,
+        servings: servings
+      })
+    end
+  end
+
+  # A plan only ever points at the household's own recipes.
+  defp own_recipe(scope, recipe_id) do
+    if Recipes.get(scope, recipe_id), do: :ok, else: {:error, :recipe_not_found}
   end
 
   @doc """
@@ -58,7 +65,8 @@ defmodule Tore.Planning do
         leftover_days
       )
       when is_list(leftover_days) do
-    with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
+    with :ok <- own_recipe(scope, recipe_id),
+         {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
       {:ok, primary_events} =
         Decider.decide(
           %Commands.AssignRecipe{slot_key: slot_key, recipe_id: recipe_id, servings: servings},

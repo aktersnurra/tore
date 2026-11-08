@@ -9,7 +9,15 @@ defmodule Tore.Harness.CapsulesTest do
     PantryBeliefsCapsule
   }
 
-  @ctx %{household_id: 1, plan_stream_id: "plan:1:2026-06-08", week_start: ~D[2026-06-08]}
+  defp ctx do
+    scope = home_scope()
+
+    %{
+      household_id: scope.household_id,
+      plan_stream_id: Tore.Streams.plan(scope, ~D[2026-06-08]),
+      week_start: ~D[2026-06-08]
+    }
+  end
 
   test "compose/2 joins rendered capsules and drops nils, preserving order" do
     {:ok, _} =
@@ -18,7 +26,7 @@ defmodule Tore.Harness.CapsulesTest do
     # no insights seeded → ActiveInsightsCapsule renders nil and is dropped
 
     prompt =
-      Capsules.compose([HouseholdPreferencesCapsule, ActiveInsightsCapsule], @ctx)
+      Capsules.compose([HouseholdPreferencesCapsule, ActiveInsightsCapsule], ctx())
 
     assert prompt =~ "Household preferences:"
     refute prompt =~ "Household patterns:"
@@ -29,7 +37,7 @@ defmodule Tore.Harness.CapsulesTest do
     prompt =
       Capsules.compose(
         [HouseholdPreferencesCapsule, ActiveInsightsCapsule, PantryBeliefsCapsule],
-        @ctx
+        ctx()
       )
 
     assert prompt == ""
@@ -45,7 +53,7 @@ defmodule Tore.Harness.CapsulesTest do
       ])
 
     prompt =
-      Capsules.compose([HouseholdPreferencesCapsule, ActiveInsightsCapsule], @ctx)
+      Capsules.compose([HouseholdPreferencesCapsule, ActiveInsightsCapsule], ctx())
 
     assert prompt =~ "Household preferences:"
     assert prompt =~ "Household patterns:"

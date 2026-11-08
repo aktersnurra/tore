@@ -171,7 +171,7 @@ defmodule ToreWeb.HomeLive do
     pid = self()
 
     ctx = %{
-      household_id: socket.assigns.current_user.household_id,
+      household_id: socket.assigns.current_scope.household_id,
       user_id: socket.assigns.current_user.id,
       command: command,
       plan_stream_id: socket.assigns.plan_id,
