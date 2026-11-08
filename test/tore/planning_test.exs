@@ -370,17 +370,17 @@ defmodule Tore.PlanningTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), plan_id())
       assert state.slots == %{}
-      assert Tore.Costs.get_dining_out(plan_id(), "fri_dinner") == nil
+      assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "fri_dinner") == nil
     end
 
     test "a recipe or a cleared day drops the entry", %{user_id: user_id} do
       {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{user_id: user_id})
       {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "fri_dinner", 1, 4)
-      assert Tore.Costs.get_dining_out(plan_id(), "fri_dinner") == nil
+      assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "fri_dinner") == nil
 
       {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "sat_dinner", %{user_id: user_id})
       {:ok, _} = Planning.remove_recipe(home_scope(), plan_id(), "sat_dinner")
-      assert Tore.Costs.get_dining_out(plan_id(), "sat_dinner") == nil
+      assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "sat_dinner") == nil
     end
 
     test "old MealSkipped events with no reason still load" do

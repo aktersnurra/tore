@@ -55,7 +55,7 @@ defmodule Tore.Harness.ReceiptIngestionTest do
     assert {:ok, %State.Applied{}} =
              Orchestrator.commit_receipt(home_scope(), state.stream_id, cost, user.id)
 
-    receipt = Repo.one!(Receipt) |> Repo.preload(:line_items)
+    receipt = Repo.one!(Receipt, Tore.Scope.repo_opts(home_scope())) |> Repo.preload(:line_items)
     assert receipt.store_name == "ICA"
     assert Decimal.equal?(receipt.total_amount, Decimal.from_float(89.5))
 

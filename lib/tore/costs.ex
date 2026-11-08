@@ -1,5 +1,5 @@
 defmodule Tore.Costs do
-  alias Tore.{Repo, Costs.LLMUsage, Costs.Receipt, Costs.LineItem, Costs.DiningOut}
+  alias Tore.{Repo, Scope, Costs.LLMUsage, Costs.Receipt, Costs.LineItem, Costs.DiningOut}
   import Ecto.Query
 
   def log_llm_usage(attrs) do
@@ -52,18 +52,20 @@ defmodule Tore.Costs do
     )
   end
 
-  @spec recent_receipts(integer()) :: [Receipt.t()]
-  def recent_receipts(n) do
-    Repo.all(from r in Receipt, order_by: [desc: r.date], limit: ^n)
+  @spec recent_receipts(Scope.t(), integer()) :: [Receipt.t()]
+  def recent_receipts(%Scope{} = scope, n) do
+    Repo.all(from(r in Receipt, order_by: [desc: r.date], limit: ^n), Scope.repo_opts(scope))
   end
 
-  @spec log_receipt(map()) :: {:ok, Receipt.t()} | {:error, term()}
-  def log_receipt(attrs) do
+  @spec log_receipt(Scope.t(), map()) :: {:ok, Receipt.t()} | {:error, term()}
+  def log_receipt(%Scope{} = scope, attrs) do
     line_items = Map.get(attrs, :line_items, [])
     attrs = Map.delete(attrs, :line_items)
 
     Repo.transaction(fn ->
-      case %Receipt{} |> Receipt.changeset(attrs) |> Repo.insert() do
+      case %Receipt{household_id: scope.household_id}
+           |> Receipt.changeset(attrs)
+           |> Repo.insert() do
         {:ok, receipt} ->
           Enum.each(line_items, fn item ->
             %LineItem{}
@@ -121,59 +123,66 @@ defmodule Tore.Costs do
   One row per plan slot. A later call fills in what it's given and keeps the
   rest, so an amount can follow the day after. An empty string clears a field.
   """
-  @spec save_dining_out(map()) :: {:ok, DiningOut.t()} | {:error, Ecto.Changeset.t()}
-  def save_dining_out(%{plan_id: plan_id, slot_key: slot_key} = attrs) do
+  @spec save_dining_out(Scope.t(), map()) :: {:ok, DiningOut.t()} | {:error, Ecto.Changeset.t()}
+  def save_dining_out(%Scope{} = scope, %{plan_id: plan_id, slot_key: slot_key} = attrs) do
     given = attrs |> Enum.reject(fn {_field, value} -> is_nil(value) end) |> Map.new()
 
-    (get_dining_out(plan_id, slot_key) || %DiningOut{})
+    (get_dining_out(scope, plan_id, slot_key) || %DiningOut{household_id: scope.household_id})
     |> DiningOut.changeset(given)
     |> Repo.insert_or_update()
   end
 
-  @spec get_dining_out(String.t(), String.t()) :: DiningOut.t() | nil
-  def get_dining_out(plan_id, slot_key) do
-    Repo.get_by(DiningOut, plan_id: plan_id, slot_key: slot_key)
+  @spec get_dining_out(Scope.t(), String.t(), String.t()) :: DiningOut.t() | nil
+  def get_dining_out(%Scope{} = scope, plan_id, slot_key) do
+    Repo.get_by(DiningOut, [plan_id: plan_id, slot_key: slot_key], Scope.repo_opts(scope))
   end
 
-  @spec delete_dining_out(String.t(), [String.t()]) :: :ok
-  def delete_dining_out(plan_id, slot_keys) do
+  @spec delete_dining_out(Scope.t(), String.t(), [String.t()]) :: :ok
+  def delete_dining_out(%Scope{} = scope, plan_id, slot_keys) do
     Repo.delete_all(
-      from d in DiningOut, where: d.plan_id == ^plan_id and d.slot_key in ^slot_keys
+      from(d in DiningOut, where: d.plan_id == ^plan_id and d.slot_key in ^slot_keys),
+      Scope.repo_opts(scope)
     )
 
     :ok
   end
 
-  @spec dining_out_in_month(integer(), integer()) :: [DiningOut.t()]
-  def dining_out_in_month(year, month) do
+  @spec dining_out_in_month(Scope.t(), integer(), integer()) :: [DiningOut.t()]
+  def dining_out_in_month(%Scope{} = scope, year, month) do
     {:ok, month_start} = Date.new(year, month, 1)
     month_end = Date.end_of_month(month_start)
 
     Repo.all(
-      from d in DiningOut,
+      from(d in DiningOut,
         where: d.date >= ^month_start and d.date <= ^month_end,
         order_by: [desc: d.date]
+      ),
+      Scope.repo_opts(scope)
     )
   end
 
-  @spec monthly_total(integer(), integer()) :: Decimal.t()
-  def monthly_total(year, month) do
+  @spec monthly_total(Scope.t(), integer(), integer()) :: Decimal.t()
+  def monthly_total(%Scope{} = scope, year, month) do
     {:ok, month_start} = Date.new(year, month, 1)
     month_end = Date.end_of_month(month_start)
 
     grocery =
       Repo.one(
-        from r in Receipt,
+        from(r in Receipt,
           where: r.date >= ^month_start and r.date <= ^month_end,
           select: coalesce(sum(r.total_amount), 0)
+        ),
+        Scope.repo_opts(scope)
       )
       |> to_decimal()
 
     dining =
       Repo.one(
-        from d in DiningOut,
+        from(d in DiningOut,
           where: d.date >= ^month_start and d.date <= ^month_end,
           select: coalesce(sum(d.total_amount), 0)
+        ),
+        Scope.repo_opts(scope)
       )
       |> to_decimal()
 

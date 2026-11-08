@@ -3,6 +3,7 @@ defmodule Tore.Costs.Receipt do
   import Ecto.Changeset
 
   schema "receipts" do
+    field :household_id, :integer
     field :date, :date
     field :store_name, :string
     field :total_amount, :decimal

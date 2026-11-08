@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateDiningOut do
 
   def change do
     create table(:dining_out) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :date, :date, null: false
       add :description, :string
       add :total_amount, :decimal
@@ -13,7 +14,7 @@ defmodule Tore.Repo.Migrations.CreateDiningOut do
     end
 
     create index(:dining_out, [:user_id])
-    create index(:dining_out, [:date])
+    create index(:dining_out, [:household_id, :date])
     create unique_index(:dining_out, [:plan_id, :slot_key])
   end
 end

@@ -111,7 +111,7 @@ defmodule ToreWeb.PlannerLiveTest do
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert Tore.Planning.State.eating_out?(state.slots["thu_dinner"])
 
-      entry = Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner")
+      entry = Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner")
       assert entry.description == "Sushi"
       assert Decimal.equal?(entry.total_amount, 450)
 
@@ -131,7 +131,9 @@ defmodule ToreWeb.PlannerLiveTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["wed_dinner"].recipe_id == nil
-      assert Tore.Costs.get_dining_out(this_plan_id(), "wed_dinner").total_amount == nil
+
+      assert Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "wed_dinner").total_amount ==
+               nil
     end
 
     test "the sheet shows what was saved, and can add an amount later", %{conn: conn, user: user} do
@@ -147,7 +149,7 @@ defmodule ToreWeb.PlannerLiveTest do
       lv |> form("#eating-out-form", %{place: "Sushi", amount: "300"}) |> render_submit()
 
       assert Decimal.equal?(
-               Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner").total_amount,
+               Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner").total_amount,
                300
              )
     end
@@ -161,7 +163,7 @@ defmodule ToreWeb.PlannerLiveTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       refute Map.has_key?(state.slots, "thu_dinner")
-      assert Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner") == nil
+      assert Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner") == nil
     end
 
     test "picking a recipe replaces eating out", %{conn: conn, user: user, recipe: recipe} do
@@ -175,7 +177,7 @@ defmodule ToreWeb.PlannerLiveTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["thu_dinner"].recipe_id == recipe.id
-      assert Tore.Costs.get_dining_out(this_plan_id(), "thu_dinner") == nil
+      assert Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner") == nil
     end
 
     test "search_slot_recipes event updates search state", %{conn: conn, user: user} do

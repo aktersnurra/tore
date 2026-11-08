@@ -412,7 +412,7 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, _receipt} <- ReceiptIngestion.apply!(cost, user_id),
+         {:ok, _receipt} <- ReceiptIngestion.apply!(scope, cost, user_id),
          {:ok, state} <-
            apply_command(state.stream_id, %Commands.AddArtifact{artifact: cost}, state, metadata),
          run_summary = RunSummary.from_artifacts([cost], :applied),

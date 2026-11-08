@@ -50,9 +50,10 @@ defmodule Tore.Harness.ReceiptIngestion do
     }
   end
 
-  @spec apply!(CostEntry.t(), integer() | nil) :: {:ok, Costs.Receipt.t()} | {:error, term()}
-  def apply!(%CostEntry{} = cost, user_id) do
-    Costs.log_receipt(%{
+  @spec apply!(Tore.Scope.t(), CostEntry.t(), integer() | nil) ::
+          {:ok, Costs.Receipt.t()} | {:error, term()}
+  def apply!(%Tore.Scope{} = scope, %CostEntry{} = cost, user_id) do
+    Costs.log_receipt(scope, %{
       date: cost.date,
       store_name: cost.store_name,
       total_amount: cost.total,

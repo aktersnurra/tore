@@ -103,7 +103,11 @@ defmodule Tore.Capture.DispatchTest do
       Dispatch.mark_eating_out(date, %{description: nil, total_amount: 450}, ctx)
 
       entry =
-        Tore.Costs.get_dining_out(Tore.Streams.plan(home_scope(), ~D[2026-11-09]), "fri_dinner")
+        Tore.Costs.get_dining_out(
+          home_scope(),
+          Tore.Streams.plan(home_scope(), ~D[2026-11-09]),
+          "fri_dinner"
+        )
 
       assert entry.date == date
       assert entry.description == "Sushi"

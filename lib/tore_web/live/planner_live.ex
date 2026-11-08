@@ -87,7 +87,7 @@ defmodule ToreWeb.PlannerLive do
       skipped: (slot && slot.skipped && !State.eating_out?(slot)) || false,
       eating_out: State.eating_out?(slot),
       eating_out_open: State.eating_out?(slot),
-      dining: Costs.get_dining_out(socket.assigns.plan_id, sk),
+      dining: Costs.get_dining_out(socket.assigns.current_scope, socket.assigns.plan_id, sk),
       flipped: false,
       pinned: Map.has_key?(socket.assigns.plan_state.pins, sk)
     }

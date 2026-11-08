@@ -145,7 +145,7 @@ defmodule Tore.Planning do
 
   def apply_events(%Scope{} = scope, plan_id, events) do
     with :ok <- EventStore.append(scope, plan_id, events) do
-      Costs.delete_dining_out(plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
+      Costs.delete_dining_out(scope, plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
       PubSub.broadcast(@pubsub, @topic, {:events, events})
       :ok
     end
@@ -222,7 +222,7 @@ defmodule Tore.Planning do
       Repo.transaction(fn ->
         with {:ok, state} <- EventStore.load(scope, plan_id, Decider),
              {:ok, events} <- Decider.decide(%Commands.EatOut{slot_key: slot_key}, state),
-             {:ok, entry} <- Costs.save_dining_out(entry_attrs),
+             {:ok, entry} <- Costs.save_dining_out(scope, entry_attrs),
              :ok <- EventStore.append(scope, plan_id, events) do
           {entry, events}
         else
