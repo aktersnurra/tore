@@ -92,7 +92,9 @@ defmodule Tore.LLM.PlannerAgentTest do
   end
 
   test "run/4 accumulates plan_events and evolves working_plan across the loop" do
-    {:ok, r} = Tore.Recipes.create(%{title: "Z", base_servings: 2, instructions: "x"})
+    {:ok, r} =
+      Tore.Recipes.create(home_scope(), %{title: "Z", base_servings: 2, instructions: "x"})
+
     rid = r.id
 
     start_plan =
@@ -243,7 +245,9 @@ defmodule Tore.LLM.PlannerAgentTest do
   end
 
   test "assign_recipe via a pre-seeded handle ref applies the command" do
-    {:ok, r} = Tore.Recipes.create(%{title: "Salmon", base_servings: 2, instructions: "x"})
+    {:ok, r} =
+      Tore.Recipes.create(home_scope(), %{title: "Salmon", base_servings: 2, instructions: "x"})
+
     handle = Handles.recipe(r.id, r.title, :search_recipes, 1.0)
     ctx = Map.put(@ctx, :handles, Handles.register(%{}, handle))
 

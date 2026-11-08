@@ -14,8 +14,8 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsule do
         }
 
   @impl true
-  def build(_ctx) do
-    items = Pantry.list_usable()
+  def build(ctx) do
+    items = Pantry.list_usable(Tore.Scope.for_household(ctx.household_id))
     use_soon = items |> Enum.filter(&use_soon?/1) |> Enum.sort_by(& &1.expires_at, Date)
     names = Enum.map(use_soon ++ (items -- use_soon), & &1.name) |> Enum.take(20)
 

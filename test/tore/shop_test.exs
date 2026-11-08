@@ -1,6 +1,8 @@
 defmodule Tore.ShopTest do
   use ExUnit.Case, async: false
 
+  import Tore.AccountsFixtures, only: [home_scope: 0]
+
   import Mox
 
   alias Tore.{Shop, Recipes}
@@ -65,13 +67,13 @@ defmodule Tore.ShopTest do
     item_id = state.items |> Map.keys() |> List.first()
 
     Shop.check_item(list_id(), item_id, 1)
-    pantry = Tore.Pantry.list_inventory()
+    pantry = Tore.Pantry.list_inventory(home_scope())
     assert Enum.any?(pantry, &(&1.name == "pasta"))
   end
 
   test "build_list aggregates recipe ingredients and broadcasts" do
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Test Recipe",
         ingredients: [%{name: "onion", quantity: Decimal.new("2"), unit: "pcs"}]
       })
@@ -85,7 +87,7 @@ defmodule Tore.ShopTest do
 
   test "annotate_with_pantry_belief/1 tags items whose name matches a non-missing pantry row" do
     {:ok, _, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Milk", provenance: "receipt"})
+      Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: "Milk", provenance: "receipt"})
 
     items = [
       %{id: "a", name: "milk", quantity: nil, unit: nil, checked: false},
@@ -102,13 +104,22 @@ defmodule Tore.ShopTest do
 
   test "annotate_with_pantry_belief/1 does not match on partial-word overlaps" do
     {:ok, _, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Graham flour", provenance: "manual"})
+      Tore.Pantry.upsert_belief(home_scope(), %{
+        catalogue_name: "Graham flour",
+        provenance: "manual"
+      })
 
     {:ok, _, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Buttermilk", provenance: "manual"})
+      Tore.Pantry.upsert_belief(home_scope(), %{
+        catalogue_name: "Buttermilk",
+        provenance: "manual"
+      })
 
     {:ok, _, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Salted butter", provenance: "manual"})
+      Tore.Pantry.upsert_belief(home_scope(), %{
+        catalogue_name: "Salted butter",
+        provenance: "manual"
+      })
 
     items = [
       %{id: "a", name: "ham", quantity: nil, unit: nil, checked: false},
@@ -125,7 +136,10 @@ defmodule Tore.ShopTest do
 
   test "annotate_with_pantry_belief/1 matches when one full token is shared" do
     {:ok, _, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Whole milk", provenance: "manual"})
+      Tore.Pantry.upsert_belief(home_scope(), %{
+        catalogue_name: "Whole milk",
+        provenance: "manual"
+      })
 
     [annotated] =
       Shop.annotate_with_pantry_belief([
@@ -137,7 +151,7 @@ defmodule Tore.ShopTest do
 
   test "annotate_with_pantry_belief/1 surfaces decayed belief, not stored belief" do
     {:ok, item, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Old milk", provenance: "vision"})
+      Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: "Old milk", provenance: "vision"})
 
     backdated = DateTime.utc_now() |> DateTime.add(-20, :day) |> DateTime.truncate(:second)
 
@@ -155,7 +169,7 @@ defmodule Tore.ShopTest do
 
   test "annotate_with_pantry_belief/1 ignores pantry rows that are missing" do
     {:ok, item, _, _} =
-      Tore.Pantry.upsert_belief(%{catalogue_name: "Yeast", provenance: "manual"})
+      Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: "Yeast", provenance: "manual"})
 
     item
     |> Ecto.Changeset.change(belief: "missing")
@@ -170,10 +184,14 @@ defmodule Tore.ShopTest do
   end
 
   test "build_list filters only against pantry items still within their date" do
-    {:ok, _} = Tore.Pantry.add_item(%{name: "färsk ost", expires_at: Date.utc_today()})
+    {:ok, _} =
+      Tore.Pantry.add_item(home_scope(), %{name: "färsk ost", expires_at: Date.utc_today()})
 
     {:ok, _} =
-      Tore.Pantry.add_item(%{name: "gammal ost", expires_at: Date.add(Date.utc_today(), -1)})
+      Tore.Pantry.add_item(home_scope(), %{
+        name: "gammal ost",
+        expires_at: Date.add(Date.utc_today(), -1)
+      })
 
     test_pid = self()
 

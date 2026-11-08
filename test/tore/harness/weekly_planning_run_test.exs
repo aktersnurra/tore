@@ -22,7 +22,7 @@ defmodule Tore.Harness.WeeklyPlanningRunTest do
     ctx = ctx_for(week_start)
 
     {:ok, chosen} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Lentil stew",
         recipe_type: :meal,
         base_servings: 4,
@@ -31,7 +31,7 @@ defmodule Tore.Harness.WeeklyPlanningRunTest do
       })
 
     {:ok, pinned_recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Pinned pasta",
         recipe_type: :meal,
         base_servings: 4,

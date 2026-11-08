@@ -20,7 +20,7 @@ defmodule Tore.Repo do
   alias Ecto.Query.{BooleanExpr, JoinExpr}
 
   # Grows as each context takes a scope.
-  @household_tables MapSet.new(~w(uploaded_images))
+  @household_tables MapSet.new(~w(uploaded_images recipes ingredients tags pantry_items))
 
   @doc false
   def household_tables, do: @household_tables

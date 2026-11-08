@@ -18,7 +18,13 @@ defmodule Tore.LLM.PlannerToolsTest do
       {:ok, %{"prompt" => "A plate of food."}, %{}}
     end)
 
-    %{ctx: %{plan_id: "plan:test", week_start: @week_start}}
+    %{
+      ctx: %{
+        plan_id: "plan:test",
+        week_start: @week_start,
+        household_id: home_scope().household_id
+      }
+    }
   end
 
   defp make_recipe(attrs \\ %{}) do
@@ -28,7 +34,7 @@ defmodule Tore.LLM.PlannerToolsTest do
       instructions: "x"
     }
 
-    {:ok, r} = Tore.Recipes.create(Map.merge(base, attrs))
+    {:ok, r} = Tore.Recipes.create(home_scope(), Map.merge(base, attrs))
     r
   end
 

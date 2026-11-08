@@ -25,11 +25,11 @@ defmodule Tore.RecipesTest do
   describe "generate_image/2" do
     test "stores the S3 object key in image_path, not a URL" do
       Tore.Storage.Mock.reset()
-      {:ok, recipe} = Recipes.create(recipe_attrs())
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
 
-      :ok = Recipes.generate_image(recipe, nil)
+      :ok = Recipes.generate_image(home_scope(), recipe, nil)
 
-      reloaded = Recipes.get!(recipe.id)
+      reloaded = Recipes.get!(home_scope(), recipe.id)
       assert String.starts_with?(reloaded.image_path, "recipes/#{recipe.id}/")
       assert String.ends_with?(reloaded.image_path, ".jpg")
       refute String.contains?(reloaded.image_path, "://")
@@ -37,10 +37,10 @@ defmodule Tore.RecipesTest do
 
     test "broadcasts {:recipe_image, id, key} on the recipes topic" do
       Tore.Storage.Mock.reset()
-      {:ok, recipe} = Recipes.create(recipe_attrs())
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
       Phoenix.PubSub.subscribe(Tore.PubSub, "recipes")
 
-      :ok = Recipes.generate_image(recipe, nil)
+      :ok = Recipes.generate_image(home_scope(), recipe, nil)
 
       assert_receive {:recipe_image, recipe_id, key}
       assert recipe_id == recipe.id
@@ -50,52 +50,59 @@ defmodule Tore.RecipesTest do
 
   describe "create/1" do
     test "inserts a basic recipe" do
-      assert {:ok, recipe} = Recipes.create(recipe_attrs())
+      assert {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
       assert recipe.title == "Test Recipe"
       assert recipe.recipe_type == :meal
     end
 
     test "inserts recipe with tags" do
-      {:ok, recipe} = Recipes.create(recipe_attrs(%{tags: ["quick", "batch"]}))
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs(%{tags: ["quick", "batch"]}))
       tag_names = Enum.map(recipe.tags, & &1.name)
       assert "quick" in tag_names
       assert "batch" in tag_names
     end
 
     test "upserts ingredients — no duplicate names" do
-      {:ok, _} = Recipes.create(recipe_attrs(%{ingredients: [%{name: "garlic"}]}))
+      {:ok, _} = Recipes.create(home_scope(), recipe_attrs(%{ingredients: [%{name: "garlic"}]}))
 
       {:ok, _} =
-        Recipes.create(recipe_attrs(%{title: "Recipe 2", ingredients: [%{name: "garlic"}]}))
+        Recipes.create(
+          home_scope(),
+          recipe_attrs(%{title: "Recipe 2", ingredients: [%{name: "garlic"}]})
+        )
 
-      assert Repo.aggregate(Tore.Recipes.Ingredient, :count) == 1
+      assert Repo.aggregate(Tore.Recipes.Ingredient, :count, Tore.Scope.repo_opts(home_scope())) ==
+               1
     end
 
     test "inserts recipe with ingredients" do
       attrs = recipe_attrs(%{ingredients: [%{name: "onion", quantity: 2, unit: "pcs"}]})
-      {:ok, recipe} = Recipes.create(attrs)
+      {:ok, recipe} = Recipes.create(home_scope(), attrs)
       assert length(recipe.recipe_ingredients) == 1
       ri = hd(recipe.recipe_ingredients)
       assert ri.ingredient.name == "onion"
     end
 
     test "returns error for missing title" do
-      assert {:error, changeset} = Recipes.create(%{})
+      assert {:error, changeset} = Recipes.create(home_scope(), %{})
       assert %{title: [_ | _]} = errors_on(changeset)
     end
   end
 
   describe "update/2" do
     test "updates fields" do
-      {:ok, recipe} = Recipes.create(recipe_attrs())
-      {:ok, updated} = Recipes.update(recipe, %{title: "Updated", prep_time_minutes: 15})
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
+
+      {:ok, updated} =
+        Recipes.update(home_scope(), recipe, %{title: "Updated", prep_time_minutes: 15})
+
       assert updated.title == "Updated"
       assert updated.prep_time_minutes == 15
     end
 
     test "replaces tags" do
-      {:ok, recipe} = Recipes.create(recipe_attrs(%{tags: ["quick"]}))
-      {:ok, updated} = Recipes.update(recipe, %{tags: ["batch", "vegetarian"]})
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs(%{tags: ["quick"]}))
+      {:ok, updated} = Recipes.update(home_scope(), recipe, %{tags: ["batch", "vegetarian"]})
       tag_names = Enum.map(updated.tags, & &1.name)
       assert "batch" in tag_names
       assert "vegetarian" in tag_names
@@ -103,8 +110,8 @@ defmodule Tore.RecipesTest do
     end
 
     test "nil tags leaves existing tags unchanged" do
-      {:ok, recipe} = Recipes.create(recipe_attrs(%{tags: ["quick"]}))
-      {:ok, updated} = Recipes.update(recipe, %{title: "New title"})
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs(%{tags: ["quick"]}))
+      {:ok, updated} = Recipes.update(home_scope(), recipe, %{title: "New title"})
       tag_names = Enum.map(updated.tags, & &1.name)
       assert "quick" in tag_names
     end
@@ -113,14 +120,14 @@ defmodule Tore.RecipesTest do
   describe "update/2 with ingredients" do
     test "replaces all ingredients on update" do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Soup",
           recipe_type: :meal,
           ingredients: [%{name: "Water", quantity: "1", unit: "L"}]
         })
 
       {:ok, updated} =
-        Recipes.update(recipe, %{
+        Recipes.update(home_scope(), recipe, %{
           ingredients: [
             %{name: "Chicken", quantity: "500", unit: "g"},
             %{name: "Salt", quantity: "1", unit: "tsp"}
@@ -136,25 +143,25 @@ defmodule Tore.RecipesTest do
 
     test "clears all ingredients when passed empty list" do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Soup",
           recipe_type: :meal,
           ingredients: [%{name: "Water", quantity: "1", unit: "L"}]
         })
 
-      {:ok, updated} = Recipes.update(recipe, %{ingredients: []})
+      {:ok, updated} = Recipes.update(home_scope(), recipe, %{ingredients: []})
       assert updated.recipe_ingredients == []
     end
 
     test "does not touch ingredients when key is absent" do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Soup",
           recipe_type: :meal,
           ingredients: [%{name: "Water", quantity: "1", unit: "L"}]
         })
 
-      {:ok, updated} = Recipes.update(recipe, %{title: "Updated Soup"})
+      {:ok, updated} = Recipes.update(home_scope(), recipe, %{title: "Updated Soup"})
       assert length(updated.recipe_ingredients) == 1
       assert hd(updated.recipe_ingredients).ingredient.name == "Water"
     end
@@ -163,7 +170,7 @@ defmodule Tore.RecipesTest do
   describe "list/1" do
     setup do
       {:ok, r1} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Alpha",
           recipe_type: :meal,
           prep_time_minutes: 10,
@@ -172,7 +179,7 @@ defmodule Tore.RecipesTest do
         })
 
       {:ok, r2} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Beta",
           recipe_type: :component,
           prep_time_minutes: 5,
@@ -181,7 +188,7 @@ defmodule Tore.RecipesTest do
         })
 
       {:ok, r3} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Gamma",
           recipe_type: :assembly,
           prep_time_minutes: 5,
@@ -193,11 +200,11 @@ defmodule Tore.RecipesTest do
     end
 
     test "returns all recipes by default" do
-      assert length(Recipes.list()) == 3
+      assert length(Recipes.list(home_scope())) == 3
     end
 
     test "filters by single tag" do
-      results = Recipes.list(tags: ["quick"])
+      results = Recipes.list(home_scope(), tags: ["quick"])
       titles = Enum.map(results, & &1.title)
       assert "Alpha" in titles
       assert "Gamma" in titles
@@ -205,19 +212,19 @@ defmodule Tore.RecipesTest do
     end
 
     test "filters by multiple tags (AND)" do
-      results = Recipes.list(tags: ["quick", "vegetarian"])
+      results = Recipes.list(home_scope(), tags: ["quick", "vegetarian"])
       assert length(results) == 1
       assert hd(results).title == "Gamma"
     end
 
     test "filters by type" do
-      results = Recipes.list(type: :component)
+      results = Recipes.list(home_scope(), type: :component)
       assert length(results) == 1
       assert hd(results).title == "Beta"
     end
 
     test "filters by max_minutes" do
-      results = Recipes.list(max_minutes: 30)
+      results = Recipes.list(home_scope(), max_minutes: 30)
       titles = Enum.map(results, & &1.title)
       assert "Alpha" in titles
       assert "Gamma" in titles
@@ -225,7 +232,7 @@ defmodule Tore.RecipesTest do
     end
 
     test "weeknight_friendly: quick tag + ≤45 min" do
-      results = Recipes.list(weeknight_friendly: true)
+      results = Recipes.list(home_scope(), weeknight_friendly: true)
       titles = Enum.map(results, & &1.title)
       assert "Alpha" in titles
       assert "Gamma" in titles
@@ -233,7 +240,7 @@ defmodule Tore.RecipesTest do
     end
 
     test "sorts alphabetically" do
-      results = Recipes.list(sort: :alphabetical)
+      results = Recipes.list(home_scope(), sort: :alphabetical)
       titles = Enum.map(results, & &1.title)
       assert titles == Enum.sort(titles)
     end
@@ -241,50 +248,54 @@ defmodule Tore.RecipesTest do
 
   describe "search/1" do
     setup do
-      {:ok, _} = Recipes.create(%{title: "Chicken Soup", recipe_type: :meal})
+      {:ok, _} = Recipes.create(home_scope(), %{title: "Chicken Soup", recipe_type: :meal})
 
       {:ok, _} =
-        Recipes.create(%{title: "Pasta", recipe_type: :meal, ingredients: [%{name: "garlic"}]})
+        Recipes.create(home_scope(), %{
+          title: "Pasta",
+          recipe_type: :meal,
+          ingredients: [%{name: "garlic"}]
+        })
 
       :ok
     end
 
     test "matches by title" do
-      results = Recipes.search("chicken")
+      results = Recipes.search(home_scope(), "chicken")
       assert length(results) == 1
       assert hd(results).title == "Chicken Soup"
     end
 
     test "matches by ingredient name" do
-      results = Recipes.search("garlic")
+      results = Recipes.search(home_scope(), "garlic")
       assert length(results) == 1
       assert hd(results).title == "Pasta"
     end
 
     test "returns empty list for no match" do
-      assert [] = Recipes.search("xyz123notarecipe")
+      assert [] = Recipes.search(home_scope(), "xyz123notarecipe")
     end
 
     test "returns empty list for empty query" do
-      assert [] = Recipes.search("")
+      assert [] = Recipes.search(home_scope(), "")
     end
   end
 
   describe "record_used/1" do
     test "sets last_used_at" do
-      {:ok, recipe} = Recipes.create(recipe_attrs())
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
       assert is_nil(recipe.last_used_at)
-      :ok = Recipes.record_used(recipe.id)
-      updated = Recipes.get!(recipe.id)
+      :ok = Recipes.record_used(home_scope(), recipe.id)
+      updated = Recipes.get!(home_scope(), recipe.id)
       refute is_nil(updated.last_used_at)
     end
   end
 
   describe "delete/1" do
     test "removes the recipe" do
-      {:ok, recipe} = Recipes.create(recipe_attrs())
-      {:ok, _} = Recipes.delete(recipe)
-      assert_raise Ecto.NoResultsError, fn -> Recipes.get!(recipe.id) end
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
+      {:ok, _} = Recipes.delete(home_scope(), recipe)
+      assert_raise Ecto.NoResultsError, fn -> Recipes.get!(home_scope(), recipe.id) end
     end
   end
 
@@ -314,19 +325,22 @@ defmodule Tore.RecipesTest do
   describe "ingredient key on create" do
     test "key is auto-derived from name" do
       {:ok, recipe} =
-        Recipes.create(recipe_attrs(%{ingredients: [%{name: "Gul Lök"}]}))
+        Recipes.create(home_scope(), recipe_attrs(%{ingredients: [%{name: "Gul Lök"}]}))
 
       ingredient = hd(recipe.recipe_ingredients).ingredient
       assert ingredient.key == "gul_lok"
     end
 
     test "two recipes sharing an ingredient share the same key" do
-      {:ok, _} = Recipes.create(recipe_attrs(%{ingredients: [%{name: "vitlök"}]}))
+      {:ok, _} = Recipes.create(home_scope(), recipe_attrs(%{ingredients: [%{name: "vitlök"}]}))
 
       {:ok, _} =
-        Recipes.create(recipe_attrs(%{title: "Recipe 2", ingredients: [%{name: "vitlök"}]}))
+        Recipes.create(
+          home_scope(),
+          recipe_attrs(%{title: "Recipe 2", ingredients: [%{name: "vitlök"}]})
+        )
 
-      ingredients = Repo.all(Ingredient)
+      ingredients = Repo.all(Ingredient, Tore.Scope.repo_opts(home_scope()))
       keys = Enum.map(ingredients, & &1.key)
       assert keys == ["vitlok"]
     end
@@ -338,6 +352,7 @@ defmodule Tore.RecipesTest do
 
       {:ok, _} =
         Recipes.create(
+          home_scope(),
           recipe_attrs(%{
             title: "Miso Ramen",
             base_servings: 4,
@@ -345,8 +360,39 @@ defmodule Tore.RecipesTest do
           })
         )
 
-      assert [%{title: "Miso Ramen", ingredient_names: names}] = Recipes.catalog_fingerprints()
+      assert [%{title: "Miso Ramen", ingredient_names: names}] =
+               Recipes.catalog_fingerprints(home_scope())
+
       assert Enum.sort(names) == ["miso paste", "ramen noodles"]
+    end
+  end
+
+  describe "households" do
+    test "a household sees only its own recipes" do
+      other = scope_fixture(household_fixture())
+      {:ok, mine} = Recipes.create(home_scope(), recipe_attrs(%{title: "Ärtsoppa"}))
+      {:ok, theirs} = Recipes.create(other, recipe_attrs(%{title: "Pannkakor"}))
+
+      assert Enum.map(Recipes.list(home_scope()), & &1.id) == [mine.id]
+      assert Recipes.search(home_scope(), "Pannkakor") == []
+      assert Recipes.get(home_scope(), theirs.id) == nil
+      assert_raise Ecto.NoResultsError, fn -> Recipes.get!(home_scope(), theirs.id) end
+      assert_raise FunctionClauseError, fn -> Recipes.delete(home_scope(), theirs) end
+      assert Recipes.get!(other, theirs.id)
+    end
+
+    test "two households can each have an ingredient with the same name" do
+      other = scope_fixture(household_fixture())
+      attrs = recipe_attrs(%{ingredients: [%{name: "vitlök"}]})
+
+      {:ok, mine} = Recipes.create(home_scope(), attrs)
+      {:ok, theirs} = Recipes.create(other, attrs)
+
+      [%{ingredient: mine_ing}] = Recipes.get!(home_scope(), mine.id).recipe_ingredients
+      [%{ingredient: their_ing}] = Recipes.get!(other, theirs.id).recipe_ingredients
+      assert mine_ing.id != their_ing.id
+      assert mine_ing.household_id == home_scope().household_id
+      assert their_ing.household_id == other.household_id
     end
   end
 end

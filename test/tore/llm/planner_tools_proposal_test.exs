@@ -18,7 +18,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
     stub(Tore.MockHTTP, :fetch, fn _url -> {:error, :not_found} end)
 
     {:ok, recipe} =
-      Tore.Recipes.create(%{
+      Tore.Recipes.create(home_scope(), %{
         title: "Miso Ramen",
         instructions: "Simmer the broth.",
         base_servings: 4,
@@ -188,7 +188,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
       {:proposal, _proposal, _pending, @plan} =
         tool("import_recipe_from_web").run.(args, %{household_id: 1}, @plan)
 
-      assert Tore.Recipes.list() == []
+      assert Tore.Recipes.list(home_scope()) == []
     end
   end
 end

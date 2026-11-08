@@ -141,15 +141,35 @@ defmodule Tore.Harness.UndoPayloadTest do
 
       update = %PantryBeliefUpdate{
         items: [
-          %{name: "x", change: :added, quantity: nil, unit: nil, category: nil,
-            provenance: "receipt", last_seen_at: ~U[2026-06-27 12:00:00Z]}
+          %{
+            name: "x",
+            change: :added,
+            quantity: nil,
+            unit: nil,
+            category: nil,
+            provenance: "receipt",
+            last_seen_at: ~U[2026-06-27 12:00:00Z]
+          }
         ]
       }
 
-      cost = %CostEntry{store_name: "ICA", date: ~D[2026-06-27], total: Decimal.new("1"), line_items: []}
+      cost = %CostEntry{
+        store_name: "ICA",
+        date: ~D[2026-06-27],
+        total: Decimal.new("1"),
+        line_items: []
+      }
+
       summary = %RunSummary{counts: %{}, outcome: :applied}
 
-      for artifacts <- [[diff], [update], [cost], [summary], [diff, update, summary], [diff, cost]] do
+      for artifacts <- [
+            [diff],
+            [update],
+            [cost],
+            [summary],
+            [diff, update, summary],
+            [diff, cost]
+          ] do
         %UndoPayload{kind: k} = UndoPayload.from_artifacts(artifacts)
         assert k in UndoPayload.kinds(), "kind #{inspect(k)} escaped from #{inspect(artifacts)}"
       end

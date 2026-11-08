@@ -140,7 +140,7 @@ defmodule ToreWeb.HomeLiveTest do
 
   defp seed_tonight_recipe do
     {:ok, recipe} =
-      Tore.Recipes.create(%{
+      Tore.Recipes.create(home_scope(), %{
         title: "Chicken gratäng",
         recipe_type: :meal,
         base_servings: 4,

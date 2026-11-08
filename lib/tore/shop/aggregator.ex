@@ -7,7 +7,7 @@ defmodule Tore.Shop.Aggregator do
   def aggregate_by_ids(recipe_ids) do
     recipe_ids
     |> Enum.flat_map(fn id ->
-      recipe = Recipes.get!(id)
+      recipe = Recipes.get!(Tore.Scope.for_household(Tore.Household.get_household!().id), id)
 
       Enum.map(recipe.recipe_ingredients, fn ri ->
         %{name: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}

@@ -17,7 +17,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
     ctx = ctx_for(week_start)
 
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Roast chicken",
         recipe_type: :meal,
         base_servings: 4,
@@ -60,7 +60,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
     ctx = ctx_for(week_start)
 
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Pizza Margherita",
         recipe_type: :meal,
         base_servings: 4,

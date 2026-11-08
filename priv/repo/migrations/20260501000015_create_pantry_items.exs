@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreatePantryItems do
 
   def change do
     create table(:pantry_items) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :name, :string, null: false
       add :quantity, :decimal
       add :unit, :string
@@ -17,6 +18,7 @@ defmodule Tore.Repo.Migrations.CreatePantryItems do
       timestamps()
     end
 
+    create index(:pantry_items, [:household_id])
     create index(:pantry_items, [:ingredient_id])
   end
 end

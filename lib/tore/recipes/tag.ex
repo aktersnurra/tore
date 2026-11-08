@@ -4,6 +4,7 @@ defmodule Tore.Recipes.Tag do
 
   schema "tags" do
     field :name, :string
+    field :household_id, :integer
     many_to_many :recipes, Tore.Recipes.Recipe, join_through: Tore.Recipes.RecipeTag
     timestamps()
   end
@@ -12,6 +13,6 @@ defmodule Tore.Recipes.Tag do
     tag
     |> cast(attrs, [:name])
     |> validate_required([:name])
-    |> unique_constraint(:name)
+    |> unique_constraint([:household_id, :name])
   end
 end

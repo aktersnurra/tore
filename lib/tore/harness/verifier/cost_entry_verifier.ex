@@ -55,7 +55,9 @@ defmodule Tore.Harness.Verifier.CostEntryVerifier do
     if priced == [] do
       :ok
     else
-      item_sum = Enum.reduce(priced, Decimal.new(0), fn it, acc -> Decimal.add(acc, it.total_price) end)
+      item_sum =
+        Enum.reduce(priced, Decimal.new(0), fn it, acc -> Decimal.add(acc, it.total_price) end)
+
       diff = Decimal.abs(Decimal.sub(item_sum, total))
       cap = Decimal.mult(Decimal.abs(total), @tolerance_pct)
 

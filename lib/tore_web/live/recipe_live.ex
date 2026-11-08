@@ -12,7 +12,7 @@ defmodule ToreWeb.RecipeLive do
     {:ok,
      socket
      |> assign(
-       recipes: Recipes.list(),
+       recipes: Recipes.list(socket.assigns.current_scope),
        search: "",
        filter_tags: [],
        filter_type: :all,
@@ -40,7 +40,9 @@ defmodule ToreWeb.RecipeLive do
   # ── Events ─────────────────────────────────────────────────────────────────
 
   def handle_event("search", %{"query" => q}, socket) do
-    recipes = if q == "", do: reload(socket), else: Recipes.search(q)
+    recipes =
+      if q == "", do: reload(socket), else: Recipes.search(socket.assigns.current_scope, q)
+
     {:noreply, assign(socket, search: q, recipes: recipes)}
   end
 
@@ -99,7 +101,7 @@ defmodule ToreWeb.RecipeLive do
 
     case socket.assigns.selected do
       nil ->
-        case Recipes.create(attrs) do
+        case Recipes.create(socket.assigns.current_scope, attrs) do
           {:ok, _recipe} ->
             {:noreply,
              socket |> assign(form: nil, extracted_attrs: nil, error: nil) |> reload_recipes()}
@@ -109,7 +111,7 @@ defmodule ToreWeb.RecipeLive do
         end
 
       recipe ->
-        case Recipes.update(recipe, attrs) do
+        case Recipes.update(socket.assigns.current_scope, recipe, attrs) do
           {:ok, _recipe} ->
             {:noreply,
              socket
@@ -123,7 +125,7 @@ defmodule ToreWeb.RecipeLive do
   end
 
   def handle_event("select_recipe", %{"id" => id}, socket) do
-    recipe = Recipes.get!(String.to_integer(id))
+    recipe = Recipes.get!(socket.assigns.current_scope, String.to_integer(id))
 
     {:noreply,
      assign(socket,
@@ -162,7 +164,7 @@ defmodule ToreWeb.RecipeLive do
   end
 
   def handle_event("delete_recipe", _, socket) do
-    case Recipes.delete(socket.assigns.selected) do
+    case Recipes.delete(socket.assigns.current_scope, socket.assigns.selected) do
       {:ok, _} ->
         {:noreply, socket |> assign(selected: nil, form: nil) |> reload_recipes()}
 
@@ -973,7 +975,7 @@ defmodule ToreWeb.RecipeLive do
   # ── Helpers ─────────────────────────────────────────────────────────────────
 
   defp reload(socket) do
-    Recipes.list(
+    Recipes.list(socket.assigns.current_scope,
       tags: socket.assigns.filter_tags,
       type: socket.assigns.filter_type,
       max_minutes: socket.assigns.filter_max_min,

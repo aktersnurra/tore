@@ -3,8 +3,9 @@ defmodule Tore.Household do
   alias Tore.{Repo, Household.HouseholdSchema, Household.HouseholdInsight, Household.Preferences}
 
   @spec get_household!() :: HouseholdSchema.t()
+  # The first household is the one people sign in to, until each person has their own.
   def get_household! do
-    case Repo.one(HouseholdSchema) do
+    case Repo.one(from h in HouseholdSchema, order_by: h.id, limit: 1) do
       nil ->
         %HouseholdSchema{}
         |> HouseholdSchema.changeset(%{name: "Home"})
@@ -18,6 +19,9 @@ defmodule Tore.Household do
   @doc "The language everything the household stores is written in."
   @spec locale() :: String.t() | nil
   def locale, do: get_household!().locale
+
+  @spec locale(Tore.Scope.t()) :: String.t() | nil
+  def locale(%Tore.Scope{household_id: id}), do: Repo.get!(HouseholdSchema, id).locale
 
   @spec locale_label(String.t()) :: String.t()
   def locale_label("en"), do: "English"

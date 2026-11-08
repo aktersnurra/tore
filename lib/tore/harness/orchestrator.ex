@@ -324,7 +324,7 @@ defmodule Tore.Harness.Orchestrator do
     }
 
     run_dispatch(sid, metadata, "set_plan_slot_run", fn ->
-      with {:ok, recipe} <- fetch_recipe(recipe_id),
+      with {:ok, recipe} <- fetch_recipe(scope_for(hh), recipe_id),
            {:ok, events} <-
              Planning.assign_recipe(plan_id, slot_key, recipe_id, servings),
            plan_diff = build_plan_diff(plan_id, date, slot_key, events, recipe),
@@ -343,8 +343,8 @@ defmodule Tore.Harness.Orchestrator do
     end)
   end
 
-  defp fetch_recipe(recipe_id) do
-    case Recipes.get!(recipe_id) do
+  defp fetch_recipe(scope, recipe_id) do
+    case Recipes.get!(scope, recipe_id) do
       %{} = r -> {:ok, r}
     end
   rescue
@@ -454,8 +454,10 @@ defmodule Tore.Harness.Orchestrator do
     {:ok, state} = Run.load(stream_id)
     metadata = %{household_id: state.household_id}
 
+    scope = scope_for(state.household_id)
+
     with %State.NeedsUser{} <- state,
-         :ok <- RecipeProposalVerifier.verify(proposal, recipe_proposal_ctx()),
+         :ok <- RecipeProposalVerifier.verify(proposal, recipe_proposal_ctx(scope)),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -463,7 +465,7 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, recipe} <- Recipes.create(recipe_attrs(proposal, user_id)),
+         {:ok, recipe} <- Recipes.create(scope, recipe_attrs(proposal, user_id)),
          :ok <- assign_pending_slot(state, proposal, recipe),
          {:ok, state} <-
            apply_command(
@@ -588,6 +590,8 @@ defmodule Tore.Harness.Orchestrator do
     apply_command(sid, cmd, %State.Draft{stream_id: sid}, metadata)
   end
 
+  defp scope_for(household_id), do: Tore.Scope.for_household(household_id)
+
   defp household_locale do
     case Tore.Household.get_household!() do
       %{locale: locale} when is_binary(locale) -> locale
@@ -689,7 +693,7 @@ defmodule Tore.Harness.Orchestrator do
   defp verify_and_finish(state, loop, ctx, metadata) do
     plan_diff = PlanDiffBuilder.build(loop.tool_trace, ctx)
 
-    case PlanVerifier.verify(plan_diff, verify_ctx(loop)) do
+    case PlanVerifier.verify(plan_diff, verify_ctx(loop, ctx)) do
       :ok ->
         run_summary = RunSummary.from_artifacts([plan_diff], :applied)
 
@@ -756,7 +760,11 @@ defmodule Tore.Harness.Orchestrator do
     # amending input.
     proposal = %{proposal | pending_assignment: normalise_pending(pending)}
 
-    with :ok <- RecipeProposalVerifier.verify(proposal, recipe_proposal_ctx()),
+    with :ok <-
+           RecipeProposalVerifier.verify(
+             proposal,
+             recipe_proposal_ctx(scope_for(state.household_id))
+           ),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -799,18 +807,18 @@ defmodule Tore.Harness.Orchestrator do
   defp normalise_pending(pending), do: pending
 
   # The verifier is pure, so the catalog it compares against is gathered here.
-  defp recipe_proposal_ctx do
-    %{existing_recipes: Recipes.catalog_fingerprints()}
+  defp recipe_proposal_ctx(scope) do
+    %{existing_recipes: Recipes.catalog_fingerprints(scope)}
   end
 
-  defp gather_pantry_items(:shelf_photo, %{image_binary: bin}),
-    do: PantryUpdate.parse_shelf_photo(bin)
+  defp gather_pantry_items(:shelf_photo, %{image_binary: bin} = ctx),
+    do: PantryUpdate.parse_shelf_photo(scope_for(ctx.household_id), bin)
 
   defp gather_pantry_items(_, %{items: items}) when is_list(items), do: {:ok, items}
   defp gather_pantry_items(_, _), do: {:error, :missing_items}
 
   defp verify_and_finish_pantry(state, %PantryBeliefUpdate{} = artifact, metadata) do
-    with :ok <- PantryVerifier.verify(artifact, %{}),
+    with :ok <- PantryVerifier.verify(artifact, %{scope: scope_for(state.household_id)}),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -818,7 +826,8 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, counts, snaps} <- PantryUpdate.apply!(artifact, household_locale()),
+         {:ok, counts, snaps} <-
+           PantryUpdate.apply!(scope_for(state.household_id), artifact, household_locale()),
          snapshot = %Tore.Harness.Artifact.PantrySnapshot{items: snaps},
          {:ok, state} <-
            apply_command(
@@ -891,8 +900,12 @@ defmodule Tore.Harness.Orchestrator do
     end
   end
 
-  defp verify_ctx(loop) do
-    %{plan_state: loop.working_plan, preferences: Tore.Household.get_preferences()}
+  defp verify_ctx(loop, ctx) do
+    %{
+      plan_state: loop.working_plan,
+      preferences: Tore.Household.get_preferences(),
+      scope: scope_for(ctx.household_id)
+    }
   end
 
   # On any dispatch failure, close the run as Failed so it isn't a dangling open

@@ -26,6 +26,9 @@ defmodule Tore.AccountsFixtures do
     household
   end
 
+  @doc "The scope of the household people sign in to. Data a signed-in test user should see goes here."
+  def home_scope, do: Scope.for_household(Tore.Household.get_household!().id)
+
   @doc "A scope for a user, or for a household with no user."
   def scope_fixture(user_or_household \\ user_fixture())
   def scope_fixture(%Tore.Accounts.User{} = user), do: Scope.for_user(user)

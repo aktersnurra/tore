@@ -11,7 +11,7 @@ defmodule ToreWeb.PlannerLiveTest do
     user = user_fixture(name: "Gustaf")
 
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Roast chicken",
         recipe_type: :meal,
         base_servings: 6,
@@ -238,7 +238,6 @@ defmodule ToreWeb.PlannerLiveTest do
       # A run still writing after the test ends lands in the next test's database.
       assert eventually_renders(view, "Tore justerade planen")
     end
-
   end
 
   describe "command bar" do

@@ -11,7 +11,11 @@ defmodule Tore.Capture.RouterTest do
   describe "route/4 with set_plan_slot" do
     test "wraps the turn in a :capture_turn_run that bundles the set_plan_slot child" do
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Pizza", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Pizza",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       # Turn 1: model emits a set_plan_slot tool call.

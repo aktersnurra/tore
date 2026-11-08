@@ -8,7 +8,11 @@ defmodule ToreWeb.RecipeImageControllerTest do
     # Insert directly via Repo — Recipes.create/1 spawns an async image-generation
     # Task that would race this test by populating image_path behind our backs.
     {:ok, recipe} =
-      %Tore.Recipes.Recipe{title: "Roast chicken", recipe_type: :meal}
+      %Tore.Recipes.Recipe{
+        household_id: home_scope().household_id,
+        title: "Roast chicken",
+        recipe_type: :meal
+      }
       |> Tore.Repo.insert()
 
     %{user: user, recipe: recipe}

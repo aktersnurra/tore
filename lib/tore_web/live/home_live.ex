@@ -13,7 +13,7 @@ defmodule ToreWeb.HomeLive do
 
     {:ok, plan_state} = Planning.load_plan(plan_id)
 
-    recipes = Recipes.list()
+    recipes = Recipes.list(socket.assigns.current_scope)
     recipes_by_id = Map.new(recipes, &{&1.id, &1})
 
     tonight_slot = Map.get(plan_state.slots, today_key)

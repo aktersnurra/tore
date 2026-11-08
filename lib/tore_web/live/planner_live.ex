@@ -21,7 +21,7 @@ defmodule ToreWeb.PlannerLive do
     end
 
     {:ok, plan_state} = Planning.load_plan(plan_id)
-    recipes = Recipes.list(sort: :alphabetical)
+    recipes = Recipes.list(socket.assigns.current_scope, sort: :alphabetical)
     current_run = Tore.Harness.Projector.latest_on_surface(household_id, :plan)
 
     {:ok,

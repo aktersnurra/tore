@@ -3,11 +3,12 @@ defmodule Tore.Repo.Migrations.CreateTags do
 
   def change do
     create table(:tags) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :name, :string, null: false
       timestamps()
     end
 
-    create unique_index(:tags, [:name])
+    create unique_index(:tags, [:household_id, :name])
 
     create table(:recipe_tags, primary_key: false) do
       add :recipe_id, references(:recipes, on_delete: :delete_all), null: false

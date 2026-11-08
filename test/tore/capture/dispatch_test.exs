@@ -11,7 +11,12 @@ defmodule Tore.Capture.DispatchTest do
       Gettext.put_locale(ToreWeb.Gettext, "sv")
 
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal} |> Tore.Repo.insert()
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
+        |> Tore.Repo.insert()
 
       {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
       ctx = %{household_id: 1, user_id: 42, parent_stream_id: parent_sid}
@@ -19,14 +24,19 @@ defmodule Tore.Capture.DispatchTest do
       assert {%{text: "La till Carbonara på måndag 2026-11-02."}, _child} =
                Dispatch.set_plan_slot(~D[2026-11-02], recipe.id, 4, ctx)
 
-      assert %{text: "Hoppade över måndag 2026-11-02."} = Dispatch.skip_plan_meal(~D[2026-11-02])
+      assert %{text: "Hoppade över måndag 2026-11-02."} =
+               Dispatch.skip_plan_meal(~D[2026-11-02], %{household_id: home_scope().household_id})
     end
   end
 
   describe "set_plan_slot/2" do
     test "opens a child Run via Orchestrator and returns {bubble, child_sid}" do
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})

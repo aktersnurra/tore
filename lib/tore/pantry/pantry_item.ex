@@ -52,7 +52,8 @@ defmodule Tore.Pantry.PantryItem do
   rows with no `last_seen_at` (manual adds that bypassed the receipt
   path) keep their stored belief.
   """
-  @spec effective_belief(%__MODULE__{}, DateTime.t()) :: :confirmed | :probable | :uncertain | :missing
+  @spec effective_belief(%__MODULE__{}, DateTime.t()) ::
+          :confirmed | :probable | :uncertain | :missing
   def effective_belief(%__MODULE__{belief: "missing"}, _now), do: :missing
   def effective_belief(%__MODULE__{belief: "uncertain"}, _now), do: :uncertain
 
@@ -67,7 +68,10 @@ defmodule Tore.Pantry.PantryItem do
   def effective_belief(%__MODULE__{belief: belief, last_seen_at: nil}, _now),
     do: String.to_existing_atom(belief || "uncertain")
 
-  def effective_belief(%__MODULE__{belief: belief, last_seen_at: %DateTime{} = seen}, %DateTime{} = now) do
+  def effective_belief(
+        %__MODULE__{belief: belief, last_seen_at: %DateTime{} = seen},
+        %DateTime{} = now
+      ) do
     age_days = DateTime.diff(now, seen, :day)
     decay(belief, age_days)
   end
@@ -101,6 +105,7 @@ defmodule Tore.Pantry.PantryItem do
     field :provenance, :string, default: "manual"
     field :belief, :string, default: "confirmed"
     field :last_seen_at, :utc_datetime
+    field :household_id, :integer
     belongs_to :ingredient, Tore.Recipes.Ingredient
     timestamps()
   end

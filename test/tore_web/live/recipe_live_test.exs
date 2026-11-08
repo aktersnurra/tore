@@ -5,7 +5,7 @@ defmodule ToreWeb.RecipeLiveTest do
 
   setup do
     user = user_fixture(name: "Gustaf")
-    {:ok, recipe} = Recipes.create(%{title: "Roast chicken", recipe_type: :meal})
+    {:ok, recipe} = Recipes.create(home_scope(), %{title: "Roast chicken", recipe_type: :meal})
     %{user: user, recipe: recipe}
   end
 
@@ -42,7 +42,11 @@ defmodule ToreWeb.RecipeLiveTest do
     test "renders the proxy src when an image broadcast arrives", %{conn: conn, user: user} do
       # A recipe with no image — inserted directly so no async image task fires.
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
@@ -68,7 +72,7 @@ defmodule ToreWeb.RecipeLiveTest do
 
   describe "filter_type" do
     test "filters recipes by type", %{conn: conn, user: user} do
-      {:ok, _} = Recipes.create(%{title: "Salsa verde", recipe_type: :component})
+      {:ok, _} = Recipes.create(home_scope(), %{title: "Salsa verde", recipe_type: :component})
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       html = render_click(lv, "filter_type", %{"type" => "component"})
       assert html =~ "Salsa verde"
@@ -94,7 +98,7 @@ defmodule ToreWeb.RecipeLiveTest do
   describe "ingredient editor" do
     test "shows ingredient rows when editing a recipe", %{conn: conn, user: user} do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Pasta",
           recipe_type: :meal,
           ingredients: [%{name: "Spaghetti", quantity: "200", unit: "g"}]
@@ -116,7 +120,7 @@ defmodule ToreWeb.RecipeLiveTest do
 
     test "remove_ingredient_row removes a row", %{conn: conn, user: user} do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Pasta",
           recipe_type: :meal,
           ingredients: [%{name: "Spaghetti", quantity: "200", unit: "g"}]
@@ -130,7 +134,7 @@ defmodule ToreWeb.RecipeLiveTest do
     end
 
     test "saving recipe persists ingredient rows", %{conn: conn, user: user} do
-      {:ok, recipe} = Recipes.create(%{title: "Pasta", recipe_type: :meal})
+      {:ok, recipe} = Recipes.create(home_scope(), %{title: "Pasta", recipe_type: :meal})
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "select_recipe", %{"id" => to_string(recipe.id)})
       render_click(lv, "edit_recipe")
@@ -153,7 +157,7 @@ defmodule ToreWeb.RecipeLiveTest do
         })
 
       refute html =~ "Could not"
-      updated = Recipes.get!(recipe.id)
+      updated = Recipes.get!(home_scope(), recipe.id)
       assert length(updated.recipe_ingredients) == 1
       assert hd(updated.recipe_ingredients).ingredient.name == "Spaghetti"
     end

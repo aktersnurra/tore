@@ -5,7 +5,7 @@ defmodule ToreWeb.RecipeImageController do
   alias Tore.Storage
 
   def show(conn, %{"id" => id}) do
-    recipe = Recipes.get!(id)
+    recipe = Recipes.get!(conn.assigns.current_scope, id)
 
     with key when is_binary(key) <- recipe.image_path,
          {:ok, body} <- Storage.client().get_object(Storage.Buckets.recipes(), key) do

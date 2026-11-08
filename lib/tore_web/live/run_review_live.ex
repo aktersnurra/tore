@@ -121,8 +121,11 @@ defmodule ToreWeb.RunReviewLive do
 
     Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
       case Orchestrator.discard_run(stream_id, reason: :user_discarded) do
-        {:ok, _} -> broadcast_toast(user_id, :info, discarded_msg)
-        {:error, reason} -> broadcast_toast(user_id, :error, "Couldn't discard: #{inspect(reason)}.")
+        {:ok, _} ->
+          broadcast_toast(user_id, :info, discarded_msg)
+
+        {:error, reason} ->
+          broadcast_toast(user_id, :error, "Couldn't discard: #{inspect(reason)}.")
       end
     end)
 
@@ -171,7 +174,11 @@ defmodule ToreWeb.RunReviewLive do
           broadcast_toast(user_id, :error, verifier_message(code))
 
         {:error, reason} ->
-          broadcast_toast(user_id, :error, "#{gettext("Couldn't save recipe")}: #{inspect(reason)}.")
+          broadcast_toast(
+            user_id,
+            :error,
+            "#{gettext("Couldn't save recipe")}: #{inspect(reason)}."
+          )
       end
     end)
 
@@ -311,7 +318,9 @@ defmodule ToreWeb.RunReviewLive do
       <section>
         <h3 class="text-sm font-medium text-[color:var(--text)] mb-2">{gettext("Line items")}</h3>
         <p :if={sum_mismatch?(@form_data)} class="text-xs text-amber-600 mb-2">
-          {gettext("Lines sum to")} {sum_display(@form_data)}; {gettext("receipt total")} {@form_data.total} — {gettext("looks off, is something missing?")}
+          {gettext("Lines sum to")} {sum_display(@form_data)}; {gettext("receipt total")} {@form_data.total} — {gettext(
+            "looks off, is something missing?"
+          )}
         </p>
         <div class="space-y-2">
           <div

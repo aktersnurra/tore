@@ -77,7 +77,7 @@ defmodule Tore.Harness.ReceiptIngestionTest do
     cost = Enum.find(state.artifacts, &match?(%CostEntry{}, &1))
     assert {:ok, %State.Applied{}} = Orchestrator.commit_receipt(state.stream_id, cost, user.id)
 
-    assert Pantry.list_inventory() == []
+    assert Pantry.list_inventory(home_scope()) == []
     {:ok, %{items: items}} = Shop.load_list(list_id)
     assert [%{checked: false}] = Map.values(items)
   end

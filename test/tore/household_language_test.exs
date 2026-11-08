@@ -31,7 +31,7 @@ defmodule Tore.HouseholdLanguageTest do
       {:ok, %{"items" => []}, @usage}
     end)
 
-    assert {:ok, []} = Pantry.parse_image(<<255, 216, 255>>)
+    assert {:ok, []} = Pantry.parse_image(home_scope(), <<255, 216, 255>>)
   end
 
   test "a recipe photo is stored in the household's language" do
@@ -40,7 +40,7 @@ defmodule Tore.HouseholdLanguageTest do
       {:ok, %{"title" => "Soup", "ingredients" => [], "steps" => [], "tags" => []}, @usage}
     end)
 
-    assert {:ok, _} = Recipes.extract_from_images([<<255, 216, 255>>])
+    assert {:ok, _} = Recipes.extract_from_images(home_scope(), [<<255, 216, 255>>])
   end
 
   test "a recipe link from Capture is stored in the household's language" do
@@ -51,7 +51,10 @@ defmodule Tore.HouseholdLanguageTest do
       {:ok, %{"title" => "Soup", "ingredients" => [], "steps" => [], "tags" => []}, @usage}
     end)
 
-    assert %{recipe_card: true} = Dispatch.import_recipe_from_url("https://example.com/soup")
+    assert %{recipe_card: true} =
+             Dispatch.import_recipe_from_url("https://example.com/soup", %{
+               household_id: home_scope().household_id
+             })
   end
 
   test "a prep guide is written in the household's language" do

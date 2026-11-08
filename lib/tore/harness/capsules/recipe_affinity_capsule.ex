@@ -32,7 +32,7 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
         }
 
   @impl true
-  def build(_ctx) do
+  def build(ctx) do
     cutoff =
       DateTime.utc_now()
       |> DateTime.add(-@window_days * 86_400, :second)
@@ -48,7 +48,7 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
       |> Repo.all()
 
     {assigned_ids, removed_ids} = partition_recipe_ids(events)
-    titles = title_map(assigned_ids ++ removed_ids)
+    titles = title_map(Tore.Scope.for_household(ctx.household_id), assigned_ids ++ removed_ids)
 
     %__MODULE__{
       favorites: rank(assigned_ids, titles, @max_favorites),
@@ -82,7 +82,8 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
   end
 
   defp resolve_removed({assigned, removed_slots}) do
-    {Enum.reverse(assigned), Enum.map(removed_slots, &removed_recipe_id/1) |> Enum.reject(&is_nil/1)}
+    {Enum.reverse(assigned),
+     Enum.map(removed_slots, &removed_recipe_id/1) |> Enum.reject(&is_nil/1)}
   end
 
   defp removed_recipe_id({:slot, nil, _}), do: nil
@@ -118,20 +119,22 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
     end
   end
 
-  defp title_map([]), do: %{}
+  defp title_map(_scope, []), do: %{}
 
-  defp title_map(ids) do
+  defp title_map(scope, ids) do
     unique = ids |> Enum.uniq()
 
     from(r in Recipe, where: r.id in ^unique, select: {r.id, r.title})
-    |> Repo.all()
+    |> Repo.all(Tore.Scope.repo_opts(scope))
     |> Map.new()
   end
 
   defp rank(ids, titles, limit) do
     ids
     |> Enum.frequencies()
-    |> Enum.map(fn {id, n} -> %{recipe_id: id, title: Map.get(titles, id, "(unknown)"), count: n} end)
+    |> Enum.map(fn {id, n} ->
+      %{recipe_id: id, title: Map.get(titles, id, "(unknown)"), count: n}
+    end)
     |> Enum.sort_by(& &1.count, :desc)
     |> Enum.take(limit)
   end

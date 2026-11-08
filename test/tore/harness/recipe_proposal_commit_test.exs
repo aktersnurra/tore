@@ -71,8 +71,8 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     assert {:ok, %State.Applied{}} =
              Orchestrator.commit_recipe_proposal(state.stream_id, proposal(), nil)
 
-    assert [recipe] = Tore.Recipes.list()
-    recipe = Tore.Recipes.get!(recipe.id)
+    assert [recipe] = Tore.Recipes.list(home_scope())
+    recipe = Tore.Recipes.get!(home_scope(), recipe.id)
     assert recipe.title == "Vegetarian Miso Ramen"
     assert length(recipe.recipe_ingredients) == 2
   end
@@ -86,7 +86,7 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
              Orchestrator.commit_recipe_proposal(state.stream_id, p, nil)
 
     {:ok, plan} = Tore.Planning.load_plan(ctx.plan_stream_id)
-    [recipe] = Tore.Recipes.list()
+    [recipe] = Tore.Recipes.list(home_scope())
 
     assert get_in(plan.slots, ["mon_dinner", :recipe_id]) == recipe.id
   end
@@ -99,7 +99,7 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     assert {:ok, %State.Applied{}} =
              Orchestrator.commit_recipe_proposal(state.stream_id, edited, nil)
 
-    assert [%{title: "Vegan Miso Ramen"}] = Tore.Recipes.list()
+    assert [%{title: "Vegan Miso Ramen"}] = Tore.Recipes.list(home_scope())
   end
 
   test "committing an edit that fails the verifier saves nothing", ctx do
@@ -110,7 +110,7 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     assert {:error, {:verifier_failed, :no_ingredients, :reject}} =
              Orchestrator.commit_recipe_proposal(state.stream_id, broken, nil)
 
-    assert Tore.Recipes.list() == []
+    assert Tore.Recipes.list(home_scope()) == []
   end
 
   test "discarding saves nothing and leaves the slot untouched", ctx do
@@ -121,7 +121,7 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     assert {:ok, %State.Discarded{}} =
              Orchestrator.discard_run(state.stream_id, reason: :user_discarded)
 
-    assert Tore.Recipes.list() == []
+    assert Tore.Recipes.list(home_scope()) == []
 
     {:ok, plan} = Tore.Planning.load_plan(ctx.plan_stream_id)
     assert get_in(plan.slots, ["mon_dinner", :recipe_id]) == nil

@@ -72,7 +72,9 @@ defmodule Tore.Harness.OrchestratorTest do
   end
 
   test "dispatch builds a real PlanDiff from the planner's skip_meal call" do
-    {:ok, recipe} = Tore.Recipes.create(%{title: "Chili", recipe_type: :meal, base_servings: 4})
+    {:ok, recipe} =
+      Tore.Recipes.create(home_scope(), %{title: "Chili", recipe_type: :meal, base_servings: 4})
+
     plan = "plan:2026-06-01"
     Tore.Planning.assign_recipe(plan, "mon_dinner", recipe.id, 4)
 
@@ -167,7 +169,9 @@ defmodule Tore.Harness.OrchestratorTest do
   end
 
   test "dispatch applies accumulated plan events to the plan stream exactly once" do
-    {:ok, recipe} = Tore.Recipes.create(%{title: "Stew", recipe_type: :meal, base_servings: 4})
+    {:ok, recipe} =
+      Tore.Recipes.create(home_scope(), %{title: "Stew", recipe_type: :meal, base_servings: 4})
+
     plan = "plan:2026-06-08-apply"
     Tore.Planning.assign_recipe(plan, "mon_dinner", recipe.id, 4)
 
@@ -222,7 +226,11 @@ defmodule Tore.Harness.OrchestratorTest do
 
   test "a verifier failure records Failed, applies nothing, commits nothing" do
     {:ok, recipe} =
-      Tore.Recipes.create(%{title: "Pinned dish", recipe_type: :meal, base_servings: 4})
+      Tore.Recipes.create(home_scope(), %{
+        title: "Pinned dish",
+        recipe_type: :meal,
+        base_servings: 4
+      })
 
     plan = "plan:2026-06-08-pinned"
     Tore.Planning.assign_recipe(plan, "mon_dinner", recipe.id, 4)
@@ -320,7 +328,11 @@ defmodule Tore.Harness.OrchestratorTest do
 
     test "apply_set_plan_slot/1 opens a child Run, assigns the recipe, commits with a PlanDiff" do
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       ctx = %{
@@ -337,8 +349,10 @@ defmodule Tore.Harness.OrchestratorTest do
       assert is_binary(sid)
       {:ok, %State.Applied{} = state} = Run.load(sid)
       assert state.kind == "set_plan_slot_run"
+
       assert [%Tore.Harness.Artifact.PlanDiff{events: [%{event_type: "RecipeAssigned"}]}] =
                state.artifacts
+
       assert %Tore.Harness.UndoPayload{kind: :event_sourced} = state.undo_payload
     end
 

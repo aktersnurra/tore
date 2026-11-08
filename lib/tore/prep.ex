@@ -22,7 +22,8 @@ defmodule Tore.Prep do
       for {slot_key, %{recipe_id: recipe_id} = slot} <- plan_state.slots, recipe_id do
         %{
           slot_key: slot_key,
-          recipe_title: Recipes.get!(recipe_id).title,
+          recipe_title:
+            Recipes.get!(Tore.Scope.for_household(Tore.Household.get_household!().id), recipe_id).title,
           servings: slot.servings
         }
       end

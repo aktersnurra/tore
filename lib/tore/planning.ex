@@ -263,8 +263,12 @@ defmodule Tore.Planning do
 
     with {:ok, state} <- EventStore.load(plan_id, Decider) do
       recipes =
-        Recipes.list(sort: :alphabetical)
-        |> Enum.map(&Recipes.get!(&1.id))
+        Recipes.list(Tore.Scope.for_household(Tore.Household.get_household!().id),
+          sort: :alphabetical
+        )
+        |> Enum.map(
+          &Recipes.get!(Tore.Scope.for_household(Tore.Household.get_household!().id), &1.id)
+        )
 
       pantry_names = pantry_ingredient_names()
       deals_names = deal_product_names()
@@ -388,7 +392,7 @@ defmodule Tore.Planning do
   end
 
   defp pantry_ingredient_names do
-    Pantry.list_usable()
+    Pantry.list_usable(Tore.Scope.for_household(Tore.Household.get_household!().id))
     |> Enum.map(&String.downcase(&1.name))
     |> MapSet.new()
   end
@@ -438,9 +442,11 @@ defmodule Tore.Planning do
     import Ecto.Query
 
     Repo.all(
-      from r in Recipe,
+      from(r in Recipe,
         where: not is_nil(r.last_used_at) and r.last_used_at >= ^cutoff,
         select: r.id
+      ),
+      Tore.Scope.repo_opts(Tore.Scope.for_household(Tore.Household.get_household!().id))
     )
     |> MapSet.new()
   end

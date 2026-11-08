@@ -14,7 +14,7 @@ defmodule Tore.Recipes.VariantTest do
     stub(Tore.MockHTTP, :fetch, fn _url -> {:error, :not_found} end)
 
     {:ok, recipe} =
-      Tore.Recipes.create(%{
+      Tore.Recipes.create(home_scope(), %{
         title: "Miso Ramen",
         instructions: "Simmer the broth. Cook the noodles.",
         base_servings: 4,

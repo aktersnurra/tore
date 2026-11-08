@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateIngredients do
 
   def change do
     create table(:ingredients) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :name, :string, null: false
       add :key, :string
       add :category, :string
@@ -11,7 +12,7 @@ defmodule Tore.Repo.Migrations.CreateIngredients do
       timestamps()
     end
 
-    create unique_index(:ingredients, [:name])
-    create unique_index(:ingredients, [:key])
+    create unique_index(:ingredients, [:household_id, :name])
+    create unique_index(:ingredients, [:household_id, :key])
   end
 end

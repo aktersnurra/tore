@@ -3,6 +3,7 @@ defmodule Tore.Repo.Migrations.CreateRecipes do
 
   def change do
     create table(:recipes) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
       add :title, :string, null: false
       add :description, :text
       add :instructions, :text
@@ -18,5 +19,7 @@ defmodule Tore.Repo.Migrations.CreateRecipes do
       add :created_by, :integer
       timestamps()
     end
+
+    create index(:recipes, [:household_id])
   end
 end

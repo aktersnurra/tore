@@ -62,7 +62,7 @@ defmodule Tore.PlanningTest do
           cook_time_minutes: 20
         }
 
-      {:ok, recipe} = Recipes.create(attrs)
+      {:ok, recipe} = Recipes.create(home_scope(), attrs)
       recipe
     end
 
@@ -70,7 +70,7 @@ defmodule Tore.PlanningTest do
       _r1 = create_recipe("Plain pasta")
       r2 = create_recipe("Chicken curry", base_servings: 6)
 
-      Tore.Pantry.add_item(%{name: "chicken", quantity: Decimal.new(1)})
+      Tore.Pantry.add_item(home_scope(), %{name: "chicken", quantity: Decimal.new(1)})
 
       assert {:ok, results} = Planning.suggest_recipes_for_slot(plan_id(), "mon_dinner")
       assert is_list(results)
@@ -122,9 +122,7 @@ defmodule Tore.PlanningTest do
       |> expect(:text, fn _system, _user, _opts -> {:error, :timeout} end)
 
       assert {:ok, results} =
-               Planning.suggest_recipes_for_slot(plan_id(), "tue_dinner",
-                 include_llm: true
-               )
+               Planning.suggest_recipes_for_slot(plan_id(), "tue_dinner", include_llm: true)
 
       assert is_list(results)
     end
@@ -135,7 +133,7 @@ defmodule Tore.PlanningTest do
 
     test "assigns recipe to slot and marks leftover days in one broadcast" do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Roast chicken",
           recipe_type: :meal,
           base_servings: 6,
@@ -167,7 +165,7 @@ defmodule Tore.PlanningTest do
 
     test "works with no leftover days (degenerates to assign)" do
       {:ok, recipe} =
-        Recipes.create(%{
+        Recipes.create(home_scope(), %{
           title: "Quick salad",
           recipe_type: :meal,
           base_servings: 2,
@@ -204,8 +202,11 @@ defmodule Tore.PlanningTest do
     alias Tore.Planning.{Decider, State}
 
     test "returns cross-assign events and the evolved state without persisting" do
-      {:ok, r1} = Tore.Recipes.create(%{title: "A", base_servings: 2, instructions: "x"})
-      {:ok, r2} = Tore.Recipes.create(%{title: "B", base_servings: 2, instructions: "x"})
+      {:ok, r1} =
+        Tore.Recipes.create(home_scope(), %{title: "A", base_servings: 2, instructions: "x"})
+
+      {:ok, r2} =
+        Tore.Recipes.create(home_scope(), %{title: "B", base_servings: 2, instructions: "x"})
 
       state =
         %State{}
@@ -234,7 +235,9 @@ defmodule Tore.PlanningTest do
 
   describe "apply_events/2" do
     test "appends events to the plan stream and returns :ok" do
-      {:ok, r} = Tore.Recipes.create(%{title: "C", base_servings: 2, instructions: "x"})
+      {:ok, r} =
+        Tore.Recipes.create(home_scope(), %{title: "C", base_servings: 2, instructions: "x"})
+
       plan = "plan:apply-test"
 
       events = [

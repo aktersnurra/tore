@@ -1,6 +1,8 @@
 defmodule Tore.Shop.AggregatorTest do
   use ExUnit.Case, async: false
 
+  import Tore.AccountsFixtures, only: [home_scope: 0]
+
   alias Tore.{Shop.Aggregator, Recipes}
 
   setup do
@@ -9,7 +11,7 @@ defmodule Tore.Shop.AggregatorTest do
 
   defp create_recipe(title, ingredients) do
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: title,
         ingredients:
           Enum.map(ingredients, fn {name, qty, unit} ->

@@ -87,7 +87,7 @@ defmodule Tore.Harness.RunReceipts do
   def revert_applied(%State.Applied{undo_payload: payload} = applied) do
     with :ok <- reversible?(payload) do
       Repo.transaction(fn ->
-        with :ok <- compensate(payload),
+        with :ok <- compensate(Tore.Scope.for_household(applied.household_id), payload),
              {:ok, events} <- Run.decide(%Commands.Revert{}, applied),
              :ok <- Run.append(applied.stream_id, events, %{household_id: applied.household_id}) do
           :ok
@@ -101,7 +101,6 @@ defmodule Tore.Harness.RunReceipts do
       end
     end
   end
-
 
   # ----- receipt projection ---------------------------------------------------
 
@@ -210,47 +209,53 @@ defmodule Tore.Harness.RunReceipts do
   defp reversible?(%UndoPayload{kind: :irreversible}), do: {:error, :irreversible}
   defp reversible?(_), do: :ok
 
-  defp compensate(%UndoPayload{kind: :composite, data: %{children: children}}) do
+  defp compensate(scope, %UndoPayload{kind: :composite, data: %{children: children}}) do
     # Children compensate in reverse order so the most recent effect rolls
     # back first, matching how the user perceives an "undo".
     Enum.reduce_while(Enum.reverse(children), :ok, fn child, :ok ->
-      case compensate(child) do
+      case compensate(scope, child) do
         :ok -> {:cont, :ok}
         {:error, _} = err -> {:halt, err}
       end
     end)
   end
 
-  defp compensate(%UndoPayload{kind: :event_sourced, data: %{stream_type: "planning"} = data}) do
+  defp compensate(_scope, %UndoPayload{
+         kind: :event_sourced,
+         data: %{stream_type: "planning"} = data
+       }) do
     events = Enum.map(data.compensating_events, &to_planning_event/1)
     Tore.Planning.apply_events(data.stream_id, events)
   end
 
-  defp compensate(%UndoPayload{kind: :snapshot, data: %{schema: "Tore.Pantry.PantryItem"} = data}) do
+  defp compensate(scope, %UndoPayload{
+         kind: :snapshot,
+         data: %{schema: "Tore.Pantry.PantryItem"} = data
+       }) do
     # Newest first: two changes to one row must end on the earliest "before".
     Enum.reduce_while(Enum.reverse(data.changes), :ok, fn change, :ok ->
-      case restore_pantry_change(change) do
+      case restore_pantry_change(scope, change) do
         :ok -> {:cont, :ok}
         {:error, _} = err -> {:halt, err}
       end
     end)
   end
 
-  defp compensate(_payload), do: :ok
+  defp compensate(_scope, _payload), do: :ok
 
   defp to_planning_event(%{event_type: "RecipeRemoved", slot_key: sk}),
     do: %Tore.Planning.Events.RecipeRemoved{slot_key: sk}
 
-  defp restore_pantry_change(%{item_id: id, before: nil}) do
-    case Tore.Pantry.remove_item(id) do
+  defp restore_pantry_change(scope, %{item_id: id, before: nil}) do
+    case Tore.Pantry.remove_item(scope, id) do
       :ok -> :ok
       # The row may already be gone (compensation should be idempotent).
       {:error, :not_found} -> :ok
     end
   end
 
-  defp restore_pantry_change(%{item_id: id, before: before}) do
-    case Tore.Repo.get(Tore.Pantry.PantryItem, id) do
+  defp restore_pantry_change(scope, %{item_id: id, before: before}) do
+    case Tore.Repo.get(Tore.Pantry.PantryItem, id, Tore.Scope.repo_opts(scope)) do
       nil ->
         :ok
 
@@ -267,7 +272,7 @@ defmodule Tore.Harness.RunReceipts do
 
   # Legacy snapshot shape derived directly from PantryBeliefUpdate before
   # PantrySnapshot existed. We cannot compensate without row identity.
-  defp restore_pantry_change(_legacy), do: :ok
+  defp restore_pantry_change(_scope, _legacy), do: :ok
 
   defp restore_attrs(before) do
     before

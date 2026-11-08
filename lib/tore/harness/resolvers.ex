@@ -41,11 +41,11 @@ defmodule Tore.Harness.Resolvers do
     "sun" => "Sunday"
   }
 
-  def resolve_recipe(query) when is_binary(query) do
+  def resolve_recipe(%Tore.Scope{} = scope, query) when is_binary(query) do
     q = normalize(query)
 
     scored =
-      Recipes.list()
+      Recipes.list(scope)
       |> Enum.map(fn r -> {similarity(q, normalize(r.title)), r} end)
       |> Enum.sort_by(fn {s, _} -> s end, :desc)
 

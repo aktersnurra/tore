@@ -11,7 +11,7 @@ defmodule Tore.Shop do
 
   def build_list(list_id, week_start, recipe_ids) do
     all_items = Aggregator.aggregate_by_ids(recipe_ids)
-    pantry = Pantry.list_usable()
+    pantry = Pantry.list_usable(Tore.Scope.for_household(Tore.Household.get_household!().id))
 
     items =
       if pantry == [] do
@@ -112,7 +112,7 @@ defmodule Tore.Shop do
     now = DateTime.utc_now()
 
     pantry =
-      Pantry.list_inventory()
+      Pantry.list_inventory(Tore.Scope.for_household(Tore.Household.get_household!().id))
       |> Enum.map(fn row ->
         {row, Tore.Pantry.PantryItem.effective_belief(row, now), name_tokens(row.name)}
       end)

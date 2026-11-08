@@ -1,11 +1,11 @@
 defmodule Tore.Pantry do
   import Ecto.Query
-  alias Tore.Repo
+  alias Tore.{Repo, Scope}
   alias Tore.Pantry.{Expiry, PantryItem}
   alias Tore.Recipes.Ingredient
 
-  def parse_image(image_binary) do
-    {system, user} = Tore.LLM.Prompts.parse_pantry_image(Tore.Household.locale())
+  def parse_image(%Scope{} = scope, image_binary) do
+    {system, user} = Tore.LLM.Prompts.parse_pantry_image(Tore.Household.locale(scope))
 
     with {:ok, data, _usage} <-
            Tore.LLM.vision([{:image, image_binary}], system, user,
@@ -33,18 +33,22 @@ defmodule Tore.Pantry do
   @doc """
   Catalogue snapshot used to ground the LLM canonicaliser.
   """
-  @spec catalogue() :: [%{key: String.t(), name: String.t(), category: String.t() | nil}]
-  def catalogue do
-    Repo.all(from i in Ingredient, select: %{key: i.key, name: i.name, category: i.category})
+  @spec catalogue(Scope.t()) :: [%{key: String.t(), name: String.t(), category: String.t() | nil}]
+  def catalogue(%Scope{} = scope) do
+    Repo.all(
+      from(i in Ingredient, select: %{key: i.key, name: i.name, category: i.category}),
+      Scope.repo_opts(scope)
+    )
   end
 
   @doc """
   Send raw pantry items through the LLM canonicaliser. Returns a list of
   `{raw_name, catalogue_name, category, default_unit, matched_key}` maps.
   """
-  @spec canonicalise([map()], String.t() | nil) :: {:ok, [map()]} | {:error, term()}
-  def canonicalise(items, locale) do
-    {system, user} = Tore.LLM.Prompts.canonicalise_pantry_items(items, locale, catalogue())
+  @spec canonicalise(Scope.t(), [map()], String.t() | nil) :: {:ok, [map()]} | {:error, term()}
+  def canonicalise(%Scope{} = scope, items, locale) do
+    {system, user} =
+      Tore.LLM.Prompts.canonicalise_pantry_items(items, locale, catalogue(scope))
 
     case Tore.LLM.text(system, user,
            response_format: Tore.LLM.Prompts.canonicalise_pantry_schema()
@@ -82,20 +86,20 @@ defmodule Tore.Pantry do
 
   Returns `{:ok, %PantryItem{}, :added | :bumped}`.
   """
-  @spec upsert_belief(map()) ::
+  @spec upsert_belief(Scope.t(), map()) ::
           {:ok, PantryItem.t(), :added | :bumped, map() | nil} | {:error, term()}
-  def upsert_belief(attrs) do
+  def upsert_belief(%Scope{} = scope, attrs) do
     Repo.transaction(fn ->
-      ingredient = find_or_create_ingredient(attrs)
+      ingredient = find_or_create_ingredient(scope, attrs)
 
-      case Repo.get_by(PantryItem, ingredient_id: ingredient.id) do
+      case Repo.get_by(PantryItem, [ingredient_id: ingredient.id], Scope.repo_opts(scope)) do
         nil ->
           {:ok, item} =
             attrs
             |> base_pantry_attrs(ingredient)
             |> Map.put(:quantity, attrs[:quantity])
             |> Map.merge(expiry_attrs(%{expires_at: nil, expires_source: nil}, attrs, ingredient))
-            |> add_item()
+            |> then(&add_item(scope, &1))
 
           {item, :added, nil}
 
@@ -131,17 +135,17 @@ defmodule Tore.Pantry do
     %{expires_at: expires_at, expires_source: expires_source}
   end
 
-  defp find_or_create_ingredient(attrs) do
+  defp find_or_create_ingredient(scope, attrs) do
     key =
       case attrs[:matched_key] do
         k when is_binary(k) and k != "" -> k
         _ -> Ingredient.to_key(attrs[:catalogue_name] || attrs[:name] || "")
       end
 
-    case Repo.get_by(Ingredient, key: key) do
+    case Repo.get_by(Ingredient, [key: key], Scope.repo_opts(scope)) do
       nil ->
         {:ok, ing} =
-          %Ingredient{}
+          %Ingredient{household_id: scope.household_id}
           |> Ingredient.changeset(%{
             name: attrs[:catalogue_name] || attrs[:name],
             key: key,
@@ -160,8 +164,9 @@ defmodule Tore.Pantry do
 
   # Only fills a gap, so a correction from the household is never overwritten.
   # `change/2` rather than the changeset, which would re-derive the key.
-  defp fill_shelf_life(%Ingredient{shelf_life_days: nil} = ingredient, days) when is_integer(days),
-    do: ingredient |> Ecto.Changeset.change(shelf_life_days: days) |> Repo.update!()
+  defp fill_shelf_life(%Ingredient{shelf_life_days: nil} = ingredient, days)
+       when is_integer(days),
+       do: ingredient |> Ecto.Changeset.change(shelf_life_days: days) |> Repo.update!()
 
   defp fill_shelf_life(ingredient, _days), do: ingredient
 
@@ -216,8 +221,12 @@ defmodule Tore.Pantry do
   # last_seen_at / provenance / belief upstream.
   defp merge_quantity(existing_qty, existing_unit, incoming_qty, incoming_unit) do
     case {to_decimal(existing_qty), to_decimal(incoming_qty)} do
-      {nil, q} -> {q, existing_unit || incoming_unit}
-      {q, nil} -> {q, existing_unit || incoming_unit}
+      {nil, q} ->
+        {q, existing_unit || incoming_unit}
+
+      {q, nil} ->
+        {q, existing_unit || incoming_unit}
+
       {a, b} ->
         if units_compatible?(existing_unit, incoming_unit) do
           {Decimal.add(a, b), existing_unit || incoming_unit}
@@ -252,8 +261,8 @@ defmodule Tore.Pantry do
     end
   end
 
-  @spec add_item(map()) :: {:ok, PantryItem.t()} | {:error, Ecto.Changeset.t()}
-  def add_item(attrs) do
+  @spec add_item(Scope.t(), map()) :: {:ok, PantryItem.t()} | {:error, Ecto.Changeset.t()}
+  def add_item(%Scope{} = scope, attrs) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     attrs =
@@ -264,12 +273,12 @@ defmodule Tore.Pantry do
 
     attrs = Map.put_new(attrs, :belief, PantryItem.derive_belief(attrs[:provenance]))
 
-    %PantryItem{} |> PantryItem.changeset(attrs) |> Repo.insert()
+    %PantryItem{household_id: scope.household_id} |> PantryItem.changeset(attrs) |> Repo.insert()
   end
 
-  @spec remove_item(integer()) :: :ok | {:error, :not_found}
-  def remove_item(item_id) do
-    case Repo.get(PantryItem, item_id) do
+  @spec remove_item(Scope.t(), integer()) :: :ok | {:error, :not_found}
+  def remove_item(%Scope{} = scope, item_id) do
+    case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil -> {:error, :not_found}
       item -> Repo.delete(item) |> then(fn _ -> :ok end)
     end
@@ -280,16 +289,16 @@ defmodule Tore.Pantry do
   bought again, and the days since it came in become the ingredient's shelf
   life, so the next guess is better.
   """
-  @spec set_expiry(integer(), Date.t() | nil) ::
+  @spec set_expiry(Scope.t(), integer(), Date.t() | nil) ::
           {:ok, PantryItem.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def set_expiry(item_id, expires_at) do
-    case Repo.get(PantryItem, item_id) do
+  def set_expiry(%Scope{} = scope, item_id, expires_at) do
+    case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil ->
         {:error, :not_found}
 
       item ->
         Repo.transaction(fn ->
-          learn_shelf_life(item, expires_at)
+          learn_shelf_life(scope, item, expires_at)
 
           item
           |> PantryItem.changeset(%{
@@ -305,7 +314,7 @@ defmodule Tore.Pantry do
     end
   end
 
-  defp learn_shelf_life(%PantryItem{ingredient_id: id} = item, %Date{} = expires_at)
+  defp learn_shelf_life(scope, %PantryItem{ingredient_id: id} = item, %Date{} = expires_at)
        when not is_nil(id) do
     case Expiry.parse_shelf_life(Date.diff(expires_at, item.added_at)) do
       nil ->
@@ -313,24 +322,24 @@ defmodule Tore.Pantry do
 
       days ->
         Ingredient
-        |> Repo.get!(id)
+        |> Repo.get!(id, Scope.repo_opts(scope))
         |> Ecto.Changeset.change(shelf_life_days: days)
         |> Repo.update!()
     end
   end
 
-  defp learn_shelf_life(_item, _expires_at), do: :ok
+  defp learn_shelf_life(_scope, _item, _expires_at), do: :ok
 
   @doc "What's in the pantry and still within its date, if it has one."
-  @spec list_usable() :: [PantryItem.t()]
-  def list_usable do
+  @spec list_usable(Scope.t()) :: [PantryItem.t()]
+  def list_usable(%Scope{} = scope) do
     today = Date.utc_today()
-    Enum.reject(list_inventory(), &PantryItem.past_date?(&1, today))
+    Enum.reject(list_inventory(scope), &PantryItem.past_date?(&1, today))
   end
 
-  @spec list_inventory() :: [PantryItem.t()]
-  def list_inventory do
-    Repo.all(from p in PantryItem, order_by: p.name)
+  @spec list_inventory(Scope.t()) :: [PantryItem.t()]
+  def list_inventory(%Scope{} = scope) do
+    Repo.all(from(p in PantryItem, order_by: p.name), Scope.repo_opts(scope))
   end
 
   @doc """
@@ -341,16 +350,16 @@ defmodule Tore.Pantry do
   Used by the agent's tool path so "we're out of milk" can find the
   pantry row without the agent needing to know item ids.
   """
-  @spec find_by_name_fuzzy(String.t()) ::
+  @spec find_by_name_fuzzy(Scope.t(), String.t()) ::
           {:ok, PantryItem.t()} | {:ambiguous, [PantryItem.t()]} | {:error, :not_found}
-  def find_by_name_fuzzy(query) when is_binary(query) do
+  def find_by_name_fuzzy(%Scope{} = scope, query) when is_binary(query) do
     needle = String.downcase(String.trim(query))
 
     if needle == "" do
       {:error, :not_found}
     else
       matches =
-        list_inventory()
+        list_inventory(scope)
         |> Enum.filter(fn item ->
           name = String.downcase(item.name)
           String.contains?(name, needle) or String.contains?(needle, name)
@@ -368,10 +377,10 @@ defmodule Tore.Pantry do
   # docs/specs/ui.md §16.5 — pantry rows render as belief, not category.
   @belief_order ~w[confirmed probable uncertain missing]a
 
-  @spec list_inventory_by_belief() :: [{atom(), [PantryItem.t()]}]
-  def list_inventory_by_belief do
+  @spec list_inventory_by_belief(Scope.t()) :: [{atom(), [PantryItem.t()]}]
+  def list_inventory_by_belief(%Scope{} = scope) do
     now = DateTime.utc_now()
-    items = Repo.all(from p in PantryItem, order_by: p.name)
+    items = list_inventory(scope)
     grouped = Enum.group_by(items, &PantryItem.effective_belief(&1, now))
 
     @belief_order
