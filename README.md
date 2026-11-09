@@ -70,9 +70,9 @@ lib/
 
 **Harness** — every state-changing AI action is meant to be a run: the LLM proposes, a pure verifier checks, the change applies in one transaction, and you get a receipt with undo. See `SPEC.md`.
 
-**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts. Each takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one.
+**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts. Each function that touches a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one.
 
-**LLM gate** — `Tore.LLM` refuses calls for a household nobody sponsors, and once the household has spent its monthly limit; it records each call's cost per household. `Tore.SpendGuard` adds a per-feature cooldown, so a runaway loop can't drain API credits.
+**LLM gate** — `Tore.LLM` refuses calls for a household nobody sponsors, and once the household has spent its monthly limit; it records each call's cost per household. `Tore.SpendGuard` adds an estimate check and a cooldown for a few expensive features (prep guide, recipe suggestions, web search). The monthly limit is what stops a runaway loop draining API credits.
 
 **Canonical ingredient keys** — ingredients store a `key` column (e.g. `gul_lok`) derived from the display name. Used for deduplication, pantry matching, and grocery aggregation across locales.
 
@@ -87,7 +87,7 @@ mix setup          # install deps, create and migrate DB, seed
 mix phx.server     # http://localhost:4000
 ```
 
-Set `OPENROUTER_API_KEY` in your environment (or `.env`). Without it Tore still runs, with every AI feature off. Optional overrides:
+Set `OPENROUTER_API_KEY` in your environment (or `.env`). Without it Tore still runs, in dev and production, with every AI feature off. Optional overrides:
 
 ```sh
 OPENROUTER_MODEL=openai/gpt-4o-mini
@@ -112,9 +112,11 @@ Then set:
 - `OIDC_REDIRECT_URI` — production only, if it isn't `https://$PHX_HOST/auth/oidc/callback`.
 - `AI_CLAIM` — optional, the claim that grants LLM access (default `tore_ai`).
 
-To let a friend in, create their Pocket ID user and add them to `tore`. At their first sign-in they get a
-household of their own and pick its language; they get AI only if they're also in `tore-ai`. To share a
-household, add the other person's Pocket ID username in Settings.
+To let a friend in, create their Pocket ID user and add them to `tore`. At their first sign-in they join
+every household that already added their username, or else get a household of their own and pick its
+language. A household has AI when a member in `tore-ai` lets it use their credits; someone in `tore-ai`
+who starts a household sponsors it automatically. To share a household, add the other person's Pocket ID
+username in Settings.
 
 Production refuses to boot without the first three. In dev they're optional: without them, `/login`
 offers a dev sign-in instead.
