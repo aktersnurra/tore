@@ -2,6 +2,7 @@ defmodule Tore.PlanningTest do
   use ExUnit.Case, async: false
 
   import Mox
+  import Ecto.Query, only: [from: 2]
   import Tore.AccountsFixtures
 
   alias Tore.Planning
@@ -440,7 +441,11 @@ defmodule Tore.PlanningTest do
       assert :ok = Planning.plan_upcoming_weeks()
       assert [_] = Tore.Harness.RunReceipts.list(home_scope())
       assert [_] = Tore.Harness.RunReceipts.list(other)
-      assert [] = Tore.Harness.RunReceipts.list(unsponsored)
+      # No run opened at all, not just none applied: the cron skipped the household.
+      refute Tore.Repo.exists?(
+               from(e in Tore.EventStore.Event, where: e.stream_type == "run"),
+               household_id: unsponsored.household_id
+             )
     end
 
     defp sponsored_household do

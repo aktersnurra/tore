@@ -58,6 +58,62 @@ defmodule Tore.LLMGateTest do
     assert Costs.llm_spend_this_month(home_scope()) == 0.25
   end
 
+  test "the memory cron runs only for households that can make a call" do
+    unsponsored = scope_fixture(household_fixture())
+    over_limit = scope_fixture(household_fixture())
+
+    sponsor =
+      user_fixture(household: Repo.get!(Tore.Household.HouseholdSchema, over_limit.household_id))
+
+    Repo.update_all(from(u in Tore.Accounts.User, where: u.id == ^sponsor.id),
+      set: [ai_enabled: true]
+    )
+
+    Repo.update_all(
+      from(h in Tore.Household.HouseholdSchema, where: h.id == ^over_limit.household_id),
+      set: [ai_sponsor_id: sponsor.id]
+    )
+
+    {:ok, _} =
+      Costs.log_llm_usage(over_limit, %{feature: "seed", cost_usd: LLM.monthly_limit_usd()})
+
+    assert LLM.available?(over_limit)
+
+    stub(Tore.MockLLM, :text, fn _system, _user, _opts -> {:ok, %{"insights" => []}, @usage} end)
+
+    assert :ok = Tore.Harness.KitchenMemorySynthesis.synthesise_weekly()
+
+    assert runs_opened(home_scope())
+    refute runs_opened(unsponsored)
+    refute runs_opened(over_limit)
+  end
+
+  test "Capture tells someone a refused household why, instead of to try again" do
+    unsponsored = scope_fixture(household_fixture())
+    ctx = %{household_id: unsponsored.household_id, user_id: unsponsored.user_id}
+
+    assert {:ok, bubbles} = Tore.Capture.Router.route("plan tuesday", [], ctx)
+    assert List.last(bubbles).text == LLM.refusal_text(:ai_unavailable)
+  end
+
+  test "refusal_text names both refusals, also wrapped by a run, and nothing else" do
+    Gettext.with_locale(ToreWeb.Gettext, "sv", fn ->
+      assert LLM.refusal_text(:ai_unavailable) == "AI är avstängt för det här hushållet."
+    end)
+
+    assert LLM.refusal_text({:step_failed, :budget_exceeded}) ==
+             LLM.refusal_text(:budget_exceeded)
+
+    assert is_binary(LLM.refusal_text(:budget_exceeded))
+    assert LLM.refusal_text(:timeout) == nil
+  end
+
+  defp runs_opened(scope) do
+    Repo.exists?(from(e in Tore.EventStore.Event, where: e.stream_type == "run"),
+      household_id: scope.household_id
+    )
+  end
+
   test "a sponsor who loses the credits claim stops the household's AI" do
     sponsor = Repo.get!(Tore.Household.HouseholdSchema, 1).ai_sponsor_id
 

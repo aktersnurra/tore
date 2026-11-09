@@ -313,10 +313,14 @@ defmodule ToreWeb.PlannerLive do
     {:noreply, assign(socket, current_run: state, quick_loading: false)}
   end
 
-  def handle_info({:run_dispatched, {:error, _reason}}, socket) do
+  def handle_info({:run_dispatched, {:error, reason}}, socket) do
     {:noreply,
      socket
-     |> put_flash(:error, gettext("Tore couldn't finish that. Try again in a moment."))
+     |> put_flash(
+       :error,
+       Tore.LLM.refusal_text(reason) ||
+         gettext("Tore couldn't finish that. Try again in a moment.")
+     )
      |> assign(quick_loading: false)}
   end
 
@@ -369,9 +373,14 @@ defmodule ToreWeb.PlannerLive do
       %{slot_key: ^sk} = s ->
         msg =
           case reason do
-            :budget_exceeded -> gettext("Monthly LLM budget reached")
-            :cooldown -> gettext("Please wait a moment before trying again")
-            _ -> gettext("Couldn't fetch a new suggestion")
+            refused when refused in [:ai_unavailable, :budget_exceeded] ->
+              Tore.LLM.refusal_text(refused)
+
+            :cooldown ->
+              gettext("Please wait a moment before trying again")
+
+            _ ->
+              gettext("Couldn't fetch a new suggestion")
           end
 
         {:noreply,

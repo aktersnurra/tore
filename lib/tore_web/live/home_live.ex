@@ -213,11 +213,12 @@ defmodule ToreWeb.HomeLive do
           {:ok, _} ->
             put_flash(socket, :info, gettext("Done."))
 
-          {:error, _} ->
+          {:error, reason} ->
             put_flash(
               socket,
               :error,
-              gettext("Tore couldn't finish that. Try again in a moment.")
+              Tore.LLM.refusal_text(reason) ||
+                gettext("Tore couldn't finish that. Try again in a moment.")
             )
         end
       end)

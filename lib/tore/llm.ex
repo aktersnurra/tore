@@ -13,6 +13,8 @@ defmodule Tore.LLM do
   `Tore.LLM.OpenAI` owns OpenAI body construction and response decoding.
   """
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Scope
 
   @type blob :: {:image, binary()} | {:pdf, binary()}
@@ -32,6 +34,29 @@ defmodule Tore.LLM do
     key_configured?() and Tore.Household.ai_sponsor(scope) != nil
   end
 
+  @doc "Whether the household may make a call right now: `:ok`, or the refusal a call would get."
+  @spec check(Scope.t()) :: :ok | refusal()
+  def check(%Scope{} = scope) do
+    cond do
+      not available?(scope) -> {:error, :ai_unavailable}
+      Tore.Costs.llm_spend_this_month(scope) >= @monthly_limit_usd -> {:error, :budget_exceeded}
+      true -> :ok
+    end
+  end
+
+  @doc """
+  What to tell someone whose request was refused by the gate, also when a run wrapped the refusal as
+  `{:step_failed, reason}`. Nil for any other error, so the caller keeps its own message.
+  """
+  @spec refusal_text(term()) :: String.t() | nil
+  def refusal_text({:step_failed, reason}), do: refusal_text(reason)
+  def refusal_text(:ai_unavailable), do: gettext("AI is off for this household.")
+
+  def refusal_text(:budget_exceeded),
+    do: gettext("This household has used its AI budget for this month.")
+
+  def refusal_text(_reason), do: nil
+
   def text(%Scope{} = scope, system, user, opts \\ []),
     do: call(scope, opts, &spec().text(system, user, &1))
 
@@ -50,7 +75,7 @@ defmodule Tore.LLM do
   defp call(scope, opts, request) do
     {feature, opts} = Keyword.pop(opts, :feature, :other)
 
-    with :ok <- allowed(scope) do
+    with :ok <- check(scope) do
       case request.(opts) do
         {:ok, _result, usage} = ok ->
           record(scope, feature, usage)
@@ -59,14 +84,6 @@ defmodule Tore.LLM do
         error ->
           error
       end
-    end
-  end
-
-  defp allowed(scope) do
-    cond do
-      not available?(scope) -> {:error, :ai_unavailable}
-      Tore.Costs.llm_spend_this_month(scope) >= @monthly_limit_usd -> {:error, :budget_exceeded}
-      true -> :ok
     end
   end
 

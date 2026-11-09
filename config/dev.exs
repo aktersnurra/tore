@@ -71,7 +71,7 @@ config :tore, :uploads_dir, Path.expand("../priv/static/uploads", __DIR__)
 config :tore, :http_client, Tore.Adapters.ReqHTTP
 config :tore, :llm_spec, Tore.LLM.OpenAI
 config :tore, :image_gen_client, Tore.ImageGen.OpenRouter
-config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY", "dev-key")
+config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
 config :tore, :openrouter_model, System.get_env("OPENROUTER_MODEL", "openai/gpt-5-mini")
 
 config :tore,

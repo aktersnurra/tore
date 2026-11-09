@@ -136,8 +136,10 @@ defmodule ToreWeb.ShopLive do
         {:ok, bubbles} ->
           {:info, bubble_text(bubbles)}
 
-        {:error, _} ->
-          {:error, gettext("Tore couldn't finish that. Try again in a moment.")}
+        {:error, reason} ->
+          {:error,
+           Tore.LLM.refusal_text(reason) ||
+             gettext("Tore couldn't finish that. Try again in a moment.")}
       end
 
     {kind, text} = flash

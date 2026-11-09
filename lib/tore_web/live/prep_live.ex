@@ -44,11 +44,12 @@ defmodule ToreWeb.PrepLive do
     {:noreply, assign(socket, guide: guide, generating: false)}
   end
 
-  def handle_info({:guide_ready, {:error, :budget_exceeded}}, socket) do
+  def handle_info({:guide_ready, {:error, reason}}, socket)
+      when reason in [:ai_unavailable, :budget_exceeded] do
     {:noreply,
      socket
      |> assign(generating: false)
-     |> put_flash(:error, gettext("Monthly LLM budget reached"))}
+     |> put_flash(:error, Tore.LLM.refusal_text(reason))}
   end
 
   def handle_info({:guide_ready, {:error, :cooldown}}, socket) do

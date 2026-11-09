@@ -33,7 +33,7 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
   @spec synthesise_weekly() :: :ok
   def synthesise_weekly do
     Household.each_scope(fn scope ->
-      if Tore.LLM.available?(scope), do: synthesise_for(scope)
+      if Tore.LLM.check(scope) == :ok, do: synthesise_for(scope)
     end)
   end
 

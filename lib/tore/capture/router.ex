@@ -231,7 +231,8 @@ defmodule Tore.Capture.Router do
       {:error, reason} ->
         require Logger
         Logger.warning("Capture.Router LLM call failed: #{inspect(reason)}")
-        {:ok, bubbles_acc ++ [%{role: :assistant, text: fallback_text()}], sids_acc}
+        text = Tore.LLM.refusal_text(reason) || fallback_text()
+        {:ok, bubbles_acc ++ [%{role: :assistant, text: text}], sids_acc}
     end
   end
 

@@ -16,7 +16,7 @@ defmodule Tore.Planning do
   @doc "Cron entry: plan the upcoming week for every household."
   def plan_upcoming_weeks do
     Tore.Household.each_scope(fn scope ->
-      if Tore.LLM.available?(scope), do: plan_upcoming_week(scope)
+      if Tore.LLM.check(scope) == :ok, do: plan_upcoming_week(scope)
     end)
   end
 
