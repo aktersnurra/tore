@@ -57,7 +57,6 @@ msgstr "1 recept"
 msgid "Actions"
 msgstr "Åtgärder"
 
-#: lib/tore_web/live/cooking_live.ex:360
 #: lib/tore_web/live/settings_live.ex:266
 #: lib/tore_web/live/settings_live.ex:466
 #, elixir-autogen, elixir-format
@@ -632,7 +631,6 @@ msgstr "Snabb"
 msgid "Store"
 msgstr "Butik"
 
-#: lib/tore_web/live/cooking_live.ex:151
 #: lib/tore_web/live/recipe_live.ex:1114
 #, elixir-autogen, elixir-format
 msgid "Swedish"
@@ -643,7 +641,7 @@ msgstr "Svensk"
 msgid "Total (kr)"
 msgstr "Totalt (kr)"
 
-#: lib/tore_web/live/cooking_live.ex:132
+#: lib/tore_web/live/cooking_live.ex:47
 #: lib/tore_web/live/recipe_live.ex:1113
 #, elixir-autogen, elixir-format
 msgid "Vegetarian"
@@ -851,112 +849,42 @@ msgstr "Okänd butik"
 msgid "AI usage"
 msgstr "AI-användning"
 
-#: lib/tore_web/live/cooking_live.ex:219
+#: lib/tore_web/live/cooking_live.ex:117
 #, elixir-autogen, elixir-format
 msgid "Allergies and hard avoids — never suggested."
 msgstr "Allergier och hårda undantag — föreslås aldrig."
 
-#: lib/tore_web/live/cooking_live.ex:333
-#, elixir-autogen, elixir-format
-msgid "Avoid too often"
-msgstr "Undvik för ofta"
-
-#: lib/tore_web/live/cooking_live.ex:144
-#, elixir-autogen, elixir-format
-msgid "Batch cooking"
-msgstr "Batchlagning"
-
-#: lib/tore_web/live/cooking_live.ex:146
-#, elixir-autogen, elixir-format
-msgid "Budget-focused"
-msgstr "Budgetfokuserat"
-
-#: lib/tore_web/live/cooking_live.ex:277
-#, elixir-autogen, elixir-format
-msgid "Cuisines and styles we want more or less of."
-msgstr "Kök och stilar vi vill ha mer eller mindre av."
-
-#: lib/tore_web/live/cooking_live.ex:378
-#, elixir-autogen, elixir-format
-msgid "Dinner portions"
-msgstr "Middagsportioner"
-
-#: lib/tore_web/live/cooking_live.ex:143
+#: lib/tore_web/live/cooking_live.ex:58
 #, elixir-autogen, elixir-format
 msgid "Eggs"
 msgstr "Ägg"
 
-#: lib/tore_web/live/cooking_live.ex:150
-#, elixir-autogen, elixir-format
-msgid "Fewer dishes"
-msgstr "Färre rätter"
-
-#: lib/tore_web/live/cooking_live.ex:274
-#, elixir-autogen, elixir-format
-msgid "Flavours we enjoy"
-msgstr "Smaker vi gillar"
-
-#: lib/tore_web/live/cooking_live.ex:141
+#: lib/tore_web/live/cooking_live.ex:56
 #, elixir-autogen, elixir-format
 msgid "Gluten"
 msgstr "Gluten"
 
-#: lib/tore_web/live/cooking_live.ex:134
+#: lib/tore_web/live/cooking_live.ex:49
 #, elixir-autogen, elixir-format
 msgid "Gluten-free"
 msgstr "Glutenfritt"
 
-#: lib/tore_web/live/cooking_live.ex:137
+#: lib/tore_web/live/cooking_live.ex:52
 #, elixir-autogen, elixir-format
 msgid "High protein"
 msgstr "Hög protein"
 
-#: lib/tore_web/live/cooking_live.ex:176
+#: lib/tore_web/live/cooking_live.ex:74
 #, elixir-autogen, elixir-format
 msgid "Household kitchen"
 msgstr "Hushållets kök"
 
-#: lib/tore_web/live/cooking_live.ex:248
-#, elixir-autogen, elixir-format
-msgid "How we like to cook and what matters to us."
-msgstr "Hur vi gillar att laga mat och vad som är viktigt."
-
-#: lib/tore_web/live/cooking_live.ex:436
-#, elixir-autogen, elixir-format
-msgid "Include lunches"
-msgstr "Inkludera luncher"
-
-#: lib/tore_web/live/cooking_live.ex:157
-#, elixir-autogen, elixir-format
-msgid "Indian"
-msgstr "Indiskt"
-
-#: lib/tore_web/live/cooking_live.ex:152
-#, elixir-autogen, elixir-format
-msgid "Italian"
-msgstr "Italienskt"
-
-#: lib/tore_web/live/cooking_live.ex:153
-#, elixir-autogen, elixir-format
-msgid "Japanese"
-msgstr "Japanskt"
-
-#: lib/tore_web/live/cooking_live.ex:147
-#, elixir-autogen, elixir-format
-msgid "Kid-friendly"
-msgstr "Barnvänligt"
-
-#: lib/tore_web/live/cooking_live.ex:154
-#, elixir-autogen, elixir-format
-msgid "Korean"
-msgstr "Koreanskt"
-
-#: lib/tore_web/live/cooking_live.ex:142
+#: lib/tore_web/live/cooking_live.ex:57
 #, elixir-autogen, elixir-format
 msgid "Lactose"
 msgstr "Laktos"
 
-#: lib/tore_web/live/cooking_live.ex:135
+#: lib/tore_web/live/cooking_live.ex:50
 #, elixir-autogen, elixir-format
 msgid "Lactose-free"
 msgstr "Laktosfritt"
@@ -966,95 +894,35 @@ msgstr "Laktosfritt"
 msgid "Last 30 days"
 msgstr "Senaste 30 dagarna"
 
-#: lib/tore_web/live/cooking_live.ex:407
-#, elixir-autogen, elixir-format
-msgid "Leftovers (matlådor)"
-msgstr "Matlådor"
-
-#: lib/tore_web/live/cooking_live.ex:136
+#: lib/tore_web/live/cooking_live.ex:51
 #, elixir-autogen, elixir-format
 msgid "Low carb"
 msgstr "Låg kolhydrat"
 
-#: lib/tore_web/live/cooking_live.ex:158
-#, elixir-autogen, elixir-format
-msgid "Mediterranean"
-msgstr "Medelhavskök"
-
-#: lib/tore_web/live/cooking_live.ex:155
-#, elixir-autogen, elixir-format
-msgid "Mexican"
-msgstr "Mexikanskt"
-
-#: lib/tore_web/live/cooking_live.ex:156
-#, elixir-autogen, elixir-format
-msgid "Middle Eastern"
-msgstr "Mellanöstern"
-
-#: lib/tore_web/live/cooking_live.ex:472
-#, elixir-autogen, elixir-format
-msgid "Mon–Fri"
-msgstr "Mån–Fre"
-
-#: lib/tore_web/live/cooking_live.ex:486
-#, elixir-autogen, elixir-format
-msgid "Mon–Sun"
-msgstr "Mån–Sön"
-
-#: lib/tore_web/live/cooking_live.ex:149
-#, elixir-autogen, elixir-format
-msgid "More vegetables"
-msgstr "Mer grönsaker"
-
-#: lib/tore_web/live/cooking_live.ex:216
+#: lib/tore_web/live/cooking_live.ex:114
 #, elixir-autogen, elixir-format
 msgid "Never include"
 msgstr "Inkludera aldrig"
 
-#: lib/tore_web/live/cooking_live.ex:138
+#: lib/tore_web/live/cooking_live.ex:53
 #, elixir-autogen, elixir-format
 msgid "Nut-free"
 msgstr "Nötfritt"
 
-#: lib/tore_web/live/cooking_live.ex:139
+#: lib/tore_web/live/cooking_live.ex:54
 #, elixir-autogen, elixir-format
 msgid "Nuts"
 msgstr "Nötter"
-
-#: lib/tore_web/live/cooking_live.ex:245
-#, elixir-autogen, elixir-format
-msgid "Our kitchen"
-msgstr "Vårt kök"
-
-#: lib/tore_web/live/cooking_live.ex:369
-#, elixir-autogen, elixir-format
-msgid "Our routine"
-msgstr "Vår rutin"
-
-#: lib/tore_web/live/cooking_live.ex:457
-#, elixir-autogen, elixir-format
-msgid "Plan days"
-msgstr "Planeringsdagar"
 
 #: lib/tore_web/live/settings_live.ex:178
 #, elixir-autogen, elixir-format
 msgid "Plan generation"
 msgstr "Plansgenerering"
 
-#: lib/tore_web/live/cooking_live.ex:372
-#, elixir-autogen, elixir-format
-msgid "Portions and planning schedule."
-msgstr "Portioner och planeringsschema."
-
 #: lib/tore_web/live/settings_live.ex:179
 #, elixir-autogen, elixir-format
 msgid "Prep guide"
 msgstr "Förberedelseguide"
-
-#: lib/tore_web/live/cooking_live.ex:145
-#, elixir-autogen, elixir-format
-msgid "Quick weekdays"
-msgstr "Snabba vardagar"
 
 #: lib/tore_web/live/settings_live.ex:180
 #, elixir-autogen, elixir-format
@@ -1071,22 +939,12 @@ msgstr "Receptimport"
 msgid "Recipe suggestions"
 msgstr "Receptförslag"
 
-#: lib/tore_web/live/cooking_live.ex:140
+#: lib/tore_web/live/cooking_live.ex:55
 #, elixir-autogen, elixir-format
 msgid "Shellfish"
 msgstr "Skaldjur"
 
-#: lib/tore_web/live/cooking_live.ex:336
-#, elixir-autogen, elixir-format
-msgid "Soft dislikes — helps us keep it varied."
-msgstr "Mjuka ogillar — hjälper oss hålla variationen."
-
-#: lib/tore_web/live/cooking_live.ex:148
-#, elixir-autogen, elixir-format
-msgid "Swedish comfort food"
-msgstr "Svensk husmanskost"
-
-#: lib/tore_web/live/cooking_live.ex:190
+#: lib/tore_web/live/cooking_live.ex:88
 #, elixir-autogen, elixir-format
 msgid "Tell us what we should cook around."
 msgstr "Berätta vad vi ska anpassa matlagningen efter."
@@ -1096,25 +954,15 @@ msgstr "Berätta vad vi ska anpassa matlagningen efter."
 msgid "This month by feature"
 msgstr "Denna månad per funktion"
 
-#: lib/tore_web/live/cooking_live.ex:179
-#, elixir-autogen, elixir-format
-msgid "Used when planning dinners, leftovers, and grocery lists."
-msgstr "Används vid planering av middagar, matlådor och inköpslistor."
-
-#: lib/tore_web/live/cooking_live.ex:133
+#: lib/tore_web/live/cooking_live.ex:48
 #, elixir-autogen, elixir-format
 msgid "Vegan"
 msgstr "Veganskt"
 
-#: lib/tore_web/live/cooking_live.ex:187
+#: lib/tore_web/live/cooking_live.ex:85
 #, elixir-autogen, elixir-format
 msgid "We eat"
 msgstr "Vi äter"
-
-#: lib/tore_web/live/cooking_live.ex:356
-#, elixir-autogen, elixir-format
-msgid "e.g. coriander"
-msgstr "t.ex. koriander"
 
 #: lib/tore_web/live/prep_live.ex:163
 #, elixir-autogen, elixir-format
@@ -2444,3 +2292,18 @@ msgstr "Den dagen är fastlåst nu, så receptet sparades inte. Lås upp den och
 #, elixir-autogen, elixir-format
 msgid "You're eating out that day now, so the recipe wasn't saved."
 msgstr "Ni äter ute den dagen nu, så receptet sparades inte."
+
+#: lib/tore_web/live/cooking_live.ex:145
+#, elixir-autogen, elixir-format
+msgid "See what Tore remembers"
+msgstr "Se vad Tore minns"
+
+#: lib/tore_web/live/cooking_live.ex:143
+#, elixir-autogen, elixir-format
+msgid "Tastes and favourite cuisines are learned as you plan."
+msgstr "Smaker och favoritkök lär sig Tore när ni planerar."
+
+#: lib/tore_web/live/cooking_live.ex:77
+#, elixir-autogen, elixir-format
+msgid "Tore checks every plan against these."
+msgstr "Tore kontrollerar varje plan mot dessa."

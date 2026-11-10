@@ -73,7 +73,7 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
   # if that fidelity ever lapses, the dietary check goes blind on swapped recipes
   # while the plan still gets written. Keep the two in sync.
   defp check_dietary(events, prefs, scope) do
-    banned = MapSet.new(downcase(prefs.dietary_restrictions ++ prefs.allergies ++ prefs.dislikes))
+    banned = MapSet.new(downcase(prefs.dietary_restrictions ++ prefs.allergies))
 
     bad =
       events

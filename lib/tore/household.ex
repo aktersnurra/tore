@@ -148,10 +148,7 @@ defmodule Tore.Household do
     parts =
       [
         restrictions_line(p.dietary_restrictions),
-        allergies_line(p.allergies),
-        dislikes_line(p.dislikes),
-        style_line(p.cooking_style),
-        cuisine_line(p.cuisine_preferences)
+        allergies_line(p.allergies)
       ]
       |> Enum.reject(&is_nil/1)
 
@@ -165,30 +162,4 @@ defmodule Tore.Household do
   defp allergies_line(nil), do: nil
   defp allergies_line([]), do: nil
   defp allergies_line(list), do: "Allergies/hard avoids: #{Enum.join(list, ", ")}"
-
-  defp dislikes_line(nil), do: nil
-  defp dislikes_line([]), do: nil
-  defp dislikes_line(list), do: "Avoid too often: #{Enum.join(list, ", ")}"
-
-  defp style_line(nil), do: nil
-  defp style_line([]), do: nil
-  defp style_line(list), do: "Cooking style: #{Enum.join(list, ", ")}"
-
-  defp cuisine_line(nil), do: nil
-  defp cuisine_line(map) when map == %{}, do: nil
-
-  defp cuisine_line(map) do
-    more = map |> Enum.filter(fn {_, v} -> v == "more" end) |> Enum.map(&elem(&1, 0))
-    less = map |> Enum.filter(fn {_, v} -> v == "less" end) |> Enum.map(&elem(&1, 0))
-
-    [
-      if(more != [], do: "More of: #{Enum.join(more, ", ")}"),
-      if(less != [], do: "Less of: #{Enum.join(less, ", ")}")
-    ]
-    |> Enum.reject(&is_nil/1)
-    |> case do
-      [] -> nil
-      parts -> "Cuisine: #{Enum.join(parts, "; ")}"
-    end
-  end
 end

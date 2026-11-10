@@ -53,25 +53,25 @@ defmodule Tore.HouseholdTest do
   describe "preferences" do
     test "get_preferences/0 returns empty preferences struct when none exist" do
       prefs = Household.get_preferences(home_scope())
-      assert prefs.default_portions == 4
+      assert prefs.allergies == []
       assert prefs.dietary_restrictions == []
     end
 
     test "update_preferences/1 persists and returns updated preferences" do
       assert {:ok, prefs} =
                Household.update_preferences(home_scope(), %{
-                 default_portions: 6,
+                 allergies: ["nuts"],
                  dietary_restrictions: ["vegan"]
                })
 
-      assert prefs.default_portions == 6
+      assert prefs.allergies == ["nuts"]
       assert prefs.dietary_restrictions == ["vegan"]
     end
 
     test "update_preferences/1 is idempotent — second update replaces first" do
-      {:ok, _} = Household.update_preferences(home_scope(), %{default_portions: 6})
-      assert {:ok, prefs} = Household.update_preferences(home_scope(), %{default_portions: 2})
-      assert prefs.default_portions == 2
+      {:ok, _} = Household.update_preferences(home_scope(), %{allergies: ["nuts"]})
+      assert {:ok, prefs} = Household.update_preferences(home_scope(), %{allergies: ["eggs"]})
+      assert prefs.allergies == ["eggs"]
     end
 
     test "prefs_to_dietary_guidance/1 returns nil for empty prefs" do

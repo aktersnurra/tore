@@ -69,7 +69,7 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
     assert :ok = PlanVerifier.verify(d, ctx(plan))
   end
 
-  test "fails when a swapped-in recipe contains a disliked ingredient" do
+  test "fails when a swapped-in recipe contains an ingredient someone is allergic to" do
     {:ok, r} =
       Tore.Recipes.create(home_scope(), %{
         title: "Peanut Curry",
@@ -78,7 +78,7 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
         ingredients: [%{name: "peanut", quantity: 1, unit: "cup"}]
       })
 
-    prefs = %Preferences{dislikes: ["peanut"]}
+    prefs = %Preferences{allergies: ["peanut"]}
 
     d =
       diff([
@@ -96,7 +96,7 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
              PlanVerifier.verify(d, ctx(plan, prefs))
   end
 
-  test "fails when an assigned recipe contains a disliked ingredient" do
+  test "fails when an assigned recipe contains an ingredient someone is allergic to" do
     {:ok, r} =
       Tore.Recipes.create(home_scope(), %{
         title: "Peanut Stew",
@@ -105,7 +105,7 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
         ingredients: [%{name: "peanut", quantity: 1, unit: "cup"}]
       })
 
-    prefs = %Preferences{dislikes: ["peanut"]}
+    prefs = %Preferences{allergies: ["peanut"]}
     d = diff([ev("mon_dinner", "RecipeAssigned", %{"recipe_id" => r.id, "servings" => 2})])
 
     plan =
