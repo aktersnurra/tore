@@ -288,11 +288,9 @@ defmodule Tore.Pantry do
   def restore_item(%Scope{} = scope, item_id, before) do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil ->
-        if not re_added?(scope, before) do
-          %PantryItem{id: item_id, household_id: scope.household_id}
-          |> Ecto.Changeset.change(before)
-          |> Repo.insert!()
-        end
+        %PantryItem{id: item_id, household_id: scope.household_id}
+        |> Ecto.Changeset.change(before)
+        |> Repo.insert!(on_conflict: :nothing, conflict_target: [:household_id, :ingredient_id])
 
       item ->
         item |> Ecto.Changeset.change(before) |> Repo.update!()
@@ -300,15 +298,6 @@ defmodule Tore.Pantry do
 
     :ok
   end
-
-  defp re_added?(_scope, %{ingredient_id: nil}), do: false
-
-  defp re_added?(scope, %{ingredient_id: ingredient_id}),
-    do:
-      Repo.exists?(
-        from(p in PantryItem, where: p.ingredient_id == ^ingredient_id),
-        Scope.repo_opts(scope)
-      )
 
   def remove_item(%Scope{} = scope, item_id) do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do

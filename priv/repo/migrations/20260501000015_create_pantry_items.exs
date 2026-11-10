@@ -19,6 +19,7 @@ defmodule Tore.Repo.Migrations.CreatePantryItems do
     end
 
     create index(:pantry_items, [:household_id])
-    create index(:pantry_items, [:ingredient_id])
+    # One row per ingredient in a household. Rows with no ingredient aren't limited.
+    create unique_index(:pantry_items, [:household_id, :ingredient_id])
   end
 end
