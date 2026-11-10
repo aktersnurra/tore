@@ -1,5 +1,5 @@
 defmodule Tore.Costs do
-  alias Tore.{Repo, Scope, Costs.LLMUsage, Costs.Receipt, Costs.LineItem, Costs.DiningOut}
+  alias Tore.{Planning, Repo, Scope, Costs.LLMUsage, Costs.Receipt, Costs.LineItem}
   import Ecto.Query
 
   @doc "Records what an LLM call cost the household. Only `Tore.LLM` calls this, after each call."
@@ -130,69 +130,14 @@ defmodule Tore.Costs do
 
   defp parse_iso_date(_), do: nil
 
-  @doc """
-  One row per plan slot. A later call fills in what it's given and keeps the
-  rest, so an amount can follow the day after. An empty string clears a field.
-  """
-  @spec save_dining_out(Scope.t(), map()) :: {:ok, DiningOut.t()} | {:error, Ecto.Changeset.t()}
-  def save_dining_out(%Scope{} = scope, %{plan_id: plan_id, slot_key: slot_key} = attrs) do
-    given = attrs |> Enum.reject(fn {_field, value} -> is_nil(value) end) |> Map.new()
-
-    (get_dining_out(scope, plan_id, slot_key) || %DiningOut{household_id: scope.household_id})
-    |> DiningOut.changeset(given)
-    |> Repo.insert_or_update()
-  end
-
-  @spec get_dining_out(Scope.t(), String.t(), String.t()) :: DiningOut.t() | nil
-  def get_dining_out(%Scope{} = scope, plan_id, slot_key) do
-    Repo.get_by(DiningOut, [plan_id: plan_id, slot_key: slot_key], Scope.repo_opts(scope))
-  end
-
-  @doc "The slot's dining entry as undo needs it, or `:absent`."
-  @spec dining_out_before(Scope.t(), String.t(), String.t()) :: map() | :absent
-  def dining_out_before(%Scope{} = scope, plan_id, slot_key) do
-    case get_dining_out(scope, plan_id, slot_key) do
-      nil -> :absent
-      entry -> Map.take(entry, [:date, :description, :total_amount, :user_id])
-    end
-  end
-
-  @doc "Puts the slot's dining entry back as `dining_out_before/3` recorded it."
-  @spec restore_dining_out(Scope.t(), String.t(), String.t(), map() | :absent) :: :ok
-  def restore_dining_out(%Scope{} = scope, plan_id, slot_key, :absent),
-    do: delete_dining_out(scope, plan_id, [slot_key])
-
-  def restore_dining_out(%Scope{} = scope, plan_id, slot_key, before) do
-    entry =
-      get_dining_out(scope, plan_id, slot_key) ||
-        %DiningOut{household_id: scope.household_id, plan_id: plan_id, slot_key: slot_key}
-
-    entry |> Ecto.Changeset.change(before) |> Repo.insert_or_update!()
-    :ok
-  end
-
-  @spec delete_dining_out(Scope.t(), String.t(), [String.t()]) :: :ok
-  def delete_dining_out(%Scope{} = scope, plan_id, slot_keys) do
-    Repo.delete_all(
-      from(d in DiningOut, where: d.plan_id == ^plan_id and d.slot_key in ^slot_keys),
-      Scope.repo_opts(scope)
-    )
-
-    :ok
-  end
-
-  @spec dining_out_in_month(Scope.t(), integer(), integer()) :: [DiningOut.t()]
-  def dining_out_in_month(%Scope{} = scope, year, month) do
+  @doc "The days eaten out in a month, newest first, as the plans hold them: `%{date, place, amount}`."
+  @spec eating_out_in_month(Scope.t(), integer(), integer()) :: [map()]
+  def eating_out_in_month(%Scope{} = scope, year, month) do
     {:ok, month_start} = Date.new(year, month, 1)
-    month_end = Date.end_of_month(month_start)
 
-    Repo.all(
-      from(d in DiningOut,
-        where: d.date >= ^month_start and d.date <= ^month_end,
-        order_by: [desc: d.date]
-      ),
-      Scope.repo_opts(scope)
-    )
+    scope
+    |> Planning.eating_out_between(month_start, Date.end_of_month(month_start))
+    |> Enum.reverse()
   end
 
   @spec monthly_total(Scope.t(), integer(), integer()) :: Decimal.t()
@@ -211,14 +156,9 @@ defmodule Tore.Costs do
       |> to_decimal()
 
     dining =
-      Repo.one(
-        from(d in DiningOut,
-          where: d.date >= ^month_start and d.date <= ^month_end,
-          select: coalesce(sum(d.total_amount), 0)
-        ),
-        Scope.repo_opts(scope)
-      )
-      |> to_decimal()
+      scope
+      |> eating_out_in_month(year, month)
+      |> Enum.reduce(Decimal.new(0), &Decimal.add(&2, &1.amount || 0))
 
     Decimal.add(grocery, dining)
   end

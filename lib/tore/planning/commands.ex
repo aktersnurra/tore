@@ -5,7 +5,8 @@ defmodule Tore.Planning.Commands do
   defmodule PinSlot, do: defstruct([:slot_key, :pin])
   defmodule UnpinSlot, do: defstruct([:slot_key])
   defmodule SkipMeal, do: defstruct([:slot_key])
-  defmodule EatOut, do: defstruct([:slot_key])
+  # place and amount: nil keeps what the day has, "" clears it. amount is a number or text.
+  defmodule EatOut, do: defstruct([:slot_key, :place, :amount])
   defmodule MarkLeftover, do: defstruct([:slot_key])
 
   @type t ::

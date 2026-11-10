@@ -108,7 +108,7 @@ defmodule ToreWeb.CostLiveTest do
     assert Costs.recent_receipts(home_scope(), 5) == []
   end
 
-  test "lists eating out from the plan, with and without an amount", %{conn: conn, user: user} do
+  test "lists eating out from the plan, with and without an amount", %{conn: conn} do
     today = Date.utc_today()
     monday = Date.add(today, -(Date.day_of_week(today) - 1))
     plan_id = Tore.Streams.plan(home_scope(), monday)
@@ -116,11 +116,7 @@ defmodule ToreWeb.CostLiveTest do
     key = "#{Enum.at(days, Date.day_of_week(today) - 1)}_dinner"
 
     {:ok, _} =
-      Planning.eat_out(home_scope(), plan_id, key, %{
-        description: "Sushi",
-        total_amount: "450",
-        user_id: user.id
-      })
+      Planning.eat_out(home_scope(), plan_id, key, %{place: "Sushi", amount: "450"})
 
     {:ok, lv, _html} = live(conn, "/settings/costs")
     row = lv |> element("#eating-out") |> render()
@@ -128,11 +124,7 @@ defmodule ToreWeb.CostLiveTest do
     assert row =~ "450 kr"
 
     {:ok, _} =
-      Planning.eat_out(home_scope(), plan_id, key, %{
-        description: "",
-        total_amount: "",
-        user_id: user.id
-      })
+      Planning.eat_out(home_scope(), plan_id, key, %{place: "", amount: ""})
 
     {:ok, lv, _html} = live(conn, "/settings/costs")
     row = lv |> element("#eating-out") |> render()

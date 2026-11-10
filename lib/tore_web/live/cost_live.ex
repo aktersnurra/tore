@@ -32,7 +32,7 @@ defmodule ToreWeb.CostLive do
       month_total: Costs.monthly_total(scope, today.year, today.month),
       last_month_total: Costs.monthly_total(scope, last_month.year, last_month.month),
       receipts: Costs.recent_receipts(scope, @recent_receipts),
-      dining: Costs.dining_out_in_month(scope, today.year, today.month)
+      dining: Costs.eating_out_in_month(scope, today.year, today.month)
     )
   end
 
@@ -159,9 +159,9 @@ defmodule ToreWeb.CostLive do
           <.cost_section id="eating-out" title={gettext("Eating out this month")}>
             <.cost_row
               :for={d <- @dining}
-              title={d.description || gettext("Eating out")}
+              title={d.place || gettext("Eating out")}
               date={d.date}
-              amount={d.total_amount}
+              amount={d.amount}
             />
             <.empty_row
               :if={@dining == []}

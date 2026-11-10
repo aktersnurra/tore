@@ -601,24 +601,23 @@ defmodule Tore.Capture.Dispatch do
     end)
   end
 
-  @doc "`dining` holds the dining entry's optional `:description` and `:total_amount`."
+  @doc "`attrs` holds the optional `:place` and `:amount`; what isn't given stays as it was."
   @spec mark_eating_out(Date.t(), map(), ctx()) :: bubble()
-  def mark_eating_out(%Date{} = date, dining, ctx) do
-    edit_plan(
-      ctx,
-      date,
-      &%Planning.Commands.EatOut{slot_key: &1},
-      fn -> gettext("Marked %{date} as eating out.", date: Date.to_iso8601(date)) end,
-      dining
-    )
+  def mark_eating_out(%Date{} = date, attrs, ctx) do
+    command =
+      &%Planning.Commands.EatOut{slot_key: &1, place: attrs[:place], amount: attrs[:amount]}
+
+    edit_plan(ctx, date, command, fn ->
+      gettext("Marked %{date} as eating out.", date: Date.to_iso8601(date))
+    end)
   end
 
   # One day's change through a plan edit run, so a pinned day holds and the reply can undo it.
-  defp edit_plan(ctx, date, command, applied_text, dining \\ %{}) do
+  defp edit_plan(ctx, date, command, applied_text) do
     plan_id = plan_stream_id_for(ctx, date)
     command = command.(slot_key_for(date))
 
-    with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(scope(ctx), plan_id, command, dining),
+    with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(scope(ctx), plan_id, command),
          {:ok, %KitchenRun{} = run} <- Runs.submit(scope(ctx), Kinds.PlanEdit, diff, run_ctx) do
       case run do
         %KitchenRun{status: :applied, id: id} ->

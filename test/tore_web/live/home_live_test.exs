@@ -187,10 +187,7 @@ defmodule ToreWeb.HomeLiveTest do
     end
   end
 
-  test "says the household is eating out tonight instead of nothing planned", %{
-    conn: conn,
-    user: user
-  } do
+  test "says the household is eating out tonight instead of nothing planned", %{conn: conn} do
     today = Date.utc_today()
     monday = Date.add(today, -(Date.day_of_week(today) - 1))
     day = Enum.at(~w(mon tue wed thu fri sat sun), Date.day_of_week(today) - 1)
@@ -200,9 +197,7 @@ defmodule ToreWeb.HomeLiveTest do
         home_scope(),
         Tore.Streams.plan(home_scope(), monday),
         "#{day}_dinner",
-        %{
-          user_id: user.id
-        }
+        %{}
       )
 
     {:ok, _lv, html} = live(conn, "/")

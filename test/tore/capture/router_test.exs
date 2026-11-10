@@ -77,17 +77,8 @@ defmodule Tore.Capture.RouterTest do
       {:ok, state} =
         Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-11-09]))
 
+      assert %{place: "Sushi", amount: "450"} = state.slots["fri_dinner"]
       assert Tore.Planning.State.eating_out?(state.slots["fri_dinner"])
-
-      entry =
-        Tore.Costs.get_dining_out(
-          home_scope(),
-          Tore.Streams.plan(home_scope(), ~D[2026-11-09]),
-          "fri_dinner"
-        )
-
-      assert entry.description == "Sushi"
-      assert Decimal.equal?(entry.total_amount, 450)
     end
   end
 end

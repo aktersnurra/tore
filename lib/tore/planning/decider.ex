@@ -45,12 +45,19 @@ defmodule Tore.Planning.Decider do
     end
   end
 
-  # Unlike a plain skip, this works on an empty day. Saying it twice changes nothing.
-  def decide(%Commands.EatOut{slot_key: sk}, state) do
-    if State.eating_out?(state.slots[sk]) do
-      {:ok, []}
-    else
-      {:ok, [%Events.MealSkipped{slot_key: sk, reason: "eating_out"}]}
+  # Unlike a plain skip, this works on an empty day. Saying it again with a place or an amount
+  # updates the day, keeping what it isn't given; saying nothing new changes nothing.
+  def decide(%Commands.EatOut{slot_key: sk} = cmd, state) do
+    now = if State.eating_out?(state.slots[sk]), do: state.slots[sk], else: %{}
+
+    with {:ok, amount} <- amount(cmd.amount, now[:amount]) do
+      place = pick(cmd.place, now[:place])
+
+      if now != %{} and place == now.place and amount == now.amount,
+        do: {:ok, []},
+        else:
+          {:ok,
+           [%Events.MealSkipped{slot_key: sk, reason: "eating_out", place: place, amount: amount}]}
     end
   end
 
@@ -59,6 +66,20 @@ defmodule Tore.Planning.Decider do
       {:ok, [%Events.LeftoverMarked{slot_key: sk}]}
     else
       {:error, :slot_empty}
+    end
+  end
+
+  defp pick(nil, kept), do: kept
+  defp pick("", _kept), do: nil
+  defp pick(given, _kept) when is_binary(given), do: String.trim(given)
+
+  defp amount(nil, kept), do: {:ok, kept}
+  defp amount("", _kept), do: {:ok, nil}
+
+  defp amount(given, _kept) do
+    case given |> to_string() |> String.trim() |> String.replace(",", ".") |> Decimal.parse() do
+      {%Decimal{sign: 1} = d, ""} -> {:ok, d |> Decimal.normalize() |> Decimal.to_string(:normal)}
+      _ -> {:error, :invalid_amount}
     end
   end
 
@@ -85,13 +106,27 @@ defmodule Tore.Planning.Decider do
   end
 
   # Eating out cancels the day's recipe, and may land on a day that has none.
-  def evolve(state, %Events.MealSkipped{slot_key: sk, reason: "eating_out"}) do
-    slot = %{recipe_id: nil, servings: nil, skipped: true, leftover: false, reason: "eating_out"}
+  def evolve(state, %Events.MealSkipped{slot_key: sk, reason: "eating_out"} = e) do
+    slot = %{
+      recipe_id: nil,
+      servings: nil,
+      skipped: true,
+      leftover: false,
+      reason: "eating_out",
+      place: e.place,
+      amount: e.amount
+    }
+
     %{state | slots: Map.put(state.slots, sk, slot)}
   end
 
   def evolve(state, %Events.MealSkipped{slot_key: sk}) do
-    slot = state.slots |> Map.fetch!(sk) |> Map.merge(%{skipped: true, reason: nil})
+    slot =
+      state.slots
+      |> Map.fetch!(sk)
+      |> Map.merge(%{skipped: true, reason: nil})
+      |> Map.drop([:place, :amount])
+
     %{state | slots: Map.put(state.slots, sk, slot)}
   end
 

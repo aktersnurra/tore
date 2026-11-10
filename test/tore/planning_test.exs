@@ -334,72 +334,62 @@ defmodule Tore.PlanningTest do
   end
 
   describe "eat_out/3" do
-    setup do
-      user = user_fixture(name: "Tester")
-      %{user_id: user.id}
+    defp day(key) do
+      {:ok, state} = Planning.load_plan(home_scope(), plan_id())
+      state.slots[key]
     end
 
-    test "cancels the recipe and stores the entry on the right day", %{user_id: user_id} do
+    test "cancels the recipe and keeps the place and amount on the day" do
       {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "wed_dinner", recipe(1), 4)
 
-      assert {:ok, entry} =
-               Planning.eat_out(home_scope(), plan_id(), "wed_dinner", %{
-                 description: "Sushi",
-                 total_amount: 450,
-                 user_id: user_id
-               })
+      {:ok, _} =
+        Planning.eat_out(home_scope(), plan_id(), "wed_dinner", %{place: "Sushi", amount: 450})
 
-      assert entry.date == ~D[2026-04-29]
-      assert entry.slot_key == "wed_dinner"
-
-      {:ok, state} = Planning.load_plan(home_scope(), plan_id())
-      assert state.slots["wed_dinner"].recipe_id == nil
-      assert Tore.Planning.State.eating_out?(state.slots["wed_dinner"])
+      assert %{recipe_id: nil, place: "Sushi", amount: "450"} = day("wed_dinner")
+      assert Tore.Planning.State.eating_out?(day("wed_dinner"))
     end
 
-    test "works on an empty day, where a plain skip doesn't", %{user_id: user_id} do
+    test "works on an empty day, where a plain skip doesn't" do
       assert {:error, :slot_empty} = Planning.skip_meal(home_scope(), plan_id(), "fri_dinner")
-
-      assert {:ok, entry} =
-               Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{user_id: user_id})
-
-      assert entry.total_amount == nil
+      {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{})
+      assert %{place: nil, amount: nil} = day("fri_dinner")
     end
 
-    test "asking again updates the entry and adds no event", %{user_id: user_id} do
-      {:ok, first} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{user_id: user_id})
-      assert_receive {:events, [_skipped]}
+    test "an amount said later keeps the place, and saying nothing new adds no event" do
+      {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{place: "Sushi"})
 
-      {:ok, second} =
-        Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{
-          total_amount: 300,
-          user_id: user_id
-        })
+      assert {:ok, [_]} =
+               Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{amount: "300,50"})
 
-      assert second.id == first.id
-      refute_receive {:events, _}, 50
+      assert %{place: "Sushi", amount: "300.5"} = day("fri_dinner")
+
+      assert {:ok, []} =
+               Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{place: "Sushi"})
     end
 
-    test "a bad amount changes nothing", %{user_id: user_id} do
-      assert {:error, _} =
-               Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{
-                 total_amount: -1,
-                 user_id: user_id
-               })
+    test "an empty string clears a field" do
+      {:ok, _} =
+        Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{place: "Sushi", amount: 300})
 
-      {:ok, state} = Planning.load_plan(home_scope(), plan_id())
-      assert state.slots == %{}
-      assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "fri_dinner") == nil
+      {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{place: "", amount: ""})
+      assert %{place: nil, amount: nil} = day("fri_dinner")
     end
 
-    test "a recipe or a cleared day drops the entry", %{user_id: user_id} do
-      {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{user_id: user_id})
+    test "a bad amount changes nothing" do
+      for amount <- [-1, "lots"] do
+        assert {:error, :invalid_amount} =
+                 Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{amount: amount})
+      end
+
+      assert day("fri_dinner") == nil
+    end
+
+    test "a recipe replaces the day and its cost" do
+      {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "fri_dinner", %{amount: 300})
       {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "fri_dinner", recipe(1), 4)
-      assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "fri_dinner") == nil
 
-      {:ok, _} = Planning.eat_out(home_scope(), plan_id(), "sat_dinner", %{user_id: user_id})
-      {:ok, _} = Planning.remove_recipe(home_scope(), plan_id(), "sat_dinner")
-      assert Tore.Costs.get_dining_out(home_scope(), plan_id(), "sat_dinner") == nil
+      refute Tore.Planning.State.eating_out?(day("fri_dinner"))
+      refute Map.has_key?(day("fri_dinner"), :amount)
     end
 
     test "old MealSkipped events with no reason still load" do

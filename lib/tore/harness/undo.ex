@@ -17,7 +17,9 @@ defmodule Tore.Harness.Undo do
           servings: integer() | nil,
           skipped: boolean(),
           leftover: boolean(),
-          reason: String.t() | nil
+          reason: String.t() | nil,
+          place: String.t() | nil,
+          amount: String.t() | nil
         }
 
   @type slot_before :: %{slot: slot() | :empty, pin: term() | :none}
@@ -36,27 +38,18 @@ defmodule Tore.Harness.Undo do
           last_seen_at: DateTime.t() | nil
         }
 
-  @type dining_before :: %{
-          date: Date.t(),
-          description: String.t() | nil,
-          total_amount: Decimal.t() | nil,
-          user_id: integer()
-        }
-
   @type step ::
           {:restore_plan_slots, plan_id :: String.t(), %{String.t() => slot_before()}}
           | {:restore_pantry_item, item_id :: integer(), pantry_before() | :absent}
           | {:restore_memory, added_ids :: [integer()], forgotten_ids :: [integer()]}
           | {:delete_receipt, receipt_id :: integer()}
           | {:delete_recipe, recipe_id :: integer()}
-          | {:restore_dining_out, plan_id :: String.t(), slot_key :: String.t(),
-             dining_before() | :absent}
           | {:remove_shop_item, list_id :: String.t(), item_id :: String.t()}
           | {:uncheck_shop_item, list_id :: String.t(), item_id :: String.t()}
 
   @type t :: {:steps, [step()]} | {:irreversible, reason :: String.t()}
 
-  @slot_keys ~w(recipe_id servings skipped leftover reason)a
+  @slot_keys ~w(recipe_id servings skipped leftover reason place amount)a
   @pantry_keys ~w(name ingredient_id quantity unit category added_at expires_at expires_source provenance belief last_seen_at)a
 
   @spec reversible?(t()) :: boolean()
@@ -109,17 +102,6 @@ defmodule Tore.Harness.Undo do
   defp encode_step({:delete_receipt, id}) when is_integer(id), do: %{"delete_receipt" => id}
   defp encode_step({:delete_recipe, id}) when is_integer(id), do: %{"delete_recipe" => id}
 
-  defp encode_step({:restore_dining_out, plan_id, slot_key, before})
-       when is_binary(plan_id) and is_binary(slot_key) do
-    %{
-      "restore_dining_out" => %{
-        "plan_id" => plan_id,
-        "slot_key" => slot_key,
-        "before" => encode_dining(before)
-      }
-    }
-  end
-
   defp encode_step({shop, list_id, item_id})
        when shop in [:remove_shop_item, :uncheck_shop_item] and is_binary(list_id) and
               is_binary(item_id),
@@ -154,13 +136,6 @@ defmodule Tore.Harness.Undo do
 
       {"delete_recipe", id} when is_integer(id) ->
         {:delete_recipe, id}
-
-      {"restore_dining_out", args} ->
-        %{"plan_id" => plan_id, "slot_key" => slot_key, "before" => before} =
-          exact!(args, ~w(plan_id slot_key before))
-
-        true = is_binary(plan_id) and is_binary(slot_key)
-        {:restore_dining_out, plan_id, slot_key, decode_dining(before)}
 
       {shop, args} when shop in ["remove_shop_item", "uncheck_shop_item"] ->
         %{"list_id" => list_id, "item_id" => item_id} = exact!(args, ~w(list_id item_id))
@@ -209,7 +184,9 @@ defmodule Tore.Harness.Undo do
       servings: optional(slot["servings"], &is_integer/1),
       skipped: required(slot["skipped"], &is_boolean/1),
       leftover: required(slot["leftover"], &is_boolean/1),
-      reason: optional(slot["reason"], &is_binary/1)
+      reason: optional(slot["reason"], &is_binary/1),
+      place: optional(slot["place"], &is_binary/1),
+      amount: optional(slot["amount"], &is_binary/1)
     }
   end
 
@@ -245,37 +222,6 @@ defmodule Tore.Harness.Undo do
   end
 
   defp decode_pantry(other), do: raise(ArgumentError, "not a pantry item: #{inspect(other)}")
-
-  @dining_keys ~w(date description total_amount user_id)a
-
-  defp encode_dining(:absent), do: "absent"
-
-  defp encode_dining(%{} = before) do
-    unknown = Map.keys(before) -- @dining_keys
-    if unknown != [], do: raise(ArgumentError, "unknown dining fields #{inspect(unknown)}")
-
-    Map.new(@dining_keys, fn key ->
-      {Atom.to_string(key), encode_value(Map.fetch!(before, key))}
-    end)
-  end
-
-  defp encode_dining(other), do: raise(ArgumentError, "not a dining entry: #{inspect(other)}")
-
-  defp decode_dining("absent"), do: :absent
-
-  defp decode_dining(%{} = before) do
-    before = exact!(before, Enum.map(@dining_keys, &Atom.to_string/1))
-
-    %{
-      date: required(before["date"], &is_binary/1) |> Date.from_iso8601!(),
-      description: optional(before["description"], &is_binary/1),
-      total_amount:
-        optional(before["total_amount"], &is_binary/1) |> then(&(&1 && Decimal.new(&1))),
-      user_id: required(before["user_id"], &is_integer/1)
-    }
-  end
-
-  defp decode_dining(other), do: raise(ArgumentError, "not a dining entry: #{inspect(other)}")
 
   defp encode_value(%Decimal{} = d), do: Decimal.to_string(d)
   defp encode_value(%Date{} = d), do: Date.to_iso8601(d)

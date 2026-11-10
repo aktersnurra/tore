@@ -250,7 +250,7 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       plan: plan,
       proposal: proposal
     } do
-      {:ok, _} = Planning.eat_out(home_scope(), plan, "tue_dinner", %{user_id: user_fixture().id})
+      {:ok, _} = Planning.eat_out(home_scope(), plan, "tue_dinner", %{})
 
       assert {:error, {:verifier_failed, :slot_eating_out, _}} =
                Runs.confirm(home_scope(), run.id, proposal)
@@ -286,22 +286,16 @@ defmodule Tore.Harness.Kinds.PlannerTest do
                Runs.submit(home_scope(), SetPlanSlot, diff, ctx)
     end
 
-    test "undo leaves a day marked eating out since, and its cost", %{plan: plan} do
+    test "undo puts the day back as it was, even over a later eat-out", %{plan: plan} do
       {:ok, soup} = Recipes.create(home_scope(), recipe("Soup"))
       {:ok, diff, ctx} = SetPlanSlot.proposal(home_scope(), ~D[2026-06-12], soup.id, 4)
       {:ok, run} = Runs.submit(home_scope(), SetPlanSlot, diff, ctx)
-
-      {:ok, _} =
-        Planning.eat_out(home_scope(), plan, "fri_dinner", %{
-          user_id: user_fixture().id,
-          total_amount: 600
-        })
+      {:ok, _} = Planning.eat_out(home_scope(), plan, "fri_dinner", %{amount: 600})
 
       {:ok, _} = Runs.revert(home_scope(), run.id)
 
-      assert {%{"fri_dinner" => slot}, _} = slots(plan)
-      assert State.eating_out?(slot)
-      assert Tore.Costs.get_dining_out(home_scope(), plan, "fri_dinner")
+      assert {slots, _} = slots(plan)
+      refute Map.has_key?(slots, "fri_dinner")
     end
 
     test "refuses a recipe the household doesn't have" do
@@ -332,25 +326,11 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       touched = Enum.take_random(keys, Enum.random(1..4))
       before = Planning.slots_before(start, touched)
       changed = generate(start, touched, 5)
-      dined = Enum.take_random(touched, Enum.random(0..length(touched)))
 
       restored =
-        Enum.reduce(
-          Planning.restore_events(changed, before, dined),
-          changed,
-          &Decider.evolve(&2, &1)
-        )
+        Enum.reduce(Planning.restore_events(changed, before), changed, &Decider.evolve(&2, &1))
 
-      # A day that has become eating out, with its cost logged, keeps that; its pin still goes back.
-      expected =
-        Map.new(before, fn {key, %{slot: slot} = was} ->
-          if key in dined and State.eating_out?(changed.slots[key]) and
-               not State.eating_out?(slot),
-             do: {key, %{was | slot: Planning.slots_before(changed, [key])[key].slot}},
-             else: {key, was}
-        end)
-
-      assert Planning.slots_before(restored, touched) == expected
+      assert Planning.slots_before(restored, touched) == before
     end
   end
 
@@ -368,7 +348,11 @@ defmodule Tore.Harness.Kinds.PlannerTest do
           },
           %Commands.RemoveRecipe{slot_key: key},
           %Commands.SkipMeal{slot_key: key},
-          %Commands.EatOut{slot_key: key},
+          %Commands.EatOut{
+            slot_key: key,
+            place: Enum.random([nil, "", "Sushi"]),
+            amount: Enum.random([nil, "", 100, "250.5"])
+          },
           %Commands.MarkLeftover{slot_key: key},
           %Commands.PinSlot{slot_key: key, pin: true},
           %Commands.UnpinSlot{slot_key: key}

@@ -3,13 +3,23 @@ defmodule Tore.Harness.UndoTest do
 
   alias Tore.Harness.Undo
 
-  @slot %{recipe_id: 7, servings: 4, skipped: false, leftover: true, reason: nil}
+  @slot %{
+    recipe_id: 7,
+    servings: 4,
+    skipped: false,
+    leftover: true,
+    reason: nil,
+    place: nil,
+    amount: nil
+  }
   @eating_out %{
     recipe_id: nil,
     servings: nil,
     skipped: true,
     leftover: false,
-    reason: "eating_out"
+    reason: "eating_out",
+    place: "Sushibaren",
+    amount: "450.5"
   }
 
   @pantry %{
@@ -46,14 +56,6 @@ defmodule Tore.Harness.UndoTest do
              {:restore_memory, [1, 2], [3]},
              {:delete_receipt, 9},
              {:delete_recipe, 10},
-             {:restore_dining_out, "plan-1-2026-11-09", "fri_dinner", :absent},
-             {:restore_dining_out, "plan-1-2026-11-09", "sat_dinner",
-              %{
-                date: ~D[2026-11-14],
-                description: nil,
-                total_amount: Decimal.new("450.50"),
-                user_id: 3
-              }},
              {:remove_shop_item, "shop-1-2026-11-09", "9b2c"},
              {:uncheck_shop_item, "shop-1-2026-11-09", "9b2c"}
            ]}

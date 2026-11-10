@@ -4,8 +4,9 @@ defmodule Tore.Planning.Events do
   defmodule ServingsChanged, do: defstruct([:slot_key, :servings])
   defmodule SlotPinned, do: defstruct([:slot_key, :pin])
   defmodule SlotUnpinned, do: defstruct([:slot_key])
-  # reason is nil for a plain skip, or "eating_out". Older events have none.
-  defmodule MealSkipped, do: defstruct([:slot_key, :reason])
+  # reason is nil for a plain skip, or "eating_out", where place and amount (a decimal as text)
+  # say where and what it cost. Older events have none.
+  defmodule MealSkipped, do: defstruct([:slot_key, :reason, :place, :amount])
   defmodule LeftoverMarked, do: defstruct([:slot_key])
 
   @type t ::

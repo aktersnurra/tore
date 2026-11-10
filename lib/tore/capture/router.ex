@@ -374,7 +374,7 @@ defmodule Tore.Capture.Router do
 
   defp run_call(%{name: "mark_eating_out", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]) do
-      attrs = %{description: args["place"], total_amount: args["amount"]}
+      attrs = %{place: args["place"], amount: args["amount"]}
       {:ok, [Dispatch.mark_eating_out(date, attrs, ctx)]}
     end
   end

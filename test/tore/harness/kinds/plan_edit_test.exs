@@ -3,7 +3,7 @@ defmodule Tore.Harness.Kinds.PlanEditTest do
 
   import Mox
 
-  alias Tore.{Costs, Planning, Recipes}
+  alias Tore.{Planning, Recipes}
   alias Tore.Capture.Dispatch
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.PlanDiff
@@ -79,57 +79,35 @@ defmodule Tore.Harness.Kinds.PlanEditTest do
     refute Map.has_key?(plan(ctx.plan).pins, "mon_dinner")
   end
 
-  test "eating out writes its cost, and undo takes both back", ctx do
-    bubble =
-      Dispatch.mark_eating_out(@monday, %{description: "Sushi", total_amount: 450}, ctx.ctx)
+  test "eating out keeps its cost on the day, and undo takes both back", ctx do
+    bubble = Dispatch.mark_eating_out(@monday, %{place: "Sushi", amount: 450}, ctx.ctx)
 
     assert %KitchenRun{status: :applied, artifacts: [%PlanDiff{} = diff]} = run(bubble)
     assert [%{change: :eating_out}] = PlanDiff.summarise(diff)
-    assert State.eating_out?(plan(ctx.plan).slots["mon_dinner"])
-
-    assert %{description: "Sushi", total_amount: amount} =
-             Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
-
-    assert Decimal.equal?(amount, 450)
+    assert %{place: "Sushi", amount: "450"} = plan(ctx.plan).slots["mon_dinner"]
 
     undo(bubble)
     assert plan(ctx.plan).slots["mon_dinner"].recipe_id == ctx.stew.id
-    refute Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
   end
 
   test "an amount said later undoes back to the first one, still eating out", ctx do
-    Dispatch.mark_eating_out(@monday, %{description: "Sushi", total_amount: nil}, ctx.ctx)
-    later = Dispatch.mark_eating_out(@monday, %{total_amount: 600}, ctx.ctx)
+    Dispatch.mark_eating_out(@monday, %{place: "Sushi"}, ctx.ctx)
+    later = Dispatch.mark_eating_out(@monday, %{amount: 600}, ctx.ctx)
 
     assert %KitchenRun{artifacts: [diff]} = run(later)
     assert [%{change: :eating_out}] = PlanDiff.summarise(diff)
-
-    assert Decimal.equal?(
-             Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner").total_amount,
-             600
-           )
+    assert %{place: "Sushi", amount: "600"} = plan(ctx.plan).slots["mon_dinner"]
 
     undo(later)
-
-    assert %{description: "Sushi", total_amount: nil} =
-             Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
-
-    assert State.eating_out?(plan(ctx.plan).slots["mon_dinner"])
+    assert %{place: "Sushi", amount: nil} = plan(ctx.plan).slots["mon_dinner"]
   end
 
   test "undoing a clear of an eating-out day brings its cost back too", ctx do
-    Dispatch.mark_eating_out(@monday, %{description: "Sushi", total_amount: 300}, ctx.ctx)
+    Dispatch.mark_eating_out(@monday, %{place: "Sushi", amount: 300}, ctx.ctx)
     cleared = Dispatch.clear_plan_slot(@monday, ctx.ctx)
-    refute Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
 
     undo(cleared)
-
-    assert State.eating_out?(plan(ctx.plan).slots["mon_dinner"])
-
-    assert %{description: "Sushi", total_amount: amount} =
-             Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
-
-    assert Decimal.equal?(amount, 300)
+    assert %{place: "Sushi", amount: "300"} = plan(ctx.plan).slots["mon_dinner"]
   end
 
   test "eating out works on an empty day, and undo empties it again", ctx do
@@ -139,6 +117,5 @@ defmodule Tore.Harness.Kinds.PlanEditTest do
 
     undo(bubble)
     refute Map.has_key?(plan(ctx.plan).slots, "tue_dinner")
-    refute Costs.get_dining_out(home_scope(), ctx.plan, "tue_dinner")
   end
 end

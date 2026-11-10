@@ -1,5 +1,5 @@
 defmodule Tore.Planning do
-  alias Tore.{Costs, Deals, EventStore, Repo, Recipes, Scope, SpendGuard, Streams}
+  alias Tore.{Deals, EventStore, Repo, Recipes, Scope, SpendGuard, Streams}
   alias Tore.Planning.{Commands, Decider, Events, State}
   alias Phoenix.PubSub
 
@@ -168,10 +168,7 @@ defmodule Tore.Planning do
   def append_events(%Scope{}, _plan_id, []), do: :ok
 
   def append_events(%Scope{} = scope, plan_id, events) do
-    with :ok <- EventStore.append(scope, plan_id, events) do
-      Costs.delete_dining_out(scope, plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
-      :ok
-    end
+    EventStore.append(scope, plan_id, events)
   end
 
   @doc "Tells plan screens to reload, after a run's transaction has committed."
@@ -195,7 +192,9 @@ defmodule Tore.Planning do
               servings: slot.servings,
               skipped: slot.skipped,
               leftover: slot.leftover,
-              reason: Map.get(slot, :reason)
+              reason: Map.get(slot, :reason),
+              place: Map.get(slot, :place),
+              amount: Map.get(slot, :amount)
             }
         end
 
@@ -205,36 +204,25 @@ defmodule Tore.Planning do
 
   @doc """
   Puts slots back as `slots_before/2` found them, appending only the events that change a slot.
-  The day's dining-out entry is a step of its own (`Tore.Harness.Undo`), which `restore_slots`
-  leaves alone.
+  A day eating out comes back with its place and amount, since they are part of the slot.
   """
   @spec restore_slots(Scope.t(), String.t(), %{String.t() => Tore.Harness.Undo.slot_before()}) ::
           :ok | {:error, term()}
   def restore_slots(%Scope{} = scope, plan_id, befores) do
     with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
-      dined = befores |> Map.keys() |> Enum.filter(&Costs.get_dining_out(scope, plan_id, &1))
-      append_events(scope, plan_id, restore_events(state, befores, dined))
+      append_events(scope, plan_id, restore_events(state, befores))
     end
   end
 
   @doc false
   # Pure, so the property test can check apply-then-restore over generated plans.
-  # `dined` are the slots with a dining entry: a day someone marked eating out after the change
-  # keeps that, since restoring over it would drop its cost. An eat-out run's own undo removes
-  # its entry first, so the day it made goes back.
-  @spec restore_events(State.t(), map(), [String.t()]) :: [Tore.Planning.Events.t()]
-  def restore_events(%State{} = state, befores, dined) do
+  @spec restore_events(State.t(), map()) :: [Tore.Planning.Events.t()]
+  def restore_events(%State{} = state, befores) do
     befores
     |> Enum.sort()
     |> Enum.flat_map(fn {key, %{slot: slot, pin: pin}} ->
-      now = state.slots[key]
-
-      slot_events =
-        if key in dined and State.eating_out?(now) and not State.eating_out?(slot),
-          do: [],
-          else: slot_events(key, now, slot)
-
-      slot_events ++ pin_events(key, Map.get(state.pins, key, :none), pin)
+      slot_events(key, state.slots[key], slot) ++
+        pin_events(key, Map.get(state.pins, key, :none), pin)
     end)
   end
 
@@ -248,7 +236,12 @@ defmodule Tore.Planning do
     else
       base =
         if before.reason == "eating_out",
-          do: %Events.MealSkipped{slot_key: key, reason: "eating_out"},
+          do: %Events.MealSkipped{
+            slot_key: key,
+            reason: "eating_out",
+            place: before.place,
+            amount: before.amount
+          },
           else: %Events.RecipeAssigned{
             slot_key: key,
             recipe_id: before.recipe_id,
@@ -275,17 +268,11 @@ defmodule Tore.Planning do
   defp same_slot?(nil, _before), do: false
 
   defp same_slot?(now, before),
-    do: Map.put_new(now, :reason, nil) == before
+    do: Map.merge(%{reason: nil, place: nil, amount: nil}, now) == before
 
   defp pin_events(_key, same, same), do: []
   defp pin_events(key, _now, :none), do: [%Events.SlotUnpinned{slot_key: key}]
   defp pin_events(key, _now, pin), do: [%Events.SlotPinned{slot_key: key, pin: pin}]
-
-  # These replace whatever the slot held, so a day that was eating out isn't any more.
-  defp slot_no_longer_eating_out(%Events.RecipeAssigned{slot_key: sk}), do: [sk]
-  defp slot_no_longer_eating_out(%Events.RecipeRemoved{slot_key: sk}), do: [sk]
-  defp slot_no_longer_eating_out(%Events.MealSkipped{slot_key: sk, reason: nil}), do: [sk]
-  defp slot_no_longer_eating_out(_event), do: []
 
   # A slot counts as present only if it actually holds a recipe.
   defp present(%{recipe_id: rid} = slot) when not is_nil(rid), do: slot
@@ -337,33 +324,43 @@ defmodule Tore.Planning do
   end
 
   @doc """
-  Marks a day as eating out, cancelling any recipe. `attrs` holds `:user_id` and
-  optionally `:description` and `:total_amount`. Asking again updates the same
-  entry, so an amount can follow later. To undo it, remove the slot or give it a
-  recipe; both drop the entry.
+  Marks a day as eating out, cancelling any recipe. `attrs` may hold `:place` and `:amount`;
+  asking again updates them and keeps what isn't given, so an amount can follow later.
   """
   @spec eat_out(Scope.t(), String.t(), String.t(), map()) ::
-          {:ok, Costs.DiningOut.t()} | {:error, term()}
+          {:ok, [Events.t()]} | {:error, term()}
   def eat_out(%Scope{} = scope, plan_id, slot_key, attrs) do
-    entry_attrs =
-      Map.merge(attrs, %{plan_id: plan_id, slot_key: slot_key, date: slot_date(plan_id, slot_key)})
+    run(scope, plan_id, %Commands.EatOut{
+      slot_key: slot_key,
+      place: attrs[:place],
+      amount: attrs[:amount]
+    })
+  end
 
-    result =
-      Repo.transaction(fn ->
-        with {:ok, state} <- EventStore.load(scope, plan_id, Decider),
-             {:ok, events} <- Decider.decide(%Commands.EatOut{slot_key: slot_key}, state),
-             {:ok, entry} <- Costs.save_dining_out(scope, entry_attrs),
-             :ok <- EventStore.append(scope, plan_id, events) do
-          {entry, events}
-        else
-          {:error, reason} -> Repo.rollback(reason)
-        end
-      end)
+  @doc """
+  Each day from `first` to `last` the household ate out, oldest first, read from the plans:
+  `%{date, place, amount}`, with `amount` a `Decimal` or nil.
+  """
+  @spec eating_out_between(Scope.t(), Date.t(), Date.t()) :: [map()]
+  def eating_out_between(%Scope{} = scope, %Date{} = first, %Date{} = last) do
+    Streams.monday(first)
+    |> Stream.iterate(&Date.add(&1, 7))
+    |> Enum.take_while(&(Date.compare(&1, last) != :gt))
+    |> Enum.flat_map(fn monday ->
+      plan_id = Streams.plan(scope, monday)
+      {:ok, plan} = load_plan(scope, plan_id)
 
-    with {:ok, {entry, events}} <- result do
-      if events != [], do: PubSub.broadcast(@pubsub, topic(scope), {:events, events})
-      {:ok, entry}
-    end
+      for {key, slot} <- plan.slots,
+          State.eating_out?(slot),
+          date = slot_date(plan_id, key),
+          Date.compare(date, first) != :lt and Date.compare(date, last) != :gt,
+          do: %{
+            date: date,
+            place: slot[:place],
+            amount: slot[:amount] && Decimal.new(slot.amount)
+          }
+    end)
+    |> Enum.sort_by(& &1.date, Date)
   end
 
   @doc "The date of `slot_key` in the week `plan_id` covers."

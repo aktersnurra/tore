@@ -112,22 +112,16 @@ defmodule Tore.Capture.DispatchTest do
       date = ~D[2026-11-13]
 
       assert %{text: text} =
-               Dispatch.mark_eating_out(date, %{description: "Sushi", total_amount: nil}, ctx)
+               Dispatch.mark_eating_out(date, %{place: "Sushi"}, ctx)
 
       assert text =~ "2026-11-13"
 
-      Dispatch.mark_eating_out(date, %{description: nil, total_amount: 450}, ctx)
+      Dispatch.mark_eating_out(date, %{amount: 450}, ctx)
 
-      entry =
-        Tore.Costs.get_dining_out(
-          home_scope(),
-          Tore.Streams.plan(home_scope(), ~D[2026-11-09]),
-          "fri_dinner"
-        )
+      {:ok, state} =
+        Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-11-09]))
 
-      assert entry.date == date
-      assert entry.description == "Sushi"
-      assert Decimal.equal?(entry.total_amount, 450)
+      assert %{place: "Sushi", amount: "450"} = state.slots["fri_dinner"]
     end
   end
 end

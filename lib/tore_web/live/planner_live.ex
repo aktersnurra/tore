@@ -6,7 +6,7 @@ defmodule ToreWeb.PlannerLive do
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds.PlannerCommand
 
-  alias Tore.{Costs, Recipes, Planning, Shop, PlanHealth}
+  alias Tore.{Recipes, Planning, Shop, PlanHealth}
   alias Tore.Planning.State
   alias Phoenix.PubSub
 
@@ -89,7 +89,7 @@ defmodule ToreWeb.PlannerLive do
       skipped: (slot && slot.skipped && !State.eating_out?(slot)) || false,
       eating_out: State.eating_out?(slot),
       eating_out_open: State.eating_out?(slot),
-      dining: Costs.get_dining_out(socket.assigns.current_scope, socket.assigns.plan_id, sk),
+      dining: State.eating_out?(slot) && %{place: slot[:place], amount: slot[:amount]},
       flipped: false,
       pinned: Map.has_key?(socket.assigns.plan_state.pins, sk)
     }
@@ -178,11 +178,13 @@ defmodule ToreWeb.PlannerLive do
   end
 
   def handle_event("save_eating_out", %{"place" => place, "amount" => amount}, socket) do
-    %{plan_id: plan_id, slot_action: %{slot_key: sk}, current_user: user} = socket.assigns
-    attrs = %{description: place, total_amount: amount, user_id: user.id}
+    %{plan_id: plan_id, slot_action: %{slot_key: sk}} = socket.assigns
 
-    case Planning.eat_out(socket.assigns.current_scope, plan_id, sk, attrs) do
-      {:ok, _entry} ->
+    case Planning.eat_out(socket.assigns.current_scope, plan_id, sk, %{
+           place: place,
+           amount: amount
+         }) do
+      {:ok, _events} ->
         {:noreply, assign(socket, slot_action: nil)}
 
       {:error, _reason} ->
@@ -954,7 +956,7 @@ defmodule ToreWeb.PlannerLive do
               <.field
                 name="place"
                 label={gettext("Place (optional)")}
-                value={@slot_action.dining && @slot_action.dining.description}
+                value={@slot_action.dining && @slot_action.dining.place}
               />
               <.field
                 name="amount"
@@ -962,7 +964,7 @@ defmodule ToreWeb.PlannerLive do
                 step="0.01"
                 min="0"
                 label={gettext("Total, kr (optional)")}
-                value={@slot_action.dining && decimal_value(@slot_action.dining.total_amount)}
+                value={@slot_action.dining && @slot_action.dining.amount}
               />
               <div class="flex gap-3">
                 <.button type="submit" variant={:primary} size={:md} full>
@@ -1252,9 +1254,6 @@ defmodule ToreWeb.PlannerLive do
       do: gettext("%{range} · %{meals} meals planned", range: range, meals: meals),
       else: range
   end
-
-  defp decimal_value(nil), do: nil
-  defp decimal_value(%Decimal{} = amount), do: Decimal.to_string(amount, :normal)
 
   defp plan_id(scope, week_start), do: Tore.Streams.plan(scope, week_start)
   defp shop_id(scope, week_start), do: Tore.Streams.shop_list(scope, week_start)

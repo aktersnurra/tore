@@ -110,10 +110,7 @@ defmodule ToreWeb.PlannerLiveTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert Tore.Planning.State.eating_out?(state.slots["thu_dinner"])
-
-      entry = Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner")
-      assert entry.description == "Sushi"
-      assert Decimal.equal?(entry.total_amount, 450)
+      assert %{place: "Sushi", amount: "450"} = state.slots["thu_dinner"]
 
       assert lv |> element("#slot-thu_dinner") |> render() =~ "Äta ute"
     end
@@ -130,17 +127,11 @@ defmodule ToreWeb.PlannerLiveTest do
       lv |> form("#eating-out-form", %{place: "", amount: ""}) |> render_submit()
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
-      assert state.slots["wed_dinner"].recipe_id == nil
-
-      assert Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "wed_dinner").total_amount ==
-               nil
+      assert %{recipe_id: nil, amount: nil} = state.slots["wed_dinner"]
     end
 
     test "the sheet shows what was saved, and can add an amount later", %{conn: conn, user: user} do
-      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{
-        description: "Sushi",
-        user_id: user.id
-      })
+      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{place: "Sushi"})
 
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       html = render_click(lv, "open_slot", %{"slot_key" => "thu_dinner"})
@@ -148,14 +139,12 @@ defmodule ToreWeb.PlannerLiveTest do
 
       lv |> form("#eating-out-form", %{place: "Sushi", amount: "300"}) |> render_submit()
 
-      assert Decimal.equal?(
-               Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner").total_amount,
-               300
-             )
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
+      assert %{place: "Sushi", amount: "300"} = state.slots["thu_dinner"]
     end
 
-    test "'Not eating out' clears the day and the cost entry", %{conn: conn, user: user} do
-      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{user_id: user.id})
+    test "'Not eating out' clears the day and its cost", %{conn: conn, user: user} do
+      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{amount: 300})
 
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       render_click(lv, "open_slot", %{"slot_key" => "thu_dinner"})
@@ -163,11 +152,10 @@ defmodule ToreWeb.PlannerLiveTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       refute Map.has_key?(state.slots, "thu_dinner")
-      assert Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner") == nil
     end
 
     test "picking a recipe replaces eating out", %{conn: conn, user: user, recipe: recipe} do
-      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{user_id: user.id})
+      Planning.eat_out(home_scope(), this_plan_id(), "thu_dinner", %{amount: 300})
 
       {:ok, lv, _html} = live(authed(conn, user), "/plan")
       render_click(lv, "open_slot", %{"slot_key" => "thu_dinner"})
@@ -177,7 +165,7 @@ defmodule ToreWeb.PlannerLiveTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
       assert state.slots["thu_dinner"].recipe_id == recipe.id
-      assert Tore.Costs.get_dining_out(home_scope(), this_plan_id(), "thu_dinner") == nil
+      refute Tore.Planning.State.eating_out?(state.slots["thu_dinner"])
     end
 
     test "search_slot_recipes event updates search state", %{conn: conn, user: user} do
