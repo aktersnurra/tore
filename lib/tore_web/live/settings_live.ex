@@ -382,27 +382,27 @@ defmodule ToreWeb.SettingsLive do
               {gettext("Things Tore has learned")}
             </h2>
             <%= if Enum.all?(@memory, &(&1.entries == [])) do %>
-              <p class="text-sm text-zinc-500">
+              <p class="text-sm text-[color:var(--muted)]">
                 {gettext("No memories yet. Tore learns as you cook.")}
               </p>
             <% else %>
               <div :for={part <- @memory} class="mb-4 last:mb-0">
                 <div class="flex items-baseline justify-between mb-2">
                   <h3 class="text-sm font-medium">{memory_part_label(part.store)}</h3>
-                  <span class="text-xs text-zinc-500">
+                  <span class="text-xs text-[color:var(--muted)]">
                     {gettext("%{percent}% full", percent: part.percent)}
                   </span>
                 </div>
                 <ul class="space-y-2">
                   <li
                     :for={entry <- part.entries}
-                    class="flex items-start justify-between gap-3 rounded-lg border border-zinc-200 p-3"
+                    class="flex items-start justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3"
                   >
                     <p class="flex-1 text-sm">{entry.text}</p>
                     <button
                       phx-click="forget_memory"
                       phx-value-id={entry.id}
-                      class="text-xs text-red-500 hover:text-red-700 shrink-0 mt-0.5"
+                      class="text-xs text-[color:var(--danger)] hover:underline shrink-0 mt-0.5"
                     >
                       {gettext("Forget")}
                     </button>
@@ -573,15 +573,15 @@ defmodule ToreWeb.SettingsLive do
           </section>
         </.card>
 
-        <section class="mt-8 border-t border-stone-200 pt-6">
-          <h2 class="text-sm font-semibold text-stone-500 uppercase tracking-widest mb-3">
+        <section class="mt-8 border-t border-[color:var(--border)] pt-6">
+          <h2 class="text-sm font-semibold text-[color:var(--muted)] uppercase tracking-widest mb-3">
             {gettext("More")}
           </h2>
-          <ul class="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+          <ul class="divide-y divide-[color:var(--hairline)] rounded-lg border border-[color:var(--border)] bg-[var(--surface)]">
             <li>
               <.link
                 navigate={~p"/settings/pantry"}
-                class="flex items-center justify-between p-4 hover:bg-stone-50"
+                class="flex items-center justify-between p-4 hover:bg-[var(--bg)]"
               >
                 <span>{gettext("Approximate inventory")}</span>
                 <span aria-hidden="true">→</span>
@@ -590,7 +590,7 @@ defmodule ToreWeb.SettingsLive do
             <li>
               <.link
                 navigate={~p"/settings/costs"}
-                class="flex items-center justify-between p-4 hover:bg-stone-50"
+                class="flex items-center justify-between p-4 hover:bg-[var(--bg)]"
               >
                 <span>{gettext("Spending")}</span>
                 <span aria-hidden="true">→</span>

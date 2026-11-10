@@ -51,29 +51,29 @@ defmodule ToreWeb.PantryLive do
       <div class="max-w-2xl mx-auto p-4">
         <header class="mb-4">
           <h1 class="text-2xl font-semibold">{gettext("Approximate inventory")}</h1>
-          <p class="text-sm text-stone-500">
+          <p class="text-sm text-[color:var(--muted)]">
             {gettext("What Tore thinks you have. Remove anything that's wrong.")}
           </p>
         </header>
 
         <div :for={{belief, items} <- @groups} class="mb-6">
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-stone-500 mb-2">
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-[color:var(--muted)] mb-2">
             {belief_label(belief)}
           </h2>
-          <ul class="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+          <ul class="divide-y divide-[color:var(--hairline)] rounded-lg border border-[color:var(--border)] bg-[var(--surface)]">
             <li
               :for={item <- items}
               class={["flex items-center justify-between p-3", belief == :missing && "opacity-50"]}
             >
               <div>
-                <p class="text-stone-900">{String.capitalize(item.name)}</p>
-                <p :if={item.quantity} class="text-xs text-stone-500">
+                <p class="text-[color:var(--text)]">{String.capitalize(item.name)}</p>
+                <p :if={item.quantity} class="text-xs text-[color:var(--muted)]">
                   {format_quantity(item.quantity, item.unit)}
                 </p>
                 <form
                   id={"expiry-#{item.id}"}
                   phx-change="set_expiry"
-                  class="mt-1 flex flex-wrap items-center gap-2 text-xs text-stone-500"
+                  class="mt-1 flex flex-wrap items-center gap-2 text-xs text-[color:var(--muted)]"
                 >
                   <input type="hidden" name="item_id" value={item.id} />
                   <label class="flex items-center gap-2">
@@ -82,7 +82,7 @@ defmodule ToreWeb.PantryLive do
                       type="date"
                       name="expires_at"
                       value={item.expires_at}
-                      class="rounded border border-stone-200 bg-transparent px-1 py-0.5"
+                      class="rounded border border-[color:var(--border)] bg-transparent px-1 py-0.5"
                     />
                   </label>
                   <span :if={item.expires_source == "estimate"}>{gettext("approximately")}</span>
@@ -92,7 +92,7 @@ defmodule ToreWeb.PantryLive do
                 type="button"
                 phx-click="remove_item"
                 phx-value-id={item.id}
-                class="text-xs text-stone-400 hover:text-red-600"
+                class="text-xs text-[color:var(--subtle)] hover:text-[color:var(--danger)]"
                 aria-label={gettext("Remove")}
               >
                 {gettext("Remove")}
@@ -103,7 +103,7 @@ defmodule ToreWeb.PantryLive do
 
         <div
           :if={@groups == []}
-          class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500"
+          class="rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[color:var(--muted)]"
         >
           {gettext(
             "Nothing in the pantry yet. Items appear here when you check off groceries or send a photo of your shelves."

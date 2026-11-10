@@ -273,7 +273,7 @@ defmodule ToreWeb.ShopLive do
                 name="name"
                 placeholder={gettext("Add item…")}
                 required
-                class="flex-1 h-10 bg-transparent border-0 text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
+                class="flex-1 min-w-0 h-10 bg-transparent border-0 text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
                 style="font-size: var(--t-body);"
               />
               <input
@@ -329,7 +329,7 @@ defmodule ToreWeb.ShopLive do
               name="command"
               autocomplete="off"
               placeholder={gettext("Anything about this item…")}
-              class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
             />
           </form>
         </div>

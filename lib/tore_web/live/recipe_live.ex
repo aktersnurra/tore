@@ -728,7 +728,7 @@ defmodule ToreWeb.RecipeLive do
             <% end %>
 
             <%= if @substitution do %>
-              <div class="mt-3 rounded-2xl bg-[color:var(--surface-raised)] p-4">
+              <div class="mt-3 rounded-2xl bg-[var(--surface)] p-4">
                 <p class="text-sm text-[var(--text)] leading-relaxed">{@substitution.suggestion}</p>
                 <%= if @substitution.updated_steps do %>
                   <p class="mt-2 text-sm text-[color:var(--muted)] leading-relaxed">
@@ -751,7 +751,7 @@ defmodule ToreWeb.RecipeLive do
               {gettext("Start cooking")}
             </button>
           <% else %>
-            <div class="rounded-2xl bg-[color:var(--surface-raised)] p-4">
+            <div class="rounded-2xl bg-[var(--surface)] p-4">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-semibold text-[var(--text)]">{gettext("Cook mode")}</h3>
                 <button phx-click="exit_cook_mode" class="text-[color:var(--muted)] text-sm">

@@ -299,11 +299,11 @@ defmodule ToreWeb.RunReviewLive do
             value={@form_data.date}
             class={[
               "w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm",
-              @form_data.date_inferred? && "border-amber-500",
+              @form_data.date_inferred? && "border-[color:var(--warn)]",
               !@form_data.date_inferred? && "border-[color:var(--border)]"
             ]}
           />
-          <p :if={@form_data.date_inferred?} class="text-xs text-amber-600 mt-1">
+          <p :if={@form_data.date_inferred?} class="text-xs text-[color:var(--warn)] mt-1">
             {gettext("Couldn't read the date from the receipt — please verify.")}
           </p>
         </label>
@@ -331,7 +331,7 @@ defmodule ToreWeb.RunReviewLive do
           <button
             type="button"
             phx-click="confirm_discard"
-            class="flex-1 rounded-xl bg-red-600 text-white py-3 font-semibold"
+            class="flex-1 rounded-xl bg-[color:var(--danger)] text-white py-3 font-semibold"
           >
             {gettext("Discard")}
           </button>
@@ -414,7 +414,7 @@ defmodule ToreWeb.RunReviewLive do
         <button
           type="button"
           phx-click="confirm_discard"
-          class="flex-1 rounded-xl bg-red-600 text-white py-3 font-semibold"
+          class="flex-1 rounded-xl bg-[color:var(--danger)] text-white py-3 font-semibold"
         >
           {gettext("Discard")}
         </button>
@@ -460,7 +460,7 @@ defmodule ToreWeb.RunReviewLive do
 
   defp render_body(%{state: :failed} = assigns) do
     ~H"""
-    <p class="text-red-500 font-semibold">{gettext("This failed.")} {@error}</p>
+    <p class="text-[color:var(--danger)] font-semibold">{gettext("This failed.")} {@error}</p>
     """
   end
 
@@ -482,7 +482,7 @@ defmodule ToreWeb.RunReviewLive do
 
   defp error_banner(assigns) do
     ~H"""
-    <div class="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+    <div class="mb-4 rounded-lg border border-[color:var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
       {gettext("Couldn't save:")} {@code}
     </div>
     """

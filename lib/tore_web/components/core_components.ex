@@ -62,7 +62,8 @@ defmodule ToreWeb.CoreComponents do
       <div class={[
         "flex items-start gap-3 rounded-[var(--r-lg)] border px-4 py-3 shadow-[var(--shadow-pop)]",
         @kind == :info && "bg-[var(--surface)] border-[color:var(--hairline)] text-[var(--text)]",
-        @kind == :error && "bg-red-50 border-red-200 text-red-800"
+        @kind == :error &&
+          "bg-[var(--danger-soft)] border-[color:var(--danger)] text-[color:var(--text)]"
       ]}>
         <.icon
           :if={@kind == :info}
@@ -72,7 +73,7 @@ defmodule ToreWeb.CoreComponents do
         <.icon
           :if={@kind == :error}
           name="hero-exclamation-circle"
-          class="size-5 shrink-0 mt-0.5 text-red-500"
+          class="size-5 shrink-0 mt-0.5 text-[color:var(--danger)]"
         />
         <div class="flex-1 min-w-0" style="font-size: var(--t-meta);">
           <p :if={@title} class="font-semibold mb-0.5">{@title}</p>
@@ -660,7 +661,7 @@ defmodule ToreWeb.CoreComponents do
     do: "bg-transparent text-[color:var(--muted)] hover:text-[var(--text)]"
 
   defp button_variant_class(:danger),
-    do: "bg-transparent text-[color:var(--danger)] hover:bg-red-50"
+    do: "bg-transparent text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
 
   @doc ~S"""
   Square 44px icon button.

@@ -479,12 +479,12 @@ defmodule ToreWeb.PlannerLive do
               type="text"
               name="command"
               placeholder={gettext("Ask about tonight's plan...")}
-              class="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="flex-1 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
               disabled={@quick_loading}
             />
             <button
               type="submit"
-              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              class="rounded-lg bg-[color:var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--accent-hover)] disabled:opacity-50"
               disabled={@quick_loading}
             >
               {if @quick_loading, do: gettext("..."), else: gettext("Ask")}
@@ -504,13 +504,13 @@ defmodule ToreWeb.PlannerLive do
         <div class={[
           "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full mb-4",
           elem(@plan_health, 0) == :ready &&
-            "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+            "bg-[var(--accent-soft)] text-[color:var(--accent-ink)]",
           elem(@plan_health, 0) == :flexible &&
-            "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+            "bg-[var(--warn-soft)] text-[color:var(--text)]",
           elem(@plan_health, 0) == :fragile &&
-            "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+            "bg-[var(--warn-soft)] text-[color:var(--warn)]",
           elem(@plan_health, 0) == :unplanned &&
-            "bg-[color:var(--surface-raised)] text-[color:var(--muted)]"
+            "bg-[var(--surface)] text-[color:var(--muted)]"
         ]}>
           <span
             class="size-1.5 rounded-full inline-block"
@@ -993,7 +993,7 @@ defmodule ToreWeb.PlannerLive do
                 name="command"
                 autocomplete="off"
                 placeholder={gettext("Anything about this day…")}
-                class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
               />
             </form>
           </div>
