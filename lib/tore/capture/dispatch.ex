@@ -12,6 +12,7 @@ defmodule Tore.Capture.Dispatch do
   use Gettext, backend: ToreWeb.Gettext
 
   alias Tore.Capture.Uploads
+  alias Tore.Costs
   alias Tore.Harness.Artifact.{CostEntry, MemoryBatch, PantryBeliefUpdate}
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds
@@ -639,6 +640,82 @@ defmodule Tore.Capture.Dispatch do
       role: :assistant,
       text: gettext("%{day} is pinned, so I left it as it was.", day: long_day_for(date))
     }
+  end
+
+  # ── deleting ───────────────────────────────────────────────────────────
+  # Plain deletes, with no review and no undo: the person asked for them.
+
+  @spec remove_shopping_item(String.t(), ctx()) :: bubble()
+  def remove_shopping_item(name, ctx) when is_binary(name) do
+    list_id = current_shop_list_id(ctx)
+
+    case Shop.find_item_fuzzy(scope(ctx), list_id, name) do
+      {:ok, {id, item}} ->
+        case Shop.remove_item(scope(ctx), list_id, id, ctx[:user_id]) do
+          {:ok, _events} ->
+            %{
+              role: :assistant,
+              shop_link: true,
+              text: gettext("Removed %{name} from the shopping list.", name: item.name)
+            }
+
+          {:error, reason} ->
+            error_bubble(:shop, reason)
+        end
+
+      {:ambiguous, matches} ->
+        names = Enum.map_join(matches, ", ", fn {_id, it} -> it.name end)
+
+        %{
+          role: :assistant,
+          text:
+            gettext("Multiple shopping items match \"%{q}\": %{names}. Which one?",
+              q: name,
+              names: names
+            )
+        }
+
+      {:error, :not_found} ->
+        %{role: :assistant, text: gettext("No shopping item matches \"%{q}\".", q: name)}
+    end
+  end
+
+  @spec delete_recipe(integer(), ctx()) :: bubble()
+  def delete_recipe(recipe_id, ctx) when is_integer(recipe_id) do
+    case Recipes.get(scope(ctx), recipe_id) do
+      nil ->
+        %{role: :assistant, text: gettext("I couldn't find that recipe.")}
+
+      recipe ->
+        case Recipes.delete(scope(ctx), recipe) do
+          {:ok, _} -> %{role: :assistant, text: gettext("Deleted %{title}.", title: recipe.title)}
+          {:error, reason} -> error_bubble(:recipe, reason)
+        end
+    end
+  end
+
+  @spec list_receipts(ctx()) :: bubble()
+  def list_receipts(ctx) do
+    receipts =
+      for r <- Costs.recent_receipts(scope(ctx), 10) do
+        %{id: r.id, store: r.store_name, date: r.date, total: r.total_amount}
+      end
+
+    text =
+      case receipts do
+        [] -> gettext("No receipts yet.")
+        _ -> Enum.map_join(receipts, "\n", &"#{&1.date} · #{&1.store} · #{&1.total} kr")
+      end
+
+    %{role: :assistant, quiet: true, receipts: receipts, text: text}
+  end
+
+  @spec delete_receipt(integer(), ctx()) :: bubble()
+  def delete_receipt(receipt_id, ctx) when is_integer(receipt_id) do
+    case Costs.delete_receipt(scope(ctx), receipt_id) do
+      :ok -> %{role: :assistant, text: gettext("Deleted the receipt.")}
+      {:error, :not_found} -> %{role: :assistant, text: gettext("I couldn't find that receipt.")}
+    end
   end
 
   # ── memory ─────────────────────────────────────────────────────────────

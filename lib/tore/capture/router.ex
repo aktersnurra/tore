@@ -87,6 +87,12 @@ defmodule Tore.Capture.Router do
       in your system prompt, so answer from that. Only call `check_pantry`
       if the capsule looks truncated.
 
+  Deleting:
+    - When someone asks to delete a recipe, a receipt or a shopping item, do it:
+      `delete_recipe` (id from `find_recipe`), `delete_receipt` (id from
+      `list_receipts`), `remove_shopping_item`. These can't be undone, so
+      delete only what they clearly named, and ask if more than one matches.
+
   When there is nothing actionable, reply with plain text.
   """
 
@@ -276,6 +282,20 @@ defmodule Tore.Capture.Router do
        when is_binary(target) and is_list(ops) do
     {:ok, [Dispatch.memory(target, ops, ctx)]}
   end
+
+  defp run_call(%{name: "remove_shopping_item", args: %{"name" => name}}, _, _, ctx)
+       when is_binary(name),
+       do: {:ok, [Dispatch.remove_shopping_item(name, ctx)]}
+
+  defp run_call(%{name: "delete_recipe", args: %{"recipe_id" => id}}, _, _, ctx)
+       when is_integer(id),
+       do: {:ok, [Dispatch.delete_recipe(id, ctx)]}
+
+  defp run_call(%{name: "list_receipts"}, _, _, ctx), do: {:ok, [Dispatch.list_receipts(ctx)]}
+
+  defp run_call(%{name: "delete_receipt", args: %{"receipt_id" => id}}, _, _, ctx)
+       when is_integer(id),
+       do: {:ok, [Dispatch.delete_receipt(id, ctx)]}
 
   defp run_call(%{name: "report_unrecognised_image", args: args}, _images, _count, _ctx) do
     {:ok, [Dispatch.report_unrecognised_image(args["suggestion"])]}
@@ -681,6 +701,41 @@ defmodule Tore.Capture.Router do
         }
       ),
       tool(
+        "remove_shopping_item",
+        "Remove an item from this week's shopping list.",
+        %{
+          type: "object",
+          properties: %{name: %{type: "string"}},
+          required: ["name"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "delete_recipe",
+        "Delete a recipe from the household's recipes. Get its id from find_recipe first.",
+        %{
+          type: "object",
+          properties: %{recipe_id: %{type: "integer"}},
+          required: ["recipe_id"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "list_receipts",
+        "The household's ten most recent receipts, with id, store, date and total.",
+        %{type: "object", properties: %{}, additionalProperties: false}
+      ),
+      tool(
+        "delete_receipt",
+        "Delete a receipt and its cost. Get its id from list_receipts first.",
+        %{
+          type: "object",
+          properties: %{receipt_id: %{type: "integer"}},
+          required: ["receipt_id"],
+          additionalProperties: false
+        }
+      ),
+      tool(
         "memory",
         "Keep what the household tells you that will still matter next week, without being asked. " <>
           "profile is who they cook for; notes is what has been learned and agreed. " <>
@@ -811,6 +866,9 @@ defmodule Tore.Capture.Router do
       message: bubble[:text]
     }
   end
+
+  defp tool_result_payload("list_receipts", bubble),
+    do: %{status: "ok", receipts: bubble[:receipts] || []}
 
   # A rejected batch goes back whole, so the model can correct it and call again.
   defp tool_result_payload("memory", %{rejection: rejection} = bubble),
