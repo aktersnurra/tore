@@ -148,7 +148,8 @@ defmodule Tore.DealsScrapeTest do
       assert Deals.list_stores(home_scope()) == []
       assert [%{id: id, scrape_enabled: true}] = Deals.list_stores(other)
       assert id == theirs.id
-      assert_raise Ecto.NoResultsError, fn -> Deals.remove_store(home_scope(), theirs.id) end
+      assert {:error, :not_found} = Deals.toggle_scraping(home_scope(), theirs.id)
+      assert {:error, :not_found} = Deals.remove_store(home_scope(), theirs.id)
     end
   end
 

@@ -517,9 +517,9 @@ call is recorded on `AIOperations.model` for cost telemetry.
 
 | Tier | Use cases | Default model class |
 |---|---|---|
-| **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `parse_deals_pdf`, `cook_mode_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
+| **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `cook_mode_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
 | **Strong tool-capable** | Pattern B `chat_with_tools/4` for `:planner_command_run`, `:weekly_planning_run`, Capture's router, and any future skill-driven run that calls multiple tools across multiple turns | A frontier tool-calling model |
-| **Vision** | Any callback whose primary input is an image or PDF: `parse_receipt`, `parse_recipe_images`, `parse_pantry_image`, `parse_deals_pdf` | A vision-capable model; may overlap with "cheap structured" when the structured-output is small |
+| **Vision** | Any callback whose primary input is an image or PDF: `parse_receipt`, `parse_recipe_images`, `parse_pantry_image` | A vision-capable model; may overlap with "cheap structured" when the structured-output is small |
 
 Concrete model names are configured per tier in runtime config, not
 hard-coded in callsites. Today's runtime keys are `openrouter_model`,

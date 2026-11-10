@@ -54,13 +54,13 @@ defmodule ToreWeb.SettingsLive do
 
   def handle_event("toggle_store", %{"id" => id}, socket) do
     scope = socket.assigns.current_scope
-    {:ok, _store} = Deals.toggle_scraping(scope, String.to_integer(id))
+    _ = Deals.toggle_scraping(scope, String.to_integer(id))
     {:noreply, assign(socket, stores: Deals.list_stores(scope))}
   end
 
   def handle_event("remove_store", %{"id" => id}, socket) do
     scope = socket.assigns.current_scope
-    {:ok, _store} = Deals.remove_store(scope, String.to_integer(id))
+    _ = Deals.remove_store(scope, String.to_integer(id))
     {:noreply, assign(socket, stores: Deals.list_stores(scope))}
   end
 
@@ -119,14 +119,20 @@ defmodule ToreWeb.SettingsLive do
 
   def handle_event("switch_household", %{"id" => id}, socket) do
     user = socket.assigns.current_user
-    :ok = Members.switch(user, String.to_integer(id))
-    UserSession.disconnect(user.id)
-    {:noreply, redirect(socket, to: ~p"/")}
+
+    case Members.switch(user, String.to_integer(id)) do
+      :ok ->
+        UserSession.disconnect(user.id)
+        {:noreply, redirect(socket, to: ~p"/")}
+
+      {:error, :not_member} ->
+        {:noreply, assign_members(socket)}
+    end
   end
 
   def handle_event("toggle_ai_sponsor", _params, socket) do
     %{current_scope: scope, current_user: user, sponsoring: sponsoring} = socket.assigns
-    {:ok, _} = Household.set_ai_sponsor(scope, user, !sponsoring)
+    _ = Household.set_ai_sponsor(scope, user, !sponsoring)
     {:noreply, assign_ai_sponsor(socket)}
   end
 

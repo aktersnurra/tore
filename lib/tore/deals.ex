@@ -100,20 +100,27 @@ defmodule Tore.Deals do
 
   @doc "Switches fetching the store's offers on or off for the household."
   @spec toggle_scraping(Scope.t(), integer()) ::
-          {:ok, HouseholdStore.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, HouseholdStore.t()} | {:error, :not_found | Ecto.Changeset.t()}
   def toggle_scraping(%Scope{} = scope, id) do
-    household_store = Repo.get!(HouseholdStore, id, Scope.repo_opts(scope))
+    case Repo.get(HouseholdStore, id, Scope.repo_opts(scope)) do
+      nil ->
+        {:error, :not_found}
 
-    household_store
-    |> HouseholdStore.changeset(%{scrape_enabled: !household_store.scrape_enabled})
-    |> Repo.update()
+      household_store ->
+        household_store
+        |> HouseholdStore.changeset(%{scrape_enabled: !household_store.scrape_enabled})
+        |> Repo.update()
+    end
   end
 
   @doc "Stops the household using the store. The store stays for any other household using it."
   @spec remove_store(Scope.t(), integer()) ::
-          {:ok, HouseholdStore.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, HouseholdStore.t()} | {:error, :not_found | Ecto.Changeset.t()}
   def remove_store(%Scope{} = scope, id) do
-    HouseholdStore |> Repo.get!(id, Scope.repo_opts(scope)) |> Repo.delete()
+    case Repo.get(HouseholdStore, id, Scope.repo_opts(scope)) do
+      nil -> {:error, :not_found}
+      household_store -> Repo.delete(household_store)
+    end
   end
 
   @doc "Fetches each store some household has switched on, once however many households use it."
@@ -151,63 +158,6 @@ defmodule Tore.Deals do
         _ ->
           upsert_deals(deals)
       end
-    end
-  end
-
-  @spec parse_pdf(Scope.t(), binary()) :: {:ok, integer()} | {:error, term()}
-  def parse_pdf(%Scope{} = scope, pdf_binary) do
-    {system, user} = Tore.LLM.Prompts.parse_deals_pdf()
-
-    with {:ok, data, _usage} <-
-           Tore.LLM.vision(scope, [{:pdf, pdf_binary}], system, user, feature: :parse_deals_pdf) do
-      raw_deals =
-        cond do
-          is_list(data) -> data
-          is_map(data) -> data["deals"] || []
-          true -> []
-        end
-
-      deals = Enum.map(raw_deals, &deal_from_raw/1)
-
-      case deals do
-        [] ->
-          Logger.warning("PDF parse returned 0 deals")
-          {:ok, 0}
-
-        _ ->
-          upsert_deals(deals)
-      end
-    end
-  end
-
-  defp deal_from_raw(d) do
-    %{
-      chain: d["chain"] || "other",
-      store: d["store"] || d["chain"] || "other",
-      product_name: d["product_name"],
-      brand: d["brand"],
-      size: d["size"],
-      price: deals_decimal(d["price"]),
-      price_unit: d["price_unit"],
-      offer_condition: d["offer_condition"],
-      regular_price: d["regular_price"],
-      comparison_price: d["comparison_price"],
-      valid_from: deals_date(d["valid_from"]),
-      valid_until: deals_date(d["valid_until"]),
-      source: :vision
-    }
-  end
-
-  defp deals_decimal(nil), do: nil
-  defp deals_decimal(n) when is_number(n), do: Decimal.from_float(n * 1.0)
-  defp deals_decimal(s) when is_binary(s), do: Decimal.new(s)
-
-  defp deals_date(nil), do: nil
-
-  defp deals_date(s) when is_binary(s) do
-    case Date.from_iso8601(s) do
-      {:ok, d} -> d
-      _ -> nil
     end
   end
 

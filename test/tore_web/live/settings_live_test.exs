@@ -128,6 +128,44 @@ defmodule ToreWeb.SettingsLiveTest do
     end
   end
 
+  describe "an id the page didn't offer" do
+    test "switching to a household you're not in leaves you where you are", %{
+      conn: conn,
+      user: user
+    } do
+      other = household_fixture(%{name: "Stugan"})
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      render_click(view, "switch_household", %{"id" => to_string(other.id)})
+
+      assert render(view) =~ "Inställningar"
+      assert {_user, %{household_id: id}} = Tore.Accounts.get_session(user.id)
+      assert id == home_scope().household_id
+    end
+
+    test "sponsoring without the credits claim changes nothing", %{conn: conn} do
+      sponsor = Tore.Household.ai_sponsor(home_scope())
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      render_click(view, "toggle_ai_sponsor", %{})
+
+      assert render(view) =~ "Inställningar"
+      assert Tore.Household.ai_sponsor(home_scope()).id == sponsor.id
+    end
+
+    test "another household's store can't be switched off or removed", %{conn: conn} do
+      other = scope_fixture(household_fixture())
+      {:ok, theirs} = Deals.add_store(other, @store_url)
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      render_click(view, "toggle_store", %{"id" => to_string(theirs.id)})
+      render_click(view, "remove_store", %{"id" => to_string(theirs.id)})
+
+      assert render(view) =~ "Inställningar"
+      assert [%{scrape_enabled: true}] = Deals.list_stores(other)
+    end
+  end
+
   test "has a way to sign out", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/settings")
 
