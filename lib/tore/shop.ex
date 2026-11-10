@@ -13,29 +13,41 @@ defmodule Tore.Shop do
   end
 
   def build_list(%Scope{} = scope, list_id, week_start, recipe_ids) do
-    all_items = Aggregator.aggregate_by_ids(scope, recipe_ids)
-    pantry = Pantry.list_usable(scope)
-
-    items =
-      if pantry == [] do
-        all_items
-      else
-        case filter_pantry_items(scope, all_items, pantry) do
-          {:ok, filtered} -> filtered
-          _ -> all_items
-        end
-      end
-
+    items = items_for(scope, recipe_ids)
     EventStore.reset(scope, list_id)
     run(scope, list_id, %Commands.BuildList{week_start: week_start, items: items})
   end
 
-  def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
-    section =
-      case classify_grocery_item(scope, name) do
-        {:ok, s} -> s
-        _ -> :other
+  @doc """
+  The list for `recipe_ids`' ingredients, without what the pantry already holds. Asks the model
+  to match against the pantry, and keeps every ingredient if it can't.
+  """
+  @spec items_for(Scope.t(), [integer()]) :: [map()]
+  def items_for(%Scope{} = scope, recipe_ids) do
+    all_items = Aggregator.aggregate_by_ids(scope, recipe_ids)
+    pantry = Pantry.list_usable(scope)
+
+    if pantry == [] do
+      all_items
+    else
+      case filter_pantry_items(scope, all_items, pantry) do
+        {:ok, filtered} -> filtered
+        _ -> all_items
       end
+    end
+  end
+
+  @doc "The shop section `name` goes in, as the model sorts it, or `:other`."
+  @spec section_for(Scope.t(), String.t()) :: atom()
+  def section_for(%Scope{} = scope, name) do
+    case classify_grocery_item(scope, name) do
+      {:ok, s} -> s
+      _ -> :other
+    end
+  end
+
+  def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
+    section = section_for(scope, name)
 
     run(scope, list_id, %Commands.AddItem{
       item_id: Ecto.UUID.generate(),
@@ -243,11 +255,35 @@ defmodule Tore.Shop do
   end
 
   defp run(scope, list_id, command) do
-    with {:ok, state} <- EventStore.load(scope, list_id, Decider),
-         {:ok, events} <- Decider.decide(command, state),
-         :ok <- EventStore.append(scope, list_id, events) do
+    with {:ok, events} <- append(scope, list_id, command) do
       PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       {:ok, events}
     end
   end
+
+  @doc """
+  Decides `command` against the list and appends its events, without telling anyone: a run calls
+  this inside its transaction, then `announce/1` once it has committed. A `BuildList` replaces
+  the list.
+  """
+  @spec append(Scope.t(), String.t(), Commands.t()) ::
+          {:ok, [Tore.Shop.Events.t()]} | {:error, term()}
+  def append(%Scope{} = scope, list_id, %Commands.BuildList{} = command) do
+    EventStore.reset(scope, list_id)
+    append_decided(scope, list_id, command)
+  end
+
+  def append(%Scope{} = scope, list_id, command), do: append_decided(scope, list_id, command)
+
+  defp append_decided(scope, list_id, command) do
+    with {:ok, state} <- EventStore.load(scope, list_id, Decider),
+         {:ok, events} <- Decider.decide(command, state),
+         :ok <- EventStore.append(scope, list_id, events) do
+      {:ok, events}
+    end
+  end
+
+  @doc "Tells shopping screens the list changed."
+  @spec announce(Scope.t()) :: :ok
+  def announce(%Scope{} = scope), do: PubSub.broadcast(@pubsub, topic(scope), {:events, []})
 end

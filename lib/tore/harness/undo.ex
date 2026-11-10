@@ -51,6 +51,8 @@ defmodule Tore.Harness.Undo do
           | {:delete_recipe, recipe_id :: integer()}
           | {:restore_dining_out, plan_id :: String.t(), slot_key :: String.t(),
              dining_before() | :absent}
+          | {:remove_shop_item, list_id :: String.t(), item_id :: String.t()}
+          | {:uncheck_shop_item, list_id :: String.t(), item_id :: String.t()}
 
   @type t :: {:steps, [step()]} | {:irreversible, reason :: String.t()}
 
@@ -118,6 +120,11 @@ defmodule Tore.Harness.Undo do
     }
   end
 
+  defp encode_step({shop, list_id, item_id})
+       when shop in [:remove_shop_item, :uncheck_shop_item] and is_binary(list_id) and
+              is_binary(item_id),
+       do: %{Atom.to_string(shop) => %{"list_id" => list_id, "item_id" => item_id}}
+
   defp encode_step(other), do: raise(ArgumentError, "not an undo step: #{inspect(other)}")
 
   defp decode_step(%{} = step) do
@@ -154,6 +161,11 @@ defmodule Tore.Harness.Undo do
 
         true = is_binary(plan_id) and is_binary(slot_key)
         {:restore_dining_out, plan_id, slot_key, decode_dining(before)}
+
+      {shop, args} when shop in ["remove_shop_item", "uncheck_shop_item"] ->
+        %{"list_id" => list_id, "item_id" => item_id} = exact!(args, ~w(list_id item_id))
+        true = is_binary(list_id) and is_binary(item_id)
+        {String.to_existing_atom(shop), list_id, item_id}
 
       _ ->
         raise ArgumentError, "not an undo step: #{inspect(step)}"

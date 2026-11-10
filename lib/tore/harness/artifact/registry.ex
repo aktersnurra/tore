@@ -4,7 +4,8 @@ defmodule Tore.Harness.Artifact.Registry do
     MemoryBatch,
     PantryBeliefUpdate,
     PlanDiff,
-    RecipeProposal
+    RecipeProposal,
+    ShopChange
   }
 
   @registry %{
@@ -12,7 +13,8 @@ defmodule Tore.Harness.Artifact.Registry do
     "MemoryBatch" => MemoryBatch,
     "PantryBeliefUpdate" => PantryBeliefUpdate,
     "PlanDiff" => PlanDiff,
-    "RecipeProposal" => RecipeProposal
+    "RecipeProposal" => RecipeProposal,
+    "ShopChange" => ShopChange
   }
 
   @spec lookup(String.t()) :: {:ok, module()} | :error

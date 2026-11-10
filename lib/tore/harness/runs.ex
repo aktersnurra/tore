@@ -432,6 +432,20 @@ defmodule Tore.Harness.Runs do
   defp undo_step!(scope, {:restore_dining_out, plan_id, slot_key, before}),
     do: :ok = Tore.Costs.restore_dining_out(scope, plan_id, slot_key, before)
 
+  # An item someone has since removed from the list is already undone.
+  defp undo_step!(scope, {:remove_shop_item, list_id, item_id}),
+    do: shop_undo!(scope, list_id, %Tore.Shop.Commands.RemoveItem{item_id: item_id})
+
+  defp undo_step!(scope, {:uncheck_shop_item, list_id, item_id}),
+    do: shop_undo!(scope, list_id, %Tore.Shop.Commands.UncheckItem{item_id: item_id})
+
   defp undo_step!(scope, {:restore_memory, added, forgotten}),
     do: :ok = Tore.Household.Memory.restore(scope, added, forgotten)
+
+  defp shop_undo!(scope, list_id, command) do
+    case Tore.Shop.append(scope, list_id, command) do
+      {:ok, _events} -> :ok
+      {:error, :item_not_found} -> :ok
+    end
+  end
 end

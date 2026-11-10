@@ -53,7 +53,9 @@ defmodule Tore.Harness.UndoTest do
                 description: nil,
                 total_amount: Decimal.new("450.50"),
                 user_id: 3
-              }}
+              }},
+             {:remove_shop_item, "shop-1-2026-11-09", "9b2c"},
+             {:uncheck_shop_item, "shop-1-2026-11-09", "9b2c"}
            ]}
         ] do
       assert round_trip(undo) == undo

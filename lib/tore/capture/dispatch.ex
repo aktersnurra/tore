@@ -285,19 +285,23 @@ defmodule Tore.Capture.Dispatch do
 
   @spec add_to_shopping_list(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_shopping_list(name, quantity, unit, ctx) when is_binary(name) do
-    list_id = current_shop_list_id(ctx)
     qty = to_decimal(quantity)
+    change = Kinds.ShopEdit.add(scope(ctx), current_shop_list_id(ctx), name, qty, unit)
 
-    case Shop.add_item(scope(ctx), list_id, name, qty, unit, ctx[:user_id]) do
-      {:ok, _events} ->
-        %{
-          role: :assistant,
-          shop_link: true,
-          text:
-            gettext("Added %{label} to the shopping list.",
-              label: shopping_label(name, qty, unit)
-            )
-        }
+    edit_shop(ctx, change, true, fn ->
+      gettext("Added %{label} to the shopping list.", label: shopping_label(name, qty, unit))
+    end)
+  end
+
+  # A shop change through a shop edit run. The reply offers Undo when the change has one.
+  defp edit_shop(ctx, change, undoable?, applied_text) do
+    case Runs.submit(scope(ctx), Kinds.ShopEdit, change, %{change: change}) do
+      {:ok, %KitchenRun{status: :applied, id: id}} ->
+        bubble = %{role: :assistant, shop_link: true, text: applied_text.()}
+        if undoable?, do: Map.put(bubble, :run_stream_id, id), else: bubble
+
+      {:ok, %KitchenRun{failure_code: code}} ->
+        error_bubble(:shop, code)
 
       {:error, reason} ->
         error_bubble(:shop, reason)
@@ -316,21 +320,10 @@ defmodule Tore.Capture.Dispatch do
     list_id = current_shop_list_id(ctx)
 
     case Shop.find_item_fuzzy(scope(ctx), list_id, name) do
-      {:ok, {id, item}} ->
-        case Shop.check_item(scope(ctx), list_id, id, ctx[:user_id]) do
-          {:ok, _events} ->
-            %{
-              role: :assistant,
-              shop_link: true,
-              text:
-                gettext("Checked off %{name}.",
-                  name: item.name
-                )
-            }
-
-          {:error, reason} ->
-            error_bubble(:shop, reason)
-        end
+      {:ok, {_id, item}} ->
+        edit_shop(ctx, Kinds.ShopEdit.check(list_id, item), true, fn ->
+          gettext("Checked off %{name}.", name: item.name)
+        end)
 
       {:ambiguous, matches} ->
         names = matches |> Enum.map(fn {_id, it} -> it.name end) |> Enum.join(", ")
@@ -410,22 +403,15 @@ defmodule Tore.Capture.Dispatch do
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
 
-        case Shop.build_list(scope(ctx), list_id, week_start, recipe_ids) do
-          {:ok, _events} ->
-            %{
-              role: :assistant,
-              shop_link: true,
-              text:
-                gettext(
-                  "Built a shopping list for the week of %{date} from %{n} planned recipes.",
-                  date: Date.to_iso8601(week_start),
-                  n: length(recipe_ids)
-                )
-            }
+        change = Kinds.ShopEdit.build(scope(ctx), list_id, week_start, recipe_ids)
 
-          {:error, reason} ->
-            error_bubble(:shop, reason)
-        end
+        edit_shop(ctx, change, false, fn ->
+          gettext(
+            "Built a shopping list for the week of %{date} from %{n} planned recipes.",
+            date: Date.to_iso8601(week_start),
+            n: length(recipe_ids)
+          )
+        end)
 
       {:error, reason} ->
         error_bubble(:plan, reason)

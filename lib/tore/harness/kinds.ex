@@ -9,6 +9,7 @@ defmodule Tore.Harness.Kinds do
              Tore.Harness.Kinds.PlannerCommand,
              Tore.Harness.Kinds.Receipt,
              Tore.Harness.Kinds.SetPlanSlot,
+             Tore.Harness.Kinds.ShopEdit,
              Tore.Harness.Kinds.WeeklyPlanning
            ] ++
              Application.compile_env(:tore, :extra_run_kinds, [])
