@@ -72,6 +72,10 @@ defmodule Tore.LLM do
   def chat_with_tools(%Scope{} = scope, system, messages, tools, opts),
     do: call(scope, opts, &spec().chat_with_tools(system, messages, tools, &1))
 
+  @doc "Typed decisions from the decision model (`Tore.LLM.Spec.decide/3`): an answer per question."
+  def decide(%Scope{} = scope, state, questions, opts \\ []),
+    do: call(scope, opts, &spec().decide(state, questions, &1))
+
   defp call(scope, opts, request) do
     {feature, opts} = Keyword.pop(opts, :feature, :other)
 

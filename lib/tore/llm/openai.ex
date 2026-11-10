@@ -123,6 +123,23 @@ defmodule Tore.LLM.OpenAI do
     end
   end
 
+  @impl true
+  def decide(state, questions, opts) when is_list(state) and is_map(questions) do
+    body = %{
+      model: Keyword.get(opts, :model, decisions_model()),
+      state: state,
+      questions: questions
+    }
+
+    with {:ok, %OpenRouter.Response{body: response}} <-
+           OpenRouter.chat_completions(client(decisions_url()), body, opts) do
+      case response do
+        %{"answers" => answers} when is_map(answers) -> {:ok, answers, extract_usage(response)}
+        _other -> {:error, :invalid_decision}
+      end
+    end
+  end
+
   # ---- Private decoding ---------------------------------------------------
 
   defp decode_json({:ok, resp}) do
@@ -141,10 +158,11 @@ defmodule Tore.LLM.OpenAI do
   defp decode_content(content) when is_map(content) or is_list(content), do: {:ok, content}
   defp decode_content(_), do: {:error, :no_content}
 
+  # Chat reports prompt and completion tokens; the Decisions API, input and output tokens.
   defp extract_usage(%{"usage" => usage}) when is_map(usage) do
     %{
-      prompt_tokens: usage["prompt_tokens"] || 0,
-      completion_tokens: usage["completion_tokens"] || 0,
+      prompt_tokens: usage["prompt_tokens"] || usage["input_tokens"] || 0,
+      completion_tokens: usage["completion_tokens"] || usage["output_tokens"] || 0,
       cost_usd: usage["cost"] || 0.0
     }
   end
@@ -195,18 +213,26 @@ defmodule Tore.LLM.OpenAI do
     end
   end
 
-  defp client do
+  # The Decisions API takes the same key and attribution headers as chat completions, at its own URL.
+  defp client(endpoint_url \\ nil) do
     {:ok, client} =
       Client.new(
-        api_key: Application.fetch_env!(:tore, :openrouter_api_key),
-        site_url: Application.fetch_env!(:tore, :openrouter_site_url),
-        app_name: Application.fetch_env!(:tore, :openrouter_app_name)
+        [
+          api_key: Application.fetch_env!(:tore, :openrouter_api_key),
+          site_url: Application.fetch_env!(:tore, :openrouter_site_url),
+          app_name: Application.fetch_env!(:tore, :openrouter_app_name)
+        ] ++ if(endpoint_url, do: [endpoint_url: endpoint_url], else: [])
       )
 
     client
   end
 
   defp model, do: Application.get_env(:tore, :openrouter_model, "openai/gpt-5-mini")
+
+  defp decisions_model, do: Application.get_env(:tore, :decisions_model, "typesafe/jev-1.14")
+
+  defp decisions_url,
+    do: Application.get_env(:tore, :decisions_url, "https://openrouter.ai/api/alpha/decisions")
 
   defp vision_model,
     do: Application.get_env(:tore, :openrouter_vision_model, "google/gemini-3.1-flash-lite")

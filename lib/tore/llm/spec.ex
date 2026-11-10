@@ -41,4 +41,11 @@ defmodule Tore.LLM.Spec do
               tools :: [map()],
               opts()
             ) :: {:ok, tool_response(), usage()} | {:error, term()}
+
+  @doc """
+  Asks a decision model typed `questions` about `state` through OpenRouter's Decisions API. No text
+  comes back, only an answer per question, keyed by the question's name.
+  """
+  @callback decide(state :: [String.t() | map()], questions :: map(), opts()) ::
+              {:ok, answers :: map(), usage()} | {:error, term()}
 end

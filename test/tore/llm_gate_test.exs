@@ -25,6 +25,21 @@ defmodule Tore.LLMGateTest do
     assert [{"cook_mode", 1, 0.25}] = Costs.llm_calls_this_month_by_feature(home_scope())
   end
 
+  test "a decision goes through the same gate and is recorded under its feature" do
+    expect(Tore.MockLLM, :decide, fn ["state"], %{"q" => _}, opts ->
+      refute Keyword.has_key?(opts, :feature)
+      {:ok, %{"q" => %{"choice" => "a"}}, @usage}
+    end)
+
+    assert {:ok, %{"q" => %{"choice" => "a"}}, _} =
+             LLM.decide(home_scope(), ["state"], %{"q" => %{}}, feature: :home_pick)
+
+    assert [{"home_pick", 1, 0.25}] = Costs.llm_calls_this_month_by_feature(home_scope())
+
+    unsponsored = scope_fixture(household_fixture())
+    assert {:error, :ai_unavailable} = LLM.decide(unsponsored, ["state"], %{"q" => %{}})
+  end
+
   test "a household nobody sponsors makes no call" do
     unsponsored = scope_fixture(household_fixture())
 
