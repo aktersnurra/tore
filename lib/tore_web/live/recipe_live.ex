@@ -296,7 +296,12 @@ defmodule ToreWeb.RecipeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_path={assigns[:current_path] || "/recipes"}>
+    <Layouts.app
+      flash={@flash}
+      socket={@socket}
+      current_user={@current_user}
+      current_path={assigns[:current_path] || "/recipes"}
+    >
       <.page max_width={:md}>
         <.card class="mb-6">
           <header class="flex items-center justify-between gap-4 mb-5 pb-5 border-b border-[color:var(--hairline)]">

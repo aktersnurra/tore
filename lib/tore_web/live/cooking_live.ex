@@ -66,7 +66,12 @@ defmodule ToreWeb.CookingLive do
       )
 
     ~H"""
-    <Layouts.app flash={@flash} current_path={assigns[:current_path] || "/cooking"}>
+    <Layouts.app
+      flash={@flash}
+      socket={@socket}
+      current_user={@current_user}
+      current_path={assigns[:current_path] || "/cooking"}
+    >
       <.page max_width={:md}>
         <.card padded={false}>
           <header class="px-6 pt-6 pb-4">

@@ -49,6 +49,20 @@ defmodule ToreWeb.CaptureLiveTest do
            |> render() =~ ~s(href="/plan")
   end
 
+  test "a message from the chat bar is sent when Capture opens", %{conn: conn} do
+    Tore.MockLLM
+    |> expect(:chat_with_tools, fn _system, messages, _tools, _opts ->
+      assert List.last(messages).content =~ "Vad ska vi äta ikväll?"
+      {:ok, {:message, "Pasta!"}, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
+    end)
+
+    {:ok, lv, _html} =
+      live(conn, ~p"/capture?#{[q: "Vad ska vi äta ikväll?", return_to: "/plan"]}")
+
+    assert eventually(fn -> render(lv) =~ "Pasta!" end)
+    assert render(lv) =~ "Vad ska vi äta ikväll?"
+  end
+
   test "sending a message appends user bubble", %{conn: conn} do
     Tore.MockLLM
     |> expect(:chat_with_tools, fn _system, _messages, _tools, _opts ->

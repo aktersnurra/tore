@@ -82,7 +82,12 @@ defmodule ToreWeb.PrepLive do
     assigns = assign(assigns, tabs: tabs, total_min: total_min)
 
     ~H"""
-    <Layouts.app flash={@flash} current_path={assigns[:current_path] || "/prep"}>
+    <Layouts.app
+      flash={@flash}
+      socket={@socket}
+      current_user={@current_user}
+      current_path={assigns[:current_path] || "/prep"}
+    >
       <.page max_width={:md}>
         <.card padded={false}>
           <header class="flex items-center justify-between px-6 pt-6 pb-3">

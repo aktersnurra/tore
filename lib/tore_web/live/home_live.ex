@@ -38,16 +38,7 @@ defmodule ToreWeb.HomeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_path="/today">
-      <.link
-        :if={@inbox_count > 0}
-        href={~p"/review"}
-        data-role="review-pill"
-        class="inline-flex items-center gap-2 px-4 h-9 rounded-full border border-[color:var(--border)] bg-[var(--surface)] text-sm text-[var(--text)] mb-4"
-      >
-        {ngettext("%{count} to review", "%{count} to review", @inbox_count, count: @inbox_count)}
-      </.link>
-
+    <Layouts.app flash={@flash} socket={@socket} current_user={@current_user} current_path="/today">
       <%!-- Tonight card --%>
       <section class="mb-6">
         <h2 class="text-xs font-semibold uppercase tracking-wider text-[color:var(--muted)] mb-3">

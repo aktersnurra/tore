@@ -106,6 +106,8 @@ defmodule ToreWeb.CostLive do
 
     ~H"""
     <Layouts.app
+      socket={@socket}
+      current_user={@current_user}
       flash={@flash}
       current_scope={assigns[:current_scope]}
       current_path={assigns[:current_path] || "/settings/costs"}

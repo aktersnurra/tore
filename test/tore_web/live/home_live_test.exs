@@ -54,55 +54,6 @@ defmodule ToreWeb.HomeLiveTest do
     refute html =~ "Föregående vecka"
   end
 
-  test "renders the command pill linking to capture", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/today")
-
-    bottom_nav_html = view |> element(~s(nav[data-role="bottom-nav"])) |> render()
-    assert bottom_nav_html =~ ~s(data-role="command-pill")
-    assert bottom_nav_html =~ "/capture"
-    assert bottom_nav_html =~ "return_to=%2F"
-    refute bottom_nav_html =~ "Fråga Tore"
-  end
-
-  describe "app shell nav" do
-    test "shows only Today, Plan, Shop as destinations", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/today")
-
-      nav_html = view |> element("header nav") |> render()
-      bottom_nav_html = view |> element(~s(nav[data-role="bottom-nav"])) |> render()
-
-      assert nav_html =~ ~s(href="/plan")
-      assert nav_html =~ ~s(href="/shop")
-      assert nav_html =~ ~s(href="/settings")
-      refute nav_html =~ ~s(href="/recipes")
-      refute nav_html =~ ~s(href="/prep")
-      refute nav_html =~ ~s(href="/cooking")
-
-      assert bottom_nav_html =~ ~s(href="/plan")
-      assert bottom_nav_html =~ ~s(href="/shop")
-      refute bottom_nav_html =~ ~s(href="/settings")
-      refute bottom_nav_html =~ ~s(href="/recipes")
-      refute bottom_nav_html =~ ~s(href="/prep")
-      refute bottom_nav_html =~ ~s(href="/cooking")
-    end
-  end
-
-  test "review pill shows when runs need attention", %{conn: conn} do
-    pending_review_fixture(home_scope())
-
-    {:ok, _view, html} = live(conn, ~p"/today")
-    assert html =~ ~s(data-role="review-pill")
-    assert html =~ ~s(href="/review")
-  end
-
-  test "review pill is absent when nothing needs review, even with a question waiting", %{
-    conn: conn
-  } do
-    pending_question_fixture(home_scope())
-    {:ok, _view, html} = live(conn, ~p"/today")
-    refute html =~ ~s(data-role="review-pill")
-  end
-
   defp plan_id_for_today do
     today = Date.utc_today()
     dow = Date.day_of_week(today)

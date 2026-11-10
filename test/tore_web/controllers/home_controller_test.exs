@@ -17,7 +17,12 @@ defmodule ToreWeb.HomeControllerTest do
 
   test "opens the stored pick without a model call", %{conn: conn} do
     {:ok, _} =
-      Runs.submit(home_scope(), Kinds.HomePick, %HomePick{screen: :shop, source: :model, swaps: []}, %{})
+      Runs.submit(
+        home_scope(),
+        Kinds.HomePick,
+        %HomePick{screen: :shop, source: :model, swaps: []},
+        %{}
+      )
 
     assert conn |> get(~p"/") |> redirected_to() == ~p"/shop"
   end

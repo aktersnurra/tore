@@ -76,7 +76,7 @@ defmodule ToreWeb.RunReviewRecipeTest do
 
     {:ok, view, _html} = live(conn, ~p"/runs/#{run.id}")
 
-    view |> element("button[type=submit]") |> render_click()
+    view |> element(~s(button[phx-click="save_recipe"])) |> render_click()
     await_run_tasks()
 
     assert [%{title: "Vegetarian Miso Ramen"}] = Tore.Recipes.list(home_scope())

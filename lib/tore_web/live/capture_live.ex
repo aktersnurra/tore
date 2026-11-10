@@ -17,6 +17,10 @@ defmodule ToreWeb.CaptureLive do
       )
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
+    # The chat bar opens Capture with what was typed in it, or a swap's request, as `q`.
+    if connected?(socket) and is_binary(params["q"]) and String.trim(params["q"]) != "",
+      do: send(self(), {:send_message, params["q"]})
+
     {:ok, socket}
   end
 
@@ -111,6 +115,9 @@ defmodule ToreWeb.CaptureLive do
   defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
 
   @impl true
+  def handle_info({:send_message, text}, socket),
+    do: handle_event("send_message", %{"message" => text}, socket)
+
   def handle_info({:route_complete, {:ok, bubbles}}, socket) do
     {:noreply,
      socket

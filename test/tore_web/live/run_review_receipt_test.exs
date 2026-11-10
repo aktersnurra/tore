@@ -37,8 +37,8 @@ defmodule ToreWeb.RunReviewReceiptTest do
     run = pending_review_fixture(ctx.scope)
     {:ok, view, _html} = live(ctx.conn, ~p"/runs/#{run.id}")
 
-    view |> element("form") |> render_change(%{receipt: %{total: "20"}})
-    view |> element("form") |> render_submit()
+    view |> element(~s(form[phx-submit="confirm"])) |> render_change(%{receipt: %{total: "20"}})
+    view |> element(~s(form[phx-submit="confirm"])) |> render_submit()
     await_run_tasks()
 
     assert %KitchenRun{status: :applied} = Runs.get(ctx.scope, run.id)
@@ -51,8 +51,8 @@ defmodule ToreWeb.RunReviewReceiptTest do
     {:ok, view, _html} = live(ctx.conn, ~p"/runs/#{run.id}")
     Phoenix.PubSub.subscribe(Tore.PubSub, "toasts:user:#{ctx.user.id}")
 
-    view |> element("form") |> render_change(%{receipt: %{store_name: " "}})
-    view |> element("form") |> render_submit()
+    view |> element(~s(form[phx-submit="confirm"])) |> render_change(%{receipt: %{store_name: " "}})
+    view |> element(~s(form[phx-submit="confirm"])) |> render_submit()
     await_run_tasks()
 
     assert_receive {:toast, :error, "Kvittot saknar butik."}
