@@ -13,6 +13,10 @@ defmodule Tore.Application do
         Tore.Repo,
         {Ecto.Migrator,
          repos: Application.fetch_env!(:tore, :ecto_repos), skip: skip_migrations?()},
+        # Runs live in the process that started them, so any still running at boot are dead.
+        # Swept once here, before anything can open a run; off in test, where the sandbox owns
+        # the connection.
+        Tore.Harness.Runs,
         {DNSCluster, query: Application.get_env(:tore, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Tore.PubSub},
         Tore.Harness.ProjectorRegistry,

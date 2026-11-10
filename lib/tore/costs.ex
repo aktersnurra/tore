@@ -110,6 +110,15 @@ defmodule Tore.Costs do
     end
   end
 
+  @doc "Deletes a receipt and its line items. Undoing a receipt run does this."
+  @spec delete_receipt(Scope.t(), integer()) :: :ok | {:error, :not_found}
+  def delete_receipt(%Scope{} = scope, id) do
+    case Repo.delete_all(from(r in Receipt, where: r.id == ^id), Scope.repo_opts(scope)) do
+      {1, _} -> :ok
+      {0, _} -> {:error, :not_found}
+    end
+  end
+
   defp parse_iso_date(nil), do: nil
 
   defp parse_iso_date(str) when is_binary(str) do

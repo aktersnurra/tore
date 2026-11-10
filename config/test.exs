@@ -60,3 +60,7 @@ config :tore, :oidc,
 
 # The discovery worker would fail against the dummy issuer.
 config :tore, :oidc_start_worker, false
+
+# A run kind that exists only for Tore.Harness.RunsTest.
+config :tore, :extra_run_kinds, [Tore.Harness.TestKind]
+config :tore, :fail_interrupted_runs_at_boot, false
