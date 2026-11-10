@@ -1,10 +1,12 @@
 defmodule Tore.Harness.Artifact.RecipeProposal do
   @moduledoc """
   A recipe that does not exist in the catalog yet, awaiting user confirmation
-  on a `:needs_user` card. Two sources:
+  on a `:needs_user` card. Three sources:
 
     * `:web_import` — parsed from a page the user chose out of web search
-      results. `source_url` carries the page.
+      results or pasted into Capture. `source_url` carries the page, and
+      `image_url` the page's own picture if it has one.
+    * `:photo` — read from photos of a recipe sent to Capture.
     * `:generation` — a variant the planner generated from an existing recipe.
       `source_recipe_id` and `instruction` carry the provenance ("recipe 7,
       made simpler").
@@ -35,6 +37,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     :source_recipe_id,
     :instruction,
     :pending_assignment,
+    :image_url,
     ingredients: [],
     tags: []
   ]
@@ -45,7 +48,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
           unit: String.t() | nil
         }
 
-  @type source :: :web_import | :generation
+  @type source :: :web_import | :generation | :photo
 
   @type pending_assignment :: %{slot_key: String.t(), servings: pos_integer()}
 
@@ -62,8 +65,35 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
           source_url: String.t() | nil,
           source_recipe_id: integer() | nil,
           instruction: String.t() | nil,
-          pending_assignment: pending_assignment() | nil
+          pending_assignment: pending_assignment() | nil,
+          image_url: String.t() | nil
         }
+
+  @doc "A proposal from recipe attrs as `Tore.Recipes` parses them from a page or photos."
+  @spec from_attrs(map(), :web_import | :photo, String.t() | nil) :: t()
+  def from_attrs(attrs, source, source_url) do
+    %__MODULE__{
+      title: attrs[:title],
+      description: attrs[:description],
+      instructions: attrs[:instructions],
+      base_servings: attrs[:base_servings],
+      prep_time_minutes: attrs[:prep_time_minutes],
+      cook_time_minutes: attrs[:cook_time_minutes],
+      ingredients: Enum.map(attrs[:ingredients] || [], &attrs_ingredient/1),
+      tags: attrs[:tags] || [],
+      source: source,
+      source_url: source_url,
+      image_url: attrs[:image_url]
+    }
+  end
+
+  defp attrs_ingredient(ing) do
+    %{
+      name: ing[:name] || ing["name"],
+      quantity: quantity_to_string(ing[:quantity] || ing["quantity"]),
+      unit: ing[:unit] || ing["unit"]
+    }
+  end
 
   @impl true
   def kind, do: "RecipeProposal"
@@ -82,6 +112,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   def is_rationale_complete(%__MODULE__{source: :web_import, source_url: u}),
     do: is_binary(u) and u != ""
 
+  def is_rationale_complete(%__MODULE__{source: :photo}), do: true
+
   @impl true
   def to_json(%__MODULE__{} = proposal) do
     %{
@@ -97,7 +129,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       "source_url" => proposal.source_url,
       "source_recipe_id" => proposal.source_recipe_id,
       "instruction" => proposal.instruction,
-      "pending_assignment" => pending_to_json(proposal.pending_assignment)
+      "pending_assignment" => pending_to_json(proposal.pending_assignment),
+      "image_url" => proposal.image_url
     }
   end
 
@@ -116,7 +149,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       source_url: json["source_url"],
       source_recipe_id: json["source_recipe_id"],
       instruction: json["instruction"],
-      pending_assignment: pending_from_json(json["pending_assignment"])
+      pending_assignment: pending_from_json(json["pending_assignment"]),
+      image_url: json["image_url"]
     }
   end
 
@@ -149,4 +183,5 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
 
   defp source_from_json("web_import"), do: :web_import
   defp source_from_json("generation"), do: :generation
+  defp source_from_json("photo"), do: :photo
 end

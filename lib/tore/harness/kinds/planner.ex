@@ -106,9 +106,12 @@ defmodule Tore.Harness.Kinds.Planner do
   def after_commit(%{status: :applied} = run) do
     scope = Scope.for_household(run.household_id)
 
-    # A confirmed recipe gets its picture now that the recipe is committed.
+    # A confirmed recipe gets its picture now that the recipe is committed: the page's own if
+    # it came from one, otherwise a generated one.
+    image_url = Enum.find_value(run.artifacts, &(match?(%RecipeProposal{}, &1) && &1.image_url))
+
     with {:steps, steps} <- run.undo,
-         do: for({:delete_recipe, id} <- steps, do: Recipes.start_image(scope, id))
+         do: for({:delete_recipe, id} <- steps, do: Recipes.start_image(scope, id, image_url))
 
     Planning.announce(scope)
   end

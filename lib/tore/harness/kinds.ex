@@ -8,6 +8,7 @@ defmodule Tore.Harness.Kinds do
              Tore.Harness.Kinds.PlanEdit,
              Tore.Harness.Kinds.PlannerCommand,
              Tore.Harness.Kinds.Receipt,
+             Tore.Harness.Kinds.RecipeIngestion,
              Tore.Harness.Kinds.SetPlanSlot,
              Tore.Harness.Kinds.ShopEdit,
              Tore.Harness.Kinds.WeeklyPlanning

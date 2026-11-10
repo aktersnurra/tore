@@ -48,13 +48,25 @@ defmodule Tore.HouseholdLanguageTest do
 
     expect(Tore.MockLLM, :text, fn system, _user, _opts ->
       assert system =~ "into English"
-      {:ok, %{"title" => "Soup", "ingredients" => [], "steps" => [], "tags" => []}, @usage}
+
+      {:ok,
+       %{
+         "title" => "Soup",
+         "base_servings" => 4,
+         "ingredients" => [%{"item" => "water", "quantity" => 1, "unit" => "l"}],
+         "steps" => [
+           %{"order" => 1, "phase" => "COOKING", "action" => "Boil.", "ingredients" => []}
+         ],
+         "tags" => []
+       }, @usage}
     end)
 
-    assert %{recipe_card: true} =
+    assert %{review_link: true, text: text} =
              Dispatch.import_recipe_from_url("https://example.com/soup", %{
                household_id: home_scope().household_id
              })
+
+    assert text =~ "Soup"
   end
 
   test "a prep guide is written in the household's language" do

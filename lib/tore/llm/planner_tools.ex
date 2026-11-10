@@ -439,7 +439,9 @@ defmodule Tore.LLM.PlannerTools do
       run: fn args, ctx, plan ->
         case Tore.Recipes.scrape_attrs_from_url(scope(ctx), args["url"], household_locale(ctx)) do
           {:ok, attrs} ->
-            {:proposal, web_import_proposal(attrs, args["url"]), pending_assignment(args), plan}
+            {:proposal,
+             Tore.Harness.Artifact.RecipeProposal.from_attrs(attrs, :web_import, args["url"]),
+             pending_assignment(args), plan}
 
           {:error, _} = err ->
             err
@@ -509,34 +511,6 @@ defmodule Tore.LLM.PlannerTools do
   end
 
   defp pending_assignment(_args), do: %{}
-
-  defp web_import_proposal(attrs, url) do
-    %Tore.Harness.Artifact.RecipeProposal{
-      title: attrs[:title],
-      description: attrs[:description],
-      instructions: attrs[:instructions],
-      base_servings: attrs[:base_servings],
-      prep_time_minutes: attrs[:prep_time_minutes],
-      cook_time_minutes: attrs[:cook_time_minutes],
-      ingredients: Enum.map(attrs[:ingredients] || [], &web_import_ingredient/1),
-      tags: attrs[:tags] || [],
-      source: :web_import,
-      source_url: url
-    }
-  end
-
-  defp web_import_ingredient(ing) do
-    %{
-      name: ing[:name] || ing["name"],
-      quantity: quantity_to_string(ing[:quantity] || ing["quantity"]),
-      unit: ing[:unit] || ing["unit"]
-    }
-  end
-
-  defp quantity_to_string(nil), do: nil
-  defp quantity_to_string(%Decimal{} = d), do: Decimal.to_string(d)
-  defp quantity_to_string(n) when is_number(n), do: to_string(n)
-  defp quantity_to_string(s) when is_binary(s), do: s
 
   defp guard_message, do: "web search is resting — try again shortly"
 

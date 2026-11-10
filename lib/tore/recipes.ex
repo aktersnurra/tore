@@ -366,12 +366,15 @@ defmodule Tore.Recipes do
     {:ok, recipe}
   end
 
-  @doc "Starts making the picture of a recipe created with `image: false`."
-  @spec start_image(Scope.t(), integer()) :: :ok
-  def start_image(%Scope{} = scope, recipe_id) do
+  @doc """
+  Starts making the picture of a recipe created with `image: false`: fetched from `image_url`
+  when there is one, otherwise generated.
+  """
+  @spec start_image(Scope.t(), integer(), String.t() | nil) :: :ok
+  def start_image(%Scope{} = scope, recipe_id, image_url \\ nil) do
     case get(scope, recipe_id) do
       nil -> :ok
-      recipe -> maybe_generate_image(scope, recipe, nil)
+      recipe -> maybe_generate_image(scope, recipe, image_url)
     end
 
     :ok

@@ -1134,12 +1134,12 @@ msgstr "Fråga Tore"
 msgid "Ask about tonight's plan..."
 msgstr "Fråga om kvällens plan..."
 
-#: lib/tore_web/live/capture_live.ex:267
+#: lib/tore_web/live/capture_live.ex:253
 #, elixir-autogen, elixir-format
 msgid "Ask anything about meals, groceries…"
 msgstr "Fråga vad som helst om måltider, inköp…"
 
-#: lib/tore_web/live/capture_live.ex:284
+#: lib/tore_web/live/capture_live.ex:270
 #, elixir-autogen, elixir-format
 msgid "Attach photo"
 msgstr "Bifoga foto"
@@ -1282,7 +1282,7 @@ msgid "Proposing"
 msgstr "Föreslår"
 
 #: lib/tore_web/components/receipt_live.ex:56
-#: lib/tore_web/live/capture_live.ex:249
+#: lib/tore_web/live/capture_live.ex:235
 #, elixir-autogen, elixir-format
 msgid "Reverted"
 msgstr "Återställd"
@@ -1328,7 +1328,7 @@ msgstr "Bytte in %{recipe} på %{day}"
 msgid "Things Tore has learned"
 msgstr "Saker Tore har lärt sig"
 
-#: lib/tore_web/live/capture_live.ex:255
+#: lib/tore_web/live/capture_live.ex:241
 #: lib/tore_web/live/recipe_live.ex:722
 #, elixir-autogen, elixir-format
 msgid "Thinking…"
@@ -1498,11 +1498,6 @@ msgstr "Kunde inte läsa datumet på kvittot. Kontrollera det."
 msgid "Couldn't save:"
 msgstr "Kunde inte spara:"
 
-#: lib/tore_web/live/capture_live.ex:168
-#, elixir-autogen, elixir-format
-msgid "Imported"
-msgstr "Importerad"
-
 #: lib/tore_web/live/settings_live.ex:358
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -1513,12 +1508,7 @@ msgstr "Språk"
 msgid "Open photo"
 msgstr "Öppna bild"
 
-#: lib/tore_web/live/capture_live.ex:174
-#, elixir-autogen, elixir-format
-msgid "Open recipe"
-msgstr "Öppna recept"
-
-#: lib/tore_web/live/capture_live.ex:220
+#: lib/tore_web/live/capture_live.ex:206
 #, elixir-autogen, elixir-format
 msgid "Open shopping list"
 msgstr "Öppna inköpslistan"
@@ -1560,7 +1550,7 @@ msgstr "Förlåt, det där kunde jag inte hantera. Försök igen."
 msgid "Tap to enlarge"
 msgstr "Tryck för att förstora"
 
-#: lib/tore_web/live/capture_live.ex:243
+#: lib/tore_web/live/capture_live.ex:229
 #, elixir-autogen, elixir-format
 msgid "Undo"
 msgstr "Ångra"
@@ -1613,7 +1603,7 @@ msgstr "Öppna kommandobrickan"
 msgid "Anything about this day…"
 msgstr "Något om den här dagen…"
 
-#: lib/tore/capture/dispatch.ex:699
+#: lib/tore/capture/dispatch.ex:701
 #, elixir-autogen, elixir-format
 msgid "I parsed a receipt."
 msgstr "Jag har läst kvittot."
@@ -1660,7 +1650,7 @@ msgstr "Den butiken är redan tillagd"
 msgid "Tore can't read that store yet"
 msgstr "Tore kan inte läsa den butiken än"
 
-#: lib/tore/capture/dispatch.ex:682
+#: lib/tore/capture/dispatch.ex:684
 #, elixir-autogen, elixir-format
 msgid "You've already uploaded this photo."
 msgstr "Du har redan laddat upp det här fotot."
@@ -1740,117 +1730,117 @@ msgstr "Senaste kvitton"
 msgid "Total, kr (optional)"
 msgstr "Totalt, kr (valfritt)"
 
-#: lib/tore/capture/dispatch.ex:609
+#: lib/tore/capture/dispatch.ex:611
 #, elixir-autogen, elixir-format
 msgid "Marked %{date} as eating out."
 msgstr "Markerade %{date} som äta ute."
 
-#: lib/tore/capture/dispatch.ex:297
+#: lib/tore/capture/dispatch.ex:313
 #, elixir-autogen, elixir-format
 msgid "Added %{label} to the shopping list."
 msgstr "La till %{label} på inköpslistan."
 
-#: lib/tore/capture/dispatch.ex:451
+#: lib/tore/capture/dispatch.ex:453
 #, elixir-autogen, elixir-format
 msgid "Added %{name} to the pantry."
 msgstr "La till %{name} i skafferiet."
 
-#: lib/tore/capture/dispatch.ex:226
+#: lib/tore/capture/dispatch.ex:247
 #, elixir-autogen, elixir-format
 msgid "Added %{title} to %{day} %{date}."
 msgstr "La till %{title} på %{day} %{date}."
 
-#: lib/tore/capture/dispatch.ex:419
+#: lib/tore/capture/dispatch.ex:430
 #, elixir-autogen, elixir-format
 msgid "Built a shopping list for the week of %{date} from %{n} planned recipes."
 msgstr "Gjorde en inköpslista för veckan som börjar %{date} från %{n} planerade recept."
 
-#: lib/tore/capture/dispatch.ex:460
+#: lib/tore/capture/dispatch.ex:456
 #, elixir-autogen, elixir-format
 msgid "Bumped %{name} in the pantry."
 msgstr "Fyllde på %{name} i skafferiet."
 
-#: lib/tore/capture/dispatch.ex:326
+#: lib/tore/capture/dispatch.ex:346
 #, elixir-autogen, elixir-format
 msgid "Checked off %{name}."
 msgstr "Bockade av %{name}."
 
-#: lib/tore/capture/dispatch.ex:243
+#: lib/tore/capture/dispatch.ex:264
 #, elixir-autogen, elixir-format
 msgid "Cleared %{day} %{date}."
 msgstr "Rensade %{day} %{date}."
 
-#: lib/tore/capture/dispatch.ex:171
+#: lib/tore/capture/dispatch.ex:189
 #, elixir-autogen, elixir-format
 msgid "Couldn't import that URL."
 msgstr "Kunde inte importera den länken."
 
-#: lib/tore/capture/dispatch.ex:276
+#: lib/tore/capture/dispatch.ex:297
 #, elixir-autogen, elixir-format
 msgid "Here's what works with what you have:"
 msgstr "Det här går att laga med det du har:"
 
-#: lib/tore/capture/dispatch.ex:144
+#: lib/tore/capture/dispatch.ex:164
 #, elixir-autogen, elixir-format
 msgid "I can see %{names} in your fridge. Want me to suggest some recipes?"
 msgstr "Jag ser %{names} i kylen. Vill du ha några receptförslag?"
 
-#: lib/tore/capture/dispatch.ex:142
+#: lib/tore/capture/dispatch.ex:162
 #, elixir-autogen, elixir-format
 msgid "I can see your fridge but it looks empty."
 msgstr "Jag ser kylen, men den verkar tom."
 
-#: lib/tore/capture/dispatch.ex:184
+#: lib/tore/capture/dispatch.ex:205
 #, elixir-autogen, elixir-format
 msgid "I couldn't find a recipe matching \"%{q}\". Want me to import one from a URL?"
 msgstr "Jag hittade inget recept som matchar \"%{q}\". Vill du importera ett från en länk?"
 
-#: lib/tore/capture/dispatch.ex:200
+#: lib/tore/capture/dispatch.ex:221
 #, elixir-autogen, elixir-format
 msgid "I found: %{titles}."
 msgstr "Jag hittade: %{titles}."
 
-#: lib/tore/capture/dispatch.ex:653
+#: lib/tore/capture/dispatch.ex:655
 #, elixir-autogen, elixir-format
 msgid "I wasn't sure what that photo showed. Could you tell me — is it a receipt, a recipe, or your fridge?"
 msgstr "Jag är inte säker på vad bilden visar. Är det ett kvitto, ett recept eller din kyl?"
 
-#: lib/tore/capture/dispatch.ex:595
+#: lib/tore/capture/dispatch.ex:597
 #, elixir-autogen, elixir-format
 msgid "Marked %{day} %{date} as skipped."
 msgstr "Hoppade över %{day} %{date}."
 
-#: lib/tore/capture/dispatch.ex:561
+#: lib/tore/capture/dispatch.ex:563
 #, elixir-autogen, elixir-format
 msgid "Marked the recipe as cooked tonight."
 msgstr "Markerade receptet som lagat ikväll."
 
-#: lib/tore/capture/dispatch.ex:494
+#: lib/tore/capture/dispatch.ex:496
 #, elixir-autogen, elixir-format
 msgid "Multiple pantry items match \"%{q}\": %{names}. Which one?"
 msgstr "Flera saker i skafferiet matchar \"%{q}\": %{names}. Vilken menar du?"
 
-#: lib/tore/capture/dispatch.ex:341
+#: lib/tore/capture/dispatch.ex:355
 #, elixir-autogen, elixir-format
 msgid "Multiple shopping items match \"%{q}\": %{names}. Which one?"
 msgstr "Flera saker på inköpslistan matchar \"%{q}\": %{names}. Vilken menar du?"
 
-#: lib/tore/capture/dispatch.ex:351
+#: lib/tore/capture/dispatch.ex:365
 #, elixir-autogen, elixir-format
 msgid "No shopping item matches \"%{q}\"."
 msgstr "Inget på inköpslistan matchar \"%{q}\"."
 
-#: lib/tore/capture/dispatch.ex:546
+#: lib/tore/capture/dispatch.ex:548
 #, elixir-autogen, elixir-format
 msgid "No, %{name} isn't in the pantry."
 msgstr "Nej, %{name} finns inte i skafferiet."
 
-#: lib/tore/capture/dispatch.ex:504
+#: lib/tore/capture/dispatch.ex:506
 #, elixir-autogen, elixir-format
 msgid "Nothing in the pantry matches \"%{q}\"."
 msgstr "Inget i skafferiet matchar \"%{q}\"."
 
-#: lib/tore/capture/dispatch.ex:582
+#: lib/tore/capture/dispatch.ex:584
 #, elixir-autogen, elixir-format
 msgid "Pinned %{day} %{date}."
 msgstr "Låste %{day} %{date}."
@@ -1860,93 +1850,93 @@ msgstr "Låste %{day} %{date}."
 msgid "Removed %{name} from the pantry."
 msgstr "Tog bort %{name} från skafferiet."
 
-#: lib/tore/capture/dispatch.ex:571
+#: lib/tore/capture/dispatch.ex:573
 #, elixir-autogen, elixir-format
 msgid "Set servings on %{day} %{date} to %{n}."
 msgstr "Ändrade till %{n} portioner på %{day} %{date}."
 
-#: lib/tore/capture/dispatch.ex:537
+#: lib/tore/capture/dispatch.ex:539
 #, elixir-autogen, elixir-format
 msgid "Several pantry items match: %{names}."
 msgstr "Flera saker i skafferiet matchar: %{names}."
 
-#: lib/tore/capture/dispatch.ex:387
+#: lib/tore/capture/dispatch.ex:401
 #, elixir-autogen, elixir-format
 msgid "Shopping list (%{n} items):"
 msgstr "Inköpslista (%{n} saker):"
 
-#: lib/tore/capture/dispatch.ex:761
+#: lib/tore/capture/dispatch.ex:763
 #, elixir-autogen, elixir-format
 msgid "Something went wrong. Please try again."
 msgstr "Något gick fel. Försök igen."
 
-#: lib/tore/capture/dispatch.ex:165
+#: lib/tore/capture/dispatch.ex:182
 #, elixir-autogen, elixir-format
 msgid "That page doesn't look like a recipe."
 msgstr "Den sidan ser inte ut som ett recept."
 
-#: lib/tore/capture/dispatch.ex:168
+#: lib/tore/capture/dispatch.ex:185
 #, elixir-autogen, elixir-format
 msgid "The site didn't respond. Try again in a moment."
 msgstr "Sidan svarade inte. Försök igen om en stund."
 
-#: lib/tore/capture/dispatch.ex:588
+#: lib/tore/capture/dispatch.ex:590
 #, elixir-autogen, elixir-format
 msgid "Unpinned %{day} %{date}."
 msgstr "Låste upp %{day} %{date}."
 
-#: lib/tore/capture/dispatch.ex:525
+#: lib/tore/capture/dispatch.ex:527
 #, elixir-autogen, elixir-format
 msgid "Yes — %{name}%{qty} is in the pantry."
 msgstr "Ja, %{name}%{qty} finns i skafferiet."
 
-#: lib/tore/capture/dispatch.ex:260
+#: lib/tore/capture/dispatch.ex:281
 #, elixir-autogen, elixir-format
 msgid "Your recipe library is empty. Import a recipe and I'll suggest from your pantry next time."
 msgstr "Du har inga recept än. Importera ett så kan jag föreslå utifrån skafferiet nästa gång."
 
-#: lib/tore/capture/dispatch.ex:367
+#: lib/tore/capture/dispatch.ex:381
 #, elixir-autogen, elixir-format
 msgid "Your shopping list is empty."
 msgstr "Inköpslistan är tom."
 
-#: lib/tore/capture/dispatch.ex:729
+#: lib/tore/capture/dispatch.ex:731
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Friday"
 msgstr "fredag"
 
-#: lib/tore/capture/dispatch.ex:725
+#: lib/tore/capture/dispatch.ex:727
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Monday"
 msgstr "måndag"
 
-#: lib/tore/capture/dispatch.ex:730
+#: lib/tore/capture/dispatch.ex:732
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Saturday"
 msgstr "lördag"
 
-#: lib/tore/capture/dispatch.ex:731
+#: lib/tore/capture/dispatch.ex:733
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Sunday"
 msgstr "söndag"
 
-#: lib/tore/capture/dispatch.ex:728
+#: lib/tore/capture/dispatch.ex:730
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Thursday"
 msgstr "torsdag"
 
-#: lib/tore/capture/dispatch.ex:726
+#: lib/tore/capture/dispatch.ex:728
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Tuesday"
 msgstr "tisdag"
 
-#: lib/tore/capture/dispatch.ex:727
+#: lib/tore/capture/dispatch.ex:729
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Wednesday"
@@ -2212,7 +2202,7 @@ msgstr "%{percent} % fullt"
 msgid "Your household"
 msgstr "Hushållet"
 
-#: lib/tore/capture/dispatch.ex:639
+#: lib/tore/capture/dispatch.ex:641
 #, elixir-autogen, elixir-format
 msgid "%{day} is pinned, so I left it as it was."
 msgstr "%{day} är fastlåst, så jag lät den vara."
@@ -2322,3 +2312,18 @@ msgstr "Låste %{day}"
 #, elixir-autogen, elixir-format
 msgid "Unpinned %{day}"
 msgstr "Låste upp %{day}"
+
+#: lib/tore/capture/dispatch.ex:140
+#, elixir-autogen, elixir-format
+msgid "I couldn't read a whole recipe from that."
+msgstr "Jag kunde inte läsa ut ett helt recept från det."
+
+#: lib/tore/capture/dispatch.ex:130
+#, elixir-autogen, elixir-format
+msgid "I read %{title}. Review it before it's saved."
+msgstr "Jag läste %{title}. Titta igenom det innan det sparas."
+
+#: lib/tore/capture/dispatch.ex:135
+#, elixir-autogen, elixir-format
+msgid "That looks like a recipe you already have."
+msgstr "Det ser ut som ett recept du redan har."

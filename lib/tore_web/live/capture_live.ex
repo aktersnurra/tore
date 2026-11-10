@@ -161,20 +161,6 @@ defmodule ToreWeb.CaptureLive do
             </.link>
           </div>
           <div
-            :if={Map.get(msg, :recipe_card)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-2xl px-4 py-3 max-w-[80%]"
-          >
-            <p class="text-sm text-[color:var(--text)] mb-2">
-              {gettext("Imported")} <span class="font-semibold">{msg.title}</span>.
-            </p>
-            <.link
-              navigate={~p"/recipes"}
-              class="text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
-            >
-              {gettext("Open recipe")} →
-            </.link>
-          </div>
-          <div
             :if={Map.get(msg, :pantry_suggestions)}
             class="bg-[var(--surface)] border border-[color:var(--border)] rounded-2xl px-4 py-3 max-w-[80%] space-y-2"
           >
@@ -222,7 +208,7 @@ defmodule ToreWeb.CaptureLive do
           </div>
           <div
             :if={
-              !Map.get(msg, :review_link) && !Map.get(msg, :recipe_card) &&
+              !Map.get(msg, :review_link) &&
                 !Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link)
             }
             class={[

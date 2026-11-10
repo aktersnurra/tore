@@ -112,20 +112,40 @@ defmodule Tore.Capture.Dispatch do
 
   @spec ingest_recipe([binary()], ctx()) :: bubble()
   def ingest_recipe(images, ctx) when is_list(images) and images != [] do
-    case Tore.Recipes.extract_from_images(scope(ctx), images) do
-      {:ok, %{id: id, title: title}} ->
-        %{role: :assistant, recipe_card: true, recipe_id: id, title: title}
+    case Runs.start(scope(ctx), Kinds.RecipeIngestion, %{images: images}) do
+      {:error, {:step_failed, reason}} ->
+        refusal_bubble(reason) || error_bubble(:recipe, reason)
 
-      {:ok, recipe} when is_map(recipe) ->
-        %{
-          role: :assistant,
-          recipe_card: true,
-          recipe_id: recipe[:id] || recipe["id"],
-          title: recipe[:title] || recipe["title"]
-        }
+      result ->
+        recipe_bubble(result)
+    end
+  end
 
-      {:error, reason} ->
-        error_bubble(:recipe, reason)
+  # A recipe read from photos or a page waits for review before it is saved.
+  defp recipe_bubble({:ok, %KitchenRun{status: :needs_user, id: id, artifacts: [proposal]}}) do
+    %{
+      role: :assistant,
+      review_link: true,
+      stream_id: id,
+      text: gettext("I read %{title}. Review it before it's saved.", title: proposal.title)
+    }
+  end
+
+  defp recipe_bubble({:ok, %KitchenRun{failure_code: :near_duplicate}}),
+    do: %{role: :assistant, text: gettext("That looks like a recipe you already have.")}
+
+  defp recipe_bubble({:ok, %KitchenRun{failure_code: code}}) do
+    require Logger
+    Logger.info("Capture recipe ingestion failed its check: #{inspect(code)}")
+    %{role: :assistant, text: gettext("I couldn't read a whole recipe from that.")}
+  end
+
+  defp recipe_bubble({:error, reason}), do: error_bubble(:recipe, reason)
+
+  defp refusal_bubble(reason) do
+    case Tore.LLM.refusal_text(reason) do
+      nil -> nil
+      text -> %{role: :assistant, text: text}
     end
   end
 
@@ -157,18 +177,19 @@ defmodule Tore.Capture.Dispatch do
 
   @spec import_recipe_from_url(String.t(), ctx()) :: bubble()
   def import_recipe_from_url(url, ctx) when is_binary(url) do
-    case Tore.Recipes.scrape_from_url(scope(ctx), url) do
-      {:ok, recipe} ->
-        %{role: :assistant, recipe_card: true, recipe_id: recipe.id, title: recipe.title}
-
-      {:error, :not_a_recipe} ->
+    case Runs.start(scope(ctx), Kinds.RecipeIngestion, %{url: url}) do
+      {:error, {:step_failed, :not_a_recipe}} ->
         %{role: :assistant, text: gettext("That page doesn't look like a recipe.")}
 
-      {:error, :timeout} ->
+      {:error, {:step_failed, :timeout}} ->
         %{role: :assistant, text: gettext("The site didn't respond. Try again in a moment.")}
 
-      {:error, _reason} ->
-        %{role: :assistant, text: gettext("Couldn't import that URL.")}
+      {:error, {:step_failed, reason}} ->
+        refusal_bubble(reason) ||
+          %{role: :assistant, text: gettext("Couldn't import that URL.")}
+
+      result ->
+        recipe_bubble(result)
     end
   end
 
