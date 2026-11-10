@@ -332,16 +332,22 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       touched = Enum.take_random(keys, Enum.random(1..4))
       before = Planning.slots_before(start, touched)
       changed = generate(start, touched, 5)
+      dined = Enum.take_random(touched, Enum.random(0..length(touched)))
 
       restored =
-        Enum.reduce(Planning.restore_events(changed, before), changed, &Decider.evolve(&2, &1))
+        Enum.reduce(
+          Planning.restore_events(changed, before, dined),
+          changed,
+          &Decider.evolve(&2, &1)
+        )
 
-      # A day that has become eating out keeps that; its pin still goes back.
+      # A day that has become eating out, with its cost logged, keeps that; its pin still goes back.
       expected =
         Map.new(before, fn {key, %{slot: slot} = was} ->
-          if State.eating_out?(changed.slots[key]) and not State.eating_out?(slot),
-            do: {key, %{was | slot: Planning.slots_before(changed, [key])[key].slot}},
-            else: {key, was}
+          if key in dined and State.eating_out?(changed.slots[key]) and
+               not State.eating_out?(slot),
+             do: {key, %{was | slot: Planning.slots_before(changed, [key])[key].slot}},
+             else: {key, was}
         end)
 
       assert Planning.slots_before(restored, touched) == expected

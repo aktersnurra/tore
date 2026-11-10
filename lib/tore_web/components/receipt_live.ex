@@ -155,6 +155,14 @@ defmodule ToreWeb.Components.ReceiptLive do
   defp line_for(%{change: :servings, slot_key: sk}),
     do: gettext("Adjusted servings on %{day}", day: day_of(sk))
 
+  defp line_for(%{change: :eating_out, slot_key: sk}),
+    do: gettext("Eating out on %{day}", day: day_of(sk))
+
+  defp line_for(%{change: :pinned, slot_key: sk}), do: gettext("Pinned %{day}", day: day_of(sk))
+
+  defp line_for(%{change: :unpinned, slot_key: sk}),
+    do: gettext("Unpinned %{day}", day: day_of(sk))
+
   defp day_of(slot_key), do: slot_key |> String.split("_", parts: 2) |> hd() |> day_name()
 
   defp day_name("mon"), do: gettext("Monday")

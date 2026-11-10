@@ -148,6 +148,29 @@ defmodule Tore.Costs do
     Repo.get_by(DiningOut, [plan_id: plan_id, slot_key: slot_key], Scope.repo_opts(scope))
   end
 
+  @doc "The slot's dining entry as undo needs it, or `:absent`."
+  @spec dining_out_before(Scope.t(), String.t(), String.t()) :: map() | :absent
+  def dining_out_before(%Scope{} = scope, plan_id, slot_key) do
+    case get_dining_out(scope, plan_id, slot_key) do
+      nil -> :absent
+      entry -> Map.take(entry, [:date, :description, :total_amount, :user_id])
+    end
+  end
+
+  @doc "Puts the slot's dining entry back as `dining_out_before/3` recorded it."
+  @spec restore_dining_out(Scope.t(), String.t(), String.t(), map() | :absent) :: :ok
+  def restore_dining_out(%Scope{} = scope, plan_id, slot_key, :absent),
+    do: delete_dining_out(scope, plan_id, [slot_key])
+
+  def restore_dining_out(%Scope{} = scope, plan_id, slot_key, before) do
+    entry =
+      get_dining_out(scope, plan_id, slot_key) ||
+        %DiningOut{household_id: scope.household_id, plan_id: plan_id, slot_key: slot_key}
+
+    entry |> Ecto.Changeset.change(before) |> Repo.insert_or_update!()
+    :ok
+  end
+
   @spec delete_dining_out(Scope.t(), String.t(), [String.t()]) :: :ok
   def delete_dining_out(%Scope{} = scope, plan_id, slot_keys) do
     Repo.delete_all(

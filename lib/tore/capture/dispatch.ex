@@ -232,37 +232,16 @@ defmodule Tore.Capture.Dispatch do
     }
   end
 
-  defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_pinned}, date, _diff) do
-    %{
-      role: :assistant,
-      text:
-        gettext("%{day} is pinned, so I left it as it was.",
-          day: long_day_for(date)
-        )
-    }
-  end
+  defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_pinned}, date, _diff),
+    do: pinned_bubble(date)
 
   defp slot_bubble(%KitchenRun{failure_code: code}, _date, _diff), do: error_bubble(:plan, code)
 
   @spec clear_plan_slot(Date.t(), ctx()) :: bubble()
   def clear_plan_slot(%Date{} = date, ctx) do
-    plan_id = plan_stream_id_for(ctx, date)
-    slot_key = slot_key_for(date)
-
-    case Planning.remove_recipe(scope(ctx), plan_id, slot_key) do
-      {:ok, _events} ->
-        %{
-          role: :assistant,
-          text:
-            gettext("Cleared %{day} %{date}.",
-              day: long_day_for(date),
-              date: Date.to_iso8601(date)
-            )
-        }
-
-      {:error, reason} ->
-        error_bubble(:plan, reason)
-    end
+    edit_plan(ctx, date, &%Planning.Commands.RemoveRecipe{slot_key: &1}, fn ->
+      gettext("Cleared %{day} %{date}.", day: long_day_for(date), date: Date.to_iso8601(date))
+    end)
   end
 
   # ── pantry-driven suggestions ──────────────────────────────────────────
@@ -586,95 +565,79 @@ defmodule Tore.Capture.Dispatch do
   @spec set_plan_servings(Date.t(), pos_integer(), ctx()) :: bubble()
   def set_plan_servings(%Date{} = date, servings, ctx)
       when is_integer(servings) and servings > 0 do
-    plan_id = plan_stream_id_for(ctx, date)
-    slot_key = slot_key_for(date)
+    command = &%Planning.Commands.SetServings{slot_key: &1, servings: servings}
 
-    case Planning.set_servings(scope(ctx), plan_id, slot_key, servings) do
-      {:ok, _events} ->
-        %{
-          role: :assistant,
-          text:
-            gettext("Set servings on %{day} %{date} to %{n}.",
-              day: long_day_for(date),
-              date: Date.to_iso8601(date),
-              n: servings
-            )
-        }
-
-      {:error, reason} ->
-        error_bubble(:plan, reason)
-    end
+    edit_plan(ctx, date, command, fn ->
+      gettext("Set servings on %{day} %{date} to %{n}.",
+        day: long_day_for(date),
+        date: Date.to_iso8601(date),
+        n: servings
+      )
+    end)
   end
 
   @spec pin_plan_slot(Date.t(), boolean(), ctx()) :: bubble()
-  def pin_plan_slot(%Date{} = date, pinned?, ctx) when is_boolean(pinned?) do
-    plan_id = plan_stream_id_for(ctx, date)
-    slot_key = slot_key_for(date)
+  def pin_plan_slot(%Date{} = date, true, ctx) do
+    edit_plan(ctx, date, &%Planning.Commands.PinSlot{slot_key: &1, pin: true}, fn ->
+      gettext("Pinned %{day} %{date}.", day: long_day_for(date), date: Date.to_iso8601(date))
+    end)
+  end
 
-    result =
-      if pinned? do
-        Planning.pin_slot(scope(ctx), plan_id, slot_key, true)
-      else
-        Planning.unpin_slot(scope(ctx), plan_id, slot_key)
-      end
-
-    case result do
-      {:ok, _events} ->
-        text =
-          if pinned?,
-            do:
-              gettext("Pinned %{day} %{date}.",
-                day: long_day_for(date),
-                date: Date.to_iso8601(date)
-              ),
-            else:
-              gettext("Unpinned %{day} %{date}.",
-                day: long_day_for(date),
-                date: Date.to_iso8601(date)
-              )
-
-        %{role: :assistant, text: text}
-
-      {:error, reason} ->
-        error_bubble(:plan, reason)
-    end
+  def pin_plan_slot(%Date{} = date, false, ctx) do
+    edit_plan(ctx, date, &%Planning.Commands.UnpinSlot{slot_key: &1}, fn ->
+      gettext("Unpinned %{day} %{date}.", day: long_day_for(date), date: Date.to_iso8601(date))
+    end)
   end
 
   @spec skip_plan_meal(Date.t(), ctx()) :: bubble()
   def skip_plan_meal(%Date{} = date, ctx) do
+    edit_plan(ctx, date, &%Planning.Commands.SkipMeal{slot_key: &1}, fn ->
+      gettext("Marked %{day} %{date} as skipped.",
+        day: long_day_for(date),
+        date: Date.to_iso8601(date)
+      )
+    end)
+  end
+
+  @doc "`dining` holds the dining entry's optional `:description` and `:total_amount`."
+  @spec mark_eating_out(Date.t(), map(), ctx()) :: bubble()
+  def mark_eating_out(%Date{} = date, dining, ctx) do
+    edit_plan(
+      ctx,
+      date,
+      &%Planning.Commands.EatOut{slot_key: &1},
+      fn -> gettext("Marked %{date} as eating out.", date: Date.to_iso8601(date)) end,
+      dining
+    )
+  end
+
+  # One day's change through a plan edit run, so a pinned day holds and the reply can undo it.
+  defp edit_plan(ctx, date, command, applied_text, dining \\ %{}) do
     plan_id = plan_stream_id_for(ctx, date)
-    slot_key = slot_key_for(date)
+    command = command.(slot_key_for(date))
 
-    case Planning.skip_meal(scope(ctx), plan_id, slot_key) do
-      {:ok, _events} ->
-        %{
-          role: :assistant,
-          text:
-            gettext("Marked %{day} %{date} as skipped.",
-              day: long_day_for(date),
-              date: Date.to_iso8601(date)
-            )
-        }
+    with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(scope(ctx), plan_id, command, dining),
+         {:ok, %KitchenRun{} = run} <- Runs.submit(scope(ctx), Kinds.PlanEdit, diff, run_ctx) do
+      case run do
+        %KitchenRun{status: :applied, id: id} ->
+          %{role: :assistant, text: applied_text.(), run_stream_id: id}
 
-      {:error, reason} ->
-        error_bubble(:plan, reason)
+        %KitchenRun{failure_code: :slot_pinned} ->
+          pinned_bubble(date)
+
+        %KitchenRun{failure_code: code} ->
+          error_bubble(:plan, code)
+      end
+    else
+      {:error, reason} -> error_bubble(:plan, reason)
     end
   end
 
-  @spec mark_eating_out(Date.t(), map(), ctx()) :: bubble()
-  def mark_eating_out(%Date{} = date, attrs, ctx) do
-    attrs = Map.put(attrs, :user_id, ctx[:user_id])
-
-    case Planning.eat_out(scope(ctx), plan_stream_id_for(ctx, date), slot_key_for(date), attrs) do
-      {:ok, _entry} ->
-        %{
-          role: :assistant,
-          text: gettext("Marked %{date} as eating out.", date: Date.to_iso8601(date))
-        }
-
-      {:error, reason} ->
-        error_bubble(:plan, reason)
-    end
+  defp pinned_bubble(date) do
+    %{
+      role: :assistant,
+      text: gettext("%{day} is pinned, so I left it as it was.", day: long_day_for(date))
+    }
   end
 
   # ── unrecognised image ─────────────────────────────────────────────────

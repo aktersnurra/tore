@@ -8,7 +8,16 @@ defmodule Tore.Harness.Artifact.PlanDiff do
           rationale: [String.t()]
         }
 
-  @type rollup_change :: :added | :swapped | :skipped | :leftover | :removed | :servings
+  @type rollup_change ::
+          :added
+          | :swapped
+          | :skipped
+          | :leftover
+          | :removed
+          | :servings
+          | :eating_out
+          | :pinned
+          | :unpinned
 
   @type rollup_entry :: %{
           slot_key: String.t(),
@@ -90,10 +99,13 @@ defmodule Tore.Harness.Artifact.PlanDiff do
       cond do
         "RecipeSwapped" in types -> :swapped
         "RecipeAssigned" in types -> :added
+        Enum.any?(slot_events, &(&1.payload["reason"] == "eating_out")) -> :eating_out
         "MealSkipped" in types -> :skipped
         "LeftoverMarked" in types -> :leftover
         "RecipeRemoved" in types -> :removed
         "ServingsChanged" in types -> :servings
+        "SlotPinned" in types -> :pinned
+        "SlotUnpinned" in types -> :unpinned
         true -> :added
       end
 
@@ -112,5 +124,6 @@ defmodule Tore.Harness.Artifact.PlanDiff do
   defp change_label(:leftover), do: "leftovers"
   defp change_label(:removed), do: "removed"
   defp change_label(:servings), do: "servings adjusted"
+  defp change_label(:eating_out), do: "eating out"
   defp change_label(other), do: to_string(other)
 end

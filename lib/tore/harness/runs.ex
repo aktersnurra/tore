@@ -429,6 +429,9 @@ defmodule Tore.Harness.Runs do
     :ok
   end
 
+  defp undo_step!(scope, {:restore_dining_out, plan_id, slot_key, before}),
+    do: :ok = Tore.Costs.restore_dining_out(scope, plan_id, slot_key, before)
+
   defp undo_step!(scope, {:restore_memory, added, forgotten}),
     do: :ok = Tore.Household.Memory.restore(scope, added, forgotten)
 end

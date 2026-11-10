@@ -118,10 +118,12 @@ defmodule Tore.Harness.Kinds.Planner do
 
   def after_commit(_run), do: :ok
 
-  # Appends `events` and returns the undo steps that put the touched slots back.
-  defp change_plan(_scope, _plan_id, []), do: {:ok, []}
+  @doc "Appends `events` and returns the undo steps that put the touched slots back."
+  @spec change_plan(Scope.t(), String.t(), [Tore.Planning.Events.t()]) ::
+          {:ok, [Tore.Harness.Undo.step()]} | {:error, term()}
+  def change_plan(_scope, _plan_id, []), do: {:ok, []}
 
-  defp change_plan(scope, plan_id, events) do
+  def change_plan(scope, plan_id, events) do
     {:ok, plan} = Planning.load_plan(scope, plan_id)
     before = Planning.slots_before(plan, events |> Enum.map(& &1.slot_key) |> Enum.uniq())
 

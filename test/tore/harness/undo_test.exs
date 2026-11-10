@@ -45,7 +45,15 @@ defmodule Tore.Harness.UndoTest do
              {:restore_pantry_item, 5, :absent},
              {:restore_memory, [1, 2], [3]},
              {:delete_receipt, 9},
-             {:delete_recipe, 10}
+             {:delete_recipe, 10},
+             {:restore_dining_out, "plan-1-2026-11-09", "fri_dinner", :absent},
+             {:restore_dining_out, "plan-1-2026-11-09", "sat_dinner",
+              %{
+                date: ~D[2026-11-14],
+                description: nil,
+                total_amount: Decimal.new("450.50"),
+                user_id: 3
+              }}
            ]}
         ] do
       assert round_trip(undo) == undo

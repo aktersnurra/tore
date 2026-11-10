@@ -211,22 +211,25 @@ defmodule Tore.Planning do
           :ok | {:error, term()}
   def restore_slots(%Scope{} = scope, plan_id, befores) do
     with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
-      append_events(scope, plan_id, restore_events(state, befores))
+      dined = befores |> Map.keys() |> Enum.filter(&Costs.get_dining_out(scope, plan_id, &1))
+      append_events(scope, plan_id, restore_events(state, befores, dined))
     end
   end
 
   @doc false
   # Pure, so the property test can check apply-then-restore over generated plans.
-  @spec restore_events(State.t(), map()) :: [Tore.Planning.Events.t()]
-  def restore_events(%State{} = state, befores) do
+  # `dined` are the slots with a dining entry: a day someone marked eating out after the change
+  # keeps that, since restoring over it would drop its cost. An eat-out run's own undo removes
+  # its entry first, so the day it made goes back.
+  @spec restore_events(State.t(), map(), [String.t()]) :: [Tore.Planning.Events.t()]
+  def restore_events(%State{} = state, befores, dined) do
     befores
     |> Enum.sort()
     |> Enum.flat_map(fn {key, %{slot: slot, pin: pin}} ->
       now = state.slots[key]
 
-      # Only a person makes a day eating out, and restoring over it would drop its cost.
       slot_events =
-        if State.eating_out?(now) and not State.eating_out?(slot),
+        if key in dined and State.eating_out?(now) and not State.eating_out?(slot),
           do: [],
           else: slot_events(key, now, slot)
 
@@ -362,7 +365,9 @@ defmodule Tore.Planning do
     end
   end
 
-  defp slot_date(plan_id, slot_key) do
+  @doc "The date of `slot_key` in the week `plan_id` covers."
+  @spec slot_date(String.t(), String.t()) :: Date.t()
+  def slot_date(plan_id, slot_key) do
     [day, _meal] = String.split(slot_key, "_", parts: 2)
     days = ~w[mon tue wed thu fri sat sun]
     plan_id |> Streams.week_start() |> Date.add(Enum.find_index(days, &(&1 == day)))

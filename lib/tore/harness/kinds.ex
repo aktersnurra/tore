@@ -5,6 +5,7 @@ defmodule Tore.Harness.Kinds do
   @modules [
              Tore.Harness.Kinds.MemoryReview,
              Tore.Harness.Kinds.PantryUpdate,
+             Tore.Harness.Kinds.PlanEdit,
              Tore.Harness.Kinds.PlannerCommand,
              Tore.Harness.Kinds.Receipt,
              Tore.Harness.Kinds.SetPlanSlot,
