@@ -7,6 +7,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Run core and household memory
+
+- A run is one row in a `runs` table, moved through its steps by a pure transition function. The event-sourced run aggregate, its Projector, `UndoPayload` and `RunReceipts` are gone. A kind of run implements `Tore.Harness.Kind` (propose, resolve, verify, review, apply), and `Tore.Harness.Runs` drives it.
+- Undo is a list of steps captured when a run applies, and puts back what was there before, including a plan slot's recipe and pin, instead of clearing it. Building the shopping list is the one irreversible run.
+- Household memory replaces insight synthesis: a bounded profile and notes, shared by the household, written by a weekly review and by Capture's new `memory` tool, readable and removable in Settings. Allergies stay in Preferences; memory refuses them.
+- Every Capture write goes through a run with a verifier and, apart from building the shopping list, Undo: plan edits and eating out, the shopping list, the pantry, receipts, memory, and recipes from a link or photo, which now wait for review before they're saved. The deletes below are the exception.
+- Capture refuses to change a pinned day.
+- Simpler data: an eating-out day's place and amount live on the plan, and the `dining_out` table is gone. The database holds one pantry row per ingredient. Undoing a check-off leaves the pantry as it is.
+- Capture can delete a recipe, a receipt or a shopping item when asked, straight away and without review.
+- A receipt applies straight away with Undo, unless its lines don't add up to its total.
+- Recipes keep their structured steps, a recipe that doesn't say how many it serves is taken to serve 4, and a recipe's Review link opens that recipe.
+- Several migrations were edited in place. Reset the database.
+
 ### Several households
 
 - Several households share one server. Every function that reads or writes a household's data takes a `%Tore.Scope{}`, and `Tore.Repo` raises on a household table queried without one, so a missed query crashes instead of leaking.

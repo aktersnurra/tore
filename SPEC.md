@@ -8,7 +8,7 @@
 
 ## Status
 
-- **Source-of-truth date:** 2026-11-09
+- **Source-of-truth date:** 2026-11-10
 - **2026-05-31:** Reversed the Family→Household naming. `Tore.Household` is canonical; `Tore.Family.*` deleted.
 - **2026-06-02:** Added §Agent Harness Layer. Tore is reframed as a household food-operations harness; every state-changing AI action is a `KitchenRun` producing typed artifacts, verified deterministically, applied atomically. §The Six LLM-Native Features rewritten in harness terms. Future sub-specs implement the harness primitives, verifiers, capsules, risk tiers, resolved references, and Kitchen Skills.
 - **2026-06-02:** UI/UX vocabulary adopted. Canonical names: `CounterNote` (artifact and code module — replaces the working name `Opportunity` from the first draft of §A), `Shop` (UI surface and route `/shop` — replaces `Groceries` / `/groceries`), `Capture` (UI surface and route `/capture` — replaces `Chat` / `/chat`), `Tore.Capture` (module namespace — replaces `Tore.Chat`). The code rename is a separate sub-plan; SPEC.md uses the new names throughout from this commit forward.
@@ -20,8 +20,9 @@
 - **2026-11-08:** The trim was rebased onto plans 3 and 4, which it had not been based on. Cut by the owner: the ambient scan, `CounterNote`s, `CounterNoteVerifier`, the debouncer and the 05:00 scan. Kept from plan 3: the long-press object sheets and `resolve_slot`. Plan 4 stays whole.
 - **2026-11-08:** Pocket ID is the only login. Removed the 16-digit codes, the setup page, roles, the rate limiter and `argon2`. Pocket ID decides who may sign in through the groups on its client, and a `tore_ai` claim marks who may use the server's LLM. Settings lists members and has "Sign out". `docs/UI_SPEC.md` became `docs/specs/ui.md`, and `docs/LLM-NATIVE-FEATURES.md` became `docs/specs/llm-native-features.md`.
 - **2026-11-09:** Several households share one server (`.docs/specs/households.md`). Every function that reads or writes a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one. People belong to households through memberships, one active at a time; a first sign-in either joins the households that added that username or starts a household of its own, whose language is picked once at `/welcome`. Stores are shared and fetched once; deals are the only data that crosses households. `Tore.LLM` is the gate for LLM calls (image generation still calls OpenRouter directly, after a gated call): a household needs a sponsor with the `tore_ai` claim, the server needs an OpenRouter key (now optional), and each household has its own monthly limit. A friend's own OpenRouter key is a non-goal, so it left the backlog.
+- **2026-11-10:** Run core (`.docs/specs/run-core.md`) and household memory (`.docs/specs/household-memory.md`). A `runs` table (`Tore.Harness.KitchenRun`) replaces the event-sourced run aggregate, its Projector, `UndoPayload` and `RunReceipts`. A kind of run is a plain behaviour (`Tore.Harness.Kind`) that `Tore.Harness.Runs` drives, and undo is a list of steps captured when the run applies. `PantrySnapshot`, `RunBundle`, `RunSummary`, `MemoryUpdate`, `:capture_turn_run` and `:kitchen_memory_synthesis_run` are gone. Household memory, a bounded profile and notes the household shares, replaces insight synthesis. All of Capture's writes now go through runs, which closes the gap §A.2 recorded on 2026-11-06, and Capture gained a `memory` tool. Then a simplification pass, by the owner's rule: keep the data model simple, and give the agent plain tools instead of building machinery for rare cases. An eating-out day's place and amount live on the plan, and the `dining_out` table is gone. Undoing a check-off leaves its pantry addition. The database holds one pantry row per ingredient. Capture deletes recipes, receipts and shopping items directly, with no review or undo. Undo puts things back as they were before the run, even over a later change.
 - **Supersedes:** the original Scullion SPEC.md (2026-05-02), now archived in git history at commit `af0ad48`.
-- **Companion docs:** `docs/specs/llm-native-features.md` (the design brief this spec absorbs), `docs/specs/ui.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo). Per-feature design notes live under `docs/specs/`.
+- **Companion docs:** `docs/specs/llm-native-features.md` (the design brief this spec absorbs), `docs/specs/ui.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo; its run model is superseded by run core, §A.2). Per-feature design notes live under `docs/specs/`.
 - **Naming:** the project is *Tore*. Any remaining reference to Scullion or Family in code is legacy and slated for deletion (see §Removed in Rewrite).
 
 ---
@@ -64,27 +65,27 @@ All logic runs on the server.
 
 ## Pattern Strategy
 
-Three aggregates are event-sourced via the Decider pattern. Everything else is Ecto CRUD
+Two aggregates are event-sourced via the Decider pattern. Everything else is Ecto CRUD
 behind a context boundary. LiveViews call context APIs only; the context modules orchestrate IO.
 
 ### Event-sourced
 
 | Aggregate     | Why                                                                |
 |---------------|--------------------------------------------------------------------|
-| **Planning**  | LLM-orchestrated workflow with frequent user tweaks. Events are the substrate from which insights are synthesised. |
+| **Planning**  | LLM-orchestrated workflow with frequent user tweaks. Its events are what the weekly memory review learns from (§1). |
 | **Shop** | Multi-user real-time grocery checklist (decider streams `shop_list:<household>:<monday>` from `Tore.Streams`, formerly `groceries`). Granular events enable PubSub sync and natural undo. |
-| **KitchenRun** (`Tore.Harness.Run`) | Each run is its own event stream. A run *is* an audit trail — opened, phase transitions, commit/fail/revert/discard as events. Run receipts are projections over these streams. |
 
 ### CRUD
 
 | Context       | Role                                                              |
 |---------------|-------------------------------------------------------------------|
 | **Accounts**  | Users, sessions, per-user prefs.                                  |
-| **Household** | Shared household-level state (preferences, insights, members). |
+| **Household** | Shared household-level state (preferences, memory, members). |
 | **Recipes**   | Reference catalog.                                                |
 | **Deals**     | Scraped weekly from stores added by link, expire automatically.   |
 | **Pantry**    | Approximate inventory. **No primary management UI.** See §Pantry. |
-| **Costs**     | Receipts and eating out, for cost tracking. **Not in main nav.**  |
+| **Costs**     | Receipts, for cost tracking; eating out is read from the plan (§7). **Not in main nav.** |
+| **Runs** (`Tore.Harness.Runs`) | One `runs` row per `KitchenRun`, moved through its steps by pure transitions (§A.2). Replaced an event-sourced run aggregate on 2026-11-10. |
 | **Prep**      | LLM-generated text guides, on demand. Optional. Read-only.        |
 | **AIOperations** | Low-level audit log of every LLM call with correlation IDs, step index, model, and token usage. Each `KitchenRun` owns its rows by correlation ID. |
 
@@ -123,55 +124,87 @@ beginning, a verified middle, and a reversible end. `AIOperations` continues
 to record the low-level LLM-call audit log; a single `KitchenRun` owns one or
 more `AIOperations` rows tied by `correlation_id`.
 
-`KitchenRun` is the spec-level concept name; the code module is
-`Tore.Harness.Run`, an event-sourced Decider aggregate (one stream per run).
-The fields below are the state the aggregate folds up from its events, not
-columns on a table.
+`KitchenRun` is both the concept and the code: `Tore.Harness.KitchenRun` is one row
+in the `runs` table, and `Tore.Harness.Runs` moves it through its steps. A kind of run
+is a module implementing the `Tore.Harness.Kind` behaviour.
 
-**Fields:**
+**Fields** (columns on `runs`):
 
-- `id` (stream id)
-- `household_id`
-- `kind` — one of the declared run kinds (see §Features)
-- `status` — `:draft | :running | :needs_user | :applied | :failed | :reverted | :discarded`
-- `phase` — when `status: :running`, one of `:gathering_context | :proposing | :verifying`; `nil` otherwise. Drives the UI's operational thinking-state strip (docs/specs/ui.md §7.2) — *"Checking the week…", "Looking at deals…", "Verifying changes…"*
-- `started_by` — `:user | :scheduler`
-- `surface` — `:home | :plan | :shop | :capture`
-- `input` — the typed input the run was started with
-- `capsules_used` — the named context capsules the run requested (see §A.4)
-- `tool_trace` — the ordered sequence of tool calls, args, and results
-- `proposed_changes` — diff candidates produced by the loop, not yet committed
-- `applied_events` — the event-store events actually appended (the reversible audit trail)
-- `artifacts` — the typed `RunArtifact`s the run produced (see §A.3)
-- `verification_results` — pass/fail per verifier (see §A.5)
-- `model_usage` — token counts and cost rolled up across owned `AIOperations`
-- `undo_payload` — set at commit time; how to revert the run's applied changes. A sum type: `:event_sourced` (compensating events on a named stream), `:snapshot` (restore captured before-images), `:composite` (children reverted in reverse order), `:irreversible` (Undo disabled, with a reason). See `docs/specs/run-receipts.md` for the encodings.
-- `created_at`, `completed_at`
+- `id`: `"run-<base64>"`, which keeps `/runs/:id` links
+- `household_id`, `user_id`
+- `kind`: the kind's name, such as `"planner_command_run"` (see §Features)
+- `actor`: `:user | :system | :mcp`
+- `surface`: `:today | :plan | :shop | nil`, declared by the kind
+- `status`: `:running | :needs_user | :applied | :failed | :reverted | :discarded`
+- `phase`: while `:running`, one of `:gathering_context | :proposing | :verifying`. Drives the UI's thinking-state strip (docs/specs/ui.md §7.2): *"Checking the week…", "Verifying changes…"*
+- `input`: the JSON the run started with, string keys only
+- `artifacts`: the typed `RunArtifact`s (see §A.3). A run waiting for review stores its proposal here
+- `question`: what a `:needs_user` run asks
+- `failure_code`, `repair_action`: why a run failed and what the person can do (§A.5). A `failure_message` column exists, but nothing writes it yet
+- `discard_reason`: `:user_discarded | :ttl_expired`
+- `undo`: set when the run applies, either `{:steps, [step]}` or `{:irreversible, reason}`
+- `prompt_tokens`, `completion_tokens`, `cost_usd`: the usage `propose` returned
+- `opened_at`, `applied_at`, `reverted_at`, `closed_at`
 
-**Lifecycle.** A run starts in `:draft`. The harness builds the requested
-capsules, dispatches the loop, and the run moves to `:running`. If the LLM
-calls `ask_user` (or any human-gate tool), the run becomes `:needs_user` and
-pauses — the surface shows the question, the run resumes when the user
-answers. If verifiers pass and tool results commit, the run is `:applied`.
-If verifiers fail unrecoverably, the run is `:failed`, no applied events
-remain, and the surface shows a repair state. The user can revert an
-`:applied` run to `:reverted` via its `undo_payload`, which appends
-compensating events or restores snapshots — unless the payload is
-`:irreversible`, in which case the receipt says so and Undo is disabled.
+CHECK constraints tie the columns to the status: an applied run has `applied_at` and
+`undo`, a failed one a `failure_code`, a `:needs_user` one a `question`. The LLM calls
+stay in `ai_operations`, keyed by the run's id.
 
-A `:needs_user` run the user never answers does not linger forever: the user
-can discard it explicitly, and a weekly TTL sweep (`Tore.Harness.InboxSweeper`)
-discards stale ones. Both paths end in `:discarded` — a terminal state with a
-`discard_reason` of `:user_discarded` or `:ttl_expired`. Artifacts proposed
-before the discard stay in the event stream for audit; nothing was ever
-applied, so there is nothing to revert.
+**Steps.** A kind says what each step means for it:
+
+| Step | May do | May not do |
+|---|---|---|
+| `propose` | LLM (through `Tore.LLM`), reads | write domain state |
+| `resolve` | LLM, reads (for example canonicalising pantry names) | write domain state |
+| `verify` | nothing: a pure check | any effect |
+| `apply_proposal` | database writes, in one transaction with the status change | LLM, HTTP, storage |
+| `after_commit` | best-effort effects, such as broadcasting or deleting a photo | |
+
+`Runs.start/3` runs every step. `Runs.submit/4` takes a ready proposal and skips
+`propose`: Capture's typed edits use it, and MCP writes will. A kind's `review_question/1`
+says whether a person must look first. If so, the run waits in `:needs_user` with its
+proposal, and `Runs.confirm/3` verifies the edited proposal again before applying it.
+`apply_proposal` may return `{:fail, code, repair}` when a check no longer holds inside
+the transaction, which fails the run as a verifier would.
+
+**Status transitions** (`Tore.Harness.KitchenRun.Transition`, pure):
+
+| From | Action | To |
+|---|---|---|
+| `running` | `phase` | `running` |
+| `running` | `ask`, `review` | `needs_user` |
+| `running` | `apply` | `applied` |
+| `running` | `fail` | `failed` |
+| `needs_user` | `confirm` | `applied` |
+| `needs_user` | `discard` | `discarded` |
+| `applied` | `revert` | `reverted` |
+
+Anything else is an error. `failed`, `reverted` and `discarded` are terminal. A failed
+`confirm` leaves the run in `needs_user`, so the person can correct the card. An
+irreversible run refuses `revert`.
+
+A `:needs_user` run nobody answers is discarded by the person or by the weekly sweep
+(`Tore.Harness.InboxSweeper`). Nothing was applied, so there is nothing to revert. Tore
+runs on one BEAM node, so at boot every `running` row is dead, and
+`Runs.fail_interrupted/0` fails it with `:interrupted`.
+
+**Undo.** `apply_proposal` captures the before-image of what it touches, so the undo is
+known when the run applies. The steps are `restore_plan_slots` (each touched slot and
+pin, put back by appending planning events), `restore_pantry_item`, `restore_memory`,
+`delete_receipt`, `delete_recipe`, `remove_shop_item` and `uncheck_shop_item`. Revert
+runs them last first, in one transaction with the status change. An unknown step raises
+and rolls back. Undo puts back what was there before the run, even over a later change;
+it doesn't detect a stale undo. A delete or shop step whose target is already gone
+counts as done. Building the shopping list is irreversible, since it replaces the list.
+
+`{:run_changed, %KitchenRun{}}` is broadcast on `runs:household:<id>` after each commit.
+Screens match on `status`.
 
 **Hard rules.**
 
-- Only a `KitchenRun` may write to event-sourced aggregates (planning, shop) on the AI's behalf — direct adapter calls outside a run are forbidden.
-- Every state-changing AI action shows up as a row in the kitchen runs table.
-
-**Known gap (2026-11-06).** Most of Capture's plan tools, such as `skip_plan_meal` and `mark_eating_out`, write through `Tore.Planning` directly rather than through a run, so they break the first rule and get no receipt. Only `set_plan_slot` opens a run. The run-core rewrite settles this.
+- Only a `KitchenRun` may write household state on the AI's behalf. The planner, the crons, Capture and (later) MCP all go through `Runs`.
+- Every kind has a verifier: `verify` is a required callback.
+- Two exceptions write directly, by decision. `mark_recipe_cooked` sets one timestamp. Capture's deletes (`delete_recipe`, `delete_receipt`, `remove_shopping_item`) do what the person asked for by name, so they get no review, receipt or undo (2026-11-10). A person tapping in a screen also writes directly.
 
 ### A.3 — Runs produce `RunArtifact`s, not chat output
 
@@ -185,32 +218,27 @@ how the other implements its half.
 
 | Kind | Produced by | Carries |
 |---|---|---|
-| `PlanDiff` | `:planner_command_run`, `:weekly_planning_run` | Per-slot changes with before-and-after recipe handles |
-| `RecipeProposal` | `:planner_command_run`, when the planner imports a recipe from the web or adapts one. **Planned:** `:recipe_ingestion_run` for links and photos, which write straight to the catalog today | A recipe that isn't saved yet, with its source (a link, or the recipe it adapts and the instruction) and an optional slot to fill. A person saves, edits or discards it |
-| `PantryBeliefUpdate` | `:pantry_belief_update_run` | Items added / removed / `last_seen_at` bumped, with provenance |
+| `PlanDiff` | `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`, `:plan_edit_run` | Per-slot changes with before-and-after recipe handles, and the planning events to append |
+| `RecipeProposal` | `:planner_command_run`, when the planner imports a recipe from the web or adapts one; `:recipe_ingestion_run`, for a link or photo sent to Capture | A recipe that isn't saved yet, with its source, steps and an optional slot to fill. A person saves, edits or discards it |
+| `PantryBeliefUpdate` | `:pantry_belief_update_run` | Items added or removed, each with `provenance` |
 | `CostEntry` | `:receipt_ingestion_run` | Parsed receipt: store, date, total, line items, optional photo path |
-| `MemoryUpdate` | `:kitchen_memory_synthesis_run` | Insights added / superseded / unchanged, with evidence pointers |
-| `PantrySnapshot` | any run that mutates pantry rows (emitted alongside `PantryBeliefUpdate`) | Per-row before/after images (`%{item_id, before, after}`) so the `undo_payload` derived at commit time can restore rows exactly |
-| `RunBundle` | `:capture_turn_run` | A parent run's manifest of the child runs it owns, so one Capture turn renders as one receipt with one Undo (a `:composite` payload over the children) |
-| `RunSummary` | every run | One-line human-readable description plus structured `counts` (e.g. `%{meals_changed: 4, grocery_items_updated: 17}`); always present |
+| `MemoryBatch` | `:memory_review_run`, `:memory_update_run` | Add, patch and remove operations on one part of the household's memory (§1) |
+| `ShopChange` | `:shop_edit_run` | An item added or checked off, or the week's list built |
 
-**Renderable contract.** Every artifact must support two render modes:
+A proposal is a registered artifact or a list of them, because a run waiting for review
+stores it until it is confirmed.
 
-- **Summary** — at most one short line for the run-receipt strip, plus a structured `counts` map. The UI assembles the summary string from `counts` using a small renderer (e.g. *"4 meals changed · 17 grocery items updated"*), so spacing, separators, and pluralisation are UI concerns and never the harness's prose. The harness guarantees the numbers; the UI guarantees the prose.
-- **Detail** — a structured view the user opens deliberately. Example: the full `PlanDiff` shown as before-and-after slots, with a per-slot rationale.
+**Rendering.** The UI reads artifacts and status, never a run's internals. Capture
+shows each run as one short line built from its artifact, with Undo. The run review
+page shows a waiting proposal (a `CostEntry` or a `RecipeProposal`) as a card the person
+can edit. The `Artifact` behaviour still declares `summary/1` and
+`is_rationale_complete/1`, which nothing has called since `RunSummary` went.
 
-The UI never reads run internals. It reads artifacts. A new UI surface that
-wants to show, say, the planner's proposed changes opens the `PlanDiff`
-artifact from the latest `:applied` run.
+**No chat transcripts in artifacts.** The LLM's prose is recorded in `ai_operations` for
+the audit log, never as an artifact.
 
-**No chat transcripts in artifacts.** The LLM's prose replies are recorded in
-`tool_trace` for the audit log and the inspector, but are never the primary
-rendering. A run that produces only a chat-shaped string with no typed
-artifact is a harness bug.
-
-**Hard rule.** Every `:applied` or `:needs_user` `KitchenRun` carries at least
-one artifact (always a `RunSummary`, often a domain artifact too). A run with
-zero artifacts is invalid.
+**Hard rule.** An applied run carries the artifacts of what it changed, and a run that
+changed nothing carries none. A run waiting for review carries its proposal.
 
 ### A.4 — Context capsules, not one big prompt
 
@@ -229,8 +257,8 @@ the surrounding code, never assembled by string concatenation.
 
 | Capsule | Provides | Source |
 |---|---|---|
-| `HouseholdPreferencesCapsule` | Diet, allergies, dislikes, cuisines, kid constraints, default servings, planning days | `Tore.Household.get_preferences/1` |
-| `ActiveInsightsCapsule` | Active `HouseholdInsight` rows, prose + structured fields | `Tore.Household.list_active_insights/1` |
+| `HouseholdPreferencesCapsule` | Dietary rules and allergies, the two `PlanVerifier` enforces | `Tore.Household.get_preferences/1` |
+| `MemoryCapsule` | The household's profile and notes, with how full each is (§1) | `Tore.Household.Memory.snapshot/1` |
 | `WeekPlanCapsule` | The current or referenced week's plan state, per slot | `Tore.Planning.load_plan/2` |
 | `PantryBeliefsCapsule` | Approximate inventory with `last_seen_at` and provenance; framed as belief, not fact | `Tore.Pantry.list_inventory/1` |
 | `DealsDigestCapsule` | Active deals grouped by store, ranked by household affinity | `Tore.Deals.list_current/1` + `RecipeAffinityCapsule` |
@@ -262,12 +290,12 @@ rule lives in the capsule, not in the run.
 
 A coding agent earns trust by running tests. Tore's harness earns trust the
 same way: every state-changing `KitchenRun` is checked by a deterministic
-verifier before its `applied_events` are committed. The LLM proposes. The
+verifier before anything it proposes is written. The LLM proposes. The
 verifier decides if the proposal can actually land. The user sees a clean,
 validated result — never a half-applied edit.
 
-Verifiers are pure code, not LLM calls. They read the run's
-`proposed_changes` and the current state of the affected aggregates, and
+Verifiers are pure code, not LLM calls. They read the run's proposal and
+the current state of what it would change, and
 return either `:ok` or a structured `:fail` reason. They do not call models,
 do not have side effects, and are cheap to run inline at the end of every
 run.
@@ -280,31 +308,27 @@ run.
 | `PantryVerifier` | `PantryBeliefUpdate` | Provenance is set on every item write; no negative quantities; `last_seen_at` is monotonic per item |
 | `RecipeProposalVerifier` | `RecipeProposal` | Title, ingredients (≥1), and instructions are present; servings is positive; no near-duplicate of an existing catalog recipe (title + ingredient overlap heuristic); no ingredient name is empty |
 | `CostEntryVerifier` | `CostEntry` | Store, date, total are present; line items sum within tolerance of total; date is not in the future |
-| `MemoryVerifier` | `MemoryUpdate` | New insights have `kind`, `confidence`, and `evidence_count`; superseded insights link to a successor; no more than the configured maximum active insights per household |
+| `Tore.Household.Memory.Ops` | `MemoryBatch` | Each operation fits the current entries (exactly one match for a patch or remove, no duplicate add); the part stays within its size limit; no content that is an instruction, a credential, hidden characters, an internal id or an allergy. A batch applies whole or not at all |
 
-**Verifier lifecycle.** A run's loop ends. The harness collects
-`proposed_changes` from the loop's `tool_trace`, runs the appropriate
-verifiers, and one of three things happens:
+Kinds with no LLM step check less. `:plan_edit_run` refuses a change to a pinned day,
+and `:shop_edit_run` accepts every change, since what it writes is what the person said.
 
-- **All pass.** The harness commits `applied_events` to the event store, persists artifacts, transitions the run to `:applied`, and surfaces the run receipt.
-- **One or more fail.** No events commit. The run transitions to `:failed`. Each verifier failure stores both a structured `code` (e.g. `:slot_locked`, `:ingredient_missing`, `:dup_recipe_in_repeat_window`) and a `user_message` field — a short, human-readable sentence that names what blocked the action without exposing tool-call internals or blaming the model. The surface shows a compact repair state with the `user_message`, a verifier-specified `repair_action` (a `proposed_run` link or a manual-edit affordance), and a dismiss option. *Example: "Tuesday dinner is locked, so nothing was changed."* (An ambiguous reference like "the salmon" matching two recipes is **not** a verifier failure — the resolver returns `:ambiguous` mid-loop and the LLM must `ask_user`, per §A.6.2. Verifiers catch proposals that cannot land; resolvers catch references that cannot be trusted.) The verifier owning the failure is responsible for both fields.
-- **Run hit a human gate mid-loop.** The verifier did not get a chance to run. The run is `:needs_user`; verification happens after the user answers.
+**Verifier lifecycle.** After `propose` and `resolve`, `Runs` calls the kind's
+`verify`, and one of three things happens:
+
+- **Pass.** `apply_proposal` writes, and the run becomes `:applied` in the same transaction.
+- **Fail.** Nothing is written. The run becomes `:failed` with a structured `failure_code` (e.g. `:slot_pinned`, `:near_duplicate`, `:dietary_violation`) and a `repair_action`. Screens turn the code into a sentence. The surface shows a compact repair state with a dismiss option. *Example: "Tuesday dinner is pinned, so nothing was changed."* (An ambiguous reference like "the salmon" matching two recipes is **not** a verifier failure — the resolver returns `:ambiguous` mid-loop and the LLM must `ask_user`, per §A.6.2. Verifiers catch proposals that cannot land; resolvers catch references that cannot be trusted.)
+- **Review.** When the kind's `review_question/1` asks, the run waits in `:needs_user` with its proposal, and `verify` runs again on the edited proposal when the person confirms.
 
 **No partial applies.** A verifier failure is atomic — nothing commits. This
 is the load-bearing rule. The run is either fully applied or not applied;
 the user is never asked to clean up a half-edited week.
 
-**Concurrency and drift.** Verification and commit happen against the same
-aggregate version: the verifier reads the affected streams at a version, and
-the commit appends with optimistic concurrency at that version. If the
-aggregate advanced in between — the user edited the plan while the run was
-in flight, or another run landed first — the append is rejected and the
-harness re-verifies against the new state before committing; if the proposal
-no longer verifies, the run fails with the normal repair state. Runs never
-hold locks and never block a user's direct edits. The same discipline applies
-to revert: compensating changes are computed at revert time against current
-state per the `undo_payload` kind, and a revert that can no longer be applied
-safely surfaces as irreversible rather than half-reverting.
+**Concurrency and drift.** Runs hold no locks and never block a person's direct
+edits. When `apply_proposal` finds, inside its transaction, that a check no longer
+holds (a memory entry changed since `verify`), it returns `{:fail, code, repair}` and
+the run fails with nothing written. Revert doesn't re-check: undo restores the
+before-image, even over a later edit (§A.2).
 
 **No model retry on verifier failure.** When verification fails, the harness
 does not silently re-run the LLM with the verifier reason in the prompt.
@@ -312,10 +336,15 @@ That path is tempting (cheap retry, often fixes the failure) but it hides
 bugs and produces non-deterministic spend. The repair state is surfaced to
 the user; they decide whether to retry.
 
+Memory is the exception. Its check is about wording the model can fix, not
+about state the household owns, so the weekly review retries once with the
+rejection inside `propose`, and Capture hands a rejected batch back to its
+model (§1).
+
 **Hard rules.**
 
-- Every run kind that produces a state-changing artifact has at least one verifier in this table. A run kind that doesn't is a harness bug.
-- Verifiers run inside the harness, not inside the LLM tool layer. The LLM never sees verifier failure reasons during a run.
+- Every run kind implements `verify`. A kind whose proposal comes from the LLM checks it against a verifier in this table; a kind that only writes what the person said may check less (above).
+- Verifiers run inside the harness, not inside the LLM tool layer. The LLM never sees verifier failure reasons during a run, except memory's (above).
 - Verifier failures are stored on the `KitchenRun` row for later inspection; a verifier that fails 20% of the time across runs is a signal to fix the tool, the prompt, or the verifier — not to retry harder.
 
 ### A.6 — Risk tiers, resolved references, and Kitchen Skills
@@ -324,28 +353,27 @@ the user; they decide whether to retry.
 
 Every `KitchenRun` kind is classified into one of four tiers. The tier
 determines whether the harness auto-applies, surfaces for inspection, or
-requires explicit confirmation before any event commits.
+requires explicit confirmation before anything is written.
 
 | Tier | Examples | Apply policy |
 |---|---|---|
 | **Tier 0 — Surface only** | Capture's `suggest_from_fridge` and `suggest_meals_from_pantry` tools | They reply with what they found and write nothing, so they need no run. Acting on a suggestion is a separate request. |
-| **Tier 1 — Reversible domain edits** | `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`, `:pantry_belief_update_run`, `:kitchen_memory_synthesis_run` | Auto-apply after verifier passes. The run receipt is visible. Undo is one tap. |
-| **Tier 2 — Reversible ingestion** | `:receipt_ingestion_run`, `:recipe_ingestion_run` (planned) | Auto-apply by default, but the proposal artifact is always surfaced as a card the user can review and edit before commit. Becomes `:needs_user` per the rule below. |
+| **Tier 1 — Reversible domain edits** | `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`, `:pantry_belief_update_run`, `:memory_review_run`, `:memory_update_run` | Auto-apply after verifier passes. The run receipt is visible. Undo is one tap. |
+| **Tier 2 — Reversible ingestion** | `:receipt_ingestion_run`, `:recipe_ingestion_run`, and a planner run that proposes a recipe | Reviewed when the kind's `review_question/1` asks, per the rule below. Otherwise applies straight away with undo. |
 | **Tier 3 — Destructive or sensitive** | Bulk operations like *clear the week*; any change touching dietary constraints or allergens | Never auto-applies. Proposal is produced; commit requires explicit user confirmation. |
 
-A Tier 2 run becomes `:needs_user` (proposal surfaced as an editable card
-before commit) when **any** of the following holds:
+A kind decides whether to ask for review from its proposal alone, in
+`review_question/1`:
 
-- **Item count.** The proposal touches more than 5 line items.
-- **Confidence.** Any item in the proposal has resolver confidence below 0.8 (the resolver-handle threshold from §A.6.2 is 0.7 for action-tool acceptance; 0.8 is the higher bar for trust-without-review).
-- **Provenance.** The run's input was a `:vision` source (photo) rather than `:scrape` or `:manual`.
+- **Recipes** always wait for review, from a link, a photo or the planner.
+- **Receipts** wait only when the line items don't add up to the total. The parser returns no line prices yet, so in practice every readable receipt applies straight away.
 
-So a receipt photo always opens the review card today. Run core changes this: receipts apply straight away with undo, and the card appears only when the lines don't add up to the total. Shelf photos are Tier 1 and apply straight away, since one misread item is one tap to fix.
+Shelf photos are Tier 1 and apply straight away, since one misread item is one tap to fix.
 
 **Hard rules.**
 
-- Tier classification lives on the run-kind declaration. It is not a runtime decision; the model cannot escalate or de-escalate.
-- Tier 3 is the only tier with a confirm modal. Tier 0–2 use act-then-undo. The UI never asks "are you sure?" for Tier 1 or 2.
+- Review is decided by the kind's code from the proposal, never by the model. The model cannot escalate or de-escalate.
+- Tier 3 is the only tier with a confirm modal. Tiers 0 and 1, and receipts, use act-then-undo; recipes wait for review. The UI never asks "are you sure?" for Tier 1 or 2.
 - A run that touches household preferences (diet, allergies) is Tier 3 regardless of its declared kind.
 
 #### A.6.2 — Resolved references, never raw IDs
@@ -419,7 +447,7 @@ registry is rejected.
 
 **Implementation status (V1).** Shipped: `resolve_recipe` (Jaro similarity
 over the recipe catalog), direct-touch slot handles (minted by the
-Orchestrator when a run is scoped to a slot the user opened in the UI, e.g.
+planner kinds when a run is scoped to a slot the user opened in the UI, e.g.
 the plan slot sheet's scoped command input), and `resolve_slot` (2026-08 —
 see below). Deferred until their consumers exist: `resolve_grocery_item`,
 `resolve_pantry_item`, grocery-item handles. Slot-targeting action tools
@@ -458,11 +486,11 @@ of the harness for ordinary household operations.
 
 | Skill | Dispatches | Purpose |
 |---|---|---|
-| `PlanMyWeek` | `:weekly_planning_run` | Generate the upcoming week from current pantry, deals, insights, and past affinity |
+| `PlanMyWeek` | `:weekly_planning_run` | Generate the upcoming week from current pantry, deals, memory, and past affinity |
 | `UseTheDeals` | `:weekly_planning_run` (deal-weighted) | Re-plan the week prioritising current active deals |
 | `LowEnergyWeek` | `:weekly_planning_run` (low-effort weighted) | Plan a week of short-cook recipes with cascading leftovers |
 | `StretchLeftovers` | `:planner_command_run` | Re-arrange the current week to maximise leftover cascades |
-| `LearnFromThisWeek` | `:kitchen_memory_synthesis_run` | Force an out-of-schedule memory synthesis from recent events |
+| `LearnFromThisWeek` | `:memory_review_run` | Force an out-of-schedule memory review from recent events |
 
 The runbook fields (`trigger`, `capsules`, `tools`, `verifier`, `artifact`,
 `surface`) live in a future Skills sub-spec. The umbrella names the concept
@@ -492,7 +520,7 @@ Examples:
 
 Rationale strings are produced by the run, not by the LLM at render time.
 They reflect what actually drove the decision: the capsule fields the model
-read, the deals it weighted, the insights it cited. A rationale that says
+read, the deals it weighted, the memory it drew on. A rationale that says
 only *"the model picked it"* is a harness bug.
 
 **UI contract.** The surface always renders the artifact's summary form by
@@ -505,6 +533,8 @@ affordance.
 - Every artifact field that surfaces a decision carries a rationale or provenance.
 - Rationales are short and concrete — not paragraphs, not LLM prose. The verifier owning the artifact checks rationale presence as part of artifact validity.
 - A run that produces an artifact with empty rationales fails its verifier. There is no "the model didn't explain" fallback.
+
+**Known gap (2026-11-10).** The verifiers don't check rationale presence: `is_rationale_complete/1` has had no caller since run core.
 
 ### A.8 — Model routing
 
@@ -541,7 +571,7 @@ bill.
 **Hard rules.**
 
 - Every `Tore.LLM` callback is statically annotated with its model tier. The annotation is read at runtime by the adapter; there is no per-call model override.
-- `AIOperations.model` is set on every row. Cost rollups on `KitchenRun.model_usage` aggregate by tier across the run's owned operations.
+- `AIOperations.model` is set on every row. A run's `prompt_tokens`, `completion_tokens` and `cost_usd` hold the usage its `propose` returned; calls that end in a question or an error are counted in `llm_usage` only.
 - The schema-failure single-retry path is the only place the harness silently uses a different model than the callback declared. The retry is logged distinctly (`AIOperations.kind` ends with `.retry`). The household's monthly limit in `Tore.LLM` remains the runaway-cost guard.
 
 ### A.9 — Meeting point with docs/specs/ui.md
@@ -554,12 +584,12 @@ thinking-state and failure-state and undo and "Why this?" patterns.
 
 The two specs meet at artifact schemas. Concretely:
 
-- `RunSummary.counts` (§A.3) drives docs/specs/ui.md §7.1's run-receipt pluralisation and §5.2's receipt card body.
+- A run's artifact (§A.3) drives Capture's one-line receipt (docs/specs/ui.md §7.1) and the run review page's card (§5.2).
 - `KitchenRun.phase` (§A.2) drives docs/specs/ui.md §7.2's operational thinking-state strip.
-- Verifier failures' `user_message` + `repair_action` (§A.5) drive docs/specs/ui.md §7.3's failure-state card.
+- A failed run's `failure_code` and `repair_action` (§A.5) drive docs/specs/ui.md §7.3's failure-state card.
 - Per-item `rationale` and `evidence` on every artifact (§A.7) drive docs/specs/ui.md §7.5's "Why this?" expansion.
 - `RecipeProposal` fields drive the recipe proposal on the run review page.
-- `MemoryUpdate.evidence_count` drives docs/specs/ui.md §5.2's memory card "Seen 7 times" line.
+- Household memory's parts and how full each is (§1) drive Settings' kitchen memory section.
 
 When docs/specs/ui.md adds a surface that needs an artifact field this spec didn't
 name, that's a SPEC.md amendment, not a UI-side workaround. When this spec
@@ -576,7 +606,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 | Feature | Status |
 |---|---|
-| §1 Learning from what the household does | Built. Household memory replaces it in run core |
+| §1 Household memory | Built (2026-11-10). Replaced insight synthesis |
 | §2 Natural-language planner | Built |
 | Weekly planning (`:weekly_planning_run`) | Built. Runs Saturdays at 18:00 and fills open slots |
 | §3 Anticipation | Removed, apart from the long-press object sheets |
@@ -586,56 +616,54 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
-| Recipe import from a link or photo | Built, without a run: it writes straight to the catalog |
+| Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it, a person reviews it, then it's saved |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 
-**Run kinds in the code:** `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`,
-`:pantry_belief_update_run`, `:receipt_ingestion_run`, `:kitchen_memory_synthesis_run`, `:capture_turn_run`
-(the parent of one Capture turn's children) and `:undo_run`. `:recipe_ingestion_run` is planned.
+**Run kinds in the code** (`Tore.Harness.Kinds`): `:planner_command_run`, `:weekly_planning_run`,
+`:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`, `:pantry_belief_update_run`, `:receipt_ingestion_run`,
+`:recipe_ingestion_run`, `:memory_review_run` and `:memory_update_run`.
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
-1. Run core: a simple runs table replaces the event-sourced `KitchenRun`, with household memory alongside.
-2. Pantry rules.
-3. MCP, so someone can use Tore through their own Claude or ChatGPT.
-4. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
-5. Instagram recipes.
-6. A prep upgrade.
+1. Pantry rules.
+2. MCP, so someone can use Tore through their own Claude or ChatGPT. Its writes go through `Runs.submit/4`; the kinds' `open/1` will need to take the actor, since each sets `:user` or `:system` today.
+3. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
+4. Instagram recipes.
+5. A prep upgrade.
 
 Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
+Run core and household memory landed on 2026-11-10 (§A.2, §1).
 
-### 1. Longitudinal Learning → `:kitchen_memory_synthesis_run`
+### 1. Household Memory → `:memory_review_run`, `:memory_update_run`
 
-**Status: built.**
+**Status: built (2026-11-10). Replaced insight synthesis.**
 
-A weekly Quantum job (Sat 06:00) starts a `:kitchen_memory_synthesis_run`. It
-reads the planning event stream from the last 28 days and produces a small set
-of typed observations about how the household actually eats.
+The household keeps a small memory that its members share, kept the way the Hermes agent keeps one:
+a **profile** (who lives here, what they like) and **notes** (habits and patterns), each with a size
+limit. A note about one person names them: *"Anna dislikes mushrooms."* `MemoryCapsule` puts both
+parts, with how full each is, into the prompts of the planner and the weekly review. Capture's prompt
+gets it too, and its `memory` tool returns the memory as it stands after each saved change.
 
-- **Capsules:** `ActiveInsightsCapsule`, `RecentHistoryCapsule`, `RecipeAffinityCapsule`.
-- **Tools:** none — Pattern A structured-output call.
-- **Artifact:** `MemoryUpdate` (insights added / superseded / unchanged, with evidence pointers per insight).
-- **Verifier:** `MemoryVerifier` (kind, confidence, evidence_count present; max active count respected; superseded insights link forward).
-- **Tier:** 1 — reversible. Dismissed insights are tombstoned; follow-up synthesis won't recreate them.
-- **Model tier:** cheap structured.
+Two kinds write it. Both check every batch with `Memory.Ops` (§A.5):
 
-Inputs the synthesis considers: `MealSkipped` events grouped by weekday →
-*"skips Thursdays 7/10 weeks"*; `RecipeRemoved` and `RecipeSwapped` → dislikes
-and friction; `LeftoverDay` patterns → which cascades survive; slot fill rate
-by week → *"rarely plans past Wednesday"*. `MealSkipped` carries an optional
+- **`:memory_review_run`**, weekly (Sat 06:00). It reads the memory snapshot, `RecentHistoryCapsule` and `RecipeAffinityCapsule`, and proposes add, patch and remove operations through the `memory_review` prompt (Pattern A, cheap structured). A rejected batch is retried once with the rejection; rejected twice, the run fails and nothing changes. Most weeks it changes nothing, and with no planning history it makes no LLM call.
+- **`:memory_update_run`**, from Capture's `memory` tool. *"We've stopped eating fish on weekdays"* is saved without being asked for. The reply is a quiet "Noted:", "Updated:" or "Forgot:" line with Undo, or "Already noted." A rejected batch goes back to the model to fix, and the person sees nothing.
+
+- **Artifact:** `MemoryBatch`.
+- **Verifier:** `Memory.Ops`.
+- **Tier:** 1, with undo (`restore_memory`).
+
+Allergies and dietary rules stay in Preferences, where `PlanVerifier` enforces them. Memory refuses
+them, and Capture points to the kitchen page, where Preferences live, so a refused allergy isn't
+mistaken for a saved safety rule. Removing an entry in Settings is direct and needs no run.
+
+What the review looks for: `MealSkipped` events grouped by weekday → *"skips Thursdays 7/10 weeks"*;
+`RecipeRemoved` and `RecipeSwapped` → dislikes and friction; `LeftoverDay` patterns → which cascades
+survive; slot fill rate by week → *"rarely plans past Wednesday"*. `MealSkipped` carries an optional
 `reason`, so memory can tell "we went out" from "we skipped it".
 
-Storage: `household_insights` table — small (max ~10 active observations per
-household), with structured fields (`kind`, `subject`, `claim`,
-`evidence_count`, `confidence`, `last_evidence_at`) plus a prose `prompt_text`
-used by capsules. A `dismissed_at` field tombstones rather than deletes; a
-`superseded_by_id` link preserves history.
-
-The user sees the active insights on Settings → Kitchen Memory and can dismiss
-any insight that's wrong.
-
-**Hard rule:** There is no rating UI. There is no *"how was dinner?"* prompt.
-The event stream is the only signal.
+**Hard rule:** There is no rating UI. Nothing asks *"how was dinner?"*. The signals are the event
+stream and what people say in Capture.
 
 ### 2. Natural-Language Planner → `:planner_command_run`
 
@@ -644,9 +672,9 @@ The event stream is the only signal.
 The user types into the planner command bar. The harness starts a
 `:planner_command_run`.
 
-- **Capsules:** `HouseholdPreferencesCapsule`, `ActiveInsightsCapsule`, `WeekPlanCapsule`, `PantryBeliefsCapsule`, `RecentHistoryCapsule`.
+- **Capsules:** `HouseholdPreferencesCapsule`, `MemoryCapsule`, `WeekPlanCapsule`, `PantryBeliefsCapsule`.
 - **Tools:** resolver tools (`resolve_slot`, `resolve_recipe`, `resolve_grocery_item`); action tools that take handles (`assign_recipe`, `swap_recipe`, `skip_meal`, `mark_leftover`, `set_servings`, `remove_recipe`); read tools (`search_recipes`, `pantry_snapshot`, `active_deals`, `find_recipe_web`); proposal tools that end the loop with a `RecipeProposal` (`import_recipe_from_web`, `generate_recipe_variant`); terminal `ask_user`.
-- **Artifacts:** `PlanDiff` (always), `RunSummary`; a `RecipeProposal` instead when a proposal tool ends the loop.
+- **Artifacts:** `PlanDiff`; a `RecipeProposal` instead when a proposal tool ends the loop.
 - **Verifier:** `PlanVerifier`; `RecipeProposalVerifier` for a proposal, again when it is saved.
 - **Tier:** 1 — auto-apply with undo. The run receipt is the user-facing confirmation. A proposal is Tier 2: the run waits in `:needs_user` until a person saves it, which writes the recipe and fills the pending slot, or discards it, which saves nothing. Web search has a SpendGuard estimate and cooldown (`:recipe_web_search`); every call counts against the household's monthly limit.
 - **Model tier:** strong tool-capable (Pattern B).
@@ -695,16 +723,20 @@ or any other interruption.
 **Status: built.**
 
 Three channels update the pantry through a `:pantry_belief_update_run`: a grocery item checked off, a shelf photo
-through Capture, and a manual add. Receipts are not a channel (§5).
+through Capture, and a manual add or removal through Capture. Receipts are not a channel (§5).
 
 - **Capsules:** `PantryBeliefsCapsule` (the current state, framed as belief).
 - **Tools:** vision prompt `parse_pantry_image` for photos; none for a grocery check-off, which is deterministic.
-- **Artifacts:** `PantryBeliefUpdate` (items added / removed / `last_seen_at` bumped, each with `provenance`: `grocery_checkoff`, `vision` or `manual`) and `PantrySnapshot` for undo.
+- **Artifact:** `PantryBeliefUpdate` (items added or removed, each with `provenance`: `grocery_checkoff`, `vision` or `manual`). Undo puts each touched row's before-image back.
 - **Verifier:** `PantryVerifier`.
 - **Tier:** 1 — every channel applies straight away with undo. No review card.
 - **Model tier:** vision (photo input only).
 
 **Shelf photos.** A photo shows what's there, so its quantities replace the old ones instead of adding to them.
+
+**One row per ingredient.** A unique index on `(household_id, ingredient_id)` holds it. Undoing a removal yields
+to a row added since. Undoing a check-off unchecks the item and leaves the pantry as it is; if that's wrong, Capture
+can remove the item.
 
 **Shelf life.** The LLM guesses `shelf_life_days` per ingredient the first time it sees one, and the guess stays on
 the ingredient. A pantry row's date follows `Tore.Pantry.Expiry`:
@@ -740,10 +772,12 @@ off the list.
 - **Tools:** vision prompt `parse_receipt`.
 - **Artifact:** `CostEntry` (store, date, total, line items, optional photo path).
 - **Verifier:** `CostEntryVerifier`.
-- **Tier:** 2 — a photo always opens the editable review card today (§A.6.1).
+- **Tier:** 2 — reviewed only when the line items don't add up to the total (§A.6.1), so today every readable receipt applies straight away. Undo deletes it.
 - **Model tier:** vision.
 
-The same photo sent twice is caught and says it's already uploaded. Line items carry names, not prices.
+The same photo sent twice is caught and says it's already uploaded. Line items carry names, not prices. Capture can
+also delete a receipt outright: the model lists recent receipts (`list_receipts`) and deletes the one named
+(`delete_receipt`).
 
 ### 6. Fridge Photo → Suggestions
 
@@ -758,13 +792,14 @@ with recipes that fit the pantry. Putting one on the plan is a separate `set_pla
 **Status: built.**
 
 Eating out is a state of a day in the plan, not a cost form. "Eating out" on the day's sheet, or saying so to Capture
-(the `mark_eating_out` tool), emits `MealSkipped` with `reason: "eating_out"`.
+(the `mark_eating_out` tool, through `:plan_edit_run`), emits `MealSkipped` with `reason: "eating_out"`.
 
 - It cancels any recipe that day, and it works on an empty day too.
-- Place and amount are optional, and can be added later from the sheet or Capture. They're stored per slot in `dining_out`.
-- "Not eating out", or picking a recipe for the day, removes the cost entry as well.
+- Place and amount are optional, and can be added later from the sheet or Capture. They ride on the `MealSkipped` event and live on the day in the plan state; there is no separate table.
+- "Not eating out", or picking a recipe for the day, clears them with the day.
+- Undoing an earlier change to that day puts it back as it was, eating out or not. Capture can mark it again.
 - It isn't a gap in the plan: `PlanHealth` doesn't count it, weekly planning leaves it alone, and the planner can't overwrite it (§2).
-- Today says so instead of showing a dinner. The amount appears on the cost page.
+- Today says so instead of showing a dinner. The cost page reads the amounts from the plans.
 
 ### 8. Stores and Deals
 
@@ -815,10 +850,16 @@ text and all photos together and calls the tools that fit (`Tore.Capture.Router`
 recipe, a shelf update or a fridge reply. Each capture leads to a typed result the surface renders, not a
 conversation thread.
 
-A single Capture turn that produces multiple state changes is wrapped in a
-`:capture_turn_run` — a parent run whose `RunBundle` artifact lists the child
-runs, so the turn renders as one receipt with one Undo (a `:composite`
-payload over the children).
+Each write a turn makes is its own run and shows as its own line, with Undo where the
+run has one. Typed edits go through `Runs.submit/4`; photos, links and pantry edits
+through `Runs.start/3`. The runs: plan edits (`:plan_edit_run`, `:set_plan_slot_run`), the
+shopping list (`:shop_edit_run`), the pantry, receipts, recipes (`:recipe_ingestion_run`,
+whose line links to its review) and memory (`:memory_update_run`). Building the
+shopping list has no Undo, since it replaces the list.
+
+Deleting a recipe, a receipt or a shopping item is a plain tool with no review or undo.
+The model finds the id itself (`find_recipe`, `list_receipts`) and deletes only what the
+person clearly named, asking when more than one matches.
 
 ### Shop (`/shop`)
 
@@ -833,7 +874,7 @@ dispatches a `:pantry_belief_update_run` (see §4).
 - Household: rename it; the language, picked at `/welcome` when the household was created and shown locked.
 - **Your households:** a switcher, shown only to someone in two or more.
 - AI: someone with the `tore_ai` claim can let the household use their credits ("Use my credits for this household"). Others see who sponsors it, or that AI is off.
-- **Things Tore has learned:** active insights, each with a "Forget" button that dismisses without deleting.
+- **Things Tore has learned:** the household memory (§1), as "Your household" (the profile) and "Notes", each with how full it is and a "Forget" button per entry. Either member can forget anything.
 - **Stores:** add by link, switch on or off, remove (§8).
 - AI usage.
 - Links to the pantry view ("Approximate inventory") and costs ("Spending").
@@ -844,7 +885,7 @@ One page, reachable from Settings:
 
 - This month's total against last month.
 - The five most recent receipts.
-- Eating out this month.
+- Eating out this month, from the plans.
 - Adding a receipt, by photo or by typing a total.
 
 ---
@@ -869,14 +910,16 @@ plans must remove these explicitly — they are not deprecated, they are gone.
 ## Module Map
 
 Files marked `PLANNED` are named by this spec but not yet in the tree;
-everything else reflects the code as of 2026-11-09.
+everything else reflects the code as of 2026-11-10.
 
 ```
 lib/tore/
   scope.ex                   # %Scope{household_id, user_id}, the first argument of household functions
   streams.ex                 # event stream ids per household and week
-  household.ex               # canonical household context (preferences, insights, language, sponsor, each_scope)
+  household.ex               # canonical household context (preferences, language, sponsor, each_scope)
   household/
+    memory.ex                # profile and notes: snapshot, stores, write, forget, restore
+    memory/ops.ex            # the pure batch check: plan/3 and the content rules
   members.ex                 # add, remove and switch members; pending members
   accounts.ex                # users; sign_in/1 from Pocket ID claims; the session's scope
   accounts/                  # user, membership, pending_member
@@ -894,7 +937,7 @@ lib/tore/
   pantry/
     pantry_item.ex           # effective_belief
     expiry.ex                # a row's date from what was just observed. Pure
-  costs.ex                   # receipts, eating out, monthly totals, LLM usage
+  costs.ex                   # receipts, eating out read from the plans, monthly totals, LLM usage
   costs/
   prep.ex                    # owns generate_guide (folded)
   prep/
@@ -911,31 +954,25 @@ lib/tore/
   ai_operations.ex           # low-level LLM call audit log; owned by KitchenRun
   capture/                   # Capture surface plumbing: router, uploads, dispatch
   harness/                   # the Agent Harness Layer
-    run.ex                   # KitchenRun context (open, transition, revert)
-    run/                     # the Run Decider aggregate: one event stream per run
-      commands.ex
-      decider.ex
-      events.ex
-      state.ex               # Draft | Running | NeedsUser | Applied | Failed | Reverted | Discarded
-    orchestrator.ex          # dispatches declared run kinds end-to-end
-    run_receipts.ex          # receipt projection + atomic revert
-    undo_payload.ex          # :event_sourced | :snapshot | :composite | :irreversible
-    diff_row.ex              # cross-surface diff shape rendered on receipts
+    kitchen_run.ex           # the runs row; kitchen_run/transition.ex (pure), kitchen_run/types.ex
+    kind.ex                  # the Kind behaviour: propose, resolve, verify, review_question, apply_proposal, after_commit
+    kinds.ex                 # kind name → module
+    kinds/                   # planner_command, weekly_planning (sharing planner.ex), set_plan_slot,
+                             # plan_edit, shop_edit, pantry_update, receipt, recipe_ingestion,
+                             # memory_review, memory_update
+    runs.ex                  # start, submit, confirm, discard, revert, queries, fail_interrupted
+    undo.ex                  # {:steps, [step]} | {:irreversible, reason}
     inbox_sweeper.ex         # weekly TTL sweep: stale :needs_user → :discarded
-    projector.ex             # + projector_registry.ex, projector_supervisor.ex
-    kitchen_memory_synthesis.ex  # §1 run implementation
-    receipt_ingestion.ex         # §5 run implementation
-    pantry_update.ex             # §4 apply/revert helper
+    receipt_ingestion.ex     # parse, build and save helpers for Kinds.Receipt
     plan_diff_builder.ex
     artifact.ex              # RunArtifact behaviour + artifact/registry.ex
-    artifact/                # plan_diff, pantry_belief_update, pantry_snapshot,
-                             # cost_entry, memory_update, run_summary, run_bundle
+    artifact/                # plan_diff, recipe_proposal, pantry_belief_update, cost_entry,
+                             # memory_batch, shop_change
     capsule.ex               # capsule behaviour; capsules.ex assembles per-run capsule lists
-    capsules/                # 6 landed; deals_digest_capsule + cost_intent_capsule PLANNED
-    verifier/                # plan, pantry, cost_entry, memory, recipe_proposal
+    capsules/                # 6 landed, memory_capsule among them; deals_digest_capsule + cost_intent_capsule PLANNED
+    verifier/                # plan, pantry, cost_entry, recipe_proposal
     resolvers.ex             # resolve_recipe, resolve_slot; grocery item and pantry item PLANNED
     handles.ex
-    run_kinds.ex             # PLANNED: static run-kind declarations (capsules, tools, verifier, tier, model_tier)
     skills.ex                # PLANNED: V1 Kitchen Skills catalog
   llm.ex                     # the gate and facade, scope first: text/4, web_search/4, vision/5, chat/4, chat_with_tools/5
   llm/
@@ -962,7 +999,7 @@ lib/tore_web/live/
   shop_live.ex               # check → :pantry_belief_update_run
   recipe_live.ex
   prep_live.ex
-  settings_live.ex           # members, households switcher, rename, sign-out, stores, learned insights, AI sponsorship and usage
+  settings_live.ex           # members, households switcher, rename, sign-out, stores, kitchen memory, AI sponsorship and usage
   welcome_live.ex            # /welcome: a new household picks its language once
   pantry_live.ex             # /settings/pantry: approximate inventory
   cost_live.ex               # /settings/costs: one page
@@ -995,7 +1032,7 @@ Spec's; each facade function takes the household's `%Scope{}` before them:
 | `chat_with_tools/4` | Tool-calling chat. Powers `PlannerAgent` (§2) and every Pattern B run. |
 
 Purpose-level operations are **not** behaviour callbacks. Each one — parse a
-receipt, parse a recipe, parse a shelf photo, synthesise insights, suggest a
+receipt, parse a recipe, parse a shelf photo, review the household's memory, suggest a
 recipe, write a prep guide, compress cook-mode steps — is a prompt + JSON-schema pair in `Tore.LLM.Prompts`,
 invoked through `text/3` or `vision/4`. Adding an operation adds a prompt
 spec, not a callback. (The earlier draft's `generate_plan/1` callback is
@@ -1024,7 +1061,7 @@ Two patterns, used deliberately:
 
 Used by every operation whose job is *"turn this input into a fixed-shape result"*:
 `parse_receipt`, `parse_recipe_images`, `parse_pantry_image`,
-`synthesise_insights`, `suggest_slot_recipe`, `prep_guide`, `cook_mode_steps`. All go through `text/3` or `vision/4`.
+`memory_review`, `suggest_slot_recipe`, `prep_guide`, `cook_mode_steps`. All go through `text/3` or `vision/4`.
 
 - Implementation: OpenAI-compatible `response_format: %{type: "json_schema", json_schema: %{name:, strict: true, schema:}}`.
 - Schemas live in `Tore.LLM.Prompts` next to the prompt EEx files.
@@ -1067,14 +1104,14 @@ config :tore, Tore.Scheduler,
   jobs: [
     {"0 3 * * *",  {Tore.Deals,                          :clear_expired,      []}},
     {"0 4 * * 0",  {Tore.Harness.InboxSweeper,           :sweep_weekly,       []}},
-    {"0 6 * * 6",  {Tore.Harness.KitchenMemorySynthesis, :synthesise_weekly,  []}},  # dispatches :kitchen_memory_synthesis_run
+    {"0 6 * * 6",  {Tore.Harness.Kinds.MemoryReview,     :review_weekly,      []}},  # starts :memory_review_run
     {"0 8 * * 6",  {Tore.Deals,                          :scrape_all,         []}},
     {"0 18 * * 6", {Tore.Planning,                       :plan_upcoming_weeks, []}}   # dispatches :weekly_planning_run
   ]
 ```
 
 **Scheduled jobs go through the harness.** A cron job that writes state on the
-AI's behalf dispatches a `KitchenRun` (with `started_by: :scheduler`) — it never
+AI's behalf starts a `KitchenRun` (with `actor: :system`) — it never
 calls a context function directly, per §A.2's hard rule. `Tore.Deals.clear_expired`
 and `scrape_all` are deterministic maintenance, not AI actions, and stay direct.
 
@@ -1082,7 +1119,7 @@ and `scrape_all` are deterministic maintenance, not AI actions, and stay direct.
 
 ## Auth and Multi-Tenancy
 
-A *household* owns all data: plans, groceries, pantry, costs, insights, recipes, LLM usage.
+A *household* owns all data: plans, groceries, pantry, costs, memory, recipes, runs, LLM usage.
 *Users* belong to one or more households through `memberships`, exactly one of them active. Pocket ID is the only login: `Tore.Auth.Oidc` runs the authorization code
 flow with PKCE, and `OidcController` hands the ID token's claims to `Accounts.sign_in/1`. A returning user
 gets name, username and LLM access refreshed. A new one joins every household that added their username
@@ -1109,7 +1146,7 @@ person's credits by adding them. `Tore.Household` is the canonical context. Ther
   (`plan:household:<id>`) and storage keys (`households/<id>/…`) carry the household id, and the image controllers load through the scope, so another household's id is a 404.
 - Stores and deals are shared: a store is fetched once however many households use it (`household_stores`).
   Nothing else crosses households.
-- Planning and memory synthesis crons run only for households that can use the LLM (§LLM Surface).
+- The planning and memory review crons run only for households that can use the LLM (§LLM Surface).
 
 ---
 
@@ -1148,5 +1185,5 @@ The rewrite is done when:
 7. A fridge photo names what Tore sees and offers suggestions.
 8. A user can skip a meal with one tap and the app says nothing back.
 9. No notifications. No nags. No streaks.
-10. Every state-changing AI action is a `KitchenRun` — visible as a row in the kitchen runs table, owning its `AIOperations` rows, carrying its declared capsules, producing its typed artifacts, gated by its verifier, classified into a risk tier. No code path mutates an event-sourced aggregate on the AI's behalf outside a run.
-11. Every Tier 1+ run produces at least one `RunArtifact` (always a `RunSummary`, often a domain artifact) with rationale-or-provenance fields populated. A run that produces empty rationales fails its verifier and does not commit.
+10. Every state-changing AI action is a `KitchenRun` — visible as a row in the kitchen runs table, owning its `AIOperations` rows, carrying its declared capsules, producing its typed artifacts, gated by its verifier, classified into a risk tier. No code path writes household state on the AI's behalf outside a run, apart from the exceptions §A.2 names.
+11. Every applied run carries the artifacts of what it changed, and every run waiting for review carries its proposal, with rationale-or-provenance fields populated where they surface a decision (§A.7).

@@ -8,11 +8,12 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 
 ## What it does
 
-- **Weekly meal planning** — fills open dinners on Saturdays from your recipe catalog, respecting the pantry, current deals and what it has learned about your household. Tell it what to change in plain words, or tap. It can also find a recipe on the web or adapt one of yours, for you to save or discard.
-- **Recipes** — import from a link or a photo, and browse your collection. Recipes come in your household's language.
+- **Weekly meal planning** — fills open dinners on Saturdays from your recipe catalog, respecting the pantry, current deals and what it remembers about your household. Tell it what to change in plain words, or tap. It can also find a recipe on the web or adapt one of yours, for you to save or discard.
+- **Recipes** — import from a link or a photo, review before it's saved, and browse your collection. Recipes come in your household's language.
 - **Pantry as a belief** — Tore keeps a rough idea of what you have from checked-off groceries, shelf photos and what you tell it. It guesses shelf life, and uses that in planning and on the list.
 - **Shopping list** — built from the week's plan, aggregated by ingredient. Adding by hand always works.
-- **Capture** — send text or photos. A photo can be a receipt, a recipe, a shelf or your fridge.
+- **Capture** — send text or photos. A photo can be a receipt, a recipe, a shelf or your fridge. Most changes it makes come with Undo, and it can delete a recipe, a receipt or a shopping item when you ask.
+- **Household memory** — a short profile and notes Tore keeps about how you eat, from what you tell Capture and a weekly look at the plan. You can read and remove entries in Settings.
 - **Deals** — add a store by pasting a link to its offers; the planner reads them. ICA only so far, and the fetch has known problems (see `SPEC.md` §8).
 - **Costs** — one page with the month's total, recent receipts and eating out.
 - **Eating out** — mark a day and it cancels the recipe, with an optional place and amount.
@@ -47,10 +48,10 @@ lib/
 │   ├── adapters/         # Req HTTP adapter, image stub
 │   ├── image_gen/        # Recipe images through the open_router library
 │   ├── capture/          # Capture: the LLM router, its tools, uploads
-│   ├── costs/            # Receipts, line items, eating out, LLM usage
+│   ├── costs/            # Receipts, line items, LLM usage
 │   ├── deals/            # Deal schema, store configs, one parser per chain
-│   ├── harness/          # Runs: orchestrator, artifacts, capsules, verifiers, undo
-│   ├── household/        # Household, preferences, learned insights
+│   ├── harness/          # Runs: the runs table, kinds, artifacts, capsules, verifiers, undo
+│   ├── household/        # Household, preferences, memory
 │   ├── llm/              # LLM facade, prompts, planner agent and tools
 │   ├── pantry/           # Pantry beliefs and expiry
 │   ├── planning/         # Weekly plan decider (event-sourced), commands, events, state
@@ -68,7 +69,7 @@ lib/
 
 **Event sourcing** — planning and shopping list state are derived from an append-only event log (`Tore.EventStore`). The `Decider` pattern: `decide(command, state) → events`, `evolve(state, event) → state`.
 
-**Harness** — every state-changing AI action is meant to be a run: the LLM proposes, a pure verifier checks, the change applies in one transaction, and you get a receipt with undo. See `SPEC.md`.
+**Harness** — every state-changing AI action is a run, one row in the `runs` table: the LLM proposes, a pure verifier checks, the change applies in one transaction with its undo, and you get a receipt. A kind of run implements `Tore.Harness.Kind`, and `Tore.Harness.Runs` drives it. See `SPEC.md` §A.2.
 
 **Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts. Each function that touches a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one.
 

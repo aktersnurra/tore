@@ -510,14 +510,11 @@ Tore adjusted the plan
 
 ### Memory card
 
-Used in Settings → Kitchen Memory.
+Used in Settings → Kitchen Memory. One card per entry in the household memory (SPEC.md §1).
 
 ```md
-Thursdays are fragile
-Tore will prefer leftovers or low-effort meals on Thursdays.
-
-Seen 7 times
-[This is wrong]
+Thursdays are fragile: leftovers or low-effort meals work best.
+[Forget]
 ```
 
 AI memory needs transparent controls. Microsoft’s Human-AI guidelines emphasize that systems should learn from behavior, adapt cautiously, and convey the consequences of user actions. ([Microsoft][7])
@@ -1145,18 +1142,17 @@ No page of deals. Tore's planner reads them.
 ### Kitchen Memory
 
 ```md
-Tore has noticed
+Things Tore has learned
 
-Thursdays are fragile
-Tore will prefer leftovers or low-effort meals on Thursdays.
-Seen 7 times
-[This is wrong]
+Your household                         40% full
+Two adults and a six-year-old who dislikes mushrooms.   [Forget]
 
-Fish rarely sticks on weekdays
-Tore will avoid weekday fish unless explicitly requested.
-Seen 4 swaps
-[This is wrong]
+Notes                                  25% full
+Thursdays are fragile: leftovers or low-effort meals work best.   [Forget]
+Fish rarely sticks on weekdays.                         [Forget]
 ```
+
+Entries come from the weekly review and from what people tell Capture. Forgetting one is direct.
 
 Rules:
 
