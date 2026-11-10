@@ -1334,6 +1334,7 @@ msgstr "Saker Tore har lärt sig"
 msgid "Thinking…"
 msgstr "Tänker…"
 
+#: lib/tore/home.ex:376
 #: lib/tore_web/live/home_live.ex:54
 #, elixir-autogen, elixir-format
 msgid "Tonight"
@@ -1630,6 +1631,7 @@ msgstr "På"
 msgid "Prep this week"
 msgstr "Förbered veckan"
 
+#: lib/tore/home.ex:379
 #: lib/tore_web/live/capture_live.ex:187
 #, elixir-autogen, elixir-format
 msgid "Review"
@@ -2389,3 +2391,39 @@ msgstr "Inga kvitton än."
 #, elixir-autogen, elixir-format
 msgid "Removed %{name} from the shopping list."
 msgstr "Tog bort %{name} från inköpslistan."
+
+#: lib/tore/home.ex:386
+#, elixir-autogen, elixir-format
+msgid "Dinner tonight?"
+msgstr "Middag ikväll?"
+
+#: lib/tore/home.ex:393
+#, elixir-autogen, elixir-format
+msgid "Make the list"
+msgstr "Gör listan"
+
+#: lib/tore/home.ex:394
+#, elixir-autogen, elixir-format
+msgid "Make the shopping list from this week's plan"
+msgstr "Gör inköpslistan från veckans plan"
+
+#: lib/tore/home.ex:382
+#: lib/tore/home.ex:382
+#, elixir-autogen, elixir-format
+msgid "Plan next week"
+msgstr "Planera nästa vecka"
+
+#: lib/tore/home.ex:378
+#, elixir-autogen, elixir-format
+msgid "Shopping list"
+msgstr "Inköpslistan"
+
+#: lib/tore/home.ex:377
+#, elixir-autogen, elixir-format
+msgid "This week's plan"
+msgstr "Veckans plan"
+
+#: lib/tore/home.ex:385
+#, elixir-autogen, elixir-format
+msgid "What should we have for dinner tonight?"
+msgstr "Vad ska vi äta ikväll?"

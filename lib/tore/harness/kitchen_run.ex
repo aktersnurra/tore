@@ -16,7 +16,7 @@ defmodule Tore.Harness.KitchenRun do
     internal_error interrupted ai_unavailable budget_exceeded
     slot_pinned slot_eating_out servings_missing skip_not_explicit leftover_no_source dietary_violation
     invalid_servings missing_store missing_date missing_total date_in_future sum_mismatch
-    missing_provenance negative_quantity last_seen_regressed
+    missing_provenance negative_quantity last_seen_regressed invalid_home_pick
     missing_title missing_instructions no_ingredients empty_ingredient_name near_duplicate
     memory_rejected unknown_ingredient
   )a

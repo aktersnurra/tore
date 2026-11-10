@@ -3,6 +3,7 @@ defmodule Tore.Harness.Kinds do
 
   # Tests add kinds of their own through config.
   @modules [
+             Tore.Harness.Kinds.HomePick,
              Tore.Harness.Kinds.MemoryReview,
              Tore.Harness.Kinds.MemoryUpdate,
              Tore.Harness.Kinds.PantryUpdate,
