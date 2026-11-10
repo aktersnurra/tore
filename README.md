@@ -101,7 +101,7 @@ OPENROUTER_CHECK_MODEL=openai/gpt-oss-120b:free
 DECISIONS_MODEL=typesafe/jev-1.14
 ```
 
-Times such as "Saturday morning" use the server's clock, so set `TZ` to the household's time zone.
+Dates and times such as "today" and "Saturday morning" use the server's local clock (`Tore.Clock`), so set `TZ` to the household's time zone.
 
 ### Signing in with Pocket ID
 

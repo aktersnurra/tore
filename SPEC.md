@@ -849,9 +849,9 @@ is the latest applied `:home_pick_run` (`Tore.Home`):
   one per ten minutes per household, and never without AI. There's no cron.
 - **The fixed rule.** A review waiting → Review; Saturday before 14:00 → Shop; Sunday from 16:00 →
   Plan; otherwise Today. Its swaps open the other main screens.
-- **Times** are the server's local clock: set `TZ` to the household's time zone. The rest of the
-  app still uses UTC dates, so the two can disagree about "tonight" for an hour or two after
-  local midnight.
+- **Times** come from `Tore.Clock`, the server's local clock: set `TZ` to the household's time
+  zone. Every calendar date in the app (today, this week, tonight, a receipt's or a pantry item's
+  date) comes from it, so the pick and the screens agree on the day. Stored timestamps stay UTC.
 
 A stored pick is narrowed when it is read, so it never opens on a review that has been handled.
 A household that can't use the model now gets the fixed rule, not its last pick.
@@ -865,8 +865,9 @@ navigation bars:
   the next pick. A swap opens a screen or sends a request to Capture. The swap for the screen
   already shown is left out.
 - The chat box. Sending opens Capture with the text, which Capture sends once and then drops
-  from the URL, so a reconnect or reload doesn't send it again. Capture's Close returns to the
-  screen it was opened from.
+  from the URL, so a reconnect or reload doesn't send it again. The bar signs the request for
+  that person (`CaptureLive.request_path/3`, valid a minute), so a link from anywhere else can't
+  make Capture act. Capture's Close returns to the page it was opened from, query string and all.
 - ≡ opens a menu of every page, with the number of reviews waiting. It works without AI.
 
 ### Today (`/today`)
@@ -960,6 +961,7 @@ lib/tore/
   streams.ex                 # event stream ids per household and week
   household.ex               # canonical household context (preferences, language, sponsor, each_scope)
   home.ex                    # where the app opens: facts, the fixed rule, the stored pick, swaps
+  clock.ex                   # the household's clock: now/0 and today/0 from the server's local time
   household/
     memory.ex                # profile and notes: snapshot, stores, write, forget, restore
     memory/ops.ex            # the pure batch check: plan/3 and the content rules
