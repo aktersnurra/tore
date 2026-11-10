@@ -2,6 +2,7 @@ defmodule ToreWeb.HomeControllerTest do
   use ToreWeb.ConnCase, async: false
 
   import Mox
+  import Ecto.Query, only: [from: 2]
 
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.HomePick
@@ -16,7 +17,9 @@ defmodule ToreWeb.HomeControllerTest do
   end
 
   test "opens the stored pick without a model call", %{conn: conn} do
-    {:ok, _} =
+    Phoenix.PubSub.subscribe(Tore.PubSub, Runs.topic(home_scope()))
+
+    {:ok, %KitchenRun{id: stored}} =
       Runs.submit(
         home_scope(),
         Kinds.HomePick,
@@ -24,7 +27,26 @@ defmodule ToreWeb.HomeControllerTest do
         %{}
       )
 
+    # Fresh, but opened before refresh's ten-minute limit, so only the controller's check holds it.
+    twenty_minutes_ago = DateTime.add(DateTime.utc_now(), -20, :minute)
+
+    Tore.Repo.update_all(
+      from(r in KitchenRun, where: r.id == ^stored),
+      [set: [opened_at: twenty_minutes_ago, applied_at: twenty_minutes_ago]],
+      household_id: 1
+    )
+
     assert conn |> get(~p"/") |> redirected_to() == ~p"/shop"
+    # A fresh pick starts no new one: a stray call would open a run of its own and say so here.
+    Process.sleep(300)
+    {:messages, messages} = Process.info(self(), :messages)
+
+    assert for(
+             {:run_changed, %KitchenRun{kind: "home_pick_run", id: id}} <- messages,
+             uniq: true,
+             do: id
+           ) ==
+             [stored]
   end
 
   test "without a pick, opens the fixed rule's screen and starts one in the background", %{

@@ -15,6 +15,8 @@ defmodule ToreWeb.ChatBarLiveTest do
 
   defp bar(view), do: find_live_child(view, "chat-bar")
 
+  defp query(path), do: path |> URI.parse() |> Map.fetch!(:query) |> URI.decode_query()
+
   defp store_pick(swaps) do
     {:ok, _} =
       Runs.submit(
@@ -64,7 +66,7 @@ defmodule ToreWeb.ChatBarLiveTest do
     assert {:error, {:live_redirect, %{to: to}}} =
              bar(view) |> element(~s([data-role="swap"]), "Planera nästa vecka") |> render_click()
 
-    assert to == ~p"/capture?#{[q: "Planera nästa vecka", return_to: "/plan"]}"
+    assert %{"q" => "Planera nästa vecka", "return_to" => "/plan", "t" => _signed} = query(to)
   end
 
   test "the chat box sends what was typed to Capture", %{conn: conn} do
@@ -74,7 +76,17 @@ defmodule ToreWeb.ChatBarLiveTest do
     assert {:error, {:live_redirect, %{to: to}}} =
              bar(view) |> form("form", %{"message" => "  lägg till mjölk "}) |> render_submit()
 
-    assert to == ~p"/capture?#{[q: "lägg till mjölk", return_to: "/shop"]}"
+    assert %{"q" => "lägg till mjölk", "return_to" => "/shop", "t" => _signed} = query(to)
+  end
+
+  test "Capture returns to the page with its query string", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/shop")
+    render_hook(bar(view), "here", %{"path" => "/runs/run-1", "search" => "?from=%2F"})
+
+    assert {:error, {:live_redirect, %{to: to}}} =
+             bar(view) |> form("form", %{"message" => "hej"}) |> render_submit()
+
+    assert %{"return_to" => "/runs/run-1?from=%2F"} = query(to)
   end
 
   test "the menu lists every page and the reviews waiting", %{conn: conn} do

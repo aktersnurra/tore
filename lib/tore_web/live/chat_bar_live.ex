@@ -5,7 +5,7 @@ defmodule ToreWeb.ChatBarLive do
   It is a sticky LiveView in `Layouts.app`, so it and its swaps survive live navigation. It
   isn't routed, so it can't see the page's URL: a hook reports `location.pathname` after every
   navigation, which keeps the menu's current page marked, leaves out the swap that opens the
-  page already shown, and sends Capture back here when it closes.
+  page already shown, and sends Capture back here, query string and all, when it closes.
 
   The swaps are the stored pick's (`Tore.Home.current/1`), until a Capture turn suggests its own
   (`{:quick_swaps, swaps}` on `Tore.Home.swaps_topic/1`), which last until the next pick.
@@ -29,7 +29,13 @@ defmodule ToreWeb.ChatBarLive do
 
         {:ok,
          socket
-         |> assign(current_scope: scope, path: "/", menu_open: false, suggested?: false)
+         |> assign(
+           current_scope: scope,
+           path: "/",
+           return_to: "/",
+           menu_open: false,
+           suggested?: false
+         )
          |> load(), layout: false}
 
       nil ->
@@ -47,8 +53,10 @@ defmodule ToreWeb.ChatBarLive do
   end
 
   @impl true
-  def handle_event("here", %{"path" => path}, socket) when is_binary(path),
-    do: {:noreply, assign(socket, path: path, menu_open: false)}
+  def handle_event("here", %{"path" => path} = here, socket) when is_binary(path),
+    do:
+      {:noreply,
+       assign(socket, path: path, return_to: path <> (here["search"] || ""), menu_open: false)}
 
   def handle_event("toggle_menu", _params, socket),
     do: {:noreply, update(socket, :menu_open, &(not &1))}
@@ -79,7 +87,13 @@ defmodule ToreWeb.ChatBarLive do
   def handle_info({:quick_swaps, swaps}, socket),
     do: {:noreply, assign(socket, swaps: swaps, suggested?: true)}
 
-  defp capture(socket, text), do: ~p"/capture?#{[q: text, return_to: socket.assigns.path]}"
+  defp capture(socket, text),
+    do:
+      ToreWeb.CaptureLive.request_path(
+        socket.assigns.current_scope.user_id,
+        text,
+        socket.assigns.return_to
+      )
 
   defp shown_swaps(%{swaps: swaps, path: path}), do: Enum.reject(swaps, &here?(&1, path))
 
@@ -194,7 +208,8 @@ defmodule ToreWeb.ChatBarLive do
     <script :type={Phoenix.LiveView.ColocatedHook} name=".Here">
       export default {
         mounted() {
-          this.report = () => this.pushEvent("here", {path: window.location.pathname})
+          this.report = () =>
+            this.pushEvent("here", {path: window.location.pathname, search: window.location.search})
           this.report()
           window.addEventListener("phx:page-loading-stop", this.report)
         },

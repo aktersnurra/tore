@@ -3,6 +3,28 @@ defmodule ToreWeb.CaptureLive do
 
   alias Tore.Capture.Router
 
+  @request_salt "capture request"
+  @request_max_age 60
+
+  @doc """
+  Capture's path with `text` to send as soon as it opens, for this user only. The request is
+  signed and lasts a minute, so a link from anywhere else can't make Capture act for someone.
+  """
+  @spec request_path(integer(), String.t(), String.t()) :: String.t()
+  def request_path(user_id, text, return_to) do
+    token = Phoenix.Token.sign(ToreWeb.Endpoint, @request_salt, {user_id, text})
+    ~p"/capture?#{[q: text, t: token, return_to: return_to]}"
+  end
+
+  defp signed_request(%{"q" => text, "t" => token}, user_id) when is_binary(text) do
+    case Phoenix.Token.verify(ToreWeb.Endpoint, @request_salt, token, max_age: @request_max_age) do
+      {:ok, {^user_id, ^text}} -> {:ok, text}
+      _invalid -> :none
+    end
+  end
+
+  defp signed_request(_params, _user_id), do: :none
+
   @impl true
   def mount(params, _session, socket) do
     return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
@@ -17,14 +39,15 @@ defmodule ToreWeb.CaptureLive do
       )
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
-    # The chat bar opens Capture with what was typed in it, or a swap's request, as `q`.
-    if connected?(socket) and is_binary(params["q"]) and String.trim(params["q"]) != "",
-      do: send(self(), {:send_message, params["q"]})
+    # The chat bar opens Capture with what was typed in it, or a swap's request (`request_path/3`).
+    with true <- connected?(socket),
+         {:ok, text} <- signed_request(params, socket.assigns.current_user.id),
+         do: send(self(), {:send_message, text})
 
     {:ok, socket}
   end
 
-  # Only the patch that drops `q` from the URL lands here; mount has already read the params.
+  # Only the patch that drops the request from the URL lands here; mount has already read the params.
   @impl true
   def handle_params(_params, _url, socket), do: {:noreply, socket}
 
