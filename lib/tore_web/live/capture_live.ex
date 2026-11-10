@@ -177,7 +177,11 @@ defmodule ToreWeb.CaptureLive do
           >
             <p class="text-sm text-[color:var(--text)] mb-2">{msg.text}</p>
             <.link
-              href={~p"/review"}
+              href={
+                if msg[:stream_id],
+                  do: ~p"/runs/#{msg.stream_id}?from=/capture",
+                  else: ~p"/review"
+              }
               class="text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
             >
               {gettext("Review")} →

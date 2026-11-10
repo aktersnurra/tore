@@ -176,6 +176,7 @@ defmodule Tore.Harness.Kinds.Planner do
       prep_time_minutes: proposal.prep_time_minutes,
       cook_time_minutes: proposal.cook_time_minutes,
       source_url: proposal.source_url,
+      steps: proposal.steps,
       created_by: user_id,
       tags: proposal.tags,
       ingredients: Enum.map(proposal.ingredients, &ingredient_attrs/1)

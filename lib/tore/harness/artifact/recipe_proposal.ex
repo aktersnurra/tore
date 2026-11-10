@@ -38,6 +38,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     :instruction,
     :pending_assignment,
     :image_url,
+    :steps,
     ingredients: [],
     tags: []
   ]
@@ -66,24 +67,30 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
           source_recipe_id: integer() | nil,
           instruction: String.t() | nil,
           pending_assignment: pending_assignment() | nil,
-          image_url: String.t() | nil
+          image_url: String.t() | nil,
+          steps: String.t() | nil
         }
 
-  @doc "A proposal from recipe attrs as `Tore.Recipes` parses them from a page or photos."
+  @doc """
+  A proposal from recipe attrs as `Tore.Recipes` parses them from a page or photos. A recipe that
+  doesn't say how many it serves is taken to serve 4, as the review can't edit it. A photo's
+  picture is never fetched: any address in it is only what the model read or made up.
+  """
   @spec from_attrs(map(), :web_import | :photo, String.t() | nil) :: t()
   def from_attrs(attrs, source, source_url) do
     %__MODULE__{
       title: attrs[:title],
       description: attrs[:description],
       instructions: attrs[:instructions],
-      base_servings: attrs[:base_servings],
+      base_servings: attrs[:base_servings] || 4,
       prep_time_minutes: attrs[:prep_time_minutes],
       cook_time_minutes: attrs[:cook_time_minutes],
       ingredients: Enum.map(attrs[:ingredients] || [], &attrs_ingredient/1),
       tags: attrs[:tags] || [],
       source: source,
       source_url: source_url,
-      image_url: attrs[:image_url]
+      image_url: if(source == :photo, do: nil, else: attrs[:image_url]),
+      steps: attrs[:steps]
     }
   end
 
@@ -130,7 +137,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       "source_recipe_id" => proposal.source_recipe_id,
       "instruction" => proposal.instruction,
       "pending_assignment" => pending_to_json(proposal.pending_assignment),
-      "image_url" => proposal.image_url
+      "image_url" => proposal.image_url,
+      "steps" => proposal.steps
     }
   end
 
@@ -150,7 +158,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       source_recipe_id: json["source_recipe_id"],
       instruction: json["instruction"],
       pending_assignment: pending_from_json(json["pending_assignment"]),
-      image_url: json["image_url"]
+      image_url: json["image_url"],
+      steps: json["steps"]
     }
   end
 

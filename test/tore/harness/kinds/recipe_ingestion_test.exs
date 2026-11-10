@@ -53,13 +53,29 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
            } = Runs.get(home_scope(), id)
 
     {:ok, %KitchenRun{status: :applied}} = Runs.confirm(home_scope(), id, proposal)
-    assert titles() == ["Morotssoppa"]
+    assert [recipe] = Recipes.list(home_scope())
+    assert recipe.title == "Morotssoppa"
+    assert [%{"action" => "Koka."}] = Tore.Recipes.Recipe.decode_steps(recipe)
 
     {:ok, _} = Runs.revert(home_scope(), id)
     assert titles() == []
   end
 
+  test "a photo with no servings is taken to serve 4, and its picture isn't fetched", %{
+    ctx: ctx
+  } do
+    raw = @soup |> Map.put("base_servings", nil) |> Map.put("image_url", "https://evil.example/x")
+    expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, raw, @usage} end)
+
+    %{stream_id: id} = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
+
+    assert %KitchenRun{status: :needs_user, artifacts: [proposal]} = Runs.get(home_scope(), id)
+    assert %RecipeProposal{base_servings: 4, image_url: nil} = proposal
+  end
+
   test "a linked recipe keeps the page's picture", %{ctx: ctx} do
+    Tore.Storage.Mock.reset()
+
     page = """
     <html><head><script type="application/ld+json">
     {"@type": "Recipe", "name": "Morotssoppa", "image": "https://example.com/soppa.jpg",
@@ -73,9 +89,9 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
       "https://example.com/soppa" ->
         {:ok, page}
 
-      url ->
-        send(test_pid, {:fetched, url})
-        {:error, :not_found}
+      "https://example.com/soppa.jpg" ->
+        send(test_pid, :picture_fetched)
+        {:ok, <<255, 216, 255, 0>>}
     end)
 
     expect(Tore.MockLLM, :text, fn _, _, _ ->
@@ -89,7 +105,17 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     assert proposal.image_url == "https://example.com/soppa.jpg"
 
     {:ok, _} = Runs.confirm(home_scope(), id, proposal)
-    assert_receive {:fetched, "https://example.com/soppa.jpg"}, 1000
+    assert_receive :picture_fetched, 1000
+    [recipe] = Recipes.list(home_scope())
+    assert eventually(fn -> Recipes.get(home_scope(), recipe.id).image_path end)
+  end
+
+  defp eventually(fun, tries \\ 50) do
+    cond do
+      value = fun.() -> value
+      tries == 0 -> nil
+      true -> Process.sleep(10) && eventually(fun, tries - 1)
+    end
   end
 
   test "a recipe already in the catalogue is refused", %{ctx: ctx} do

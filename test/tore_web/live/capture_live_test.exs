@@ -150,6 +150,14 @@ defmodule ToreWeb.CaptureLiveTest do
     assert items == %{}
   end
 
+  test "a reply waiting for review links to its own run, and back to Capture", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, "/capture")
+    reply = %{role: :assistant, review_link: true, stream_id: "run-abc", text: "Titta igenom"}
+    send(lv.pid, {:route_complete, {:ok, [reply]}})
+
+    assert has_element?(lv, ~s(a[href="/runs/run-abc?from=/capture"]))
+  end
+
   describe "the memory tool" do
     @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
 
@@ -188,7 +196,7 @@ defmodule ToreWeb.CaptureLiveTest do
       assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
     end
 
-    test "an allergy is refused and points to Preferences", %{conn: conn} do
+    test "an allergy is refused and points to the kitchen page", %{conn: conn} do
       say_and_note("Anna är allergisk mot nötter.", self())
       {:ok, lv, _html} = live(conn, "/capture")
 

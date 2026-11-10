@@ -16,6 +16,7 @@ defmodule Tore.Capture.Dispatch do
   alias Tore.Harness.Artifact.{CostEntry, MemoryBatch, PantryBeliefUpdate}
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds
+  alias Tore.Household.Memory
   alias Tore.Pantry
   alias Tore.Planning
   alias Tore.Recipes
@@ -133,12 +134,16 @@ defmodule Tore.Capture.Dispatch do
   end
 
   defp recipe_bubble({:ok, %KitchenRun{failure_code: :near_duplicate}}),
-    do: %{role: :assistant, text: gettext("That looks like a recipe you already have.")}
+    do: %{
+      role: :assistant,
+      error: true,
+      text: gettext("That looks like a recipe you already have.")
+    }
 
   defp recipe_bubble({:ok, %KitchenRun{failure_code: code}}) do
     require Logger
     Logger.info("Capture recipe ingestion failed its check: #{inspect(code)}")
-    %{role: :assistant, text: gettext("I couldn't read a whole recipe from that.")}
+    %{role: :assistant, error: true, text: gettext("I couldn't read a whole recipe from that.")}
   end
 
   defp recipe_bubble({:error, reason}), do: error_bubble(:recipe, reason)
@@ -726,16 +731,21 @@ defmodule Tore.Capture.Dispatch do
   doesn't fit opens no run: the model gets the rejection to try again, and the person sees
   nothing, unless it was an allergy, which belongs on the kitchen page instead.
   """
-  @spec memory(String.t(), list(), ctx()) :: bubble()
+  @spec memory(term(), term(), ctx()) :: bubble()
   def memory(target, operations, ctx) do
     batch = %MemoryBatch{target: target, operations: operations}
 
     case Kinds.MemoryReview.check(scope(ctx), [batch]) do
       :ok ->
         case Runs.submit(scope(ctx), Kinds.MemoryUpdate, [batch], %{batch: batch}) do
-          {:ok, %KitchenRun{status: :applied} = run} -> memory_bubble(run)
-          {:ok, %KitchenRun{failure_code: code}} -> error_bubble(:memory, code)
-          {:error, reason} -> error_bubble(:memory, reason)
+          {:ok, %KitchenRun{status: :applied} = run} ->
+            run |> memory_bubble() |> Map.put(:memory, Memory.snapshot(scope(ctx)))
+
+          {:ok, %KitchenRun{failure_code: code}} ->
+            error_bubble(:memory, code)
+
+          {:error, reason} ->
+            error_bubble(:memory, reason)
         end
 
       {:error, %{"refused" => "allergy"} = rejection} ->
@@ -893,6 +903,6 @@ defmodule Tore.Capture.Dispatch do
     require Logger
     Logger.warning("Capture.Dispatch #{kind} failed: #{inspect(reason)}")
 
-    %{role: :assistant, text: gettext("Something went wrong. Please try again.")}
+    %{role: :assistant, error: true, text: gettext("Something went wrong. Please try again.")}
   end
 end

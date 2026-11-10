@@ -278,10 +278,9 @@ defmodule Tore.Capture.Router do
     {:ok, [Dispatch.import_recipe_from_url(url, ctx)]}
   end
 
-  defp run_call(%{name: "memory", args: %{"target" => target, "operations" => ops}}, _, _, ctx)
-       when is_binary(target) and is_list(ops) do
-    {:ok, [Dispatch.memory(target, ops, ctx)]}
-  end
+  # A malformed batch is Ops' to refuse, so the model hears why.
+  defp run_call(%{name: "memory", args: args}, _, _, ctx),
+    do: {:ok, [Dispatch.memory(args["target"], args["operations"], ctx)]}
 
   defp run_call(%{name: "remove_shopping_item", args: %{"name" => name}}, _, _, ctx)
        when is_binary(name),
@@ -870,9 +869,16 @@ defmodule Tore.Capture.Router do
   defp tool_result_payload("list_receipts", bubble),
     do: %{status: "ok", receipts: bubble[:receipts] || []}
 
-  # A rejected batch goes back whole, so the model can correct it and call again.
+  # A rejected batch goes back whole, so the model can correct it and call again. A saved one
+  # comes back with the memory as it now is, since the prompt's copy is from before the turn.
   defp tool_result_payload("memory", %{rejection: rejection} = bubble),
     do: %{status: "rejected", rejection: rejection, message: bubble[:text]}
+
+  defp tool_result_payload("memory", %{memory: memory} = bubble),
+    do: %{status: "ok", message: bubble[:text], memory: memory}
+
+  defp tool_result_payload(_name, %{error: true} = bubble),
+    do: %{status: "error", message: bubble[:text]}
 
   defp tool_result_payload(_name, bubble) do
     %{status: "ok", message: bubble[:text] || ""}
