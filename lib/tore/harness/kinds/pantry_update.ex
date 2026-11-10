@@ -5,7 +5,9 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   `:image_binary` for a photo or `:items` otherwise. An item with an `:item_id` removes that row.
 
   `resolve` sends photographed and checked-off names through the LLM canonicaliser (a name typed
-  by hand is kept as typed, with no model call), and `verify` refuses an answer that
+  by hand is kept as typed, with no model call). A household that can't use the model now keeps
+  checked-off names as written too, so `Tore.Pantry.upsert_belief/2` lands each on the ingredient
+  with that name or a new one. `verify` refuses an answer that
   names a catalogue ingredient the household doesn't have, so an invented key never creates one.
   It applies straight away, and undo puts each item back as it was.
   """
@@ -44,19 +46,20 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   def resolve(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do
     # Only additions read by the model need a catalogue name. Someone typing a name says what
     # they mean, as before runs, and a removal names a row already there.
-    case for(
-           %{change: :added, provenance: p, name: name} <- items,
-           p != "manual",
-           do: %{raw_name: name}
-         ) do
-      [] ->
-        {:ok, update}
+    # Without the model, a checked-off name is kept as written, as one typed by hand is. A shelf
+    # photo never gets this far without it.
+    raws =
+      for %{change: :added, provenance: p, name: name} <- items,
+          p != "manual",
+          do: %{raw_name: name}
 
-      raws ->
-        with {:ok, norms} <- Pantry.canonicalise(scope, raws, Household.locale(scope)) do
-          by_name = Map.new(norms, &{&1.raw_name, &1})
-          {:ok, %{update | items: Enum.map(items, &resolved(&1, by_name[&1.name]))}}
-        end
+    if raws == [] or Tore.LLM.check(scope) != :ok do
+      {:ok, update}
+    else
+      with {:ok, norms} <- Pantry.canonicalise(scope, raws, Household.locale(scope)) do
+        by_name = Map.new(norms, &{&1.raw_name, &1})
+        {:ok, %{update | items: Enum.map(items, &resolved(&1, by_name[&1.name]))}}
+      end
     end
   end
 

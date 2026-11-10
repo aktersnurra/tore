@@ -15,6 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Capture can suggest the next steps for the bar with a `quick_swaps` tool. They're not stored; the next pick replaces them.
 - Today moved from `/` to `/today`.
 - Every calendar date comes from `Tore.Clock`, the server's local clock, instead of UTC, so the pick and every screen agree on the day after local midnight. Set `TZ` to the household's time zone.
+- With AI off, checking off a shopping item adds it to the pantry again, keeping its name as written.
 - Capture only sends a request it was opened with when the chat bar signed it for that person in the last minute, and it drops the request from the URL once sent.
 
 ### Run core and household memory

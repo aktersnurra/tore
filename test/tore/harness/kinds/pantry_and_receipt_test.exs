@@ -94,6 +94,25 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       assert id == mjolk.id
     end
 
+    test "without AI, a ticked item lands on the ingredient with its name, or is kept as written" do
+      unsponsored = scope_fixture(household_fixture())
+
+      {:ok, mjolk} =
+        %Ingredient{household_id: unsponsored.household_id}
+        |> Ingredient.changeset(%{name: "Mjölk", key: "mjolk"})
+        |> Repo.insert()
+
+      assert {:ok, %KitchenRun{status: :applied}} =
+               Runs.start(unsponsored, PantryUpdate, %{
+                 channel: :grocery_checkoff,
+                 items: [%{name: "mjölk"}, %{name: "Gräddfil"}]
+               })
+
+      rows = Pantry.list_inventory(unsponsored)
+      assert Enum.any?(rows, &(&1.ingredient_id == mjolk.id))
+      assert "gräddfil" in Enum.map(rows, & &1.name)
+    end
+
     test "an invented catalogue key fails the run and creates no ingredient" do
       canonicalise(["gräddfil"], %{"gräddfil" => {"Gräddfil", "invented_key"}})
 

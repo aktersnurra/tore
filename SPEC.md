@@ -733,7 +733,7 @@ Three channels update the pantry through a `:pantry_belief_update_run`: a grocer
 through Capture, and a manual add or removal through Capture. Receipts are not a channel (§5).
 
 - **Capsules:** `PantryBeliefsCapsule` (the current state, framed as belief).
-- **Tools:** vision prompt `parse_pantry_image` for photos; none for a grocery check-off, which is deterministic.
+- **Tools:** vision prompt `parse_pantry_image` for photos; the canonicaliser for photographed and checked-off names. A household that can't use the model keeps a checked-off name as written, so it lands on the ingredient with that name or a new one.
 - **Artifact:** `PantryBeliefUpdate` (items added or removed, each with `provenance`: `grocery_checkoff`, `vision` or `manual`). Undo puts each touched row's before-image back.
 - **Verifier:** `PantryVerifier`.
 - **Tier:** 1 — every channel applies straight away with undo. No review card.
