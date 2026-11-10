@@ -87,12 +87,15 @@ defmodule ToreWeb.CaptureLive do
   defp photo_label(1), do: gettext("1 photo")
   defp photo_label(n), do: gettext("%{n} photos", n: n)
 
+  # A reply meant only for the model, such as a rejected memory batch, has no text.
+  defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
+
   @impl true
   def handle_info({:route_complete, {:ok, bubbles}}, socket) do
     {:noreply,
      socket
      |> assign(:loading, false)
-     |> update(:messages, &(&1 ++ bubbles))}
+     |> update(:messages, &(&1 ++ shown(bubbles)))}
   end
 
   def handle_info({:route_complete, {:error, _reason}}, socket) do
@@ -214,11 +217,19 @@ defmodule ToreWeb.CaptureLive do
             class={[
               "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed flex flex-col gap-1",
               msg.role == :user && "bg-[color:var(--accent)] text-white",
-              msg.role == :assistant &&
-                "bg-[var(--surface)] border border-[color:var(--border)] text-[color:var(--text)]"
+              msg.role == :assistant && "bg-[var(--surface)] border border-[color:var(--border)]",
+              msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
+              Map.get(msg, :quiet) && "text-[color:var(--muted)] whitespace-pre-line"
             ]}
           >
             <span>{msg.text}</span>
+            <.link
+              :if={Map.get(msg, :kitchen_link)}
+              navigate={~p"/cooking"}
+              class="self-start text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
+            >
+              {gettext("Open the kitchen page")} →
+            </.link>
             <button
               :if={Map.get(msg, :run_stream_id) && !Map.get(msg, :reverted)}
               type="button"

@@ -128,7 +128,12 @@ defmodule Tore.Harness.Kinds.MemoryReview do
     end)
   end
 
-  defp check(scope, batches) do
+  @doc """
+  `:ok` when `batches` fit the memory as it is now, or the rejection to hand back to the model:
+  the error, the current entries and usage, and what was closest.
+  """
+  @spec check(Tore.Scope.t(), [MemoryBatch.t()]) :: :ok | {:error, map()}
+  def check(scope, batches) do
     targets = Enum.map(batches, & &1.target)
 
     if targets != Enum.uniq(targets) do

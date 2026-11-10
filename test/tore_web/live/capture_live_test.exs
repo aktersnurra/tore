@@ -2,6 +2,7 @@ defmodule ToreWeb.CaptureLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
   import Mox
+  import Ecto.Query, only: [from: 2]
 
   setup :verify_on_exit!
   setup :set_mox_from_context
@@ -124,6 +125,66 @@ defmodule ToreWeb.CaptureLiveTest do
 
     html2 = render(lv)
     assert html2 =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
+  end
+
+  describe "the memory tool" do
+    @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
+
+    # The model saves `content` as a note, then replies once it has the tool's answer.
+    defp say_and_note(content, test_pid) do
+      call = %{
+        id: "call_1",
+        name: "memory",
+        args: %{"target" => "notes", "operations" => [%{"action" => "add", "content" => content}]}
+      }
+
+      Tore.MockLLM
+      |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:tool_calls, [call]}, @usage} end)
+      |> expect(:chat_with_tools, fn _, msgs, _, _ ->
+        send(test_pid, {:tool_answer, List.last(msgs).content})
+        {:ok, {:message, "Okej."}, @usage}
+      end)
+    end
+
+    defp notes, do: home_scope() |> Tore.Household.Memory.list("notes") |> Enum.map(& &1.text)
+
+    test "a saved note shows 'Noted:' and undoes", %{conn: conn} do
+      say_and_note("Äter inte fisk på vardagar.", self())
+      {:ok, lv, _html} = live(conn, "/capture")
+
+      lv |> form("form", %{message: "vi har slutat äta fisk på vardagar"}) |> render_submit()
+      assert_receive {:tool_answer, answer}, 1000
+      assert answer =~ ~s("status":"ok")
+
+      eventually(fn -> render(lv) =~ "Noterat: Äter inte fisk på vardagar." end)
+      assert notes() == ["Äter inte fisk på vardagar."]
+
+      lv |> element("button", "Ångra") |> render_click()
+
+      assert notes() == []
+      assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
+    end
+
+    test "an allergy is refused and points to Preferences", %{conn: conn} do
+      say_and_note("Anna är allergisk mot nötter.", self())
+      {:ok, lv, _html} = live(conn, "/capture")
+
+      lv |> form("form", %{message: "Anna är allergisk mot nötter"}) |> render_submit()
+      assert_receive {:tool_answer, answer}, 1000
+      assert answer =~ ~s("status":"rejected")
+      assert answer =~ ~s("refused":"allergy")
+
+      eventually(fn -> render(lv) =~ "Öppna kökssidan" end)
+      assert has_element?(lv, ~s(a[href="/cooking"]))
+      refute render(lv) =~ "Noterat"
+      assert notes() == []
+
+      assert [] =
+               Tore.Repo.all(
+                 from(r in Tore.Harness.KitchenRun, where: r.kind == "memory_update_run"),
+                 Tore.Scope.repo_opts(home_scope())
+               )
+    end
   end
 
   test "a shelf photo replies in the user's language and can be undone", %{conn: conn} do

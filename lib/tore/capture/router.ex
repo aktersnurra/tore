@@ -113,8 +113,15 @@ defmodule Tore.Capture.Router do
       }
     })
 
+    locale = Tore.Household.locale(Tore.Scope.for_household(ctx.household_id))
+
     system =
-      [@role_preamble, date_line(), Capsules.compose(@chat_capsules, chat_ctx(ctx))]
+      [
+        @role_preamble,
+        Tore.LLM.Prompts.capture_memory(locale),
+        date_line(),
+        Capsules.compose(@chat_capsules, chat_ctx(ctx))
+      ]
       |> Enum.reject(&(&1 == ""))
       |> Enum.join("\n\n")
 
@@ -263,6 +270,11 @@ defmodule Tore.Capture.Router do
   defp run_call(%{name: "import_recipe_from_url", args: %{"url" => url}}, _images, _count, ctx)
        when is_binary(url) do
     {:ok, [Dispatch.import_recipe_from_url(url, ctx)]}
+  end
+
+  defp run_call(%{name: "memory", args: %{"target" => target, "operations" => ops}}, _, _, ctx)
+       when is_binary(target) and is_list(ops) do
+    {:ok, [Dispatch.memory(target, ops, ctx)]}
   end
 
   defp run_call(%{name: "report_unrecognised_image", args: args}, _images, _count, _ctx) do
@@ -667,6 +679,35 @@ defmodule Tore.Capture.Router do
           required: ["date"],
           additionalProperties: false
         }
+      ),
+      tool(
+        "memory",
+        "Keep what the household tells you that will still matter next week, without being asked. " <>
+          "profile is who they cook for; notes is what has been learned and agreed. " <>
+          "add takes content; patch takes old_text and content; remove takes old_text.",
+        %{
+          type: "object",
+          properties: %{
+            target: %{type: "string", enum: ["profile", "notes"]},
+            operations: %{
+              type: "array",
+              minItems: 1,
+              maxItems: 10,
+              items: %{
+                type: "object",
+                properties: %{
+                  action: %{type: "string", enum: ["add", "patch", "remove"]},
+                  content: %{type: "string"},
+                  old_text: %{type: "string"}
+                },
+                required: ["action"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["target", "operations"],
+          additionalProperties: false
+        }
       )
     ]
   end
@@ -770,6 +811,10 @@ defmodule Tore.Capture.Router do
       message: bubble[:text]
     }
   end
+
+  # A rejected batch goes back whole, so the model can correct it and call again.
+  defp tool_result_payload("memory", %{rejection: rejection} = bubble),
+    do: %{status: "rejected", rejection: rejection, message: bubble[:text]}
 
   defp tool_result_payload(_name, bubble) do
     %{status: "ok", message: bubble[:text] || ""}

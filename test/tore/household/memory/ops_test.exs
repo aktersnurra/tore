@@ -90,7 +90,9 @@ defmodule Tore.Household.Memory.OpsTest do
           "Anna is allergic to nuts",
           "Lactose intolerant"
         ] do
-      assert {:error, %{"error" => error}} = Ops.plan("profile", [], [add(text)])
+      assert {:error, %{"error" => error, "refused" => "allergy"}} =
+               Ops.plan("profile", [], [add(text)])
+
       assert error =~ "preferences"
     end
 

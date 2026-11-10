@@ -15,7 +15,8 @@ defmodule Tore.Household.Memory.Ops do
   refused because `Preferences` holds them, where `PlanVerifier` enforces them; a note would
   look like a safety rule that nothing enforces. The store's limit is checked on the
   batch's result, so freeing space and adding go in one batch. A rejection carries the
-  current entries and usage, and the closest entries when nothing matched.
+  current entries and usage, the closest entries when nothing matched, and `"refused" =>
+  "allergy"` for an allergy, so Capture can point to where allergies go.
   """
 
   @stores ~w[profile notes]
@@ -215,7 +216,7 @@ defmodule Tore.Household.Memory.Ops do
       Regex.match?(@allergy, text) ->
         {:error,
          "content states an allergy or intolerance; those belong in the household's preferences, " <>
-           "where planning enforces them, so ask them to add it there"}
+           "where planning enforces them, so ask them to add it there", %{"refused" => "allergy"}}
 
       true ->
         {:ok, text}

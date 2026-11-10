@@ -758,6 +758,24 @@ defmodule Tore.LLM.Prompts do
     {system, name}
   end
 
+  @doc "What Capture's `memory` tool should keep, and how, with entries in the household's language."
+  def capture_memory(locale) do
+    language = Map.get(@locale_names, locale, "English")
+
+    """
+    Memory:
+      - The household's memory is in this prompt. When someone tells you something that will
+        still matter next week (a preference, a correction, a schedule change, an agreement),
+        call `memory` without asking. Skip what is only true today.
+      - When a fact changes, patch its entry rather than adding a second one, and remove what is
+        no longer true. Past 80% full, merge entries in the same batch you add to.
+      - Write each entry as one short fact in #{language}, with no internal ids (write "Monday
+        dinner", not mon_dinner).
+      - Never save an allergy or intolerance; those go on the kitchen page.
+      - If `memory` comes back rejected, correct the batch and call it again, or let it go.
+    """
+  end
+
   @doc """
   The weekly memory review. `memory` is the household's snapshot (nil when empty), `history` the
   planning summary, and `rejection` the previous answer's rejection, when retrying.

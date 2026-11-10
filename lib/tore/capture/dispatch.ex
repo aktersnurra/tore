@@ -12,7 +12,7 @@ defmodule Tore.Capture.Dispatch do
   use Gettext, backend: ToreWeb.Gettext
 
   alias Tore.Capture.Uploads
-  alias Tore.Harness.Artifact.{CostEntry, PantryBeliefUpdate}
+  alias Tore.Harness.Artifact.{CostEntry, MemoryBatch, PantryBeliefUpdate}
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds
   alias Tore.Pantry
@@ -641,6 +641,63 @@ defmodule Tore.Capture.Dispatch do
       text: gettext("%{day} is pinned, so I left it as it was.", day: long_day_for(date))
     }
   end
+
+  # ── memory ─────────────────────────────────────────────────────────────
+
+  @doc """
+  One batch of memory operations on `target` ("profile" or "notes"), saved through a memory
+  update run. The reply is a quiet "Noted:", "Updated:" or "Forgot:" line with Undo. A batch that
+  doesn't fit opens no run: the model gets the rejection to try again, and the person sees
+  nothing, unless it was an allergy, which belongs on the kitchen page instead.
+  """
+  @spec memory(String.t(), list(), ctx()) :: bubble()
+  def memory(target, operations, ctx) do
+    batch = %MemoryBatch{target: target, operations: operations}
+
+    case Kinds.MemoryReview.check(scope(ctx), [batch]) do
+      :ok ->
+        case Runs.submit(scope(ctx), Kinds.MemoryUpdate, [batch], %{batch: batch}) do
+          {:ok, %KitchenRun{status: :applied} = run} -> memory_bubble(run)
+          {:ok, %KitchenRun{failure_code: code}} -> error_bubble(:memory, code)
+          {:error, reason} -> error_bubble(:memory, reason)
+        end
+
+      {:error, %{"refused" => "allergy"} = rejection} ->
+        %{
+          role: :assistant,
+          kitchen_link: true,
+          rejection: rejection,
+          text:
+            gettext(
+              "I don't keep allergies as notes. Add it on the kitchen page, where every plan is checked against it."
+            )
+        }
+
+      {:error, rejection} ->
+        %{role: :assistant, text: "", rejection: rejection}
+    end
+  end
+
+  defp memory_bubble(%KitchenRun{artifacts: [%MemoryBatch{changes: []}]}),
+    do: %{role: :assistant, quiet: true, text: gettext("Already noted.")}
+
+  defp memory_bubble(%KitchenRun{id: id, artifacts: [%MemoryBatch{changes: changes}]}) do
+    %{
+      role: :assistant,
+      quiet: true,
+      run_stream_id: id,
+      text: Enum.map_join(changes, "\n", &memory_line/1)
+    }
+  end
+
+  defp memory_line(%{"kind" => "noted", "text" => text}),
+    do: gettext("Noted: %{text}", text: text)
+
+  defp memory_line(%{"kind" => "updated", "text" => text}),
+    do: gettext("Updated: %{text}", text: text)
+
+  defp memory_line(%{"kind" => "forgot", "text" => text}),
+    do: gettext("Forgot: %{text}", text: text)
 
   # ── unrecognised image ─────────────────────────────────────────────────
 

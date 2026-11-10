@@ -132,7 +132,7 @@ msgid "Choose a recipe"
 msgstr ""
 
 #: lib/tore_web/components/core_components.ex:913
-#: lib/tore_web/live/capture_live.ex:127
+#: lib/tore_web/live/capture_live.ex:130
 #: lib/tore_web/live/home_live.ex:113
 #: lib/tore_web/live/run_review_live.ex:265
 #: lib/tore_web/live/shop_live.ex:306
@@ -1124,7 +1124,7 @@ msgstr ""
 msgid "Ask"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:139
+#: lib/tore_web/live/capture_live.ex:142
 #, elixir-autogen, elixir-format
 msgid "Ask Tore"
 msgstr ""
@@ -1134,12 +1134,12 @@ msgstr ""
 msgid "Ask about tonight's plan..."
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:253
+#: lib/tore_web/live/capture_live.ex:264
 #, elixir-autogen, elixir-format
 msgid "Ask anything about meals, groceries…"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:270
+#: lib/tore_web/live/capture_live.ex:281
 #, elixir-autogen, elixir-format
 msgid "Attach photo"
 msgstr ""
@@ -1282,7 +1282,7 @@ msgid "Proposing"
 msgstr ""
 
 #: lib/tore_web/components/receipt_live.ex:56
-#: lib/tore_web/live/capture_live.ex:235
+#: lib/tore_web/live/capture_live.ex:246
 #, elixir-autogen, elixir-format
 msgid "Reverted"
 msgstr ""
@@ -1328,7 +1328,7 @@ msgstr ""
 msgid "Things Tore has learned"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:241
+#: lib/tore_web/live/capture_live.ex:252
 #: lib/tore_web/live/recipe_live.ex:722
 #, elixir-autogen, elixir-format
 msgid "Thinking…"
@@ -1508,7 +1508,7 @@ msgstr ""
 msgid "Open photo"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:206
+#: lib/tore_web/live/capture_live.ex:209
 #, elixir-autogen, elixir-format
 msgid "Open shopping list"
 msgstr ""
@@ -1539,8 +1539,8 @@ msgstr ""
 msgid "Probably missing"
 msgstr ""
 
-#: lib/tore/capture/router.ex:795
-#: lib/tore_web/live/capture_live.ex:101
+#: lib/tore/capture/router.ex:840
+#: lib/tore_web/live/capture_live.ex:104
 #, elixir-autogen, elixir-format
 msgid "Sorry, I couldn't process that. Please try again."
 msgstr ""
@@ -1550,7 +1550,7 @@ msgstr ""
 msgid "Tap to enlarge"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:229
+#: lib/tore_web/live/capture_live.ex:240
 #, elixir-autogen, elixir-format
 msgid "Undo"
 msgstr ""
@@ -1603,7 +1603,7 @@ msgstr ""
 msgid "Anything about this day…"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:701
+#: lib/tore/capture/dispatch.ex:758
 #, elixir-autogen, elixir-format
 msgid "I parsed a receipt."
 msgstr ""
@@ -1630,7 +1630,7 @@ msgstr ""
 msgid "Prep this week"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:160
+#: lib/tore_web/live/capture_live.ex:163
 #, elixir-autogen, elixir-format
 msgid "Review"
 msgstr ""
@@ -1650,7 +1650,7 @@ msgstr ""
 msgid "Tore can't read that store yet"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:684
+#: lib/tore/capture/dispatch.ex:741
 #, elixir-autogen, elixir-format
 msgid "You've already uploaded this photo."
 msgstr ""
@@ -1800,7 +1800,7 @@ msgstr ""
 msgid "I found: %{titles}."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:655
+#: lib/tore/capture/dispatch.ex:712
 #, elixir-autogen, elixir-format
 msgid "I wasn't sure what that photo showed. Could you tell me — is it a receipt, a recipe, or your fridge?"
 msgstr ""
@@ -1865,7 +1865,7 @@ msgstr ""
 msgid "Shopping list (%{n} items):"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:763
+#: lib/tore/capture/dispatch.ex:820
 #, elixir-autogen, elixir-format
 msgid "Something went wrong. Please try again."
 msgstr ""
@@ -1900,43 +1900,43 @@ msgstr ""
 msgid "Your shopping list is empty."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:731
+#: lib/tore/capture/dispatch.ex:788
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Friday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:727
+#: lib/tore/capture/dispatch.ex:784
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Monday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:732
+#: lib/tore/capture/dispatch.ex:789
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Saturday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:733
+#: lib/tore/capture/dispatch.ex:790
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Sunday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:730
+#: lib/tore/capture/dispatch.ex:787
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Thursday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:728
+#: lib/tore/capture/dispatch.ex:785
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Tuesday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:729
+#: lib/tore/capture/dispatch.ex:786
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Wednesday"
@@ -2326,4 +2326,34 @@ msgstr ""
 #: lib/tore/capture/dispatch.ex:135
 #, elixir-autogen, elixir-format
 msgid "That looks like a recipe you already have."
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:682
+#, elixir-autogen, elixir-format
+msgid "Already noted."
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:700
+#, elixir-autogen, elixir-format
+msgid "Forgot: %{text}"
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:671
+#, elixir-autogen, elixir-format
+msgid "I don't keep allergies as notes. Add it on the kitchen page, where every plan is checked against it."
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:694
+#, elixir-autogen, elixir-format
+msgid "Noted: %{text}"
+msgstr ""
+
+#: lib/tore_web/live/capture_live.ex:231
+#, elixir-autogen, elixir-format
+msgid "Open the kitchen page"
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:697
+#, elixir-autogen, elixir-format
+msgid "Updated: %{text}"
 msgstr ""
