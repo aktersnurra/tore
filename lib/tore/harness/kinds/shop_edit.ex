@@ -6,7 +6,8 @@ defmodule Tore.Harness.Kinds.ShopEdit do
 
   Undo is the inverse command: an added item is removed, a checked item unchecked. Building
   replaces the whole list, so it can't be undone. A checked-off item also goes into the pantry,
-  through a pantry run started after this one commits; undoing the check-off undoes that too.
+  through a pantry run of its own; undoing the check-off leaves the pantry as it is, and Capture
+  can remove the item there if it's wrong.
   """
 
   @behaviour Tore.Harness.Kind
@@ -72,7 +73,6 @@ defmodule Tore.Harness.Kinds.ShopEdit do
     [item] = change.items
 
     Runs.start(scope, Kinds.PantryUpdate, %{
-      parent_id: run.id,
       channel: :grocery_checkoff,
       items: [%{name: item["name"], quantity: decimal(item["quantity"]), unit: item["unit"]}]
     })
@@ -80,13 +80,7 @@ defmodule Tore.Harness.Kinds.ShopEdit do
     :ok
   end
 
-  def after_commit(%{status: :reverted} = run) do
-    scope = Scope.for_household(run.household_id)
-    for child <- Runs.applied_children(scope, run.id), do: {:ok, _} = Runs.revert(scope, child.id)
-    Shop.announce(scope)
-  end
-
-  def after_commit(%{status: :applied} = run),
+  def after_commit(%{status: status} = run) when status in [:applied, :reverted],
     do: Shop.announce(Scope.for_household(run.household_id))
 
   def after_commit(_run), do: :ok

@@ -120,13 +120,6 @@ defmodule Tore.Harness.Runs do
     end
   end
 
-  @doc "Applied runs that `run_id` started, such as the pantry run of a checked-off item."
-  @spec applied_children(Scope.t(), String.t()) :: [KitchenRun.t()]
-  def applied_children(%Scope{} = scope, run_id) do
-    from(r in KitchenRun, where: r.parent_id == ^run_id and r.status == :applied)
-    |> Repo.all(Scope.repo_opts(scope))
-  end
-
   @spec get(Scope.t(), String.t()) :: KitchenRun.t() | nil
   def get(%Scope{} = scope, run_id), do: Repo.get(KitchenRun, run_id, Scope.repo_opts(scope))
 
