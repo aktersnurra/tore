@@ -145,7 +145,7 @@ Every screen has the same bar at the bottom:
   stored pick, or from the last Capture turn until the next pick. The swap for the screen
   already shown is left out. They're plain chips: no AI iconography, no animation.
 - **The chat box** is the way to anything else. Sending opens Capture with the text;
-  Capture's Close returns exactly where you were.
+  Capture's Close returns to the screen you were on.
 - **≡** opens a sheet listing every page, with the number of reviews waiting. It's the
   escape hatch: fixed, and it works without AI.
 
@@ -159,7 +159,7 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 /plan          → Plan
 /shop          → Shop
 /capture       → Capture (routable for deep links; presents as a sheet)
-/cooking       → Cooking mode
+/cooking       → Household kitchen: diets and allergies (in the menu)
 /settings      → Settings
 /settings/pantry
 /settings/costs

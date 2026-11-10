@@ -116,7 +116,6 @@ defmodule Tore.HomeTest do
     test "leave out what makes no sense now" do
       refute :review in Home.screens_for(facts(reviews: 0))
       assert :review in Home.screens_for(facts(reviews: 1))
-      refute :cooking in Home.screens_for(facts(tonight: :eating_out))
 
       none = Home.swaps_for(facts(tonight: :planned, unplanned_next_week: 0, reviews: 0))
 
@@ -198,6 +197,20 @@ defmodule Tore.HomeTest do
 
       assert %{screen: :costs, swaps: [%{key: :open_shop}], stale?: false} =
                Home.current(scope, @tuesday_evening)
+    end
+
+    test "a household that can't use the model now gets the fixed rule, not its last pick" do
+      unsponsored = scope_fixture(household_fixture())
+
+      {:ok, _} =
+        Runs.submit(
+          unsponsored,
+          Kinds.HomePick,
+          %HomePick{screen: :plan, source: :model, swaps: []},
+          %{}
+        )
+
+      assert %{screen: :today, stale?: false} = Home.current(unsponsored, @tuesday_evening)
     end
 
     test "a pick older than an hour is stale" do

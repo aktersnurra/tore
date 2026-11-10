@@ -24,6 +24,10 @@ defmodule ToreWeb.CaptureLive do
     {:ok, socket}
   end
 
+  # Only the patch that drops `q` from the URL lands here; mount has already read the params.
+  @impl true
+  def handle_params(_params, _url, socket), do: {:noreply, socket}
+
   @impl true
   def handle_event("validate", _params, socket), do: {:noreply, socket}
 
@@ -115,8 +119,13 @@ defmodule ToreWeb.CaptureLive do
   defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
 
   @impl true
-  def handle_info({:send_message, text}, socket),
-    do: handle_event("send_message", %{"message" => text}, socket)
+  # Sent once: the request leaves the URL, so a reconnect, a reload or Back doesn't send it again.
+  def handle_info({:send_message, text}, socket) do
+    {:noreply, socket} = handle_event("send_message", %{"message" => text}, socket)
+
+    {:noreply,
+     push_patch(socket, to: ~p"/capture?#{[return_to: socket.assigns.return_to]}", replace: true)}
+  end
 
   def handle_info({:route_complete, {:ok, bubbles}}, socket) do
     {:noreply,

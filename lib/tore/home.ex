@@ -24,7 +24,7 @@ defmodule Tore.Home do
   alias Tore.Harness.Artifact.HomePick
   alias Tore.Harness.Capsules.WeekPlanCapsule
 
-  @screens [:today, :plan, :shop, :cooking, :review, :costs]
+  @screens [:today, :plan, :shop, :review, :costs]
   @swap_keys [
     :open_today,
     :open_plan,
@@ -40,7 +40,7 @@ defmodule Tore.Home do
   @stale_after_seconds 3600
   @refresh_every_seconds 600
 
-  @type screen :: :today | :plan | :shop | :cooking | :review | :costs
+  @type screen :: :today | :plan | :shop | :review | :costs
   @type swap_key ::
           :open_today
           | :open_plan
@@ -84,7 +84,6 @@ defmodule Tore.Home do
   def path(:today), do: "/today"
   def path(:plan), do: "/plan"
   def path(:shop), do: "/shop"
-  def path(:cooking), do: "/cooking"
   def path(:review), do: "/review"
   def path(:costs), do: "/settings/costs"
 
@@ -92,13 +91,17 @@ defmodule Tore.Home do
 
   @doc """
   The screen the app opens on and the swaps above the chat box: the stored pick, narrowed to
-  what makes sense now, or the fixed rule's when there's none. `stale?` says a new pick is due.
+  what makes sense now, or the fixed rule's when there's none or the household can't use the
+  model now (a stored pick would never be replaced). `stale?` says a new pick is due.
   """
   @spec current(Scope.t(), NaiveDateTime.t()) :: current()
   def current(%Scope{} = scope, now \\ now()) do
     facts = facts(scope, now)
 
-    case latest_pick(scope) do
+    case Tore.LLM.check(scope) == :ok and latest_pick(scope) do
+      false ->
+        facts |> fallback() |> resolve(false)
+
       nil ->
         facts |> fallback() |> resolve(true)
 
@@ -208,12 +211,11 @@ defmodule Tore.Home do
   defp tonight(%{status: :eating_out}), do: :eating_out
   defp tonight(_slot), do: :empty
 
-  @doc "The screens that make sense now: Review only with something waiting, Cooking only with a dinner planned."
+  @doc "The screens that make sense now: Review only with something waiting."
   @spec screens_for(facts()) :: [screen()]
   def screens_for(facts) do
     Enum.filter(@screens, fn
       :review -> facts.reviews > 0
-      :cooking -> facts.tonight == :planned
       _screen -> true
     end)
   end
@@ -348,7 +350,6 @@ defmodule Tore.Home do
   defp screen_criterion(:today), do: "Tonight's dinner, and starting to cook it."
   defp screen_criterion(:plan), do: "This week's or next week's dinners, to plan or change them."
   defp screen_criterion(:shop), do: "The shopping list, to buy groceries."
-  defp screen_criterion(:cooking), do: "Cooking tonight's recipe step by step."
 
   defp screen_criterion(:review),
     do:

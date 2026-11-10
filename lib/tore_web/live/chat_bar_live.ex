@@ -93,7 +93,7 @@ defmodule ToreWeb.ChatBarLive do
       {~p"/shop", gettext("Shop")},
       {~p"/recipes", gettext("Recipes")},
       {~p"/prep", gettext("Prep")},
-      {~p"/cooking", gettext("Cooking")},
+      {~p"/cooking", gettext("Household kitchen")},
       {~p"/review", ngettext("Review (%{count})", "Review (%{count})", reviews, count: reviews)},
       {~p"/settings/costs", gettext("Costs")},
       {~p"/settings/pantry", gettext("Pantry")},

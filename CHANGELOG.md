@@ -13,7 +13,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - A new decision tier: `Tore.LLM.decide/4` asks typed questions through OpenRouter's Decisions API, through the same gate and cost records as every other call. `DECISIONS_MODEL` and `DECISIONS_URL` configure it.
 - A chat bar at the bottom of every screen replaces the navigation bars and Today's review pill: up to three quick swaps, a chat box that opens Capture with what you typed, and a ≡ menu of every page with the reviews waiting.
 - Capture can suggest the next steps for the bar with a `quick_swaps` tool. They're not stored; the next pick replaces them.
-- Today moved from `/` to `/today`. Times use the server's clock: set `TZ`.
+- Today moved from `/` to `/today`. The pick uses the server's local clock, so set `TZ`; the rest of the app still uses UTC dates.
 
 ### Run core and household memory
 

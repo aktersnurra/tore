@@ -840,8 +840,7 @@ Plan links to "Prep this week". The page generates a guide from the week's plan 
 is the latest applied `:home_pick_run` (`Tore.Home`):
 
 - **The pick.** One Pattern C call asks the decision model a choice among the screens that make
-  sense now (Today, Plan, Shop, Cooking with a dinner planned, Review with something waiting,
-  Costs) and a yes/no per quick swap that makes sense now. The state it reads is worked out in
+  sense now (Today, Plan, Shop, Review with something waiting, Costs) and a yes/no per quick swap that makes sense now. The state it reads is worked out in
   code: weekday and time, tonight, what's unplanned this week and next, the list, the reviews
   waiting, this week's plan and the household memory. Below 0.6 confidence, or when the call fails
   for any reason but the gate, the run stores the fixed rule's pick.
@@ -850,9 +849,12 @@ is the latest applied `:home_pick_run` (`Tore.Home`):
   one per ten minutes per household, and never without AI. There's no cron.
 - **The fixed rule.** A review waiting → Review; Saturday before 14:00 → Shop; Sunday from 16:00 →
   Plan; otherwise Today. Its swaps open the other main screens.
-- **Times** are the server's local clock: set `TZ` to the household's time zone.
+- **Times** are the server's local clock: set `TZ` to the household's time zone. The rest of the
+  app still uses UTC dates, so the two can disagree about "tonight" for an hour or two after
+  local midnight.
 
 A stored pick is narrowed when it is read, so it never opens on a review that has been handled.
+A household that can't use the model now gets the fixed rule, not its last pick.
 
 ### The chat bar and menu (every screen)
 
@@ -862,8 +864,9 @@ navigation bars:
 - Up to three quick swaps: the stored pick's, or the ones the last Capture turn suggested, until
   the next pick. A swap opens a screen or sends a request to Capture. The swap for the screen
   already shown is left out.
-- The chat box. Sending opens Capture with the text, which Capture sends at once, and Capture's
-  Close returns to the screen it was opened from.
+- The chat box. Sending opens Capture with the text, which Capture sends once and then drops
+  from the URL, so a reconnect or reload doesn't send it again. Capture's Close returns to the
+  screen it was opened from.
 - ≡ opens a menu of every page, with the number of reviews waiting. It works without AI.
 
 ### Today (`/today`)

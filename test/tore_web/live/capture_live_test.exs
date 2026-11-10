@@ -59,6 +59,7 @@ defmodule ToreWeb.CaptureLiveTest do
     {:ok, lv, _html} =
       live(conn, ~p"/capture?#{[q: "Vad ska vi äta ikväll?", return_to: "/plan"]}")
 
+    assert_patch(lv, ~p"/capture?#{[return_to: "/plan"]}")
     assert eventually(fn -> render(lv) =~ "Pasta!" end)
     assert render(lv) =~ "Vad ska vi äta ikväll?"
   end
