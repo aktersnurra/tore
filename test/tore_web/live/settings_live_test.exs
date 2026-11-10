@@ -166,6 +166,53 @@ defmodule ToreWeb.SettingsLiveTest do
     end
   end
 
+  describe "kitchen memory" do
+    setup do
+      run =
+        home_scope()
+        |> Tore.Harness.KitchenRun.open(
+          %{kind: "memory_review_run", actor: :system, input: %{}},
+          DateTime.utc_now()
+        )
+        |> Tore.Repo.insert!()
+
+      for {store, text} <- [{"profile", "Anna dislikes mushrooms"}, {"notes", "Friday pizza"}] do
+        Tore.Repo.insert!(%Tore.Household.Memory{
+          household_id: home_scope().household_id,
+          store: store,
+          text: text,
+          run_id: run.id
+        })
+      end
+
+      :ok
+    end
+
+    test "shows both parts and how full each is, with no confidence labels", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/settings")
+
+      assert html =~ "Anna dislikes mushrooms"
+      assert html =~ "Friday pizza"
+      assert html =~ "Hushållet"
+      assert html =~ "Anteckningar"
+      assert html =~ "2 % fullt"
+      refute html =~ "säkerhet"
+    end
+
+    test "removing an entry forgets it for the household", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+      [entry | _] = Tore.Household.Memory.list(home_scope(), "notes")
+
+      html =
+        view
+        |> element(~s(button[phx-click="forget_memory"][phx-value-id="#{entry.id}"]))
+        |> render_click()
+
+      refute html =~ "Friday pizza"
+      assert Tore.Household.Memory.list(home_scope(), "notes") == []
+    end
+  end
+
   test "has a way to sign out", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/settings")
 

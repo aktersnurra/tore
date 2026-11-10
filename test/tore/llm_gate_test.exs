@@ -79,9 +79,9 @@ defmodule Tore.LLMGateTest do
 
     assert LLM.available?(over_limit)
 
-    stub(Tore.MockLLM, :text, fn _system, _user, _opts -> {:ok, %{"insights" => []}, @usage} end)
+    stub(Tore.MockLLM, :text, fn _system, _user, _opts -> {:ok, %{"batches" => []}, @usage} end)
 
-    assert :ok = Tore.Harness.KitchenMemorySynthesis.synthesise_weekly()
+    assert :ok = Tore.Harness.Kinds.MemoryReview.review_weekly()
 
     assert runs_opened(home_scope())
     refute runs_opened(unsponsored)
@@ -109,9 +109,7 @@ defmodule Tore.LLMGateTest do
   end
 
   defp runs_opened(scope) do
-    Repo.exists?(from(e in Tore.EventStore.Event, where: e.stream_type == "run"),
-      household_id: scope.household_id
-    )
+    Repo.exists?(Tore.Harness.KitchenRun, household_id: scope.household_id)
   end
 
   test "a sponsor who loses the credits claim stops the household's AI" do

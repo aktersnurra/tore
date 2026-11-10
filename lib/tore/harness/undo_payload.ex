@@ -23,7 +23,6 @@ defmodule Tore.Harness.UndoPayload do
 
   alias Tore.Harness.Artifact.{
     CostEntry,
-    MemoryUpdate,
     PantryBeliefUpdate,
     PantrySnapshot,
     PlanDiff,
@@ -141,9 +140,6 @@ defmodule Tore.Harness.UndoPayload do
 
   defp payload_for(%CostEntry{}),
     do: irreversible("cost ledger entries are not reversible from the receipt")
-
-  defp payload_for(%MemoryUpdate{}),
-    do: irreversible("memory updates are not reversible from the receipt")
 
   # RunSummary describes what happened; it has no state to reverse.
   defp payload_for(%RunSummary{}), do: nil

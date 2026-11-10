@@ -22,14 +22,14 @@ defmodule Tore.Capture.Router do
 
   alias Tore.Harness.Capsules.{
     HouseholdPreferencesCapsule,
-    ActiveInsightsCapsule,
+    MemoryCapsule,
     WeekPlanCapsule,
     PantryBeliefsCapsule
   }
 
   @chat_capsules [
     HouseholdPreferencesCapsule,
-    ActiveInsightsCapsule,
+    MemoryCapsule,
     WeekPlanCapsule,
     PantryBeliefsCapsule
   ]

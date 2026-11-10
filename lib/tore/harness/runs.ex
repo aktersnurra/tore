@@ -208,13 +208,25 @@ defmodule Tore.Harness.Runs do
            {:ok, applied} <- move(run, Map.put(changes, :artifacts, artifacts)) do
         applied
       else
+        {:fail, code, repair} -> Repo.rollback({:fail, code, repair})
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
     |> case do
-      {:ok, run} -> committed(run, kind)
-      {:error, reason} when action == :apply -> step_failed(run, kind, reason)
-      {:error, reason} -> {:error, reason}
+      {:ok, run} ->
+        committed(run, kind)
+
+      {:error, {:fail, code, repair}} when action == :apply ->
+        finish!(run, kind, {:fail, code, nil, repair}, %{})
+
+      {:error, {:fail, code, repair}} ->
+        {:error, {:verifier_failed, code, repair}}
+
+      {:error, reason} when action == :apply ->
+        step_failed(run, kind, reason)
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -389,4 +401,7 @@ defmodule Tore.Harness.Runs do
     do: steps |> Enum.reverse() |> Enum.each(&undo_step!(scope, &1))
 
   defp undo_step!(scope, {:delete_receipt, id}), do: :ok = Tore.Costs.delete_receipt(scope, id)
+
+  defp undo_step!(scope, {:restore_memory, added, forgotten}),
+    do: :ok = Tore.Household.Memory.restore(scope, added, forgotten)
 end

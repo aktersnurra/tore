@@ -1,6 +1,7 @@
 defmodule ToreWeb.SettingsLive do
   use ToreWeb, :live_view
 
+  alias Tore.Household.Memory
   alias Tore.{Accounts, Costs, Deals, Household, Members}
   alias ToreWeb.UserSession
 
@@ -24,7 +25,7 @@ defmodule ToreWeb.SettingsLive do
        member_error: nil,
        households: Members.list_households(socket.assigns.current_user),
        ai: ai,
-       memory_insights: Household.list_active_insights(socket.assigns.current_scope),
+       memory: Memory.stores(socket.assigns.current_scope),
        household: Household.get!(socket.assigns.current_scope),
        stores: Deals.list_stores(socket.assigns.current_scope),
        store_url: "",
@@ -143,10 +144,11 @@ defmodule ToreWeb.SettingsLive do
     end
   end
 
-  def handle_event("forget_insight", %{"id" => id}, socket) do
+  # An entry removed meanwhile by someone else is already gone, which is what was asked.
+  def handle_event("forget_memory", %{"id" => id}, socket) do
     scope = socket.assigns.current_scope
-    Tore.Household.dismiss_insight(scope, String.to_integer(id))
-    {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights(scope))}
+    _ = Memory.forget(scope, String.to_integer(id))
+    {:noreply, assign(socket, memory: Memory.stores(scope))}
   end
 
   defp assign_members(socket) do
@@ -170,9 +172,8 @@ defmodule ToreWeb.SettingsLive do
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
 
-  defp confidence_label(c) when c >= 0.8, do: gettext("High confidence")
-  defp confidence_label(c) when c >= 0.5, do: gettext("Medium confidence")
-  defp confidence_label(_c), do: gettext("Low confidence")
+  defp memory_part_label("profile"), do: gettext("Your household")
+  defp memory_part_label("notes"), do: gettext("Notes")
 
   defp feature_label("generate_plan"), do: gettext("Plan generation")
   defp feature_label("prep_guide"), do: gettext("Prep guide")
@@ -375,30 +376,34 @@ defmodule ToreWeb.SettingsLive do
             >
               {gettext("Things Tore has learned")}
             </h2>
-            <%= if Enum.empty?(@memory_insights) do %>
+            <%= if Enum.all?(@memory, &(&1.entries == [])) do %>
               <p class="text-sm text-zinc-500">
                 {gettext("No memories yet. Tore learns as you cook.")}
               </p>
             <% else %>
-              <ul class="space-y-2">
-                <%= for insight <- @memory_insights do %>
-                  <li class="flex items-start justify-between gap-3 rounded-lg border border-zinc-200 p-3">
-                    <div class="flex-1">
-                      <p class="text-sm">{insight.body}</p>
-                      <span class="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">
-                        {confidence_label(insight.confidence)}
-                      </span>
-                    </div>
+              <div :for={part <- @memory} class="mb-4 last:mb-0">
+                <div class="flex items-baseline justify-between mb-2">
+                  <h3 class="text-sm font-medium">{memory_part_label(part.store)}</h3>
+                  <span class="text-xs text-zinc-500">
+                    {gettext("%{percent}% full", percent: part.percent)}
+                  </span>
+                </div>
+                <ul class="space-y-2">
+                  <li
+                    :for={entry <- part.entries}
+                    class="flex items-start justify-between gap-3 rounded-lg border border-zinc-200 p-3"
+                  >
+                    <p class="flex-1 text-sm">{entry.text}</p>
                     <button
-                      phx-click="forget_insight"
-                      phx-value-id={insight.id}
+                      phx-click="forget_memory"
+                      phx-value-id={entry.id}
                       class="text-xs text-red-500 hover:text-red-700 shrink-0 mt-0.5"
                     >
                       {gettext("Forget")}
                     </button>
                   </li>
-                <% end %>
-              </ul>
+                </ul>
+              </div>
             <% end %>
           </section>
 

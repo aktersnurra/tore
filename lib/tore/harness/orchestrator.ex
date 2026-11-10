@@ -10,7 +10,6 @@ defmodule Tore.Harness.Orchestrator do
 
   alias Tore.Harness.Verifier.{
     CostEntryVerifier,
-    MemoryVerifier,
     PantryVerifier,
     PlanVerifier,
     RecipeProposalVerifier
@@ -19,7 +18,6 @@ defmodule Tore.Harness.Orchestrator do
   alias Tore.Harness.Capsules
 
   alias Tore.Harness.{
-    KitchenMemorySynthesis,
     PantryUpdate,
     ReceiptIngestion,
     UndoPayload
@@ -27,7 +25,6 @@ defmodule Tore.Harness.Orchestrator do
 
   alias Tore.Harness.Artifact.{
     CostEntry,
-    MemoryUpdate,
     PantryBeliefUpdate,
     PlanDiff,
     RecipeProposal,
@@ -38,14 +35,14 @@ defmodule Tore.Harness.Orchestrator do
 
   alias Tore.Harness.Capsules.{
     HouseholdPreferencesCapsule,
-    ActiveInsightsCapsule,
+    MemoryCapsule,
     WeekPlanCapsule,
     PantryBeliefsCapsule
   }
 
   @planner_capsules [
     HouseholdPreferencesCapsule,
-    ActiveInsightsCapsule,
+    MemoryCapsule,
     WeekPlanCapsule,
     PantryBeliefsCapsule
   ]
@@ -162,36 +159,6 @@ defmodule Tore.Harness.Orchestrator do
            {:ok, state} <- enter(state, :verifying, metadata),
            {:ok, state} <-
              verify_and_finish_pantry(state, artifact, metadata) do
-        {:ok, state}
-      else
-        {:error, reason} -> {:error, {:step_failed, reason}}
-      end
-    end)
-  end
-
-  def dispatch(:kitchen_memory_synthesis_run, ctx) do
-    stream_id = Run.next_stream_id()
-    metadata = %{household_id: ctx.household_id}
-
-    open_cmd = %Commands.Open{
-      household_id: ctx.household_id,
-      kind: "kitchen_memory_synthesis_run",
-      surface: :plan,
-      started_by: Map.get(ctx, :started_by, "system"),
-      user_id: Map.get(ctx, :user_id),
-      input: %{}
-    }
-
-    run_dispatch(stream_id, metadata, "kitchen_memory_synthesis_run", fn ->
-      with {:ok, state} <- open_run(stream_id, open_cmd, metadata),
-           {:ok, state} <- enter(state, :gathering_context, metadata),
-           summary = KitchenMemorySynthesis.events_summary(memory_capsule_ctx(ctx)),
-           {:ok, state} <- enter(state, :proposing, metadata),
-           {:ok, insights} <-
-             KitchenMemorySynthesis.synthesise(scope_for(ctx.household_id), summary),
-           artifact = KitchenMemorySynthesis.build_artifact(scope_for(ctx.household_id), insights),
-           {:ok, state} <- enter(state, :verifying, metadata),
-           {:ok, state} <- verify_and_finish_memory(state, artifact, metadata) do
         {:ok, state}
       else
         {:error, reason} -> {:error, {:step_failed, reason}}
@@ -872,47 +839,6 @@ defmodule Tore.Harness.Orchestrator do
 
       other ->
         other
-    end
-  end
-
-  defp memory_capsule_ctx(ctx) do
-    %{
-      household_id: ctx.household_id,
-      plan_stream_id: Map.get(ctx, :plan_stream_id),
-      week_start: Map.get(ctx, :week_start)
-    }
-  end
-
-  defp verify_and_finish_memory(state, %MemoryUpdate{} = artifact, metadata) do
-    case MemoryVerifier.verify(artifact, %{max_active: KitchenMemorySynthesis.max_active()}) do
-      :ok ->
-        run_summary = RunSummary.from_artifacts([artifact], :applied)
-
-        with {:ok, _} <- KitchenMemorySynthesis.apply!(scope_for(state.household_id), artifact),
-             {:ok, state} <-
-               apply_command(
-                 state.stream_id,
-                 %Commands.AddArtifact{artifact: artifact},
-                 state,
-                 metadata
-               ),
-             {:ok, state} <-
-               apply_command(
-                 state.stream_id,
-                 %Commands.AddArtifact{artifact: run_summary},
-                 state,
-                 metadata
-               ) do
-          apply_command(state.stream_id, commit_command(state), state, metadata)
-        end
-
-      {:fail, code, repair} ->
-        apply_command(
-          state.stream_id,
-          %Commands.RecordFailure{code: code, user_message: nil, repair_action: repair},
-          state,
-          metadata
-        )
     end
   end
 

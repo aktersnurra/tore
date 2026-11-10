@@ -8,7 +8,6 @@ defmodule Tore.Household do
     Repo,
     Scope,
     Household.HouseholdSchema,
-    Household.HouseholdInsight,
     Household.Preferences
   }
 
@@ -192,47 +191,4 @@ defmodule Tore.Household do
       parts -> "Cuisine: #{Enum.join(parts, "; ")}"
     end
   end
-
-  @spec list_active_insights(Scope.t()) :: [HouseholdInsight.t()]
-  def list_active_insights(%Scope{} = scope) do
-    from(i in HouseholdInsight,
-      where: i.status == "active",
-      order_by: [desc: i.confidence]
-    )
-    |> Repo.all(Scope.repo_opts(scope))
-  end
-
-  @spec dismiss_insight(Scope.t(), integer()) ::
-          {:ok, HouseholdInsight.t()} | {:error, Ecto.Changeset.t()}
-  def dismiss_insight(%Scope{} = scope, id) do
-    Repo.get!(HouseholdInsight, id, Scope.repo_opts(scope))
-    |> HouseholdInsight.changeset(%{status: "dismissed"})
-    |> Repo.update()
-  end
-
-  @spec replace_insights(Scope.t(), [map()]) :: {:ok, [HouseholdInsight.t()]} | {:error, term()}
-  def replace_insights(%Scope{} = scope, new_insights) when is_list(new_insights) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    Repo.transaction(fn ->
-      from(i in HouseholdInsight, where: i.status == "active")
-      |> Repo.update_all([set: [status: "superseded"]], Scope.repo_opts(scope))
-
-      Enum.map(new_insights, fn attrs ->
-        %HouseholdInsight{household_id: scope.household_id}
-        |> HouseholdInsight.changeset(%{
-          kind: attrs.kind || attrs["kind"],
-          body: attrs.body || attrs["body"],
-          confidence: attrs.confidence || attrs["confidence"] || 0.5,
-          evidence: encode_evidence(attrs[:evidence] || attrs["evidence"]),
-          status: "active",
-          generated_at: now
-        })
-        |> Repo.insert!()
-      end)
-    end)
-  end
-
-  defp encode_evidence(nil), do: nil
-  defp encode_evidence(ids) when is_list(ids), do: Jason.encode!(ids)
 end

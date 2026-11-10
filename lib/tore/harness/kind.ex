@@ -41,9 +41,15 @@ defmodule Tore.Harness.Kind do
   @doc "Why someone must look at this first, or nil to apply it straight away."
   @callback review_question(proposal()) :: String.t() | nil
 
-  @doc "Database writes only. Runs inside the run's transaction."
+  @doc """
+  Database writes only. Runs inside the run's transaction. A check that no longer holds once
+  inside it (the state changed since `verify`) returns `{:fail, code, repair}`, which rolls back
+  and fails the run as a verifier would.
+  """
   @callback apply_proposal(proposal(), ctx()) ::
-              {:ok, Undo.t(), artifacts :: [struct()]} | {:error, term()}
+              {:ok, Undo.t(), artifacts :: [struct()]}
+              | {:fail, code :: atom(), repair :: term()}
+              | {:error, term()}
 
   @doc "Called after each committed status change; the kind matches on `run.status`."
   @callback after_commit(KitchenRun.t()) :: :ok

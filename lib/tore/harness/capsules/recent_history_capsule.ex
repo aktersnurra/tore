@@ -4,7 +4,7 @@ defmodule Tore.Harness.Capsules.RecentHistoryCapsule do
   cascades, swap rate, fill rate. Source is the planning event stream.
 
   The capsule answers "how does this household actually plan?" for the
-  synthesis run and any agent that wants to reason about behavioural drift.
+  memory review and any agent that wants to reason about behavioural drift.
   """
 
   @behaviour Tore.Harness.Capsule

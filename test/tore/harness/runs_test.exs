@@ -93,6 +93,13 @@ defmodule Tore.Harness.RunsTest do
       assert [_] = receipts()
     end
 
+    test "an apply whose check fails inside the transaction fails the run with that code" do
+      assert {:ok, %KitchenRun{status: :failed, failure_code: :sum_mismatch}} =
+               start(%{mode: "write_then_fail", entry: @entry})
+
+      assert receipts() == []
+    end
+
     test "an apply that errors after writing leaves no write behind" do
       assert {:error, {:step_failed, :later_step_failed}} =
                start(%{mode: "write_then_error", entry: @entry})

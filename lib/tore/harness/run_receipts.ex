@@ -20,7 +20,7 @@ defmodule Tore.Harness.RunReceipts do
   alias Tore.EventStore.Event
   alias Tore.Harness.{DiffRow, Run, UndoPayload}
   alias Tore.Harness.Run.{Commands, State}
-  alias Tore.Harness.Artifact.{CostEntry, MemoryUpdate, PantryBeliefUpdate, PlanDiff, RunSummary}
+  alias Tore.Harness.Artifact.{CostEntry, PantryBeliefUpdate, PlanDiff, RunSummary}
   alias Tore.Repo
 
   @type receipt :: %{
@@ -157,7 +157,6 @@ defmodule Tore.Harness.RunReceipts do
     ]
   end
 
-  defp rows_for(%MemoryUpdate{}), do: []
   defp rows_for(%RunSummary{}), do: []
   defp rows_for(_other), do: []
 

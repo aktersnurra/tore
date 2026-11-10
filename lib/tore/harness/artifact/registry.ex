@@ -1,7 +1,7 @@
 defmodule Tore.Harness.Artifact.Registry do
   alias Tore.Harness.Artifact.{
     CostEntry,
-    MemoryUpdate,
+    MemoryBatch,
     PantryBeliefUpdate,
     PantrySnapshot,
     PlanDiff,
@@ -12,7 +12,7 @@ defmodule Tore.Harness.Artifact.Registry do
 
   @registry %{
     "CostEntry" => CostEntry,
-    "MemoryUpdate" => MemoryUpdate,
+    "MemoryBatch" => MemoryBatch,
     "PantryBeliefUpdate" => PantryBeliefUpdate,
     "PantrySnapshot" => PantrySnapshot,
     "PlanDiff" => PlanDiff,

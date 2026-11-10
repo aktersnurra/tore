@@ -18,7 +18,7 @@ defmodule Tore.Harness.KitchenRun do
     invalid_servings missing_store missing_date missing_total date_in_future sum_mismatch
     missing_provenance negative_quantity last_seen_regressed
     missing_title missing_instructions no_ingredients empty_ingredient_name near_duplicate
-    invalid_insight_kind invalid_confidence missing_body missing_evidence too_many_active
+    memory_rejected
   )a
 
   @type status :: :running | :needs_user | :applied | :failed | :reverted | :discarded

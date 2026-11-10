@@ -63,7 +63,7 @@ config :tore, Tore.Scheduler,
   jobs: [
     {"0 3 * * *", {Tore.Deals, :clear_expired, []}},
     {"0 4 * * 0", {Tore.Harness.InboxSweeper, :sweep_weekly, []}},
-    {"0 6 * * 6", {Tore.Harness.KitchenMemorySynthesis, :synthesise_weekly, []}},
+    {"0 6 * * 6", {Tore.Harness.Kinds.MemoryReview, :review_weekly, []}},
     {"0 8 * * 6", {Tore.Deals, :scrape_all, []}},
     {"0 18 * * 6", {Tore.Planning, :plan_upcoming_weeks, []}}
   ]

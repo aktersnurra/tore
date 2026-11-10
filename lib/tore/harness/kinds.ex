@@ -2,7 +2,8 @@ defmodule Tore.Harness.Kinds do
   @moduledoc "Finds a kind's module from the name stored on its runs."
 
   # Grows as kinds are ported. Tests add kinds of their own through config.
-  @modules Application.compile_env(:tore, :extra_run_kinds, [])
+  @modules [Tore.Harness.Kinds.MemoryReview] ++
+             Application.compile_env(:tore, :extra_run_kinds, [])
 
   @spec fetch!(String.t()) :: module()
   def fetch!(kind) when is_binary(kind) do
