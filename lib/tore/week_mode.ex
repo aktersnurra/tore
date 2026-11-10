@@ -88,7 +88,7 @@ defmodule Tore.WeekMode do
   def mode_prompt_fragment(_), do: nil
 
   defp current_week_start do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     Date.add(today, -(Date.day_of_week(today) - 1))
   end
 end

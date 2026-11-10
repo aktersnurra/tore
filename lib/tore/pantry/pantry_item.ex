@@ -47,30 +47,36 @@ defmodule Tore.Pantry.PantryItem do
   @probable_max_age_days 30
 
   @doc """
-  Decay the stored belief by `last_seen_at`. Returns the belief atom the
+  Decay the stored belief by `last_seen_at`, as of `now`, and judge its date against `today`,
+  the household's date (`Tore.Clock.today/0`). Returns the belief atom the
   UI should render. Stored `:uncertain` / `:missing` are returned as-is;
   rows with no `last_seen_at` (manual adds that bypassed the receipt
   path) keep their stored belief.
   """
-  @spec effective_belief(%__MODULE__{}, DateTime.t()) ::
+  @spec effective_belief(%__MODULE__{}, DateTime.t(), Date.t()) ::
           :confirmed | :probable | :uncertain | :missing
-  def effective_belief(%__MODULE__{belief: "missing"}, _now), do: :missing
-  def effective_belief(%__MODULE__{belief: "uncertain"}, _now), do: :uncertain
+  def effective_belief(%__MODULE__{belief: "missing"}, _now, _today), do: :missing
+  def effective_belief(%__MODULE__{belief: "uncertain"}, _now, _today), do: :uncertain
 
-  def effective_belief(%__MODULE__{expires_at: %Date{}} = item, %DateTime{} = now) do
+  def effective_belief(
+        %__MODULE__{expires_at: %Date{}} = item,
+        %DateTime{} = now,
+        %Date{} = today
+      ) do
     cond do
-      past_date?(item, DateTime.to_date(now)) -> :uncertain
+      past_date?(item, today) -> :uncertain
       item.belief == "confirmed" and age_days(item, now) <= @confirmed_max_age_days -> :confirmed
       true -> :probable
     end
   end
 
-  def effective_belief(%__MODULE__{belief: belief, last_seen_at: nil}, _now),
+  def effective_belief(%__MODULE__{belief: belief, last_seen_at: nil}, _now, _today),
     do: String.to_existing_atom(belief || "uncertain")
 
   def effective_belief(
         %__MODULE__{belief: belief, last_seen_at: %DateTime{} = seen},
-        %DateTime{} = now
+        %DateTime{} = now,
+        _today
       ) do
     age_days = DateTime.diff(now, seen, :day)
     decay(belief, age_days)

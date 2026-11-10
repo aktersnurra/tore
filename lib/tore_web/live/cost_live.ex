@@ -24,7 +24,7 @@ defmodule ToreWeb.CostLive do
   end
 
   defp load_costs(socket) do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     last_month = today |> Date.beginning_of_month() |> Date.add(-1)
     scope = socket.assigns.current_scope
 
@@ -268,7 +268,7 @@ defmodule ToreWeb.CostLive do
                   name="date"
                   type="date"
                   label={gettext("Date")}
-                  value={Date.to_iso8601(Date.utc_today())}
+                  value={Date.to_iso8601(Tore.Clock.today())}
                   required
                 />
               </div>

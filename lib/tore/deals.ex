@@ -33,7 +33,7 @@ defmodule Tore.Deals do
   @doc "Current deals at the stores the household uses and has switched on."
   @spec list_current(Scope.t()) :: [Deal.t()]
   def list_current(%Scope{} = scope) do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
 
     from(d in Deal,
       join: s in Store,
@@ -48,7 +48,7 @@ defmodule Tore.Deals do
 
   @spec clear_expired() :: :ok
   def clear_expired do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     week_start_dt = today |> Date.beginning_of_week() |> NaiveDateTime.new!(~T[00:00:00])
 
     Repo.delete_all(

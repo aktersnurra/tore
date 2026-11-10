@@ -7,7 +7,7 @@ defmodule ToreWeb.ShopLive do
   alias Phoenix.PubSub
 
   def mount(_params, session, socket) do
-    week_start = week_start(Date.utc_today())
+    week_start = week_start(Tore.Clock.today())
     scope = socket.assigns.current_scope
     list_id = Tore.Streams.shop_list(scope, week_start)
 

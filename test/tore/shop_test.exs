@@ -197,12 +197,12 @@ defmodule Tore.ShopTest do
 
   test "build_list filters only against pantry items still within their date" do
     {:ok, _} =
-      Tore.Pantry.add_item(home_scope(), %{name: "färsk ost", expires_at: Date.utc_today()})
+      Tore.Pantry.add_item(home_scope(), %{name: "färsk ost", expires_at: Tore.Clock.today()})
 
     {:ok, _} =
       Tore.Pantry.add_item(home_scope(), %{
         name: "gammal ost",
-        expires_at: Date.add(Date.utc_today(), -1)
+        expires_at: Date.add(Tore.Clock.today(), -1)
       })
 
     test_pid = self()

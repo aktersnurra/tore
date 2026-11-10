@@ -49,12 +49,18 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
     for n <- 1..25, do: Tore.Pantry.add_item(home_scope(), %{name: "item #{n}", quantity: 1})
 
     {:ok, _} =
-      Tore.Pantry.add_item(home_scope(), %{name: "öl", expires_at: Date.add(Date.utc_today(), 90)})
+      Tore.Pantry.add_item(home_scope(), %{
+        name: "öl",
+        expires_at: Date.add(Tore.Clock.today(), 90)
+      })
 
     {:ok, _} =
-      Tore.Pantry.add_item(home_scope(), %{name: "ägg", expires_at: Date.add(Date.utc_today(), 3)})
+      Tore.Pantry.add_item(home_scope(), %{
+        name: "ägg",
+        expires_at: Date.add(Tore.Clock.today(), 3)
+      })
 
-    {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ål", expires_at: Date.utc_today()})
+    {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ål", expires_at: Tore.Clock.today()})
 
     capsule = Capsule.build(ctx())
 
@@ -67,7 +73,7 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsuleTest do
     {:ok, _} =
       Tore.Pantry.add_item(home_scope(), %{
         name: "gammal",
-        expires_at: Date.add(Date.utc_today(), -1)
+        expires_at: Date.add(Tore.Clock.today(), -1)
       })
 
     assert Capsule.build(ctx()) |> Capsule.to_prompt() == nil

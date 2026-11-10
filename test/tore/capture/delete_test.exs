@@ -18,7 +18,7 @@ defmodule Tore.Capture.DeleteTest do
 
   test "remove_shopping_item takes the item off this week's list", %{ctx: ctx} do
     stub(Tore.MockLLM, :text, fn _, _, _ -> {:ok, %{"section" => "dairy"}, @usage} end)
-    list_id = Streams.shop_list(home_scope(), Date.utc_today())
+    list_id = Streams.shop_list(home_scope(), Tore.Clock.today())
     {:ok, _} = Shop.add_item(home_scope(), list_id, "mjölk", nil, nil, nil)
 
     bubble = Dispatch.remove_shopping_item("mjölk", ctx)

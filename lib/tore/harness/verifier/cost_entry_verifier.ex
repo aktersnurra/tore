@@ -35,7 +35,7 @@ defmodule Tore.Harness.Verifier.CostEntryVerifier do
   defp check_date(%CostEntry{date: nil}), do: {:fail, :missing_date, :reject}
 
   defp check_date(%CostEntry{date: d}) do
-    if Date.compare(d, Date.utc_today()) == :gt do
+    if Date.compare(d, Tore.Clock.today()) == :gt do
       {:fail, :date_in_future, :reject}
     else
       :ok

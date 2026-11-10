@@ -25,7 +25,7 @@ defmodule ToreWeb.PlannerLiveTest do
   defp authed(conn, user), do: Plug.Test.init_test_session(conn, %{user_id: user.id})
 
   defp this_plan_id do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     dow = Date.day_of_week(today)
     week_start = Date.add(today, -(dow - 1))
     Tore.Streams.plan(home_scope(), week_start)

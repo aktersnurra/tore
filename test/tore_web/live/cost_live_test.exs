@@ -23,11 +23,11 @@ defmodule ToreWeb.CostLiveTest do
     end
   end
 
-  defp this_month(day), do: Date.utc_today() |> Date.beginning_of_month() |> Date.add(day - 1)
+  defp this_month(day), do: Tore.Clock.today() |> Date.beginning_of_month() |> Date.add(day - 1)
 
   defp last_month(day) do
     start =
-      Date.utc_today() |> Date.beginning_of_month() |> Date.add(-1) |> Date.beginning_of_month()
+      Tore.Clock.today() |> Date.beginning_of_month() |> Date.add(-1) |> Date.beginning_of_month()
 
     Date.add(start, day - 1)
   end
@@ -80,7 +80,7 @@ defmodule ToreWeb.CostLiveTest do
     html =
       lv
       |> form("#receipt-form", %{
-        date: Date.to_iso8601(Date.utc_today()),
+        date: Date.to_iso8601(Tore.Clock.today()),
         store_name: "ICA Danvikstull",
         total_amount: "89.50"
       })
@@ -109,7 +109,7 @@ defmodule ToreWeb.CostLiveTest do
   end
 
   test "lists eating out from the plan, with and without an amount", %{conn: conn} do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     monday = Date.add(today, -(Date.day_of_week(today) - 1))
     plan_id = Tore.Streams.plan(home_scope(), monday)
     days = ~w(mon tue wed thu fri sat sun)

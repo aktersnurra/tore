@@ -8,12 +8,12 @@ defmodule Tore.PantryTest do
              Pantry.add_item(home_scope(), %{name: "Mjölk", quantity: Decimal.new(2), unit: "L"})
 
     assert item.name == "mjölk"
-    assert item.added_at == Date.utc_today()
+    assert item.added_at == Tore.Clock.today()
   end
 
   test "add_item/1 defaults added_at to today when omitted" do
     assert {:ok, item} = Pantry.add_item(home_scope(), %{name: "Smör"})
-    assert item.added_at == Date.utc_today()
+    assert item.added_at == Tore.Clock.today()
   end
 
   test "add_item/1 returns error on missing name" do
@@ -193,37 +193,46 @@ defmodule Tore.PantryTest do
     assert bumped.belief == "confirmed"
   end
 
-  test "PantryItem.effective_belief/2 decays confirmed → probable after 14 days" do
+  test "PantryItem.effective_belief/3 decays confirmed → probable after 14 days" do
     now = ~U[2026-06-29 12:00:00Z]
     fresh = %Tore.Pantry.PantryItem{belief: "confirmed", last_seen_at: ~U[2026-06-20 12:00:00Z]}
     stale = %Tore.Pantry.PantryItem{belief: "confirmed", last_seen_at: ~U[2026-06-10 12:00:00Z]}
 
-    assert Tore.Pantry.PantryItem.effective_belief(fresh, now) == :confirmed
-    assert Tore.Pantry.PantryItem.effective_belief(stale, now) == :probable
+    assert Tore.Pantry.PantryItem.effective_belief(fresh, now, DateTime.to_date(now)) ==
+             :confirmed
+
+    assert Tore.Pantry.PantryItem.effective_belief(stale, now, DateTime.to_date(now)) == :probable
   end
 
-  test "PantryItem.effective_belief/2 decays probable → uncertain after 30 days" do
+  test "PantryItem.effective_belief/3 decays probable → uncertain after 30 days" do
     now = ~U[2026-06-29 12:00:00Z]
     fresh = %Tore.Pantry.PantryItem{belief: "probable", last_seen_at: ~U[2026-06-10 12:00:00Z]}
     stale = %Tore.Pantry.PantryItem{belief: "probable", last_seen_at: ~U[2026-05-01 12:00:00Z]}
 
-    assert Tore.Pantry.PantryItem.effective_belief(fresh, now) == :probable
-    assert Tore.Pantry.PantryItem.effective_belief(stale, now) == :uncertain
+    assert Tore.Pantry.PantryItem.effective_belief(fresh, now, DateTime.to_date(now)) == :probable
+
+    assert Tore.Pantry.PantryItem.effective_belief(stale, now, DateTime.to_date(now)) ==
+             :uncertain
   end
 
-  test "PantryItem.effective_belief/2 leaves uncertain and missing untouched" do
+  test "PantryItem.effective_belief/3 leaves uncertain and missing untouched" do
     now = ~U[2026-06-29 12:00:00Z]
     ancient = ~U[2024-01-01 00:00:00Z]
     uncertain = %Tore.Pantry.PantryItem{belief: "uncertain", last_seen_at: ancient}
     missing = %Tore.Pantry.PantryItem{belief: "missing", last_seen_at: ancient}
 
-    assert Tore.Pantry.PantryItem.effective_belief(uncertain, now) == :uncertain
-    assert Tore.Pantry.PantryItem.effective_belief(missing, now) == :missing
+    assert Tore.Pantry.PantryItem.effective_belief(uncertain, now, DateTime.to_date(now)) ==
+             :uncertain
+
+    assert Tore.Pantry.PantryItem.effective_belief(missing, now, DateTime.to_date(now)) ==
+             :missing
   end
 
-  test "PantryItem.effective_belief/2 with no last_seen_at returns stored belief" do
+  test "PantryItem.effective_belief/3 with no last_seen_at returns stored belief" do
     item = %Tore.Pantry.PantryItem{belief: "confirmed", last_seen_at: nil}
-    assert Tore.Pantry.PantryItem.effective_belief(item, ~U[2026-06-29 12:00:00Z]) == :confirmed
+
+    assert Tore.Pantry.PantryItem.effective_belief(item, ~U[2026-06-29 12:00:00Z], ~D[2026-06-29]) ==
+             :confirmed
   end
 
   test "list_inventory_by_belief/0 groups by *effective* belief, not stored" do
@@ -272,7 +281,8 @@ defmodule Tore.PantryTest do
           last_seen_at: DateTime.add(now, -days_ago, :day),
           expires_at: expires_at
         },
-        now
+        now,
+        DateTime.to_date(now)
       )
     end
 
@@ -310,7 +320,7 @@ defmodule Tore.PantryTest do
       assert Repo.get(Ingredient, item.ingredient_id, Tore.Scope.repo_opts(home_scope())).shelf_life_days ==
                7
 
-      assert item.expires_at == Date.add(Date.utc_today(), 7)
+      assert item.expires_at == Date.add(Tore.Clock.today(), 7)
       assert item.expires_source == "estimate"
     end
 
@@ -326,7 +336,7 @@ defmodule Tore.PantryTest do
       assert Repo.get(Ingredient, item.ingredient_id, Tore.Scope.repo_opts(home_scope())).shelf_life_days ==
                7
 
-      assert item.expires_at == Date.add(Date.utc_today(), 7)
+      assert item.expires_at == Date.add(Tore.Clock.today(), 7)
     end
 
     test "a guess fills in an ingredient that has no shelf life, keeping its key" do
@@ -356,7 +366,7 @@ defmodule Tore.PantryTest do
           shelf_life_days: 7
         })
 
-      chosen = Date.add(Date.utc_today(), 12)
+      chosen = Date.add(Tore.Clock.today(), 12)
       assert {:ok, updated} = Pantry.set_expiry(home_scope(), item.id, chosen)
       assert updated.expires_at == chosen
       assert updated.expires_source == "manual"
@@ -379,7 +389,7 @@ defmodule Tore.PantryTest do
           provenance: "grocery_checkoff"
         })
 
-      assert bought.expires_at == Date.add(Date.utc_today(), 12)
+      assert bought.expires_at == Date.add(Tore.Clock.today(), 12)
       assert bought.expires_source == "estimate"
     end
 
@@ -406,7 +416,7 @@ defmodule Tore.PantryTest do
           shelf_life_days: 7
         })
 
-      assert {:ok, _} = Pantry.set_expiry(home_scope(), item.id, Date.add(Date.utc_today(), -1))
+      assert {:ok, _} = Pantry.set_expiry(home_scope(), item.id, Date.add(Tore.Clock.today(), -1))
 
       assert Repo.get(Ingredient, item.ingredient_id, Tore.Scope.repo_opts(home_scope())).shelf_life_days ==
                7
@@ -417,12 +427,12 @@ defmodule Tore.PantryTest do
     end
 
     test "list_usable leaves out items past their date" do
-      {:ok, _} = Pantry.add_item(home_scope(), %{name: "färsk", expires_at: Date.utc_today()})
+      {:ok, _} = Pantry.add_item(home_scope(), %{name: "färsk", expires_at: Tore.Clock.today()})
 
       {:ok, _} =
         Pantry.add_item(home_scope(), %{
           name: "gammal",
-          expires_at: Date.add(Date.utc_today(), -1)
+          expires_at: Date.add(Tore.Clock.today(), -1)
         })
 
       {:ok, _} = Pantry.add_item(home_scope(), %{name: "utan datum"})

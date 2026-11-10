@@ -12,7 +12,7 @@ defmodule Tore.Home do
   `swaps_for/1`), and the stored pick is narrowed the same way when it is read, so a review
   that has since been handled is never the screen the app opens on.
 
-  Times are the server's local clock (`now/0`): set `TZ` to the household's time zone.
+  Times are the household's clock (`Tore.Clock`).
   """
 
   use Gettext, backend: ToreWeb.Gettext
@@ -75,10 +75,6 @@ defmodule Tore.Home do
   @spec max_swaps() :: pos_integer()
   def max_swaps, do: @max_swaps
 
-  @doc "The server's local time. Set `TZ` to the household's time zone."
-  @spec now() :: NaiveDateTime.t()
-  def now, do: NaiveDateTime.local_now()
-
   @doc "The path a screen opens at."
   @spec path(screen()) :: String.t()
   def path(:today), do: "/today"
@@ -95,7 +91,7 @@ defmodule Tore.Home do
   model now (a stored pick would never be replaced). `stale?` says a new pick is due.
   """
   @spec current(Scope.t(), NaiveDateTime.t()) :: current()
-  def current(%Scope{} = scope, now \\ now()) do
+  def current(%Scope{} = scope, now \\ Tore.Clock.now()) do
     facts = facts(scope, now)
 
     case Tore.LLM.check(scope) == :ok and latest_pick(scope) do

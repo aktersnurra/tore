@@ -275,7 +275,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec suggest_meals_from_pantry(pos_integer(), ctx()) :: bubble()
   def suggest_meals_from_pantry(count, ctx) when is_integer(count) and count > 0 do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     plan_id = plan_stream_id_for(ctx, today)
     next_empty = next_empty_slot_key(ctx, today)
 
@@ -416,7 +416,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec generate_shopping_list_from_plan(Date.t() | nil, ctx()) :: bubble()
   def generate_shopping_list_from_plan(date, ctx) do
-    target_date = date || Date.utc_today()
+    target_date = date || Tore.Clock.today()
     week_start = Streams.monday(target_date)
     list_id = Streams.shop_list(scope(ctx), week_start)
     plan_id = Streams.plan(scope(ctx), week_start)
@@ -869,7 +869,7 @@ defmodule Tore.Capture.Dispatch do
     %{role: :assistant, review_link: true, stream_id: sid, text: gettext("I parsed a receipt.")}
   end
 
-  defp current_shop_list_id(ctx), do: Streams.shop_list(scope(ctx), Date.utc_today())
+  defp current_shop_list_id(ctx), do: Streams.shop_list(scope(ctx), Tore.Clock.today())
 
   defp to_decimal(nil), do: nil
   defp to_decimal(%Decimal{} = d), do: d

@@ -215,7 +215,7 @@ defmodule Tore.PlanningTest do
        %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
     end)
 
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     days_ahead = rem(8 - Date.day_of_week(today), 7)
     days_ahead = if days_ahead == 0, do: 7, else: days_ahead
     expected_week_start = Date.add(today, days_ahead)

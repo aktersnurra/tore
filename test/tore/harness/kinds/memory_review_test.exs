@@ -19,7 +19,7 @@ defmodule Tore.Harness.Kinds.MemoryReviewTest do
         recipe_type: :meal
       })
 
-    plan = Tore.Streams.plan(home_scope(), Date.utc_today())
+    plan = Tore.Streams.plan(home_scope(), Tore.Clock.today())
     {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "thu_dinner", recipe.id, 4)
     :ok
   end

@@ -120,7 +120,7 @@ defmodule Tore.Pantry do
 
   defp expiry_attrs(current, attrs, ingredient) do
     {expires_at, expires_source} =
-      Expiry.next(current, attrs, ingredient.shelf_life_days, Date.utc_today())
+      Expiry.next(current, attrs, ingredient.shelf_life_days, Tore.Clock.today())
 
     %{expires_at: expires_at, expires_source: expires_source}
   end
@@ -184,7 +184,7 @@ defmodule Tore.Pantry do
       %{
         quantity: new_qty,
         unit: new_unit,
-        added_at: if(Expiry.bought?(attrs), do: Date.utc_today(), else: item.added_at),
+        added_at: if(Expiry.bought?(attrs), do: Tore.Clock.today(), else: item.added_at),
         last_seen_at: attrs[:last_seen_at] || now(),
         provenance: next_provenance,
         belief: stronger_belief(item.belief, PantryItem.derive_belief(next_provenance))
@@ -257,7 +257,7 @@ defmodule Tore.Pantry do
 
     attrs =
       attrs
-      |> Map.put_new(:added_at, Date.utc_today())
+      |> Map.put_new(:added_at, Tore.Clock.today())
       |> Map.put_new(:provenance, "manual")
       |> Map.put_new(:last_seen_at, now)
 
@@ -355,7 +355,7 @@ defmodule Tore.Pantry do
   @doc "What's in the pantry and still within its date, if it has one."
   @spec list_usable(Scope.t()) :: [PantryItem.t()]
   def list_usable(%Scope{} = scope) do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     Enum.reject(list_inventory(scope), &PantryItem.past_date?(&1, today))
   end
 
@@ -402,8 +402,9 @@ defmodule Tore.Pantry do
   @spec list_inventory_by_belief(Scope.t()) :: [{atom(), [PantryItem.t()]}]
   def list_inventory_by_belief(%Scope{} = scope) do
     now = DateTime.utc_now()
+    today = Tore.Clock.today()
     items = list_inventory(scope)
-    grouped = Enum.group_by(items, &PantryItem.effective_belief(&1, now))
+    grouped = Enum.group_by(items, &PantryItem.effective_belief(&1, now, today))
 
     @belief_order
     |> Enum.flat_map(fn key ->

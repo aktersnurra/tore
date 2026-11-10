@@ -10,7 +10,7 @@ defmodule Tore.CostsTest do
 
   test "log_receipt/1 inserts receipt and returns it", %{user_id: user_id} do
     attrs = %{
-      date: Date.utc_today(),
+      date: Tore.Clock.today(),
       store_name: "ICA",
       total_amount: Decimal.new("150.00"),
       user_id: user_id
@@ -31,7 +31,7 @@ defmodule Tore.CostsTest do
     ]
 
     attrs = %{
-      date: Date.utc_today(),
+      date: Tore.Clock.today(),
       user_id: user_id,
       total_amount: Decimal.new("20.00"),
       line_items: line_items
@@ -86,7 +86,7 @@ defmodule Tore.CostsTest do
   describe "households" do
     test "receipts, eating out and totals stay in their household", %{user_id: user_id} do
       other = scope_fixture(household_fixture())
-      today = Date.utc_today()
+      today = Tore.Clock.today()
 
       {:ok, _} =
         Costs.log_receipt(other, %{date: today, total_amount: Decimal.new("99"), user_id: user_id})

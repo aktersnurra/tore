@@ -249,7 +249,7 @@ defmodule Tore.Harness.Kinds.Planner do
 
     [
       preamble(),
-      "Today is #{Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")}.",
+      "Today is #{Calendar.strftime(Tore.Clock.today(), "%A, %B %-d, %Y")}.",
       week_mode_line(scope),
       Capsules.compose(@capsules, capsule_ctx)
     ]

@@ -24,7 +24,7 @@ defmodule Tore.Harness.ReceiptIngestion do
     # back to the caller-supplied date (tests pin this) and finally today.
     parsed_date = parsed[:purchase_date]
     supplied_date = Keyword.get(opts, :date)
-    date = parsed_date || supplied_date || Date.utc_today()
+    date = parsed_date || supplied_date || Tore.Clock.today()
 
     # The review card shows a "we couldn't read the date — please verify"
     # hint when this is true. Only flag when neither the OCR nor the caller

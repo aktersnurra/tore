@@ -34,7 +34,7 @@ defmodule Tore.Harness.Capsules.PantryBeliefsCapsule do
   defp use_soon_clause(names), do: " Use soon: #{Enum.join(names, ", ")}."
 
   defp use_soon?(%{expires_at: %Date{} = expires_at}),
-    do: Date.diff(expires_at, Date.utc_today()) <= @use_soon_days
+    do: Date.diff(expires_at, Tore.Clock.today()) <= @use_soon_days
 
   defp use_soon?(_item), do: false
 end

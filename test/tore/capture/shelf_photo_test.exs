@@ -193,7 +193,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
       expect_guess("mjölk", 7)
       Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-      assert row("mjölk").expires_at == Date.add(Date.utc_today(), 7)
+      assert row("mjölk").expires_at == Date.add(Tore.Clock.today(), 7)
       assert row("mjölk").expires_source == "estimate"
     end
 

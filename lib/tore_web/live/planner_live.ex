@@ -13,7 +13,7 @@ defmodule ToreWeb.PlannerLive do
   @days ~w[mon tue wed thu fri sat sun]
 
   def mount(_params, _session, socket) do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     week_start = week_start(today)
     scope = socket.assigns.current_scope
     plan_id = plan_id(scope, week_start)

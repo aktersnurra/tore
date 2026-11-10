@@ -4,7 +4,7 @@ defmodule ToreWeb.PrepLive do
   alias Tore.Prep
 
   def mount(_params, _session, socket) do
-    week_start = week_start(Date.utc_today())
+    week_start = week_start(Tore.Clock.today())
     plan_id = Tore.Streams.plan(socket.assigns.current_scope, week_start)
     guide = Prep.get_guide_for_week(socket.assigns.current_scope, week_start)
 

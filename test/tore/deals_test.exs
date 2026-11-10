@@ -55,7 +55,7 @@ defmodule Tore.DealsTest do
   end
 
   test "list_current returns deals with future valid_until" do
-    future = Date.add(Date.utc_today(), 7)
+    future = Date.add(Tore.Clock.today(), 7)
 
     Tore.Deals.upsert_deals([
       %{

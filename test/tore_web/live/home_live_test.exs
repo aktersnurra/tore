@@ -20,7 +20,7 @@ defmodule ToreWeb.HomeLiveTest do
 
   defp today_slot_key do
     days = ~w[mon tue wed thu fri sat sun]
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     dow = Date.day_of_week(today)
     day = Enum.at(days, dow - 1)
     "#{day}_dinner"
@@ -55,7 +55,7 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   defp plan_id_for_today do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     dow = Date.day_of_week(today)
     week_start = Date.add(today, -(dow - 1))
     Tore.Streams.plan(home_scope(), week_start)
@@ -139,7 +139,7 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   test "says the household is eating out tonight instead of nothing planned", %{conn: conn} do
-    today = Date.utc_today()
+    today = Tore.Clock.today()
     monday = Date.add(today, -(Date.day_of_week(today) - 1))
     day = Enum.at(~w(mon tue wed thu fri sat sun), Date.day_of_week(today) - 1)
 

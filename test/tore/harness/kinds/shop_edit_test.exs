@@ -21,7 +21,7 @@ defmodule Tore.Harness.Kinds.ShopEditTest do
     %{ctx: %{household_id: home_scope().household_id, user_id: user.id}}
   end
 
-  defp list(date \\ Date.utc_today()) do
+  defp list(date \\ Tore.Clock.today()) do
     {:ok, state} = Shop.load_list(home_scope(), Streams.shop_list(home_scope(), date))
     state.items |> Map.values() |> Enum.map(&Map.take(&1, [:name, :checked, :section]))
   end
@@ -57,7 +57,7 @@ defmodule Tore.Harness.Kinds.ShopEditTest do
 
   test "undoing an add after the item was removed counts as done", %{ctx: ctx} do
     bubble = Dispatch.add_to_shopping_list("ost", nil, nil, ctx)
-    list_id = Streams.shop_list(home_scope(), Date.utc_today())
+    list_id = Streams.shop_list(home_scope(), Tore.Clock.today())
     {:ok, %{items: items}} = Shop.load_list(home_scope(), list_id)
     [id] = Map.keys(items)
     {:ok, _} = Shop.remove_item(home_scope(), list_id, id, nil)
@@ -66,7 +66,7 @@ defmodule Tore.Harness.Kinds.ShopEditTest do
   end
 
   test "building the week's list replaces it and offers no undo", %{ctx: ctx} do
-    monday = Streams.monday(Date.utc_today())
+    monday = Streams.monday(Tore.Clock.today())
     plan = Streams.plan(home_scope(), monday)
 
     {:ok, soup} =

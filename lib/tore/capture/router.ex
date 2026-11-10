@@ -927,11 +927,11 @@ defmodule Tore.Capture.Router do
   # ── helpers ────────────────────────────────────────────────────────────
 
   defp date_line do
-    "Today is #{Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")}."
+    "Today is #{Calendar.strftime(Tore.Clock.today(), "%A, %B %-d, %Y")}."
   end
 
   defp chat_ctx(ctx) do
-    week_start = Tore.Streams.monday(Date.utc_today())
+    week_start = Tore.Streams.monday(Tore.Clock.today())
 
     %{
       household_id: ctx.household_id,

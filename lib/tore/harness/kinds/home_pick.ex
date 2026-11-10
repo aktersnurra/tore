@@ -27,10 +27,10 @@ defmodule Tore.Harness.Kinds.HomePick do
   @impl true
   def open(_ctx), do: %{input: %{}, actor: :system}
 
-  @doc "`ctx` may hold `:now`, the local time to pick for; it defaults to `Tore.Home.now/0`."
+  @doc "`ctx` may hold `:now`, the local time to pick for; it defaults to `Tore.Clock.now/0`."
   @impl true
   def propose(_run, %{scope: scope} = ctx) do
-    facts = Home.facts(scope, ctx[:now] || Home.now())
+    facts = Home.facts(scope, ctx[:now] || Tore.Clock.now())
 
     case Tore.LLM.decide(scope, Home.state(scope, facts), Home.questions(facts),
            feature: :home_pick

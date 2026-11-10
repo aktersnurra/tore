@@ -35,7 +35,7 @@ defmodule ToreWeb.HouseholdsTest do
   end
 
   test "the planner shows the member's own plan", %{conn: conn, member: member, scope: scope} do
-    week = Tore.Streams.monday(Date.utc_today())
+    week = Tore.Streams.monday(Tore.Clock.today())
     ours = insert_recipe(scope.household_id, "Andras pannkakor")
     theirs = insert_recipe(home_scope().household_id, "Hemmets ärtsoppa")
 

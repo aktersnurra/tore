@@ -126,11 +126,12 @@ defmodule Tore.Shop do
   """
   def annotate_with_pantry_belief(%Scope{} = scope, items) do
     now = DateTime.utc_now()
+    today = Tore.Clock.today()
 
     pantry =
       Pantry.list_inventory(scope)
       |> Enum.map(fn row ->
-        {row, Tore.Pantry.PantryItem.effective_belief(row, now), name_tokens(row.name)}
+        {row, Tore.Pantry.PantryItem.effective_belief(row, now, today), name_tokens(row.name)}
       end)
       |> Enum.reject(fn {_row, eff, _tokens} -> eff == :missing end)
 

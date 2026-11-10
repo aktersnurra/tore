@@ -63,14 +63,14 @@ defmodule ToreWeb.PantryLiveTest do
       })
 
     {:ok, lv, html} = live(conn, "/settings/pantry")
-    assert html =~ Date.to_iso8601(Date.add(Date.utc_today(), 7))
+    assert html =~ Date.to_iso8601(Date.add(Tore.Clock.today(), 7))
     assert html =~ "ungefär"
     assert html =~ "Bekräftat hemma"
 
     html =
       lv
       |> form("#expiry-#{item.id}", %{
-        "expires_at" => Date.to_iso8601(Date.add(Date.utc_today(), -1))
+        "expires_at" => Date.to_iso8601(Date.add(Tore.Clock.today(), -1))
       })
       |> render_change()
 

@@ -295,7 +295,7 @@ defmodule Tore.LLM.PlannerTools do
             {k, slot.recipe_id && recipe_title(ctx, slot.recipe_id)}
           end)
 
-        today = Map.get(ctx, :today, Date.utc_today())
+        today = Map.get(ctx, :today, Tore.Clock.today())
 
         result =
           case Resolvers.resolve_slot(args["reference"], slots: slots, today: today) do
@@ -334,7 +334,7 @@ defmodule Tore.LLM.PlannerTools do
               unit: it.unit,
               category: it.category,
               expires_on: it.expires_at && Date.to_iso8601(it.expires_at),
-              belief: Tore.Pantry.PantryItem.effective_belief(it, now)
+              belief: Tore.Pantry.PantryItem.effective_belief(it, now, Tore.Clock.today())
             }
           end)
 
