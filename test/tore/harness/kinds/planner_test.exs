@@ -170,6 +170,49 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       refute Map.has_key?(slots, "tue_dinner")
     end
 
+    test "an edited proposal saves the edits, ingredients and all", %{
+      run: run,
+      proposal: proposal
+    } do
+      edited = %{
+        proposal
+        | title: "Vegan ramen",
+          ingredients: proposal.ingredients ++ [%{name: "miso", quantity: "2", unit: "msk"}]
+      }
+
+      {:ok, _} = Runs.confirm(home_scope(), run.id, edited)
+
+      %{id: id} = Enum.find(Recipes.list(home_scope()), &(&1.title == "Vegan ramen"))
+      assert length(Recipes.get!(home_scope(), id).recipe_ingredients) == 2
+    end
+
+    test "an edit the verifier refuses saves nothing, and the recipe still waits", %{
+      run: run,
+      proposal: proposal
+    } do
+      assert {:error, {:verifier_failed, :no_ingredients, :reject}} =
+               Runs.confirm(home_scope(), run.id, %{proposal | ingredients: []})
+
+      assert %KitchenRun{status: :needs_user} = Runs.get(home_scope(), run.id)
+      refute Enum.any?(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
+    end
+
+    test "discarding saves nothing and leaves the day", %{run: run, plan: plan} do
+      assert {:ok, %KitchenRun{status: :discarded}} =
+               Runs.discard(home_scope(), run.id, :user_discarded)
+
+      refute Enum.any?(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
+      assert {slots, _} = slots(plan)
+      refute Map.has_key?(slots, "tue_dinner")
+    end
+
+    test "can be confirmed once", %{run: run, proposal: proposal} do
+      {:ok, _} = Runs.confirm(home_scope(), run.id, proposal)
+
+      assert {:error, {:invalid_transition, :applied, :confirm}} =
+               Runs.confirm(home_scope(), run.id, proposal)
+    end
+
     test "is saved as made by whoever confirms it", %{run: run, proposal: proposal} do
       person = scope_fixture(user_fixture())
       {:ok, _} = Runs.confirm(person, run.id, proposal)

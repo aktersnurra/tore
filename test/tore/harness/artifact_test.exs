@@ -32,12 +32,12 @@ defmodule Tore.Harness.ArtifactTest do
 
   test "Registry.kinds/0 lists registered kinds" do
     assert "PlanDiff" in Registry.kinds()
-    assert "RunSummary" in Registry.kinds()
+    assert "RecipeProposal" in Registry.kinds()
   end
 
   test "Registry.lookup/1 returns the module" do
     assert {:ok, Tore.Harness.Artifact.PlanDiff} = Registry.lookup("PlanDiff")
-    assert {:ok, Tore.Harness.Artifact.RunSummary} = Registry.lookup("RunSummary")
+    assert {:ok, Tore.Harness.Artifact.CostEntry} = Registry.lookup("CostEntry")
     assert :error = Registry.lookup("Nonexistent")
   end
 

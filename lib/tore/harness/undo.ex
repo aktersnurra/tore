@@ -6,7 +6,6 @@ defmodule Tore.Harness.Undo do
     * `{:steps, steps}`: restored in reverse order, in one transaction with the status change.
       `{:steps, []}` is the undo of an apply that changed nothing, such as a memory review
       with nothing to add.
-    * `:children`: a Capture turn. Reverting it reverts its applied children, newest first.
     * `{:irreversible, reason}`: the Undo button is off and the receipt says why.
 
   `encode/1` and `decode/1` are strict: an unknown shape raises rather than turning into a
@@ -44,7 +43,7 @@ defmodule Tore.Harness.Undo do
           | {:delete_receipt, receipt_id :: integer()}
           | {:delete_recipe, recipe_id :: integer()}
 
-  @type t :: {:steps, [step()]} | :children | {:irreversible, reason :: String.t()}
+  @type t :: {:steps, [step()]} | {:irreversible, reason :: String.t()}
 
   @slot_keys ~w(recipe_id servings skipped leftover reason)a
   @pantry_keys ~w(name ingredient_id quantity unit category added_at expires_at expires_source provenance belief last_seen_at)a
@@ -53,9 +52,8 @@ defmodule Tore.Harness.Undo do
   def reversible?({:irreversible, _reason}), do: false
   def reversible?(_undo), do: true
 
-  @spec encode(t()) :: map() | String.t()
+  @spec encode(t()) :: map()
   def encode({:irreversible, reason}) when is_binary(reason), do: %{"irreversible" => reason}
-  def encode(:children), do: "children"
 
   def encode({:steps, steps}) when is_list(steps),
     do: %{"steps" => Enum.map(steps, &encode_step/1)}
@@ -63,8 +61,7 @@ defmodule Tore.Harness.Undo do
   def encode(other), do: raise(ArgumentError, "not an undo: #{inspect(other)}")
 
   @doc "Every map must hold exactly its own keys, so nothing in stored JSON is silently dropped."
-  @spec decode(map() | String.t()) :: t()
-  def decode("children"), do: :children
+  @spec decode(map()) :: t()
 
   def decode(%{} = undo) do
     case single!(undo) do

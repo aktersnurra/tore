@@ -15,7 +15,6 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
 
   alias Tore.{Household, Pantry, Repo, Scope}
   alias Tore.Harness.Artifact.PantryBeliefUpdate
-  alias Tore.Harness.PantryUpdate, as: Items
   alias Tore.Harness.Verifier.PantryVerifier
   alias Tore.Recipes.Ingredient
 
@@ -33,12 +32,12 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   @impl true
   def propose(_run, %{channel: :shelf_photo, scope: scope, image_binary: image}) do
     with {:ok, items} <- Pantry.parse_image(scope, image) do
-      {:ok, Items.build_artifact(items, :shelf_photo), @no_usage}
+      {:ok, artifact(items, :shelf_photo), @no_usage}
     end
   end
 
   def propose(_run, %{channel: channel, items: items}) when is_list(items),
-    do: {:ok, Items.build_artifact(items, channel), @no_usage}
+    do: {:ok, artifact(items, channel), @no_usage}
 
   @impl true
   def resolve(%PantryBeliefUpdate{items: []} = update, _ctx), do: {:ok, update}
@@ -101,4 +100,29 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
       shelf_life_days: norm[:shelf_life_days]
     })
   end
+
+  # Each line is marked with where it came from.
+  defp artifact(items, channel) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    %PantryBeliefUpdate{
+      items:
+        Enum.map(items, fn it ->
+          %{
+            name: it[:name] || it["name"],
+            change: :added,
+            quantity: it[:quantity] || it["quantity"],
+            unit: it[:unit] || it["unit"],
+            category: it[:category] || it["category"],
+            expires_on: it[:expires_on],
+            provenance: provenance(channel),
+            last_seen_at: now
+          }
+        end)
+    }
+  end
+
+  defp provenance(:grocery_checkoff), do: "grocery_checkoff"
+  defp provenance(:manual), do: "manual"
+  defp provenance(:shelf_photo), do: "vision"
 end

@@ -44,7 +44,7 @@ defmodule Tore.LLM.PlannerAgentTest do
 
     {:ok, _} = PlannerAgent.run(@system_prompt, "x", @ctx, [])
 
-    # No rows should have been inserted — the orchestrator owns persistence.
+    # No rows should have been inserted — the plan kinds own persistence.
     assert Tore.AiOperations.list_for_run(home_scope(), "anything") == []
   end
 

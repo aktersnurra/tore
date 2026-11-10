@@ -3,22 +3,16 @@ defmodule Tore.Harness.Artifact.Registry do
     CostEntry,
     MemoryBatch,
     PantryBeliefUpdate,
-    PantrySnapshot,
     PlanDiff,
-    RecipeProposal,
-    RunBundle,
-    RunSummary
+    RecipeProposal
   }
 
   @registry %{
     "CostEntry" => CostEntry,
     "MemoryBatch" => MemoryBatch,
     "PantryBeliefUpdate" => PantryBeliefUpdate,
-    "PantrySnapshot" => PantrySnapshot,
     "PlanDiff" => PlanDiff,
-    "RecipeProposal" => RecipeProposal,
-    "RunBundle" => RunBundle,
-    "RunSummary" => RunSummary
+    "RecipeProposal" => RecipeProposal
   }
 
   @spec lookup(String.t()) :: {:ok, module()} | :error

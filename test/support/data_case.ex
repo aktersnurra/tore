@@ -39,18 +39,7 @@ defmodule Tore.DataCase do
   def setup_sandbox(tags) do
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Tore.Repo, shared: not tags[:async])
 
-    on_exit(fn ->
-      # A page starts its household's projector, which would outlive this test's database and
-      # carry the runs it remembers into the next test. Sync tests never overlap, so this is safe.
-      if !tags[:async], do: stop_projectors()
-      Ecto.Adapters.SQL.Sandbox.stop_owner(pid)
-    end)
-  end
-
-  defp stop_projectors do
-    for {_, pid, _, _} <- DynamicSupervisor.which_children(Tore.Harness.ProjectorSupervisor) do
-      DynamicSupervisor.terminate_child(Tore.Harness.ProjectorSupervisor, pid)
-    end
+    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
   end
 
   @doc """

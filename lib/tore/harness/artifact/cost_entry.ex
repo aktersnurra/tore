@@ -25,7 +25,7 @@ defmodule Tore.Harness.Artifact.CostEntry do
           line_items: [line_item()],
           image_path: String.t() | nil,
           # True when the parser couldn't read a date from the receipt and
-          # the orchestrator filled in today's date as a fallback. The
+          # ReceiptIngestion filled in today's date as a fallback. The
           # review card uses this to flag "we couldn't read the date" so
           # the user knows to verify it before committing.
           date_inferred?: boolean()

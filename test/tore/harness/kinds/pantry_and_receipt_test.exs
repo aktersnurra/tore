@@ -145,7 +145,8 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
 
       assert {:ok, %KitchenRun{status: :applied, surface: :shop} = run} = start()
       assert run == Runs.get(member(), run.id)
-      assert [%{store_name: "ICA"}] = Costs.recent_receipts(member(), 5)
+      assert [%{store_name: "ICA", total_amount: total}] = Costs.recent_receipts(member(), 5)
+      assert Decimal.equal?(total, Decimal.new("89.5"))
 
       {:ok, _} = Runs.revert(member(), run.id)
       assert Costs.recent_receipts(member(), 5) == []
@@ -164,6 +165,37 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       :ok = Costs.delete_receipt(member(), receipt.id)
 
       assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(member(), run.id)
+    end
+
+    test "keeps its line items, and leaves the pantry and the shopping list alone" do
+      list_id = Tore.Streams.shop_list(member(), ~D[2026-11-02])
+      # Adding to the list sorts the item into a section once; a receipt asks nothing more.
+      expect(Tore.MockLLM, :text, fn _, _, _ -> {:ok, %{"section" => "dairy"}, @usage} end)
+      {:ok, _} = Tore.Shop.add_item(member(), list_id, "Mjölk", Decimal.new(1), "l", nil)
+
+      read(%{
+        "total" => 89.5,
+        "store_name" => "ICA",
+        "purchase_date" => "2026-11-04",
+        "items" => [
+          %{"name" => "MJÖLK 1.5L", "quantity" => 2},
+          %{"name" => "ÄGG 12P", "quantity" => 1}
+        ]
+      })
+
+      assert {:ok, %KitchenRun{status: :applied}} = start()
+
+      receipt =
+        Repo.one!(Tore.Costs.Receipt, Tore.Scope.repo_opts(member())) |> Repo.preload(:line_items)
+
+      assert receipt.line_items |> Enum.map(& &1.product_name) |> Enum.sort() == [
+               "MJÖLK 1.5L",
+               "ÄGG 12P"
+             ]
+
+      assert Pantry.list_inventory(member()) == []
+      {:ok, %{items: items}} = Tore.Shop.load_list(member(), list_id)
+      assert [%{checked: false}] = Map.values(items)
     end
 
     test "with no store it fails, logging nothing" do

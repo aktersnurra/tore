@@ -1,7 +1,7 @@
 defmodule Tore.Harness.KitchenRunTest do
   use Tore.DataCase, async: true
 
-  alias Tore.Harness.Artifact.{CostEntry, PlanDiff, RunSummary}
+  alias Tore.Harness.Artifact.{CostEntry, PlanDiff}
   alias Tore.Harness.KitchenRun
   alias Tore.Harness.KitchenRun.Transition
   alias Tore.Repo
@@ -45,8 +45,7 @@ defmodule Tore.Harness.KitchenRunTest do
         date: ~D[2026-11-09],
         total: Decimal.new("123.45"),
         line_items: []
-      },
-      %RunSummary{counts: %{added: 1}, outcome: :applied}
+      }
     ]
 
     run =

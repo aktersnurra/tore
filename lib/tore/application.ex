@@ -19,8 +19,6 @@ defmodule Tore.Application do
         Tore.Harness.Runs,
         {DNSCluster, query: Application.get_env(:tore, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Tore.PubSub},
-        Tore.Harness.ProjectorRegistry,
-        Tore.Harness.ProjectorSupervisor,
         Tore.Scheduler,
         {Task.Supervisor, name: Tore.TaskSupervisor}
       ] ++

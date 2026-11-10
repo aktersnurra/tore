@@ -16,9 +16,9 @@ defmodule Tore.Storage.RunPhotos do
   def prefix(%Scope{household_id: id}), do: "households/#{id}/"
 
   @doc """
-  Persist `binary` for `stream_id` and return the S3 key. The key is what
-  the orchestrator stores on the run's `Opened.input.image_path` — pass it
-  back to `url/1` to render, or to `delete/1` to clean up.
+  Persist `binary` under `stream_id` (Capture's upload id) and return the S3 key. The key is
+  what a receipt run keeps in its `input["image_path"]` — pass it back to `url/1` to render, or
+  to `delete/1` to clean up.
   """
   @spec store(Scope.t(), String.t(), binary()) :: {:ok, String.t()} | {:error, term()}
   def store(%Scope{} = scope, stream_id, binary)

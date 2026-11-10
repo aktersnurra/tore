@@ -32,7 +32,6 @@ defmodule Tore.Harness.UndoTest do
   test "every shape survives JSON unchanged" do
     for undo <- [
           {:irreversible, "no before-image"},
-          :children,
           {:steps, []},
           {:steps,
            [
@@ -119,7 +118,6 @@ defmodule Tore.Harness.UndoTest do
 
   test "only the irreversible shape refuses" do
     refute Undo.reversible?({:irreversible, "x"})
-    assert Undo.reversible?(:children)
     assert Undo.reversible?({:steps, []})
   end
 end

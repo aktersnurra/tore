@@ -3,7 +3,7 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   import Phoenix.LiveViewTest
   alias ToreWeb.Components.ReceiptLive
   alias Tore.Harness.KitchenRun
-  alias Tore.Harness.Artifact.{PlanDiff, RunSummary}
+  alias Tore.Harness.Artifact.PlanDiff
 
   # render_component/2 bypasses the LiveView mount (and ToreWeb.Live.Auth's
   # Gettext.put_locale), so without this it renders in the gettext default
@@ -59,8 +59,6 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
       events: [%{slot_key: "mon", event_type: "MealSkipped", payload: %{}, rationale: ["x"]}]
     }
 
-    rs = RunSummary.from_artifacts([diff], :applied)
-
     applied = %KitchenRun{
       status: :applied,
       id: "run-x",
@@ -70,7 +68,7 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      artifacts: [diff, rs]
+      artifacts: [diff]
     }
 
     html = render_component(ReceiptLive, id: "r", run: applied)
@@ -204,7 +202,6 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
 
   defp applied_with_events(events) do
     diff = %PlanDiff{plan_stream_id: "plan-1", week_start: ~D[2026-06-01], events: events}
-    rs = RunSummary.from_artifacts([diff], :applied)
 
     %KitchenRun{
       status: :applied,
@@ -215,7 +212,7 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      artifacts: [diff, rs]
+      artifacts: [diff]
     }
   end
 
