@@ -101,6 +101,9 @@ defmodule Tore.Harness.Kinds.PlanEditTest do
     Dispatch.mark_eating_out(@monday, %{description: "Sushi", total_amount: nil}, ctx.ctx)
     later = Dispatch.mark_eating_out(@monday, %{total_amount: 600}, ctx.ctx)
 
+    assert %KitchenRun{artifacts: [diff]} = run(later)
+    assert [%{change: :eating_out}] = PlanDiff.summarise(diff)
+
     assert Decimal.equal?(
              Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner").total_amount,
              600
@@ -112,6 +115,21 @@ defmodule Tore.Harness.Kinds.PlanEditTest do
              Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
 
     assert State.eating_out?(plan(ctx.plan).slots["mon_dinner"])
+  end
+
+  test "undoing a clear of an eating-out day brings its cost back too", ctx do
+    Dispatch.mark_eating_out(@monday, %{description: "Sushi", total_amount: 300}, ctx.ctx)
+    cleared = Dispatch.clear_plan_slot(@monday, ctx.ctx)
+    refute Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
+
+    undo(cleared)
+
+    assert State.eating_out?(plan(ctx.plan).slots["mon_dinner"])
+
+    assert %{description: "Sushi", total_amount: amount} =
+             Costs.get_dining_out(home_scope(), ctx.plan, "mon_dinner")
+
+    assert Decimal.equal?(amount, 300)
   end
 
   test "eating out works on an empty day, and undo empties it again", ctx do

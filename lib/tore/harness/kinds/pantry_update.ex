@@ -4,7 +4,8 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   by hand. `ctx` holds `:channel` (`:shelf_photo`, `:grocery_checkoff` or `:manual`), and
   `:image_binary` for a photo or `:items` otherwise. An item with an `:item_id` removes that row.
 
-  `resolve` sends the names through the LLM canonicaliser, and `verify` refuses an answer that
+  `resolve` sends photographed and checked-off names through the LLM canonicaliser (a name typed
+  by hand is kept as typed, with no model call), and `verify` refuses an answer that
   names a catalogue ingredient the household doesn't have, so an invented key never creates one.
   It applies straight away, and undo puts each item back as it was.
   """
@@ -41,8 +42,13 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
 
   @impl true
   def resolve(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do
-    # Only additions need a catalogue name; a removal names a row already there.
-    case for(%{change: :added, name: name} <- items, do: %{raw_name: name}) do
+    # Only additions read by the model need a catalogue name. Someone typing a name says what
+    # they mean, as before runs, and a removal names a row already there.
+    case for(
+           %{change: :added, provenance: p, name: name} <- items,
+           p != "manual",
+           do: %{raw_name: name}
+         ) do
       [] ->
         {:ok, update}
 

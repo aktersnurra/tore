@@ -114,8 +114,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
                })
     end
 
-    test "Capture adding by hand says what it did, and undo takes it out" do
-      canonicalise(["mjölk"], %{"mjölk" => {"Mjölk", nil}})
+    test "Capture adding by hand asks no model, and undo takes it out" do
       ctx = %{household_id: home_scope().household_id, user_id: nil}
 
       bubble = Tore.Capture.Dispatch.add_to_pantry("mjölk", 1, "l", ctx)
@@ -140,6 +139,20 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       assert names() == []
       {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
       assert inventory() == before
+    end
+
+    test "undoing a removal after the item came back leaves one row" do
+      canonicalise(["smör"])
+      {:ok, _} = tick([%{name: "smör", quantity: 2, unit: "st"}])
+      ctx = %{household_id: home_scope().household_id, user_id: nil}
+
+      removed = Tore.Capture.Dispatch.remove_from_pantry("smör", ctx)
+      canonicalise(["smör"])
+      {:ok, _} = tick([%{name: "smör", quantity: 1, unit: "st"}])
+      {:ok, _} = Runs.revert(home_scope(), removed.run_stream_id)
+
+      assert [%{name: "smör", quantity: quantity}] = inventory()
+      assert Decimal.equal?(quantity, 1)
     end
 
     test "a stored item that isn't what an item looks like raises on load" do

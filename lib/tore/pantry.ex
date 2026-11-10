@@ -275,7 +275,9 @@ defmodule Tore.Pantry do
 
   @doc """
   Puts an item back as `before_image/1` found it, or removes it if the run created it
-  (`:absent`). An item since removed comes back with its id; one already gone stays gone.
+  (`:absent`). An item since removed comes back with its id; one already gone stays gone. An item
+  that someone has since added again under a new id is left as they added it, since one
+  ingredient has one pantry row.
   """
   @spec restore_item(Scope.t(), integer(), Tore.Harness.Undo.pantry_before() | :absent) :: :ok
   def restore_item(%Scope{} = scope, item_id, :absent) do
@@ -286,9 +288,11 @@ defmodule Tore.Pantry do
   def restore_item(%Scope{} = scope, item_id, before) do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil ->
-        %PantryItem{id: item_id, household_id: scope.household_id}
-        |> Ecto.Changeset.change(before)
-        |> Repo.insert!()
+        if not re_added?(scope, before) do
+          %PantryItem{id: item_id, household_id: scope.household_id}
+          |> Ecto.Changeset.change(before)
+          |> Repo.insert!()
+        end
 
       item ->
         item |> Ecto.Changeset.change(before) |> Repo.update!()
@@ -296,6 +300,15 @@ defmodule Tore.Pantry do
 
     :ok
   end
+
+  defp re_added?(_scope, %{ingredient_id: nil}), do: false
+
+  defp re_added?(scope, %{ingredient_id: ingredient_id}),
+    do:
+      Repo.exists?(
+        from(p in PantryItem, where: p.ingredient_id == ^ingredient_id),
+        Scope.repo_opts(scope)
+      )
 
   def remove_item(%Scope{} = scope, item_id) do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do

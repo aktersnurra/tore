@@ -29,7 +29,7 @@ defmodule Tore.Harness.Kinds.PlanEdit do
       diff = %PlanDiff{
         plan_stream_id: plan_id,
         week_start: week_start,
-        events: Enum.map(events, &entry/1),
+        events: entries(command, events),
         plan_events: events
       }
 
@@ -110,6 +110,13 @@ defmodule Tore.Harness.Kinds.PlanEdit do
     with {:ok, _entry} <- Costs.save_dining_out(scope, attrs),
          do: {:ok, [{:restore_dining_out, plan_id, slot_key, before}]}
   end
+
+  # Eating out on a day already eating out appends nothing but changes its dining entry, so the
+  # receipt still names the day.
+  defp entries(%Commands.EatOut{slot_key: slot_key}, []),
+    do: [entry(%Events.MealSkipped{slot_key: slot_key, reason: "eating_out"})]
+
+  defp entries(_command, events), do: Enum.map(events, &entry/1)
 
   defp entry(event) do
     payload =

@@ -205,7 +205,8 @@ defmodule Tore.Planning do
 
   @doc """
   Puts slots back as `slots_before/2` found them, appending only the events that change a slot.
-  The dining-out entry of a day that was eating out isn't brought back, only the day's state.
+  The day's dining-out entry is a step of its own (`Tore.Harness.Undo`), which `restore_slots`
+  leaves alone.
   """
   @spec restore_slots(Scope.t(), String.t(), %{String.t() => Tore.Harness.Undo.slot_before()}) ::
           :ok | {:error, term()}

@@ -87,6 +87,26 @@ defmodule ToreWeb.CaptureLive do
   defp photo_label(1), do: gettext("1 photo")
   defp photo_label(n), do: gettext("%{n} photos", n: n)
 
+  # Undo on a reply whose run can be undone, and "Reverted" once it has been.
+  attr :msg, :map, required: true
+
+  defp undo(assigns) do
+    ~H"""
+    <button
+      :if={Map.get(@msg, :run_stream_id) && !Map.get(@msg, :reverted)}
+      type="button"
+      phx-click="undo_run"
+      phx-value-sid={@msg.run_stream_id}
+      class="self-start block text-xs text-[color:var(--accent)] font-semibold mt-1"
+    >
+      {gettext("Undo")}
+    </button>
+    <span :if={Map.get(@msg, :reverted)} class="block text-xs text-[color:var(--muted)] mt-1">
+      {gettext("Reverted")}
+    </span>
+    """
+  end
+
   # A reply meant only for the model, such as a rejected memory batch, has no text.
   defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
 
@@ -208,6 +228,7 @@ defmodule ToreWeb.CaptureLive do
             >
               {gettext("Open shopping list")} →
             </.link>
+            <.undo msg={msg} />
           </div>
           <div
             :if={
@@ -230,21 +251,7 @@ defmodule ToreWeb.CaptureLive do
             >
               {gettext("Open the kitchen page")} →
             </.link>
-            <button
-              :if={Map.get(msg, :run_stream_id) && !Map.get(msg, :reverted)}
-              type="button"
-              phx-click="undo_run"
-              phx-value-sid={msg.run_stream_id}
-              class="self-start text-xs text-[color:var(--accent)] font-semibold mt-1"
-            >
-              {gettext("Undo")}
-            </button>
-            <span
-              :if={Map.get(msg, :reverted)}
-              class="text-xs text-[color:var(--muted)] mt-1"
-            >
-              {gettext("Reverted")}
-            </span>
+            <.undo msg={msg} />
           </div>
         </div>
         <div :if={@loading} class="flex justify-start">

@@ -10,7 +10,7 @@ defmodule Tore.Harness.Kinds.Planner do
   clearing it. Plan screens hear about the change after the run commits.
   """
 
-  alias Tore.{AiOperations, Household, Planning, Recipes, Scope}
+  alias Tore.{AiOperations, Costs, Household, Planning, Recipes, Scope}
   alias Tore.Harness.{Capsules, Handles, PlanDiffBuilder}
   alias Tore.Harness.Artifact.{PlanDiff, RecipeProposal}
 
@@ -121,17 +121,29 @@ defmodule Tore.Harness.Kinds.Planner do
 
   def after_commit(_run), do: :ok
 
-  @doc "Appends `events` and returns the undo steps that put the touched slots back."
+  @doc """
+  Appends `events` and returns the undo steps that put the touched slots back, with the dining
+  entry of any day that stopped eating out. Undo runs the steps last first, so the entry is back
+  before its day is.
+  """
   @spec change_plan(Scope.t(), String.t(), [Tore.Planning.Events.t()]) ::
           {:ok, [Tore.Harness.Undo.step()]} | {:error, term()}
   def change_plan(_scope, _plan_id, []), do: {:ok, []}
 
   def change_plan(scope, plan_id, events) do
     {:ok, plan} = Planning.load_plan(scope, plan_id)
-    before = Planning.slots_before(plan, events |> Enum.map(& &1.slot_key) |> Enum.uniq())
+    keys = events |> Enum.map(& &1.slot_key) |> Enum.uniq()
+    before = Planning.slots_before(plan, keys)
+    dining = for key <- keys, do: {key, Costs.dining_out_before(scope, plan_id, key)}
 
     with :ok <- Planning.append_events(scope, plan_id, events) do
-      {:ok, [{:restore_plan_slots, plan_id, before}]}
+      dropped =
+        for {key, entry} <- dining,
+            entry != :absent,
+            is_nil(Costs.get_dining_out(scope, plan_id, key)),
+            do: {:restore_dining_out, plan_id, key, entry}
+
+      {:ok, [{:restore_plan_slots, plan_id, before} | dropped]}
     end
   end
 

@@ -127,6 +127,29 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html2 =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
+  test "an item added to the shopping list can be undone from its reply", %{conn: conn} do
+    usage = %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
+    call = %{id: "call_1", name: "add_to_shopping_list", args: %{"name" => "mjölk"}}
+
+    Tore.MockLLM
+    |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:tool_calls, [call]}, usage} end)
+    |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Klart."}, usage} end)
+    |> stub(:text, fn _, _, _ -> {:ok, %{"section" => "dairy"}, usage} end)
+
+    {:ok, lv, _html} = live(conn, "/capture")
+    lv |> form("form", %{message: "lägg till mjölk"}) |> render_submit()
+    eventually(fn -> has_element?(lv, "button", "Ångra") end)
+
+    list_id = Tore.Streams.shop_list(home_scope(), Date.utc_today())
+    assert {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list_id)
+    assert map_size(items) == 1
+
+    lv |> element("button", "Ångra") |> render_click()
+
+    assert {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list_id)
+    assert items == %{}
+  end
+
   describe "the memory tool" do
     @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
 
