@@ -8,7 +8,7 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
   alias Tore.Harness.Run.State
 
   setup do
-    household = Tore.Household.get_household!()
+    household = home_household()
     plan_stream_id = "plan:" <> Ecto.UUID.generate()
     {:ok, household: household, plan_stream_id: plan_stream_id}
   end
@@ -69,10 +69,10 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     state = needs_user_run(ctx, proposal())
 
     assert {:ok, %State.Applied{}} =
-             Orchestrator.commit_recipe_proposal(state.stream_id, proposal(), nil)
+             Orchestrator.commit_recipe_proposal(home_scope(), state.stream_id, proposal(), nil)
 
-    assert [recipe] = Tore.Recipes.list()
-    recipe = Tore.Recipes.get!(recipe.id)
+    assert [recipe] = Tore.Recipes.list(home_scope())
+    recipe = Tore.Recipes.get!(home_scope(), recipe.id)
     assert recipe.title == "Vegetarian Miso Ramen"
     assert length(recipe.recipe_ingredients) == 2
   end
@@ -83,10 +83,10 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     state = needs_user_run(ctx, p)
 
     assert {:ok, %State.Applied{}} =
-             Orchestrator.commit_recipe_proposal(state.stream_id, p, nil)
+             Orchestrator.commit_recipe_proposal(home_scope(), state.stream_id, p, nil)
 
-    {:ok, plan} = Tore.Planning.load_plan(ctx.plan_stream_id)
-    [recipe] = Tore.Recipes.list()
+    {:ok, plan} = Tore.Planning.load_plan(home_scope(), ctx.plan_stream_id)
+    [recipe] = Tore.Recipes.list(home_scope())
 
     assert get_in(plan.slots, ["mon_dinner", :recipe_id]) == recipe.id
   end
@@ -97,9 +97,9 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     edited = proposal(%{title: "Vegan Miso Ramen"})
 
     assert {:ok, %State.Applied{}} =
-             Orchestrator.commit_recipe_proposal(state.stream_id, edited, nil)
+             Orchestrator.commit_recipe_proposal(home_scope(), state.stream_id, edited, nil)
 
-    assert [%{title: "Vegan Miso Ramen"}] = Tore.Recipes.list()
+    assert [%{title: "Vegan Miso Ramen"}] = Tore.Recipes.list(home_scope())
   end
 
   test "committing an edit that fails the verifier saves nothing", ctx do
@@ -108,9 +108,9 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     broken = proposal(%{ingredients: []})
 
     assert {:error, {:verifier_failed, :no_ingredients, :reject}} =
-             Orchestrator.commit_recipe_proposal(state.stream_id, broken, nil)
+             Orchestrator.commit_recipe_proposal(home_scope(), state.stream_id, broken, nil)
 
-    assert Tore.Recipes.list() == []
+    assert Tore.Recipes.list(home_scope()) == []
   end
 
   test "discarding saves nothing and leaves the slot untouched", ctx do
@@ -119,19 +119,19 @@ defmodule Tore.Harness.RecipeProposalCommitTest do
     state = needs_user_run(ctx, p)
 
     assert {:ok, %State.Discarded{}} =
-             Orchestrator.discard_run(state.stream_id, reason: :user_discarded)
+             Orchestrator.discard_run(home_scope(), state.stream_id, reason: :user_discarded)
 
-    assert Tore.Recipes.list() == []
+    assert Tore.Recipes.list(home_scope()) == []
 
-    {:ok, plan} = Tore.Planning.load_plan(ctx.plan_stream_id)
+    {:ok, plan} = Tore.Planning.load_plan(home_scope(), ctx.plan_stream_id)
     assert get_in(plan.slots, ["mon_dinner", :recipe_id]) == nil
   end
 
   test "committing a run that is not awaiting the user is rejected", ctx do
     state = needs_user_run(ctx, proposal())
-    {:ok, _} = Orchestrator.commit_recipe_proposal(state.stream_id, proposal(), nil)
+    {:ok, _} = Orchestrator.commit_recipe_proposal(home_scope(), state.stream_id, proposal(), nil)
 
     assert {:error, :already_applied} =
-             Orchestrator.commit_recipe_proposal(state.stream_id, proposal(), nil)
+             Orchestrator.commit_recipe_proposal(home_scope(), state.stream_id, proposal(), nil)
   end
 end

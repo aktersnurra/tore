@@ -7,12 +7,13 @@ defmodule ToreWeb.RecipeLive do
   @time_filters [:any, 30, 45, 60]
 
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Phoenix.PubSub.subscribe(Tore.PubSub, "recipes")
+    if connected?(socket),
+      do: Phoenix.PubSub.subscribe(Tore.PubSub, Tore.Recipes.topic(socket.assigns.current_scope))
 
     {:ok,
      socket
      |> assign(
-       recipes: Recipes.list(),
+       recipes: Recipes.list(socket.assigns.current_scope),
        search: "",
        filter_tags: [],
        filter_type: :all,
@@ -40,7 +41,9 @@ defmodule ToreWeb.RecipeLive do
   # ── Events ─────────────────────────────────────────────────────────────────
 
   def handle_event("search", %{"query" => q}, socket) do
-    recipes = if q == "", do: reload(socket), else: Recipes.search(q)
+    recipes =
+      if q == "", do: reload(socket), else: Recipes.search(socket.assigns.current_scope, q)
+
     {:noreply, assign(socket, search: q, recipes: recipes)}
   end
 
@@ -99,7 +102,7 @@ defmodule ToreWeb.RecipeLive do
 
     case socket.assigns.selected do
       nil ->
-        case Recipes.create(attrs) do
+        case Recipes.create(socket.assigns.current_scope, attrs) do
           {:ok, _recipe} ->
             {:noreply,
              socket |> assign(form: nil, extracted_attrs: nil, error: nil) |> reload_recipes()}
@@ -109,7 +112,7 @@ defmodule ToreWeb.RecipeLive do
         end
 
       recipe ->
-        case Recipes.update(recipe, attrs) do
+        case Recipes.update(socket.assigns.current_scope, recipe, attrs) do
           {:ok, _recipe} ->
             {:noreply,
              socket
@@ -123,7 +126,7 @@ defmodule ToreWeb.RecipeLive do
   end
 
   def handle_event("select_recipe", %{"id" => id}, socket) do
-    recipe = Recipes.get!(String.to_integer(id))
+    recipe = Recipes.get!(socket.assigns.current_scope, String.to_integer(id))
 
     {:noreply,
      assign(socket,
@@ -162,7 +165,7 @@ defmodule ToreWeb.RecipeLive do
   end
 
   def handle_event("delete_recipe", _, socket) do
-    case Recipes.delete(socket.assigns.selected) do
+    case Recipes.delete(socket.assigns.current_scope, socket.assigns.selected) do
       {:ok, _} ->
         {:noreply, socket |> assign(selected: nil, form: nil) |> reload_recipes()}
 
@@ -258,7 +261,7 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_info({:run_substitution, missing, recipe_context}, socket) do
     result =
-      case Recipes.suggest_substitution(missing, recipe_context) do
+      case Recipes.suggest_substitution(socket.assigns.current_scope, missing, recipe_context) do
         {:ok, r} ->
           r
 
@@ -274,7 +277,7 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_info({:load_cook_mode, recipe}, socket) do
     steps =
-      case Recipes.cook_mode_steps(Map.from_struct(recipe)) do
+      case Recipes.cook_mode_steps(socket.assigns.current_scope, Map.from_struct(recipe)) do
         {:ok, s} ->
           s
 
@@ -973,7 +976,7 @@ defmodule ToreWeb.RecipeLive do
   # ── Helpers ─────────────────────────────────────────────────────────────────
 
   defp reload(socket) do
-    Recipes.list(
+    Recipes.list(socket.assigns.current_scope,
       tags: socket.assigns.filter_tags,
       type: socket.assigns.filter_type,
       max_minutes: socket.assigns.filter_max_min,

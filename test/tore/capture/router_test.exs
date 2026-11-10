@@ -11,7 +11,11 @@ defmodule Tore.Capture.RouterTest do
   describe "route/4 with set_plan_slot" do
     test "wraps the turn in a :capture_turn_run that bundles the set_plan_slot child" do
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Pizza", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Pizza",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       # Turn 1: model emits a set_plan_slot tool call.
@@ -47,7 +51,7 @@ defmodule Tore.Capture.RouterTest do
       assert %State.Applied{kind: "capture_turn_run"} = parent_run
       assert [%RunBundle{child_stream_ids: [child_sid]}] = parent_run.artifacts
 
-      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(child_sid)
+      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(home_scope(), child_sid)
     end
 
     defp list_applied_turn_runs do
@@ -60,9 +64,9 @@ defmodule Tore.Capture.RouterTest do
         where: fragment("json_extract(?, '$.kind') = ?", e.data, "capture_turn_run"),
         select: e.stream_id
       )
-      |> Repo.all()
+      |> Repo.all(Tore.Scope.repo_opts(home_scope()))
       |> Enum.flat_map(fn sid ->
-        case Run.load(sid) do
+        case Run.load(home_scope(), sid) do
           {:ok, %State.Applied{} = s} -> [s]
           _ -> []
         end
@@ -94,10 +98,18 @@ defmodule Tore.Capture.RouterTest do
       ctx = %{household_id: 1, user_id: user.id}
       assert {:ok, _bubbles} = Router.route("vi äter ute på fredag", [], ctx)
 
-      {:ok, state} = Tore.Planning.load_plan("plan:2026-11-09")
+      {:ok, state} =
+        Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-11-09]))
+
       assert Tore.Planning.State.eating_out?(state.slots["fri_dinner"])
 
-      entry = Tore.Costs.get_dining_out("plan:2026-11-09", "fri_dinner")
+      entry =
+        Tore.Costs.get_dining_out(
+          home_scope(),
+          Tore.Streams.plan(home_scope(), ~D[2026-11-09]),
+          "fri_dinner"
+        )
+
       assert entry.description == "Sushi"
       assert Decimal.equal?(entry.total_amount, 450)
     end

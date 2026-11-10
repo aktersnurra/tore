@@ -45,8 +45,15 @@ defmodule ToreWeb.Router do
     get "/images/runs/:stream_id", RunPhotoController, :show
     get "/review", ReviewController, :next
 
+    live_session :welcome, on_mount: [{ToreWeb.Live.Auth, :require_authenticated}] do
+      live "/welcome", WelcomeLive
+    end
+
     live_session :authenticated,
-      on_mount: [{ToreWeb.Live.Auth, :require_authenticated}] do
+      on_mount: [
+        {ToreWeb.Live.Auth, :require_authenticated},
+        {ToreWeb.Live.Auth, :require_language}
+      ] do
       live "/", HomeLive
       live "/plan", PlannerLive
       live "/recipes", RecipeLive

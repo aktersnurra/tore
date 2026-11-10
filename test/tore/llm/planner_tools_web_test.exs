@@ -48,7 +48,7 @@ defmodule Tore.LLM.PlannerToolsWebTest do
     # Burn the cooldown by logging a call for the feature right now. cost_usd
     # is a float column — a Decimal fails the cast and the row never lands.
     {:ok, _} =
-      Tore.Costs.log_llm_usage(%{
+      Tore.Costs.log_llm_usage(home_scope(), %{
         feature: "recipe_web_search",
         prompt_tokens: 1,
         completion_tokens: 1,

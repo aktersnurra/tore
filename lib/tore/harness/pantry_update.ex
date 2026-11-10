@@ -17,9 +17,9 @@ defmodule Tore.Harness.PantryUpdate do
   alias Tore.Harness.Artifact.PantryBeliefUpdate, as: Artifact
   alias Tore.Pantry
 
-  @spec parse_shelf_photo(binary()) :: {:ok, [map()]} | {:error, term()}
-  def parse_shelf_photo(image_binary) do
-    Pantry.parse_image(image_binary)
+  @spec parse_shelf_photo(Tore.Scope.t(), binary()) :: {:ok, [map()]} | {:error, term()}
+  def parse_shelf_photo(scope, image_binary) do
+    Pantry.parse_image(scope, image_binary)
   end
 
   @doc """
@@ -59,21 +59,21 @@ defmodule Tore.Harness.PantryUpdate do
   pre-mutation state of each affected row (`before == nil` for newly
   created rows). The snapshots feed `PantrySnapshot` so the run can undo.
   """
-  @spec apply!(Artifact.t(), String.t() | nil) ::
+  @spec apply!(Tore.Scope.t(), Artifact.t(), String.t() | nil) ::
           {:ok, map(), [map()]} | {:error, term()}
-  def apply!(%Artifact{items: []}, _locale), do: {:ok, %{added: 0, bumped: 0}, []}
+  def apply!(_scope, %Artifact{items: []}, _locale), do: {:ok, %{added: 0, bumped: 0}, []}
 
-  def apply!(%Artifact{items: items}, locale) do
+  def apply!(scope, %Artifact{items: items}, locale) do
     raws = Enum.map(items, &%{raw_name: &1.name})
 
-    with {:ok, norms} <- Pantry.canonicalise(raws, locale) do
+    with {:ok, norms} <- Pantry.canonicalise(scope, raws, locale) do
       indexed = Map.new(norms, fn n -> {n.raw_name, n} end)
 
       Tore.Repo.transaction(fn ->
         Enum.reduce(items, {%{added: 0, bumped: 0}, []}, fn it, {counts, snaps} ->
           attrs = merge_norm(it, Map.get(indexed, it.name))
 
-          case Pantry.upsert_belief(attrs) do
+          case Pantry.upsert_belief(scope, attrs) do
             {:ok, item, :added, _before} ->
               {Map.update!(counts, :added, &(&1 + 1)),
                [%{item_id: item.id, before: nil, after: snapshot_of(item)} | snaps]}

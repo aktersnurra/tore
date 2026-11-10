@@ -71,7 +71,11 @@ defmodule ToreWeb.CaptureLiveTest do
 
   test "Undo on a set_plan_slot bubble reverts the run and marks the bubble", %{conn: conn} do
     {:ok, recipe} =
-      %Tore.Recipes.Recipe{title: "Pizza", recipe_type: :meal}
+      %Tore.Recipes.Recipe{
+        household_id: home_scope().household_id,
+        title: "Pizza",
+        recipe_type: :meal
+      }
       |> Tore.Repo.insert()
 
     tool_call = %{
@@ -106,12 +110,16 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html =~ "Pizza"
     assert html =~ "Ångra"
 
-    {:ok, plan_state} = Tore.Planning.load_plan("plan:2026-06-22")
+    {:ok, plan_state} =
+      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
+
     assert Map.has_key?(plan_state.slots, "tue_dinner")
 
     lv |> element("button", "Ångra") |> render_click()
 
-    {:ok, plan_state2} = Tore.Planning.load_plan("plan:2026-06-22")
+    {:ok, plan_state2} =
+      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
+
     refute Map.has_key?(plan_state2.slots, "tue_dinner")
 
     html2 = render(lv)
@@ -134,8 +142,10 @@ defmodule ToreWeb.CaptureLiveTest do
       end
     end)
     |> expect(:vision, fn _blobs, _sys, _user, _opts ->
-      {:ok, %{"items" => [%{"name" => "mjölk", "quantity" => 2, "unit" => "l", "category" => "dairy"}]},
-       usage}
+      {:ok,
+       %{
+         "items" => [%{"name" => "mjölk", "quantity" => 2, "unit" => "l", "category" => "dairy"}]
+       }, usage}
     end)
     |> expect(:text, fn _sys, _user, _opts ->
       {:ok,
@@ -164,11 +174,11 @@ defmodule ToreWeb.CaptureLiveTest do
 
     :timer.sleep(300)
     assert render(lv) =~ "La till mjölk från din bild."
-    assert [%{name: "mjölk"}] = Tore.Pantry.list_inventory()
+    assert [%{name: "mjölk"}] = Tore.Pantry.list_inventory(home_scope())
 
     lv |> element("button", "Ångra") |> render_click()
 
-    assert Tore.Pantry.list_inventory() == []
+    assert Tore.Pantry.list_inventory(home_scope()) == []
     assert render(lv) =~ "Återställd"
   end
 end

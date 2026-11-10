@@ -13,7 +13,7 @@ defmodule ToreWeb.RunPhotoController do
   alias Tore.Storage.Buckets
 
   def show(conn, %{"stream_id" => stream_id}) do
-    with {:ok, state} <- Run.load(stream_id),
+    with {:ok, state} <- Run.load(conn.assigns.current_scope, stream_id),
          key when is_binary(key) <- image_path_from(state),
          {:ok, body} <- Storage.client().get_object(Buckets.runs(), key) do
       conn

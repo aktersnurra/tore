@@ -1,35 +1,46 @@
 defmodule ToreWeb.SettingsLive do
   use ToreWeb, :live_view
 
-  alias Tore.{Accounts, Costs, Deals, Household}
+  alias Tore.{Accounts, Costs, Deals, Household, Members}
+  alias ToreWeb.UserSession
 
   def mount(_params, _session, socket) do
-    users = Accounts.list_users()
+    scope = socket.assigns.current_scope
 
     ai = %{
-      this_month: Costs.llm_spend_this_month(),
-      last_30_days: Costs.llm_spend_last_30_days(),
-      total: Costs.llm_spend_total(),
-      by_feature: Costs.llm_calls_this_month_by_feature()
+      this_month: Costs.llm_spend_this_month(scope),
+      last_30_days: Costs.llm_spend_last_30_days(scope),
+      total: Costs.llm_spend_total(scope),
+      by_feature: Costs.llm_calls_this_month_by_feature(scope)
     }
 
     {:ok,
-     assign(socket,
-       users: users,
+     socket
+     |> assign_members()
+     |> assign_ai_sponsor()
+     |> assign(
+       member_username: "",
+       member_notice: nil,
+       member_error: nil,
+       households: Members.list_households(socket.assigns.current_user),
        ai: ai,
-       memory_insights: Household.list_active_insights(),
-       household: Household.get_household!(),
-       stores: Deals.list_store_configs(),
+       memory_insights: Household.list_active_insights(socket.assigns.current_scope),
+       household: Household.get!(socket.assigns.current_scope),
+       stores: Deals.list_stores(socket.assigns.current_scope),
        store_url: "",
        store_error: nil
      )}
   end
 
   def handle_event("add_store", %{"url" => url}, socket) do
-    case Deals.add_store(url) do
+    case Deals.add_store(socket.assigns.current_scope, url) do
       {:ok, _store} ->
         {:noreply,
-         assign(socket, stores: Deals.list_store_configs(), store_url: "", store_error: nil)}
+         assign(socket,
+           stores: Deals.list_stores(socket.assigns.current_scope),
+           store_url: "",
+           store_error: nil
+         )}
 
       {:error, :unsupported_store} ->
         {:noreply,
@@ -42,22 +53,119 @@ defmodule ToreWeb.SettingsLive do
   end
 
   def handle_event("toggle_store", %{"id" => id}, socket) do
-    store = Deals.get_store_config!(String.to_integer(id))
-    {:ok, _store} = Deals.update_store_config(store, %{scrape_enabled: !store.scrape_enabled})
-    {:noreply, assign(socket, stores: Deals.list_store_configs())}
+    scope = socket.assigns.current_scope
+    _ = Deals.toggle_scraping(scope, String.to_integer(id))
+    {:noreply, assign(socket, stores: Deals.list_stores(scope))}
   end
 
   def handle_event("remove_store", %{"id" => id}, socket) do
-    {:ok, _store} =
-      id |> String.to_integer() |> Deals.get_store_config!() |> Deals.delete_store_config()
+    scope = socket.assigns.current_scope
+    _ = Deals.remove_store(scope, String.to_integer(id))
+    {:noreply, assign(socket, stores: Deals.list_stores(scope))}
+  end
 
-    {:noreply, assign(socket, stores: Deals.list_store_configs())}
+  def handle_event("add_member", %{"username" => username}, socket) do
+    case Members.add(socket.assigns.current_scope, username) do
+      {:ok, result} ->
+        notice =
+          case result do
+            {:pending, name} ->
+              gettext("%{name} joins at their first sign-in.", name: name)
+
+            {:moved, user} ->
+              # Their empty household is gone, so their open pages move here.
+              UserSession.disconnect(user.id)
+              gettext("%{name} is now a member.", name: user.name)
+
+            {:added, user} ->
+              gettext("%{name} is now a member.", name: user.name)
+          end
+
+        {:noreply,
+         socket
+         |> assign_members()
+         |> assign(member_username: "", member_notice: notice, member_error: nil)}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           member_username: username,
+           member_notice: nil,
+           member_error: member_error(reason)
+         )}
+    end
+  end
+
+  def handle_event("remove_member", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+
+    case Members.remove(socket.assigns.current_scope, id) do
+      :ok ->
+        UserSession.disconnect(id)
+
+        if id == socket.assigns.current_user.id,
+          do: {:noreply, redirect(socket, to: ~p"/")},
+          else: {:noreply, assign_members(socket)}
+
+      {:error, _} ->
+        {:noreply, assign_members(socket)}
+    end
+  end
+
+  def handle_event("cancel_pending", %{"id" => id}, socket) do
+    :ok = Members.cancel_pending(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, assign_members(socket)}
+  end
+
+  def handle_event("switch_household", %{"id" => id}, socket) do
+    user = socket.assigns.current_user
+
+    case Members.switch(user, String.to_integer(id)) do
+      :ok ->
+        UserSession.disconnect(user.id)
+        {:noreply, redirect(socket, to: ~p"/")}
+
+      {:error, :not_member} ->
+        {:noreply, assign_members(socket)}
+    end
+  end
+
+  def handle_event("toggle_ai_sponsor", _params, socket) do
+    %{current_scope: scope, current_user: user, sponsoring: sponsoring} = socket.assigns
+    _ = Household.set_ai_sponsor(scope, user, !sponsoring)
+    {:noreply, assign_ai_sponsor(socket)}
+  end
+
+  def handle_event("rename_household", %{"name" => name}, socket) do
+    case Household.rename(socket.assigns.current_scope, name) do
+      {:ok, household} -> {:noreply, assign(socket, household: household)}
+      {:error, _changeset} -> {:noreply, socket}
+    end
   end
 
   def handle_event("forget_insight", %{"id" => id}, socket) do
-    Tore.Household.dismiss_insight(String.to_integer(id))
-    {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights())}
+    scope = socket.assigns.current_scope
+    Tore.Household.dismiss_insight(scope, String.to_integer(id))
+    {:noreply, assign(socket, memory_insights: Tore.Household.list_active_insights(scope))}
   end
+
+  defp assign_members(socket) do
+    scope = socket.assigns.current_scope
+    assign(socket, users: Accounts.list_members(scope), pending: Members.list_pending(scope))
+  end
+
+  defp assign_ai_sponsor(socket) do
+    sponsor = Household.ai_sponsor(socket.assigns.current_scope)
+
+    assign(socket,
+      ai_sponsor: sponsor,
+      sponsoring: sponsor != nil and sponsor.id == socket.assigns.current_user.id
+    )
+  end
+
+  defp member_error(:username_missing), do: gettext("Enter their Pocket ID username.")
+  defp member_error(:already_member), do: gettext("They're already a member.")
+  defp member_error(:already_added), do: gettext("They're already added.")
 
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
@@ -109,8 +217,68 @@ defmodule ToreWeb.SettingsLive do
                     {user.username}
                   </p>
                 </div>
+                <button
+                  :if={length(@users) > 1}
+                  type="button"
+                  phx-click="remove_member"
+                  phx-value-id={user.id}
+                  class="text-[color:var(--danger)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {if user.id == @current_user.id, do: gettext("Leave"), else: gettext("Remove")}
+                </button>
+              </div>
+              <div :for={pending <- @pending} class="flex items-center gap-3">
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-[var(--text)] truncate" style="font-size: var(--t-body);">
+                    {pending.username}
+                  </p>
+                  <p class="text-[color:var(--muted)] truncate" style="font-size: var(--t-meta);">
+                    {gettext("Joins at their first sign-in")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  phx-click="cancel_pending"
+                  phx-value-id={pending.id}
+                  class="text-[color:var(--danger)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Remove")}
+                </button>
               </div>
             </div>
+
+            <form phx-submit="add_member" class="mt-4 flex items-center gap-2">
+              <input
+                type="text"
+                name="username"
+                value={@member_username}
+                placeholder={gettext("Pocket ID username")}
+                aria-label={gettext("Pocket ID username")}
+                autocomplete="off"
+                required
+                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                style="font-size: var(--t-body);"
+              />
+              <.button type="submit" variant={:primary}>
+                <.icon name="hero-plus" class="size-4" />{gettext("Add")}
+              </.button>
+            </form>
+            <p
+              :if={@member_notice}
+              class="mt-1 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {@member_notice}
+            </p>
+            <p
+              :if={@member_error}
+              class="mt-1 text-[color:var(--danger)]"
+              style="font-size: var(--t-meta);"
+            >
+              {@member_error}
+            </p>
 
             <.link
               href={~p"/logout"}
@@ -122,6 +290,46 @@ defmodule ToreWeb.SettingsLive do
             </.link>
           </section>
 
+          <%!-- Households: a switcher for someone in two or more --%>
+          <section
+            :if={length(@households) >= 2}
+            class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]"
+          >
+            <h2
+              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
+              style="font-size: var(--t-micro); font-weight: 600;"
+            >
+              {gettext("Your households")}
+            </h2>
+            <div class="flex flex-col gap-3">
+              <div :for={entry <- @households} class="flex items-center gap-3">
+                <p
+                  class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
+                  style="font-size: var(--t-body);"
+                >
+                  {entry.household.name}
+                </p>
+                <span
+                  :if={entry.active}
+                  class="text-[color:var(--muted)]"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Current")}
+                </span>
+                <button
+                  :if={!entry.active}
+                  type="button"
+                  phx-click="switch_household"
+                  phx-value-id={entry.household.id}
+                  class="font-medium text-[color:var(--accent)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Switch")}
+                </button>
+              </div>
+            </div>
+          </section>
+
           <%!-- Household --%>
           <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
             <h2
@@ -130,6 +338,19 @@ defmodule ToreWeb.SettingsLive do
             >
               {gettext("Household")}
             </h2>
+            <form phx-submit="rename_household" class="mb-4 flex items-center gap-2">
+              <input
+                type="text"
+                name="name"
+                value={@household.name}
+                aria-label={gettext("Household name")}
+                required
+                maxlength="100"
+                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                style="font-size: var(--t-body);"
+              />
+              <.button type="submit" variant={:secondary}>{gettext("Rename")}</.button>
+            </form>
             <div class="flex items-center justify-between gap-3">
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-[var(--text)]" style="font-size: var(--t-body);">
@@ -196,7 +417,7 @@ defmodule ToreWeb.SettingsLive do
                   class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
                   style="font-size: var(--t-body);"
                 >
-                  {store.name}
+                  {store.store.name}
                 </p>
                 <button
                   type="button"
@@ -257,6 +478,43 @@ defmodule ToreWeb.SettingsLive do
             >
               {gettext("AI usage")}
             </h2>
+            <div :if={@current_user.ai_enabled} class="mb-4 flex items-center justify-between gap-3">
+              <p class="flex-1 min-w-0 text-[var(--text)]" style="font-size: var(--t-body);">
+                {gettext("Use my credits for this household")}
+              </p>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={to_string(@sponsoring)}
+                phx-click="toggle_ai_sponsor"
+                class={[
+                  "font-medium hover:underline",
+                  if(@sponsoring,
+                    do: "text-[color:var(--accent)]",
+                    else: "text-[color:var(--muted)]"
+                  )
+                ]}
+                style="font-size: var(--t-meta);"
+              >
+                {if @sponsoring,
+                  do: gettext("On"),
+                  else: gettext("Off")}
+              </button>
+            </div>
+            <p
+              :if={@ai_sponsor && @ai_sponsor.id != @current_user.id}
+              class="mb-4 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {gettext("AI uses %{name}'s credits.", name: @ai_sponsor.name)}
+            </p>
+            <p
+              :if={!@ai_sponsor && !@current_user.ai_enabled}
+              class="mb-4 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {gettext("AI is off for this household.")}
+            </p>
             <div class="flex flex-col gap-2">
               <div class="flex justify-between">
                 <span class="text-[color:var(--muted)]" style="font-size: var(--t-body);">

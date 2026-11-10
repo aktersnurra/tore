@@ -11,7 +11,12 @@ defmodule Tore.Capture.DispatchTest do
       Gettext.put_locale(ToreWeb.Gettext, "sv")
 
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal} |> Tore.Repo.insert()
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
+        |> Tore.Repo.insert()
 
       {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
       ctx = %{household_id: 1, user_id: 42, parent_stream_id: parent_sid}
@@ -19,14 +24,19 @@ defmodule Tore.Capture.DispatchTest do
       assert {%{text: "La till Carbonara på måndag 2026-11-02."}, _child} =
                Dispatch.set_plan_slot(~D[2026-11-02], recipe.id, 4, ctx)
 
-      assert %{text: "Hoppade över måndag 2026-11-02."} = Dispatch.skip_plan_meal(~D[2026-11-02])
+      assert %{text: "Hoppade över måndag 2026-11-02."} =
+               Dispatch.skip_plan_meal(~D[2026-11-02], %{household_id: home_scope().household_id})
     end
   end
 
   describe "set_plan_slot/2" do
     test "opens a child Run via Orchestrator and returns {bubble, child_sid}" do
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
@@ -43,7 +53,7 @@ defmodule Tore.Capture.DispatchTest do
       assert bubble.role == :assistant
       assert bubble.text =~ "Carbonara"
       assert is_binary(child_sid)
-      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(child_sid)
+      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(home_scope(), child_sid)
     end
 
     test "returns {error_bubble, nil} when recipe does not exist" do
@@ -59,12 +69,12 @@ defmodule Tore.Capture.DispatchTest do
   end
 
   test "a repeated photo links to review, not to a page that's gone" do
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     image = <<255, 216, 255, 1, 2, 3>>
 
     {:ok, _} =
       Tore.Capture.Uploads.record(
-        household_id,
+        Tore.Scope.for_household(household_id),
         Tore.Capture.Uploads.content_hash(image),
         "kr_seen",
         "receipt"
@@ -92,7 +102,13 @@ defmodule Tore.Capture.DispatchTest do
 
       Dispatch.mark_eating_out(date, %{description: nil, total_amount: 450}, ctx)
 
-      entry = Tore.Costs.get_dining_out("plan:2026-11-09", "fri_dinner")
+      entry =
+        Tore.Costs.get_dining_out(
+          home_scope(),
+          Tore.Streams.plan(home_scope(), ~D[2026-11-09]),
+          "fri_dinner"
+        )
+
       assert entry.date == date
       assert entry.description == "Sushi"
       assert Decimal.equal?(entry.total_amount, 450)

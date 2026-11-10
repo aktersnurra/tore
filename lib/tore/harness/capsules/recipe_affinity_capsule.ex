@@ -32,7 +32,9 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
         }
 
   @impl true
-  def build(_ctx) do
+  def build(ctx) do
+    scope = Tore.Scope.for_household(ctx.household_id)
+
     cutoff =
       DateTime.utc_now()
       |> DateTime.add(-@window_days * 86_400, :second)
@@ -45,10 +47,10 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
             e.event_type in ["RecipeAssigned", "RecipeRemoved"],
         order_by: [asc: e.id]
       )
-      |> Repo.all()
+      |> Repo.all(Tore.Scope.repo_opts(scope))
 
-    {assigned_ids, removed_ids} = partition_recipe_ids(events)
-    titles = title_map(assigned_ids ++ removed_ids)
+    {assigned_ids, removed_ids} = partition_recipe_ids(scope, events)
+    titles = title_map(scope, assigned_ids ++ removed_ids)
 
     %__MODULE__{
       favorites: rank(assigned_ids, titles, @max_favorites),
@@ -68,7 +70,7 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
     [fav, dis] |> Enum.reject(&is_nil/1) |> Enum.join("\n\n")
   end
 
-  defp partition_recipe_ids(events) do
+  defp partition_recipe_ids(scope, events) do
     Enum.reduce(events, {[], []}, fn e, {assigned, removed} ->
       case {e.event_type, recipe_id_from(e)} do
         {"RecipeAssigned", id} when is_integer(id) -> {[id | assigned], removed}
@@ -78,16 +80,17 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
         _ -> {assigned, removed}
       end
     end)
-    |> resolve_removed()
+    |> resolve_removed(scope)
   end
 
-  defp resolve_removed({assigned, removed_slots}) do
-    {Enum.reverse(assigned), Enum.map(removed_slots, &removed_recipe_id/1) |> Enum.reject(&is_nil/1)}
+  defp resolve_removed({assigned, removed_slots}, scope) do
+    removed = removed_slots |> Enum.map(&removed_recipe_id(scope, &1)) |> Enum.reject(&is_nil/1)
+    {Enum.reverse(assigned), removed}
   end
 
-  defp removed_recipe_id({:slot, nil, _}), do: nil
+  defp removed_recipe_id(_scope, {:slot, nil, _}), do: nil
 
-  defp removed_recipe_id({:slot, slot_key, before_id}) do
+  defp removed_recipe_id(scope, {:slot, slot_key, before_id}) do
     from(e in EventStore.Event,
       where:
         e.stream_type == "planning" and e.event_type == "RecipeAssigned" and
@@ -95,7 +98,7 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
       order_by: [desc: e.id],
       limit: 1
     )
-    |> Repo.all()
+    |> Repo.all(Tore.Scope.repo_opts(scope))
     |> Enum.find_value(fn raw ->
       case Jason.decode(raw.data) do
         {:ok, %{"slot_key" => ^slot_key, "recipe_id" => rid}} when is_integer(rid) -> rid
@@ -118,20 +121,22 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
     end
   end
 
-  defp title_map([]), do: %{}
+  defp title_map(_scope, []), do: %{}
 
-  defp title_map(ids) do
+  defp title_map(scope, ids) do
     unique = ids |> Enum.uniq()
 
     from(r in Recipe, where: r.id in ^unique, select: {r.id, r.title})
-    |> Repo.all()
+    |> Repo.all(Tore.Scope.repo_opts(scope))
     |> Map.new()
   end
 
   defp rank(ids, titles, limit) do
     ids
     |> Enum.frequencies()
-    |> Enum.map(fn {id, n} -> %{recipe_id: id, title: Map.get(titles, id, "(unknown)"), count: n} end)
+    |> Enum.map(fn {id, n} ->
+      %{recipe_id: id, title: Map.get(titles, id, "(unknown)"), count: n}
+    end)
     |> Enum.sort_by(& &1.count, :desc)
     |> Enum.take(limit)
   end

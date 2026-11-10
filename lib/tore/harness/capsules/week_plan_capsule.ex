@@ -21,9 +21,11 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
 
   @impl true
   def build(ctx) do
-    case Planning.load_plan(ctx.plan_stream_id) do
+    scope = Tore.Scope.for_household(ctx.household_id)
+
+    case Planning.load_plan(scope, ctx.plan_stream_id) do
       {:ok, state} ->
-        %__MODULE__{week_start: ctx.week_start, slots: build_slots(state, ctx.week_start)}
+        %__MODULE__{week_start: ctx.week_start, slots: build_slots(scope, state, ctx.week_start)}
 
       _ ->
         %__MODULE__{week_start: ctx.week_start, slots: nil}
@@ -50,8 +52,8 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
     "This week's dinner plan:\n#{lines}"
   end
 
-  defp build_slots(state, week_start) do
-    title_lookup = recipe_titles(state)
+  defp build_slots(scope, state, week_start) do
+    title_lookup = recipe_titles(scope, state)
 
     Enum.with_index(@day_names, fn day_name, i ->
       date = Date.add(week_start, i)
@@ -68,7 +70,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
     end)
   end
 
-  defp recipe_titles(state) do
+  defp recipe_titles(scope, state) do
     ids =
       state.slots
       |> Enum.map(fn {_k, slot} -> slot[:recipe_id] end)
@@ -80,7 +82,10 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
         %{}
 
       ids ->
-        Repo.all(from r in Recipe, where: r.id in ^ids, select: {r.id, r.title})
+        Repo.all(
+          from(r in Recipe, where: r.id in ^ids, select: {r.id, r.title}),
+          Tore.Scope.repo_opts(scope)
+        )
         |> Map.new()
     end
   end

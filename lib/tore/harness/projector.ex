@@ -45,7 +45,7 @@ defmodule Tore.Harness.Projector do
          {:ok, %{table: table}} <- GenServer.call(pid, :state) do
       case :ets.lookup(table, {:stream, stream_id}) do
         [{_, state}] -> state
-        [] -> lazy_load(stream_id)
+        [] -> lazy_load(household_id, stream_id)
       end
     else
       _ -> nil
@@ -90,7 +90,7 @@ defmodule Tore.Harness.Projector do
 
   @impl true
   def handle_info({:run_event, stream_id, _event}, %__MODULE__{} = state) do
-    {:ok, new_state} = Run.load(stream_id)
+    {:ok, new_state} = Run.load(Tore.Scope.for_household(state.household_id), stream_id)
     :ets.insert(state.table, {{:stream, stream_id}, new_state})
 
     if surface = surface_of(new_state) do
@@ -112,7 +112,7 @@ defmodule Tore.Harness.Projector do
   defp replay_open_runs(%__MODULE__{household_id: hh, table: table} = state) do
     open_stream_ids(hh)
     |> Enum.each(fn sid ->
-      {:ok, run_state} = Run.load(sid)
+      {:ok, run_state} = Run.load(Tore.Scope.for_household(hh), sid)
 
       if open?(run_state) do
         :ets.insert(table, {{:stream, sid}, run_state})
@@ -124,16 +124,18 @@ defmodule Tore.Harness.Projector do
   end
 
   defp open_stream_ids(hh) do
+    scope = Tore.Scope.for_household(hh)
+
     from(e in Event,
       where: e.stream_type == ^@stream_type,
       select: e.stream_id,
       distinct: true
     )
-    |> Repo.all()
+    |> Repo.all(Tore.Scope.repo_opts(scope))
     |> Enum.filter(fn sid ->
-      case Run.load(sid) do
-        {:ok, %State.Running{household_id: ^hh}} -> true
-        {:ok, %State.NeedsUser{household_id: ^hh}} -> true
+      case Run.load(scope, sid) do
+        {:ok, %State.Running{}} -> true
+        {:ok, %State.NeedsUser{}} -> true
         _ -> false
       end
     end)
@@ -154,8 +156,8 @@ defmodule Tore.Harness.Projector do
   defp to_atom(s) when is_atom(s), do: s
   defp to_atom(s) when is_binary(s), do: String.to_existing_atom(s)
 
-  defp lazy_load(stream_id) do
-    case Run.load(stream_id) do
+  defp lazy_load(household_id, stream_id) do
+    case Run.load(Tore.Scope.for_household(household_id), stream_id) do
       {:ok, %State.Draft{}} -> nil
       {:ok, state} -> state
     end

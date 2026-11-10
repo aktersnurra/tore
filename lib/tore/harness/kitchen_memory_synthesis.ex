@@ -29,17 +29,20 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
 
   @max_active 10
 
-  @doc """
-  Cron entry: dispatch the weekly memory synthesis run for the household.
-  """
-  @spec synthesise_weekly() :: {:ok, term()} | {:error, term()}
+  @doc "Cron entry: dispatch the weekly memory synthesis run for every household."
+  @spec synthesise_weekly() :: :ok
   def synthesise_weekly do
-    household = Household.get_household!()
+    Household.each_scope(fn scope ->
+      if Tore.LLM.check(scope) == :ok, do: synthesise_for(scope)
+    end)
+  end
 
+  @spec synthesise_for(Tore.Scope.t()) :: {:ok, term()} | {:error, term()}
+  def synthesise_for(%Tore.Scope{} = scope) do
     ctx = %{
-      household_id: household.id,
+      household_id: scope.household_id,
       user_id: nil,
-      plan_stream_id: "plan:#{Date.to_iso8601(Date.utc_today())}",
+      plan_stream_id: Tore.Streams.plan(scope, Date.utc_today()),
       week_start: Date.utc_today()
     }
 
@@ -57,14 +60,14 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
     Capsules.compose(@capsules, ctx)
   end
 
-  @spec synthesise(String.t()) ::
+  @spec synthesise(Tore.Scope.t(), String.t()) ::
           {:ok,
            [%{kind: String.t(), body: String.t(), confidence: float(), evidence: [integer()]}]}
           | {:error, term()}
-  def synthesise(summary) do
+  def synthesise(%Tore.Scope{} = scope, summary) do
     {system, user} = Tore.LLM.Prompts.synthesise_insights(summary)
 
-    case Tore.LLM.text(system, user, []) do
+    case Tore.LLM.text(scope, system, user, feature: :memory_synthesis) do
       {:ok, %{"insights" => insights}, _usage} when is_list(insights) ->
         {:ok,
          Enum.map(insights, fn i ->
@@ -84,9 +87,9 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
     end
   end
 
-  @spec build_artifact([map()]) :: MemoryUpdate.t()
-  def build_artifact(new_insights) do
-    active = Household.list_active_insights()
+  @spec build_artifact(Tore.Scope.t(), [map()]) :: MemoryUpdate.t()
+  def build_artifact(%Tore.Scope{} = scope, new_insights) do
+    active = Household.list_active_insights(scope)
     active_bodies = MapSet.new(active, & &1.body)
 
     added =
@@ -106,13 +109,14 @@ defmodule Tore.Harness.KitchenMemorySynthesis do
     }
   end
 
-  @spec apply!(MemoryUpdate.t()) :: {:ok, [Household.HouseholdInsight.t()]} | {:error, term()}
-  def apply!(%MemoryUpdate{added: added, unchanged: unchanged}) do
-    # replace_insights/1 tombstones every active row and inserts the given set.
+  @spec apply!(Tore.Scope.t(), MemoryUpdate.t()) ::
+          {:ok, [Household.HouseholdInsight.t()]} | {:error, term()}
+  def apply!(%Tore.Scope{} = scope, %MemoryUpdate{added: added, unchanged: unchanged}) do
+    # replace_insights/2 tombstones every active row and inserts the given set.
     # Pass added + unchanged so unchanged insights re-land with a fresh
     # generated_at and identity (no in-place update). This is intentional: the
     # synthesis is the authoritative weekly snapshot.
-    Household.replace_insights(added ++ unchanged)
+    Household.replace_insights(scope, added ++ unchanged)
   end
 
   defp normalise(ins) do

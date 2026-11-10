@@ -1043,6 +1043,7 @@ What does Tore know, and how can I correct it?
 
 ```md
 Members
+Your households
 Household
 Kitchen Memory
 Stores
@@ -1051,13 +1052,17 @@ Pantry belief
 Spending
 ```
 
-Household shows the language, chosen once and locked afterwards.
+Household shows its name, which can be renamed, and the language, picked once and locked afterwards.
 
 ### Members
 
 ```md
-Gustaf      gustaf
-Anna        anna
+Gustaf      gustaf          [Leave]
+Anna        anna            [Remove]
+bo          Joins at their first sign-in   [Remove]
+
+Pocket ID username
+[Add]
 
 Sign out
 ```
@@ -1065,9 +1070,59 @@ Sign out
 Rules:
 
 ```md
-Members come from Pocket ID: whoever signs in joins the household.
-No codes, no roles, no invites. Pocket ID's groups decide who may sign in.
+Pocket ID's groups decide who may sign in. Tore decides only who shares a household.
+Add someone by their Pocket ID username. No codes, no roles, no invite links, no confirmation.
+Someone who hasn't signed in yet waits in the list and joins at their first sign-in.
+Remove and Leave on members appear only when there is more than one member: the last member can't leave.
+Someone still waiting can always be removed.
+A removed member's open screens close.
 "Sign out" ends the session in this browser and closes its other open tabs.
+```
+
+### Your households
+
+```md
+Rydholms        Current
+Anna & Bo       [Switch]
+```
+
+Rules:
+
+```md
+Shown only to someone in two or more households.
+Switching changes whose plan, list and recipes every screen shows.
+```
+
+### AI usage
+
+```md
+Use my credits for this household   [On]
+```
+
+Rules:
+
+```md
+Only someone with the tore_ai claim sees the switch, and only for themselves.
+Everyone else sees who sponsors the household ("AI uses Gustaf's credits."), or "AI is off for this household."
+Being added to a household never turns it on.
+```
+
+### First sign-in: language
+
+```md
+Welcome to Tore
+
+Pick the language your household keeps its recipes, lists and receipts in. It can't be changed later.
+
+[Svenska]
+[English]
+```
+
+Rules:
+
+```md
+Shown at /welcome to a household's members until one of them picks. Everything the household stores is in this language.
+It can't be changed later. New members, and anyone moved into it, start in it.
 ```
 
 ### Stores

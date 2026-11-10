@@ -8,7 +8,7 @@
 
 ## Status
 
-- **Source-of-truth date:** 2026-11-06
+- **Source-of-truth date:** 2026-11-09
 - **2026-05-31:** Reversed the Family→Household naming. `Tore.Household` is canonical; `Tore.Family.*` deleted.
 - **2026-06-02:** Added §Agent Harness Layer. Tore is reframed as a household food-operations harness; every state-changing AI action is a `KitchenRun` producing typed artifacts, verified deterministically, applied atomically. §The Six LLM-Native Features rewritten in harness terms. Future sub-specs implement the harness primitives, verifiers, capsules, risk tiers, resolved references, and Kitchen Skills.
 - **2026-06-02:** UI/UX vocabulary adopted. Canonical names: `CounterNote` (artifact and code module — replaces the working name `Opportunity` from the first draft of §A), `Shop` (UI surface and route `/shop` — replaces `Groceries` / `/groceries`), `Capture` (UI surface and route `/capture` — replaces `Chat` / `/chat`), `Tore.Capture` (module namespace — replaces `Tore.Chat`). The code rename is a separate sub-plan; SPEC.md uses the new names throughout from this commit forward.
@@ -19,6 +19,7 @@
 - **2026-11-06:** Trim. New core rule: the upkeep test (§Core Philosophy). Removed the kiosk and device tokens, counter notes, `/inbox`, the `/deals` page, the Saturday prep job, and the unbuilt run kinds `:deal_capture_run`, `:grocery_reconciliation_run`, `:prep_generation_run` and `:recipe_generation_run`. `:fridge_rescue_run` was never built either: the Capture tool that replies with suggestions is all there is. Receipts now record cost only and never touch the pantry, because a misread line would drop an item off the shopping list. Shelf photos apply straight away with undo and replace quantities. Added shelf life, stores added by link with a parser per chain, one cost page, and eating out as a meal state. The household's language is chosen once at setup and then locked. §The Six LLM-Native Features became §Features, with a status on each. The anticipation layer waits for Plan 3's rewrite (§3).
 - **2026-11-08:** The trim was rebased onto plans 3 and 4, which it had not been based on. Cut by the owner: the ambient scan, `CounterNote`s, `CounterNoteVerifier`, the debouncer and the 05:00 scan. Kept from plan 3: the long-press object sheets and `resolve_slot`. Plan 4 stays whole.
 - **2026-11-08:** Pocket ID is the only login. Removed the 16-digit codes, the setup page, roles, the rate limiter and `argon2`. Pocket ID decides who may sign in through the groups on its client, and a `tore_ai` claim marks who may use the server's LLM. Settings lists members and has "Sign out". `docs/UI_SPEC.md` became `docs/specs/ui.md`, and `docs/LLM-NATIVE-FEATURES.md` became `docs/specs/llm-native-features.md`.
+- **2026-11-09:** Several households share one server (`.docs/specs/households.md`). Every function that reads or writes a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one. People belong to households through memberships, one active at a time; a first sign-in either joins the households that added that username or starts a household of its own, whose language is picked once at `/welcome`. Stores are shared and fetched once; deals are the only data that crosses households. `Tore.LLM` is the gate for LLM calls (image generation still calls OpenRouter directly, after a gated call): a household needs a sponsor with the `tore_ai` claim, the server needs an OpenRouter key (now optional), and each household has its own monthly limit. A friend's own OpenRouter key is a non-goal, so it left the backlog.
 - **Supersedes:** the original Scullion SPEC.md (2026-05-02), now archived in git history at commit `af0ad48`.
 - **Companion docs:** `docs/specs/llm-native-features.md` (the design brief this spec absorbs), `docs/specs/ui.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo). Per-feature design notes live under `docs/specs/`.
 - **Naming:** the project is *Tore*. Any remaining reference to Scullion or Family in code is legacy and slated for deletion (see §Removed in Rewrite).
@@ -71,7 +72,7 @@ behind a context boundary. LiveViews call context APIs only; the context modules
 | Aggregate     | Why                                                                |
 |---------------|--------------------------------------------------------------------|
 | **Planning**  | LLM-orchestrated workflow with frequent user tweaks. Events are the substrate from which insights are synthesised. |
-| **Shop** | Multi-user real-time grocery checklist (decider stream `shop`, formerly `groceries`). Granular events enable PubSub sync and natural undo. |
+| **Shop** | Multi-user real-time grocery checklist (decider streams `shop_list:<household>:<monday>` from `Tore.Streams`, formerly `groceries`). Granular events enable PubSub sync and natural undo. |
 | **KitchenRun** (`Tore.Harness.Run`) | Each run is its own event stream. A run *is* an audit trail — opened, phase transitions, commit/fail/revert/discard as events. Run receipts are projections over these streams. |
 
 ### CRUD
@@ -228,11 +229,11 @@ the surrounding code, never assembled by string concatenation.
 
 | Capsule | Provides | Source |
 |---|---|---|
-| `HouseholdPreferencesCapsule` | Diet, allergies, dislikes, cuisines, kid constraints, default servings, planning days | `Tore.Household.get_preferences/0` |
-| `ActiveInsightsCapsule` | Active `HouseholdInsight` rows, prose + structured fields | `Tore.Household.list_active_insights/0` |
-| `WeekPlanCapsule` | The current or referenced week's plan state, per slot | `Tore.Planning.load_plan/1` |
-| `PantryBeliefsCapsule` | Approximate inventory with `last_seen_at` and provenance; framed as belief, not fact | `Tore.Pantry.list_inventory/0` |
-| `DealsDigestCapsule` | Active deals grouped by store, ranked by household affinity | `Tore.Deals.list_current/0` + `RecipeAffinityCapsule` |
+| `HouseholdPreferencesCapsule` | Diet, allergies, dislikes, cuisines, kid constraints, default servings, planning days | `Tore.Household.get_preferences/1` |
+| `ActiveInsightsCapsule` | Active `HouseholdInsight` rows, prose + structured fields | `Tore.Household.list_active_insights/1` |
+| `WeekPlanCapsule` | The current or referenced week's plan state, per slot | `Tore.Planning.load_plan/2` |
+| `PantryBeliefsCapsule` | Approximate inventory with `last_seen_at` and provenance; framed as belief, not fact | `Tore.Pantry.list_inventory/1` |
+| `DealsDigestCapsule` | Active deals grouped by store, ranked by household affinity | `Tore.Deals.list_current/1` + `RecipeAffinityCapsule` |
 | `RecipeAffinityCapsule` | Recipes the household chose recently or repeatedly, plus those swapped or removed | derived from planning event stream |
 | `RecentHistoryCapsule` | Last 4–6 weeks of meals, skipped slots, leftover cascades | derived from planning event stream |
 | `CostIntentCapsule` | Monthly spend target, current month-to-date, recent overspend signal | derived from `Tore.Costs` + household preferences |
@@ -516,9 +517,9 @@ call is recorded on `AIOperations.model` for cost telemetry.
 
 | Tier | Use cases | Default model class |
 |---|---|---|
-| **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `parse_deals_pdf`, `cook_mode_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
+| **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `cook_mode_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
 | **Strong tool-capable** | Pattern B `chat_with_tools/4` for `:planner_command_run`, `:weekly_planning_run`, Capture's router, and any future skill-driven run that calls multiple tools across multiple turns | A frontier tool-calling model |
-| **Vision** | Any callback whose primary input is an image or PDF: `parse_receipt`, `parse_recipe_images`, `parse_pantry_image`, `parse_deals_pdf` | A vision-capable model; may overlap with "cheap structured" when the structured-output is small |
+| **Vision** | Any callback whose primary input is an image or PDF: `parse_receipt`, `parse_recipe_images`, `parse_pantry_image` | A vision-capable model; may overlap with "cheap structured" when the structured-output is small |
 
 Concrete model names are configured per tier in runtime config, not
 hard-coded in callsites. Today's runtime keys are `openrouter_model`,
@@ -541,7 +542,7 @@ bill.
 
 - Every `Tore.LLM` callback is statically annotated with its model tier. The annotation is read at runtime by the adapter; there is no per-call model override.
 - `AIOperations.model` is set on every row. Cost rollups on `KitchenRun.model_usage` aggregate by tier across the run's owned operations.
-- The schema-failure single-retry path is the only place the harness silently uses a different model than the callback declared. The retry is logged distinctly (`AIOperations.kind` ends with `.retry`). The monthly `SpendGuard` cap remains the runaway-cost guard.
+- The schema-failure single-retry path is the only place the harness silently uses a different model than the callback declared. The retry is logged distinctly (`AIOperations.kind` ends with `.retry`). The household's monthly limit in `Tore.LLM` remains the runaway-cost guard.
 
 ### A.9 — Meeting point with docs/specs/ui.md
 
@@ -594,13 +595,14 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
-1. Several households on one server, with a gate on who may use the server's LLM.
-2. Run core: a simple runs table replaces the event-sourced `KitchenRun`, with household memory alongside.
-3. Pantry rules.
-4. MCP, so someone can use Tore through their own Claude or ChatGPT.
-5. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
-6. Instagram recipes.
-7. A prep upgrade.
+1. Run core: a simple runs table replaces the event-sourced `KitchenRun`, with household memory alongside.
+2. Pantry rules.
+3. MCP, so someone can use Tore through their own Claude or ChatGPT.
+4. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
+5. Instagram recipes.
+6. A prep upgrade.
+
+Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
 
 ### 1. Longitudinal Learning → `:kitchen_memory_synthesis_run`
 
@@ -646,7 +648,7 @@ The user types into the planner command bar. The harness starts a
 - **Tools:** resolver tools (`resolve_slot`, `resolve_recipe`, `resolve_grocery_item`); action tools that take handles (`assign_recipe`, `swap_recipe`, `skip_meal`, `mark_leftover`, `set_servings`, `remove_recipe`); read tools (`search_recipes`, `pantry_snapshot`, `active_deals`, `find_recipe_web`); proposal tools that end the loop with a `RecipeProposal` (`import_recipe_from_web`, `generate_recipe_variant`); terminal `ask_user`.
 - **Artifacts:** `PlanDiff` (always), `RunSummary`; a `RecipeProposal` instead when a proposal tool ends the loop.
 - **Verifier:** `PlanVerifier`; `RecipeProposalVerifier` for a proposal, again when it is saved.
-- **Tier:** 1 — auto-apply with undo. The run receipt is the user-facing confirmation. A proposal is Tier 2: the run waits in `:needs_user` until a person saves it, which writes the recipe and fills the pending slot, or discards it, which saves nothing. Web search and variants have their own SpendGuard budgets (`:recipe_web_search`, `:recipe_variant`).
+- **Tier:** 1 — auto-apply with undo. The run receipt is the user-facing confirmation. A proposal is Tier 2: the run waits in `:needs_user` until a person saves it, which writes the recipe and fills the pending slot, or discards it, which saves nothing. Web search has a SpendGuard estimate and cooldown (`:recipe_web_search`); every call counts against the household's monthly limit.
 - **Model tier:** strong tool-capable (Pattern B).
 
 **Loop caps** (enforced by the harness): 6 LLM round-trips per utterance, 12
@@ -783,7 +785,7 @@ day and only until the new week's offers appear, with no retries on a 403.
 **Status: built, optional and on demand.**
 
 Plan links to "Prep this week". The page generates a guide from the week's plan when asked, through
-`Tore.Prep.generate_guide/2` and the `prep_guide` prompt. It's a document to read: there's no scheduled job and no
+`Tore.Prep.generate_guide/3` and the `prep_guide` prompt. It's a document to read: there's no scheduled job and no
 "report back". It isn't a run, since it changes nothing else.
 
 ---
@@ -827,8 +829,10 @@ dispatches a `:pantry_belief_update_run` (see §4).
 
 ### Settings (`/settings`)
 
-- Members, by name and Pocket ID username, and "Sign out".
-- Household: the language, chosen once and shown locked. The one household starts in Swedish until the households work adds the picker.
+- Members, by name and Pocket ID username. Add someone by their Pocket ID username; remove a member, or leave. The last member can't leave, since the household's data would have nobody to reach it. "Sign out".
+- Household: rename it; the language, picked at `/welcome` when the household was created and shown locked.
+- **Your households:** a switcher, shown only to someone in two or more.
+- AI: someone with the `tore_ai` claim can let the household use their credits ("Use my credits for this household"). Others see who sponsors it, or that AI is off.
 - **Things Tore has learned:** active insights, each with a "Forget" button that dismisses without deleting.
 - **Stores:** add by link, switch on or off, remove (§8).
 - AI usage.
@@ -865,14 +869,17 @@ plans must remove these explicitly — they are not deprecated, they are gone.
 ## Module Map
 
 Files marked `PLANNED` are named by this spec but not yet in the tree;
-everything else reflects the code as of 2026-11-08.
+everything else reflects the code as of 2026-11-09.
 
 ```
 lib/tore/
-  household.ex               # canonical household context (preferences, members, insights, language)
+  scope.ex                   # %Scope{household_id, user_id}, the first argument of household functions
+  streams.ex                 # event stream ids per household and week
+  household.ex               # canonical household context (preferences, insights, language, sponsor, each_scope)
   household/
-  accounts.ex                # users; sign_in/1 from Pocket ID claims
-  accounts/                  # user
+  members.ex                 # add, remove and switch members; pending members
+  accounts.ex                # users; sign_in/1 from Pocket ID claims; the session's scope
+  accounts/                  # user, membership, pending_member
   auth/
     oidc.ex                  # Pocket ID: authorization code flow with PKCE, over oidcc
   recipes.ex                 # catalog; owns scrape_and_create/generate_image (folded)
@@ -930,7 +937,7 @@ lib/tore/
     handles.ex
     run_kinds.ex             # PLANNED: static run-kind declarations (capsules, tools, verifier, tier, model_tier)
     skills.ex                # PLANNED: V1 Kitchen Skills catalog
-  llm.ex                     # facade: text/3, web_search/3, vision/4, chat/3, chat_with_tools/4
+  llm.ex                     # the gate and facade, scope first: text/4, web_search/4, vision/5, chat/4, chat_with_tools/5
   llm/
     spec.ex                  # wire-spec behaviour: provider body shape behind the facade
     openai.ex                # OpenAI-compatible Spec implementation
@@ -955,7 +962,8 @@ lib/tore_web/live/
   shop_live.ex               # check → :pantry_belief_update_run
   recipe_live.ex
   prep_live.ex
-  settings_live.ex           # members, sign-out, stores, learned insights, AI usage
+  settings_live.ex           # members, households switcher, rename, sign-out, stores, learned insights, AI sponsorship and usage
+  welcome_live.ex            # /welcome: a new household picks its language once
   pantry_live.ex             # /settings/pantry: approximate inventory
   cost_live.ex               # /settings/costs: one page
 ```
@@ -975,7 +983,8 @@ lib/tore_web/user_session.ex # starts and ends a session
 Every LLM call goes through the `Tore.LLM` facade and is logged to `AIOperations`
 with a correlation ID. The facade exposes five transport callbacks, defined by
 the `Tore.LLM.Spec` behaviour (a Spec encodes one provider's body shape and
-decodes its responses; transport is the `open_router` library):
+decodes its responses; transport is the `open_router` library). The arities below are the
+Spec's; each facade function takes the household's `%Scope{}` before them:
 
 | Callback | Purpose |
 |----------|---------|
@@ -992,9 +1001,18 @@ invoked through `text/3` or `vision/4`. Adding an operation adds a prompt
 spec, not a callback. (The earlier draft's `generate_plan/1` callback is
 gone: weekly planning is a Pattern B tool-calling run, §A.8.)
 
-**Spend guard:** `Tore.SpendGuard` continues to gate every LLM call. The monthly
-budget is enforced at the adapter boundary. Each iteration of a `chat_with_tools`
-loop is counted as a separate call against the budget.
+**The gate.** Every facade function takes the household's `%Scope{}` first. `Tore.LLM`
+refuses a call with `{:error, :ai_unavailable}` when no OpenRouter key is configured or
+nobody sponsors the household (a member with `ai_enabled` who turned sponsorship on, or who
+started the household with the claim), and
+with `{:error, :budget_exceeded}` once the household has spent `Tore.LLM.monthly_limit_usd/0`
+this calendar month. It records every call's cost in `llm_usage` for the household, under
+the call's `:feature`; each iteration of a `chat_with_tools` loop is its own call.
+`Tore.LLM.check/1` gives the same answer without calling (the crons use it), and
+`Tore.LLM.refusal_text/1` is what a screen says for either refusal, instead of "try again".
+`Tore.SpendGuard` is the earlier check for expensive features: whether the estimate would
+cross the limit, and a per-feature cooldown, both per household. Image generation
+(`Tore.ImageGen`) runs only after the gated image-prompt call, and its cost isn't recorded yet.
 
 ---
 
@@ -1036,7 +1054,7 @@ router (`Tore.Capture.Router`).
 ### Universal rules
 
 - Every call logs to `AIOperations` with `model`, `prompt_tokens`, `completion_tokens`, `correlation_id`, and `step_index` (always 0 for Pattern A).
-- Every call is gated by `Tore.SpendGuard` at the adapter boundary.
+- Every call goes through the `Tore.LLM` gate for its household, except image generation, which runs only after a gated call and isn't recorded yet (§LLM Surface).
 - No LLM-emitted SQL, no LLM-emitted code execution, no LLM-emitted shell. Tool surface is the only side-effect channel.
 - System prompts are assembled from the run's declared context capsules (§A.4). There is no shared prompt builder; a call without a declared capsule list gets no household context at all.
 
@@ -1051,7 +1069,7 @@ config :tore, Tore.Scheduler,
     {"0 4 * * 0",  {Tore.Harness.InboxSweeper,           :sweep_weekly,       []}},
     {"0 6 * * 6",  {Tore.Harness.KitchenMemorySynthesis, :synthesise_weekly,  []}},  # dispatches :kitchen_memory_synthesis_run
     {"0 8 * * 6",  {Tore.Deals,                          :scrape_all,         []}},
-    {"0 18 * * 6", {Tore.Planning,                       :plan_upcoming_week, []}}   # dispatches :weekly_planning_run
+    {"0 18 * * 6", {Tore.Planning,                       :plan_upcoming_weeks, []}}   # dispatches :weekly_planning_run
   ]
 ```
 
@@ -1064,22 +1082,34 @@ and `scrape_all` are deterministic maintenance, not AI actions, and stay direct.
 
 ## Auth and Multi-Tenancy
 
-A *household* owns all data: plans, groceries, pantry, costs, insights.
-*Users* belong to a household. Pocket ID is the only login: `Tore.Auth.Oidc` runs the authorization code
-flow with PKCE, and `OidcController` hands the ID token's claims to `Accounts.sign_in/1`. A first sign-in
-creates the user in the household and its language; a returning one refreshes name, username and LLM access.
+A *household* owns all data: plans, groceries, pantry, costs, insights, recipes, LLM usage.
+*Users* belong to one or more households through `memberships`, exactly one of them active. Pocket ID is the only login: `Tore.Auth.Oidc` runs the authorization code
+flow with PKCE, and `OidcController` hands the ID token's claims to `Accounts.sign_in/1`. A returning user
+gets name, username and LLM access refreshed. A new one joins every household that added their username
+(`pending_members`), active in the first and in its language, or else gets a household of their own, named
+after them, whose language they pick once at `/welcome`.
 A missing username, or one held by another Pocket ID account, is refused. Sessions are browser cookies
 that last 90 days. "Sign out" in Settings ends the session in that browser and closes the app in its other
 open tabs; other devices stay signed in.
 
 Pocket ID decides access, not Tore. Its client for Tore allows only the `tore` group, so nobody else
 reaches the callback. Members of `tore-ai` carry the claim `tore_ai = true` (the name is set by
-`AI_CLAIM`), which sets `ai_enabled`. Nothing reads `ai_enabled` until the households work gates the LLM on it.
-`Tore.Household` is the canonical context. There is no `Tore.Family` module.
+`AI_CLAIM`), which sets `ai_enabled`. Tore decides only who shares a household: `Tore.Members` adds,
+removes and switches. Adding someone never makes them the household's sponsor, so nobody reaches another
+person's credits by adding them. `Tore.Household` is the canonical context. There is no `Tore.Family` module.
 
-**One household, for now.** Context functions assume the single household (the 0-arity capsule sources
-in §A.4), and only `users`, `household_preferences` and `uploaded_images` carry `household_id` today. Several households
-on one server, sharing the app, come next: see `.docs/specs/households.md`.
+**Several households, one server.** The rules, from `.docs/specs/households.md`:
+
+- Every function that reads or writes a household's data takes `%Tore.Scope{household_id, user_id}` first. LiveViews get it from `on_mount`,
+  built on each request from the active membership, so a removal takes effect at once. Background jobs loop
+  over households with `Tore.Household.each_scope/1`.
+- `Tore.Repo.prepare_query/3` raises when a query on a household table has no `household_id:` option, and
+  filters by it when it has one. A missed site crashes instead of leaking.
+- Event streams (`plan:<household>:<monday>`, from `Tore.Streams`), PubSub topics
+  (`plan:household:<id>`) and storage keys (`households/<id>/…`) carry the household id, and the image controllers load through the scope, so another household's id is a 404.
+- Stores and deals are shared: a store is fetched once however many households use it (`household_stores`).
+  Nothing else crosses households.
+- Planning and memory synthesis crons run only for households that can use the LLM (§LLM Surface).
 
 ---
 
@@ -1089,7 +1119,6 @@ Loose ideas captured here so they don't drift in a scratch file. Promote to a
 proper section or sub-spec when picked up.
 
 - **Locale on scraped recipes.** Scraped recipes should be translated into the household's locale at ingestion time.
-- **Per-household OpenRouter API key.** Set in Settings. The app is unusable (every LLM-gated surface disabled) until a key is entered.
 - **Elixir 1.20 upgrade.** Move to the new type system and take advantage of it across `lib/tore/`.
 - **HTML in `.html.heex` files.** Move inline templates out of `*_live.ex` modules into colocated `.html.heex` files.
 - **Scraped recipe format** Even scraped recipes without llm should be sent to llm for translation if needed, and reformatted to the "tore format"

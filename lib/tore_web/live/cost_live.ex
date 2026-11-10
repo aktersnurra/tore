@@ -2,7 +2,7 @@ defmodule ToreWeb.CostLive do
   use ToreWeb, :live_view
 
   alias Tore.Capture.Dispatch
-  alias Tore.{Costs, Household}
+  alias Tore.Costs
 
   @recent_receipts 5
 
@@ -26,12 +26,13 @@ defmodule ToreWeb.CostLive do
   defp load_costs(socket) do
     today = Date.utc_today()
     last_month = today |> Date.beginning_of_month() |> Date.add(-1)
+    scope = socket.assigns.current_scope
 
     assign(socket,
-      month_total: Costs.monthly_total(today.year, today.month),
-      last_month_total: Costs.monthly_total(last_month.year, last_month.month),
-      receipts: Costs.recent_receipts(@recent_receipts),
-      dining: Costs.dining_out_in_month(today.year, today.month)
+      month_total: Costs.monthly_total(scope, today.year, today.month),
+      last_month_total: Costs.monthly_total(scope, last_month.year, last_month.month),
+      receipts: Costs.recent_receipts(scope, @recent_receipts),
+      dining: Costs.dining_out_in_month(scope, today.year, today.month)
     )
   end
 
@@ -50,7 +51,7 @@ defmodule ToreWeb.CostLive do
       user_id: socket.assigns.current_user.id
     }
 
-    case Costs.log_receipt(attrs) do
+    case Costs.log_receipt(socket.assigns.current_scope, attrs) do
       {:ok, _receipt} ->
         {:noreply, socket |> load_costs() |> put_flash(:info, gettext("Receipt saved"))}
 
@@ -65,7 +66,7 @@ defmodule ToreWeb.CostLive do
         consume_uploaded_entry(socket, entry, fn %{path: path} -> {:ok, File.read!(path)} end)
 
       ctx = %{
-        household_id: Household.get_household!().id,
+        household_id: socket.assigns.current_scope.household_id,
         user_id: socket.assigns.current_user.id
       }
 

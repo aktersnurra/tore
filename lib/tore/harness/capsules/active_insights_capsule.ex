@@ -8,9 +8,9 @@ defmodule Tore.Harness.Capsules.ActiveInsightsCapsule do
   @type t :: %__MODULE__{bodies: [String.t()]}
 
   @impl true
-  def build(_ctx) do
+  def build(ctx) do
     bodies =
-      Household.list_active_insights()
+      Household.list_active_insights(Tore.Scope.for_household(ctx.household_id))
       |> Enum.take(5)
       |> Enum.map(& &1.body)
 

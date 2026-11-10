@@ -3,6 +3,7 @@ defmodule Tore.Costs.DiningOut do
   import Ecto.Changeset
 
   schema "dining_out" do
+    field :household_id, :integer
     field :date, :date
     field :description, :string
     field :total_amount, :decimal

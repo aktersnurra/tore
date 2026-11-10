@@ -21,10 +21,10 @@ defmodule Tore.Harness.Verifier.PantryVerifier do
   @type repair_action :: :reject
 
   @spec verify(PantryBeliefUpdate.t(), map()) :: :ok | {:fail, fail_code(), repair_action()}
-  def verify(%PantryBeliefUpdate{items: items}, _ctx \\ %{}) do
+  def verify(%PantryBeliefUpdate{items: items}, %{scope: scope}) do
     with :ok <- check_provenance(items),
          :ok <- check_quantities(items),
-         :ok <- check_monotonic(items) do
+         :ok <- check_monotonic(scope, items) do
       :ok
     end
   end
@@ -49,12 +49,12 @@ defmodule Tore.Harness.Verifier.PantryVerifier do
     if bad, do: {:fail, :negative_quantity, :reject}, else: :ok
   end
 
-  defp check_monotonic(items) do
+  defp check_monotonic(scope, items) do
     names = Enum.map(items, & &1.name)
 
     current =
       from(p in PantryItem, where: p.name in ^names, select: {p.name, p.last_seen_at})
-      |> Repo.all()
+      |> Repo.all(Tore.Scope.repo_opts(scope))
       |> Map.new()
 
     regressed =

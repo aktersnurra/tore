@@ -15,9 +15,14 @@ defmodule ToreWeb.Plugs.Auth do
         conn |> redirect(to: "/login") |> halt()
 
       user_id ->
-        case Accounts.get_session_user(user_id) do
-          nil -> conn |> delete_session(:user_id) |> redirect(to: "/login") |> halt()
-          user -> assign(conn, :current_user, user)
+        case Accounts.get_session(user_id) do
+          nil ->
+            conn |> delete_session(:user_id) |> redirect(to: "/login") |> halt()
+
+          {user, scope} ->
+            conn
+            |> assign(:current_user, user)
+            |> assign(:current_scope, scope)
         end
     end
   end

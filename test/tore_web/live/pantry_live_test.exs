@@ -18,7 +18,10 @@ defmodule ToreWeb.PantryLiveTest do
 
   test "renders existing items", %{conn: conn, user: user} do
     conn = authed(conn, user)
-    {:ok, _} = Pantry.add_item(%{name: "Havregryn", quantity: Decimal.new("500"), unit: "g"})
+
+    {:ok, _} =
+      Pantry.add_item(home_scope(), %{name: "Havregryn", quantity: Decimal.new("500"), unit: "g"})
+
     {:ok, _lv, html} = live(conn, "/settings/pantry")
     assert html =~ "Havregryn"
     assert html =~ "500"
@@ -33,7 +36,11 @@ defmodule ToreWeb.PantryLiveTest do
     conn = authed(conn, user)
 
     {:ok, item} =
-      Tore.Pantry.add_item(%{name: "olive oil", quantity: Decimal.new(1), unit: "bottle"})
+      Tore.Pantry.add_item(home_scope(), %{
+        name: "olive oil",
+        quantity: Decimal.new(1),
+        unit: "bottle"
+      })
 
     {:ok, view, _html} = live(conn, "/settings/pantry")
     assert render(view) =~ "Olive oil"
@@ -49,7 +56,11 @@ defmodule ToreWeb.PantryLiveTest do
     conn = authed(conn, user)
 
     {:ok, item, :added, _} =
-      Pantry.upsert_belief(%{name: "mjölk", provenance: "manual", shelf_life_days: 7})
+      Pantry.upsert_belief(home_scope(), %{
+        name: "mjölk",
+        provenance: "manual",
+        shelf_life_days: 7
+      })
 
     {:ok, lv, html} = live(conn, "/settings/pantry")
     assert html =~ Date.to_iso8601(Date.add(Date.utc_today(), 7))
@@ -65,18 +76,25 @@ defmodule ToreWeb.PantryLiveTest do
 
     refute html =~ "ungefär"
     assert html =~ "Okänd"
-    assert Tore.Repo.get!(Tore.Pantry.PantryItem, item.id).expires_source == "manual"
+
+    assert Tore.Repo.get!(Tore.Pantry.PantryItem, item.id, Tore.Scope.repo_opts(home_scope())).expires_source ==
+             "manual"
   end
 
   test "clearing the date removes it", %{conn: conn, user: user} do
     conn = authed(conn, user)
 
     {:ok, item, :added, _} =
-      Pantry.upsert_belief(%{name: "mjölk", provenance: "manual", shelf_life_days: 7})
+      Pantry.upsert_belief(home_scope(), %{
+        name: "mjölk",
+        provenance: "manual",
+        shelf_life_days: 7
+      })
 
     {:ok, lv, _html} = live(conn, "/settings/pantry")
     lv |> form("#expiry-#{item.id}", %{"expires_at" => ""}) |> render_change()
 
-    assert Tore.Repo.get!(Tore.Pantry.PantryItem, item.id).expires_at == nil
+    assert Tore.Repo.get!(Tore.Pantry.PantryItem, item.id, Tore.Scope.repo_opts(home_scope())).expires_at ==
+             nil
   end
 end

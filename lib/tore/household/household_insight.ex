@@ -3,6 +3,7 @@ defmodule Tore.Household.HouseholdInsight do
   import Ecto.Changeset
 
   schema "household_insights" do
+    field :household_id, :integer
     field :kind, :string
     field :body, :string
     field :confidence, :float, default: 0.5

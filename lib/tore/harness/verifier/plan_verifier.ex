@@ -18,7 +18,7 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
           | :leftover_no_source
           | :dietary_violation
   @type repair_action :: {:edit_plan, [String.t()]}
-  @type ctx :: %{plan_state: State.t(), preferences: Preferences.t()}
+  @type ctx :: %{plan_state: State.t(), preferences: Preferences.t(), scope: Tore.Scope.t()}
 
   @spec verify(PlanDiff.t(), ctx()) :: :ok | {:fail, fail_code(), repair_action()}
   def verify(%PlanDiff{events: events}, ctx) do
@@ -26,7 +26,7 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
          :ok <- check_servings(events),
          :ok <- check_skips(events, ctx.plan_state),
          :ok <- check_leftovers(events, ctx.plan_state),
-         :ok <- check_dietary(events, ctx.preferences) do
+         :ok <- check_dietary(events, ctx.preferences, ctx.scope) do
       :ok
     end
   end
@@ -72,13 +72,13 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
   # PlanDiffBuilder emitting recipe_id for both RecipeAssigned AND RecipeSwapped —
   # if that fidelity ever lapses, the dietary check goes blind on swapped recipes
   # while the plan still gets written. Keep the two in sync.
-  defp check_dietary(events, prefs) do
+  defp check_dietary(events, prefs, scope) do
     banned = MapSet.new(downcase(prefs.dietary_restrictions ++ prefs.allergies ++ prefs.dislikes))
 
     bad =
       events
       |> Enum.filter(&(&1.event_type in ["RecipeAssigned", "RecipeSwapped"]))
-      |> Enum.filter(fn e -> violates?(e.payload["recipe_id"], banned) end)
+      |> Enum.filter(fn e -> violates?(scope, e.payload["recipe_id"], banned) end)
       |> Enum.map(& &1.slot_key)
 
     fail_if(bad, :dietary_violation)
@@ -105,16 +105,16 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
     Enum.find_index(@day_order, &(&1 == day)) || length(@day_order)
   end
 
-  defp violates?(nil, _banned), do: false
+  defp violates?(_scope, nil, _banned), do: false
 
-  defp violates?(recipe_id, banned) do
-    recipe_id
-    |> ingredient_names()
+  defp violates?(scope, recipe_id, banned) do
+    scope
+    |> ingredient_names(recipe_id)
     |> Enum.any?(fn name -> MapSet.member?(banned, name) end)
   end
 
-  defp ingredient_names(recipe_id) do
-    Tore.Recipes.get!(recipe_id).recipe_ingredients
+  defp ingredient_names(scope, recipe_id) do
+    Tore.Recipes.get!(scope, recipe_id).recipe_ingredients
     |> Enum.map(&String.downcase(&1.ingredient.name))
   rescue
     Ecto.NoResultsError -> []

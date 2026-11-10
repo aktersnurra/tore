@@ -11,15 +11,16 @@ defmodule Tore.Recipes.Variant do
   alias Tore.LLM
   alias Tore.LLM.Prompts
 
-  @spec build(Tore.Recipes.Recipe.t(), String.t(), String.t() | nil) ::
+  @spec build(Tore.Scope.t(), Tore.Recipes.Recipe.t(), String.t(), String.t() | nil) ::
           {:ok, RecipeProposal.t(), LLM.usage()} | {:error, term()}
-  def build(source_recipe, instruction, locale \\ nil) do
-    locale = locale || household_locale()
-
+  def build(%Tore.Scope{} = scope, source_recipe, instruction, locale) do
     {system, user} =
       Prompts.generate_recipe_variant(summarise(source_recipe), instruction, locale)
 
-    case LLM.text(system, user, response_format: Prompts.recipe_json_schema()) do
+    case LLM.text(scope, system, user,
+           response_format: Prompts.recipe_json_schema(),
+           feature: :recipe_variant
+         ) do
       {:ok, %{"title" => title} = payload, usage} when is_binary(title) and title != "" ->
         {:ok, to_proposal(payload, source_recipe, instruction), usage}
 
@@ -97,12 +98,5 @@ defmodule Tore.Recipes.Variant do
     steps
     |> Enum.sort_by(& &1["order"])
     |> Enum.map_join("\n", & &1["action"])
-  end
-
-  defp household_locale do
-    case Tore.Household.get_household!() do
-      %{locale: locale} when is_binary(locale) -> locale
-      _ -> nil
-    end
   end
 end

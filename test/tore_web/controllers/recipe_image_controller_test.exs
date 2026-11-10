@@ -8,7 +8,11 @@ defmodule ToreWeb.RecipeImageControllerTest do
     # Insert directly via Repo — Recipes.create/1 spawns an async image-generation
     # Task that would race this test by populating image_path behind our backs.
     {:ok, recipe} =
-      %Tore.Recipes.Recipe{title: "Roast chicken", recipe_type: :meal}
+      %Tore.Recipes.Recipe{
+        household_id: home_scope().household_id,
+        title: "Roast chicken",
+        recipe_type: :meal
+      }
       |> Tore.Repo.insert()
 
     %{user: user, recipe: recipe}
@@ -45,6 +49,21 @@ defmodule ToreWeb.RecipeImageControllerTest do
     {:ok, _} = set_image_path(recipe, "recipes/#{recipe.id}/missing.jpg")
     conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}")
     assert conn.status == 404
+  end
+
+  test "another household's recipe image is a 404", %{conn: conn, user: user} do
+    {:ok, theirs} =
+      %Tore.Recipes.Recipe{
+        household_id: household_fixture().id,
+        title: "Kåldolmar",
+        recipe_type: :meal,
+        image_path: "households/0/recipes/0/theirs.jpg"
+      }
+      |> Tore.Repo.insert()
+
+    {:ok, _} = Mock.put_object(Buckets.recipes(), theirs.image_path, "their bytes")
+
+    assert_error_sent 404, fn -> get(authed(conn, user), ~p"/images/recipes/#{theirs.id}") end
   end
 
   test "redirects unauthenticated requests to login", %{conn: conn, recipe: recipe} do

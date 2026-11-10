@@ -16,6 +16,7 @@ defmodule Tore.Recipes.Recipe do
     field :image_path, :string
     field :last_used_at, :utc_datetime
     field :created_by, :integer
+    field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
 
     many_to_many :tags, Tore.Recipes.Tag,

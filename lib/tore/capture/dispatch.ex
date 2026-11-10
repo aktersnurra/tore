@@ -20,6 +20,7 @@ defmodule Tore.Capture.Dispatch do
   alias Tore.Planning
   alias Tore.Recipes
   alias Tore.Shop
+  alias Tore.Streams
   alias Tore.Storage.RunPhotos
 
   @days ~w(mon tue wed thu fri sat sun)
@@ -37,7 +38,7 @@ defmodule Tore.Capture.Dispatch do
   @spec ingest_receipt(binary(), ctx()) :: bubble()
   def ingest_receipt(image, ctx) when is_binary(image) do
     with_dedup(image, ctx, "receipt", fn stream_id ->
-      image_path = stash_photo(stream_id, image)
+      image_path = stash_photo(Tore.Scope.for_household(ctx.household_id), stream_id, image)
 
       dispatch_ctx = %{
         household_id: ctx.household_id,
@@ -109,8 +110,8 @@ defmodule Tore.Capture.Dispatch do
   # ── recipe (grouped: multi-page recipes stay together) ─────────────────
 
   @spec ingest_recipe([binary()], ctx()) :: bubble()
-  def ingest_recipe(images, _ctx) when is_list(images) and images != [] do
-    case Tore.Recipes.extract_from_images(images) do
+  def ingest_recipe(images, ctx) when is_list(images) and images != [] do
+    case Tore.Recipes.extract_from_images(scope(ctx), images) do
       {:ok, %{id: id, title: title}} ->
         %{role: :assistant, recipe_card: true, recipe_id: id, title: title}
 
@@ -130,8 +131,8 @@ defmodule Tore.Capture.Dispatch do
   # ── fridge → suggestions ───────────────────────────────────────────────
 
   @spec suggest_from_fridge(binary(), ctx()) :: bubble()
-  def suggest_from_fridge(image, _ctx) when is_binary(image) do
-    case Tore.Pantry.parse_image(image) do
+  def suggest_from_fridge(image, ctx) when is_binary(image) do
+    case Tore.Pantry.parse_image(scope(ctx), image) do
       {:ok, items} ->
         names = items |> Enum.map(&(&1[:name] || &1["name"])) |> Enum.take(5) |> Enum.join(", ")
 
@@ -153,9 +154,9 @@ defmodule Tore.Capture.Dispatch do
 
   # ── URL import ─────────────────────────────────────────────────────────
 
-  @spec import_recipe_from_url(String.t()) :: bubble()
-  def import_recipe_from_url(url) when is_binary(url) do
-    case Tore.Recipes.scrape_from_url(url) do
+  @spec import_recipe_from_url(String.t(), ctx()) :: bubble()
+  def import_recipe_from_url(url, ctx) when is_binary(url) do
+    case Tore.Recipes.scrape_from_url(scope(ctx), url) do
       {:ok, recipe} ->
         %{role: :assistant, recipe_card: true, recipe_id: recipe.id, title: recipe.title}
 
@@ -172,9 +173,9 @@ defmodule Tore.Capture.Dispatch do
 
   # ── recipe search ──────────────────────────────────────────────────────
 
-  @spec find_recipe(String.t()) :: bubble()
-  def find_recipe(query) when is_binary(query) do
-    case Recipes.search(query) do
+  @spec find_recipe(String.t(), ctx()) :: bubble()
+  def find_recipe(query, ctx) when is_binary(query) do
+    case Recipes.search(scope(ctx), query) do
       [] ->
         %{
           role: :assistant,
@@ -235,12 +236,12 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec clear_plan_slot(Date.t()) :: bubble()
-  def clear_plan_slot(%Date{} = date) do
-    plan_id = plan_stream_id_for(date)
+  @spec clear_plan_slot(Date.t(), ctx()) :: bubble()
+  def clear_plan_slot(%Date{} = date, ctx) do
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
-    case Planning.remove_recipe(plan_id, slot_key) do
+    case Planning.remove_recipe(scope(ctx), plan_id, slot_key) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -258,14 +259,13 @@ defmodule Tore.Capture.Dispatch do
 
   # ── pantry-driven suggestions ──────────────────────────────────────────
 
-  @spec suggest_meals_from_pantry(pos_integer()) :: bubble()
-  def suggest_meals_from_pantry(count) when is_integer(count) and count > 0 do
+  @spec suggest_meals_from_pantry(pos_integer(), ctx()) :: bubble()
+  def suggest_meals_from_pantry(count, ctx) when is_integer(count) and count > 0 do
     today = Date.utc_today()
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
-    next_empty = next_empty_slot_key(today)
+    plan_id = plan_stream_id_for(ctx, today)
+    next_empty = next_empty_slot_key(ctx, today)
 
-    case Planning.suggest_recipes_for_slot(plan_id, next_empty, limit: count) do
+    case Planning.suggest_recipes_for_slot(scope(ctx), plan_id, next_empty, limit: count) do
       {:ok, []} ->
         %{
           role: :assistant,
@@ -298,10 +298,10 @@ defmodule Tore.Capture.Dispatch do
 
   @spec add_to_shopping_list(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_shopping_list(name, quantity, unit, ctx) when is_binary(name) do
-    list_id = current_shop_list_id()
+    list_id = current_shop_list_id(ctx)
     qty = to_decimal(quantity)
 
-    case Shop.add_item(list_id, name, qty, unit, ctx[:user_id]) do
+    case Shop.add_item(scope(ctx), list_id, name, qty, unit, ctx[:user_id]) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -326,11 +326,11 @@ defmodule Tore.Capture.Dispatch do
 
   @spec check_off_shopping_item(String.t(), ctx()) :: bubble()
   def check_off_shopping_item(name, ctx) when is_binary(name) do
-    list_id = current_shop_list_id()
+    list_id = current_shop_list_id(ctx)
 
-    case Shop.find_item_fuzzy(list_id, name) do
+    case Shop.find_item_fuzzy(scope(ctx), list_id, name) do
       {:ok, {id, item}} ->
-        case Shop.check_item(list_id, id, ctx[:user_id]) do
+        case Shop.check_item(scope(ctx), list_id, id, ctx[:user_id]) do
           {:ok, _events} ->
             %{
               role: :assistant,
@@ -368,11 +368,11 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec list_shopping_list(boolean()) :: bubble()
-  def list_shopping_list(unchecked_only?) when is_boolean(unchecked_only?) do
-    list_id = current_shop_list_id()
+  @spec list_shopping_list(boolean(), ctx()) :: bubble()
+  def list_shopping_list(unchecked_only?, ctx) when is_boolean(unchecked_only?) do
+    list_id = current_shop_list_id(ctx)
 
-    case Shop.load_list(list_id) do
+    case Shop.load_list(scope(ctx), list_id) do
       {:ok, %{items: items}} when map_size(items) == 0 ->
         %{
           role: :assistant,
@@ -407,14 +407,14 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec generate_shopping_list_from_plan(Date.t() | nil) :: bubble()
-  def generate_shopping_list_from_plan(date \\ nil) do
+  @spec generate_shopping_list_from_plan(Date.t() | nil, ctx()) :: bubble()
+  def generate_shopping_list_from_plan(date, ctx) do
     target_date = date || Date.utc_today()
-    week_start = Date.add(target_date, -(Date.day_of_week(target_date) - 1))
-    list_id = "shop_list:#{Date.to_iso8601(week_start)}"
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
+    week_start = Streams.monday(target_date)
+    list_id = Streams.shop_list(scope(ctx), week_start)
+    plan_id = Streams.plan(scope(ctx), week_start)
 
-    case Planning.load_plan(plan_id) do
+    case Planning.load_plan(scope(ctx), plan_id) do
       {:ok, state} ->
         recipe_ids =
           state.slots
@@ -423,7 +423,7 @@ defmodule Tore.Capture.Dispatch do
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
 
-        case Shop.build_list(list_id, week_start, recipe_ids) do
+        case Shop.build_list(scope(ctx), list_id, week_start, recipe_ids) do
           {:ok, _events} ->
             %{
               role: :assistant,
@@ -447,8 +447,8 @@ defmodule Tore.Capture.Dispatch do
 
   # ── pantry mutations ───────────────────────────────────────────────────
 
-  @spec add_to_pantry(String.t(), number() | nil, String.t() | nil) :: bubble()
-  def add_to_pantry(name, quantity, unit) when is_binary(name) do
+  @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
+  def add_to_pantry(name, quantity, unit, ctx) when is_binary(name) do
     attrs = %{
       name: name,
       quantity: to_decimal(quantity),
@@ -456,7 +456,7 @@ defmodule Tore.Capture.Dispatch do
       provenance: "manual"
     }
 
-    case Pantry.upsert_belief(attrs) do
+    case Pantry.upsert_belief(scope(ctx), attrs) do
       {:ok, item, :added, _before} ->
         %{
           role: :assistant,
@@ -480,11 +480,11 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec remove_from_pantry(String.t()) :: bubble()
-  def remove_from_pantry(name) when is_binary(name) do
-    case Pantry.find_by_name_fuzzy(name) do
+  @spec remove_from_pantry(String.t(), ctx()) :: bubble()
+  def remove_from_pantry(name, ctx) when is_binary(name) do
+    case Pantry.find_by_name_fuzzy(scope(ctx), name) do
       {:ok, item} ->
-        case Pantry.remove_item(item.id) do
+        case Pantry.remove_item(scope(ctx), item.id) do
           :ok ->
             %{
               role: :assistant,
@@ -521,9 +521,9 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec check_pantry(String.t()) :: bubble()
-  def check_pantry(name) when is_binary(name) do
-    case Pantry.find_by_name_fuzzy(name) do
+  @spec check_pantry(String.t(), ctx()) :: bubble()
+  def check_pantry(name, ctx) when is_binary(name) do
+    case Pantry.find_by_name_fuzzy(scope(ctx), name) do
       {:ok, item} ->
         qty_str =
           case {item.quantity, item.unit} do
@@ -565,9 +565,9 @@ defmodule Tore.Capture.Dispatch do
 
   # ── plan-slot adjustments ──────────────────────────────────────────────
 
-  @spec mark_recipe_cooked(integer()) :: bubble()
-  def mark_recipe_cooked(recipe_id) when is_integer(recipe_id) do
-    :ok = Recipes.record_used(recipe_id)
+  @spec mark_recipe_cooked(integer(), ctx()) :: bubble()
+  def mark_recipe_cooked(recipe_id, ctx) when is_integer(recipe_id) do
+    :ok = Recipes.record_used(scope(ctx), recipe_id)
 
     %{
       role: :assistant,
@@ -575,13 +575,13 @@ defmodule Tore.Capture.Dispatch do
     }
   end
 
-  @spec set_plan_servings(Date.t(), pos_integer()) :: bubble()
-  def set_plan_servings(%Date{} = date, servings)
+  @spec set_plan_servings(Date.t(), pos_integer(), ctx()) :: bubble()
+  def set_plan_servings(%Date{} = date, servings, ctx)
       when is_integer(servings) and servings > 0 do
-    plan_id = plan_stream_id_for(date)
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
-    case Planning.set_servings(plan_id, slot_key, servings) do
+    case Planning.set_servings(scope(ctx), plan_id, slot_key, servings) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -598,16 +598,16 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec pin_plan_slot(Date.t(), boolean()) :: bubble()
-  def pin_plan_slot(%Date{} = date, pinned?) when is_boolean(pinned?) do
-    plan_id = plan_stream_id_for(date)
+  @spec pin_plan_slot(Date.t(), boolean(), ctx()) :: bubble()
+  def pin_plan_slot(%Date{} = date, pinned?, ctx) when is_boolean(pinned?) do
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
     result =
       if pinned? do
-        Planning.pin_slot(plan_id, slot_key, true)
+        Planning.pin_slot(scope(ctx), plan_id, slot_key, true)
       else
-        Planning.unpin_slot(plan_id, slot_key)
+        Planning.unpin_slot(scope(ctx), plan_id, slot_key)
       end
 
     case result do
@@ -632,12 +632,12 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  @spec skip_plan_meal(Date.t()) :: bubble()
-  def skip_plan_meal(%Date{} = date) do
-    plan_id = plan_stream_id_for(date)
+  @spec skip_plan_meal(Date.t(), ctx()) :: bubble()
+  def skip_plan_meal(%Date{} = date, ctx) do
+    plan_id = plan_stream_id_for(ctx, date)
     slot_key = slot_key_for(date)
 
-    case Planning.skip_meal(plan_id, slot_key) do
+    case Planning.skip_meal(scope(ctx), plan_id, slot_key) do
       {:ok, _events} ->
         %{
           role: :assistant,
@@ -657,7 +657,7 @@ defmodule Tore.Capture.Dispatch do
   def mark_eating_out(%Date{} = date, attrs, ctx) do
     attrs = Map.put(attrs, :user_id, ctx[:user_id])
 
-    case Planning.eat_out(plan_stream_id_for(date), slot_key_for(date), attrs) do
+    case Planning.eat_out(scope(ctx), plan_stream_id_for(ctx, date), slot_key_for(date), attrs) do
       {:ok, _entry} ->
         %{
           role: :assistant,
@@ -689,6 +689,8 @@ defmodule Tore.Capture.Dispatch do
 
   # ── helpers ────────────────────────────────────────────────────────────
 
+  defp scope(ctx), do: %Tore.Scope{household_id: ctx.household_id, user_id: ctx[:user_id]}
+
   # Race-safe: reserve a stream_id, then try to record the hash. If the
   # unique index trips, another upload already claimed these bytes — return
   # the existing stream_id and never dispatch a duplicate run.
@@ -696,7 +698,7 @@ defmodule Tore.Capture.Dispatch do
     hash = Uploads.content_hash(image)
     stream_id = Run.next_stream_id()
 
-    case Uploads.record(ctx.household_id, hash, stream_id, kind) do
+    case Uploads.record(scope(ctx), hash, stream_id, kind) do
       {:ok, ^stream_id} -> run_fn.(stream_id)
       {:duplicate, existing_stream_id} -> duplicate_bubble(kind, existing_stream_id)
     end
@@ -710,8 +712,8 @@ defmodule Tore.Capture.Dispatch do
     }
   end
 
-  defp stash_photo(stream_id, image) do
-    case RunPhotos.store(stream_id, image) do
+  defp stash_photo(scope, stream_id, image) do
+    case RunPhotos.store(scope, stream_id, image) do
       {:ok, key} ->
         key
 
@@ -726,11 +728,7 @@ defmodule Tore.Capture.Dispatch do
     %{role: :assistant, review_link: true, stream_id: sid, text: gettext("I parsed a receipt.")}
   end
 
-  defp current_shop_list_id do
-    today = Date.utc_today()
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
-    "shop_list:#{Date.to_iso8601(week_start)}"
-  end
+  defp current_shop_list_id(ctx), do: Streams.shop_list(scope(ctx), Date.utc_today())
 
   defp to_decimal(nil), do: nil
   defp to_decimal(%Decimal{} = d), do: d
@@ -744,10 +742,7 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp plan_stream_id_for(%Date{} = date) do
-    week_start = Date.add(date, -(Date.day_of_week(date) - 1))
-    "plan:#{Date.to_iso8601(week_start)}"
-  end
+  defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(scope(ctx), date)
 
   defp slot_key_for(%Date{} = date) do
     day_abbrev = Enum.at(@days, Date.day_of_week(date) - 1)
@@ -766,11 +761,8 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp next_empty_slot_key(%Date{} = today) do
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
-
-    case Planning.load_plan(plan_id) do
+  defp next_empty_slot_key(ctx, %Date{} = today) do
+    case Planning.load_plan(scope(ctx), plan_stream_id_for(ctx, today)) do
       {:ok, state} ->
         today_idx = Date.day_of_week(today) - 1
 

@@ -18,6 +18,7 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 - **Eating out** — mark a day and it cancels the recipe, with an optional place and amount.
 - **Prep guide** — optional, on demand, from the week's plan.
 - **Language** — chosen once for the household, with a full Swedish UI through Gettext.
+- **Several households** — friends can share one server, each in a household of their own. Members add each other by Pocket ID username, and someone in two households switches in Settings. Nothing crosses households except deals.
 
 ---
 
@@ -69,9 +70,9 @@ lib/
 
 **Harness** — every state-changing AI action is meant to be a run: the LLM proposes, a pure verifier checks, the change applies in one transaction, and you get a receipt with undo. See `SPEC.md`.
 
-**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts.
+**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts. Each function that touches a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one.
 
-**SpendGuard** — rate-limits LLM operations so a runaway loop can't drain API credits.
+**LLM gate** — `Tore.LLM` refuses calls for a household nobody sponsors, and once the household has spent its monthly limit; it records each call's cost per household. `Tore.SpendGuard` adds an estimate check and a cooldown for a few expensive features (prep guide, recipe suggestions, web search). The monthly limit is what stops a runaway loop draining API credits.
 
 **Canonical ingredient keys** — ingredients store a `key` column (e.g. `gul_lok`) derived from the display name. Used for deduplication, pantry matching, and grocery aggregation across locales.
 
@@ -86,7 +87,7 @@ mix setup          # install deps, create and migrate DB, seed
 mix phx.server     # http://localhost:4000
 ```
 
-Set `OPENROUTER_API_KEY` in your environment (or `.env`). Optional overrides:
+Set `OPENROUTER_API_KEY` in your environment (or `.env`). Without it Tore still runs, in dev and production, with every AI feature off. Optional overrides:
 
 ```sh
 OPENROUTER_MODEL=openai/gpt-4o-mini
@@ -110,6 +111,12 @@ Then set:
 - `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` — from the client.
 - `OIDC_REDIRECT_URI` — production only, if it isn't `https://$PHX_HOST/auth/oidc/callback`.
 - `AI_CLAIM` — optional, the claim that grants LLM access (default `tore_ai`).
+
+To let a friend in, create their Pocket ID user and add them to `tore`. At their first sign-in they join
+every household that already added their username, or else get a household of their own and pick its
+language. A household has AI when a member in `tore-ai` lets it use their credits; someone in `tore-ai`
+who starts a household sponsors it automatically. To share a household, add the other person's Pocket ID
+username in Settings.
 
 Production refuses to boot without the first three. In dev they're optional: without them, `/login`
 offers a dev sign-in instead.

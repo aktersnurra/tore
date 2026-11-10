@@ -18,8 +18,7 @@ defmodule ToreWeb do
   """
 
   def static_paths,
-    do:
-      ~w(assets fonts images uploads favicon.ico favicon-32.png apple-touch-icon.png robots.txt)
+    do: ~w(assets fonts images uploads favicon.ico favicon-32.png apple-touch-icon.png robots.txt)
 
   def router do
     quote do

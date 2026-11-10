@@ -21,5 +21,13 @@ defmodule ToreWeb.UserSession do
     configure_session(conn, drop: true)
   end
 
+  @doc """
+  Closes the user's open LiveViews. They reconnect at once and mount with the scope their memberships
+  now give them, so a removal or a switch takes effect everywhere they're signed in.
+  """
+  @spec disconnect(pos_integer()) :: :ok
+  def disconnect(user_id),
+    do: ToreWeb.Endpoint.broadcast("users_sessions:#{user_id}", "disconnect", %{})
+
   defp socket_id(user), do: "users_sessions:#{user.id}"
 end

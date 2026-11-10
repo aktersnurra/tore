@@ -104,14 +104,18 @@ defmodule Tore.Capture.Router do
       when is_binary(text) and is_list(images) and is_map(ctx) and is_list(history) do
     correlation_id = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
 
-    AiOperations.log(%{
+    AiOperations.log(Tore.Scope.for_household(ctx.household_id), %{
       run_stream_id: correlation_id,
       kind: "capture_route",
-      payload: %{"text" => text, "image_count" => length(images), "history_turns" => length(history)}
+      payload: %{
+        "text" => text,
+        "image_count" => length(images),
+        "history_turns" => length(history)
+      }
     })
 
     system =
-      [@role_preamble, date_line(), Capsules.compose(@chat_capsules, chat_ctx())]
+      [@role_preamble, date_line(), Capsules.compose(@chat_capsules, chat_ctx(ctx))]
       |> Enum.reject(&(&1 == ""))
       |> Enum.join("\n\n")
 
@@ -121,9 +125,18 @@ defmodule Tore.Capture.Router do
     {parent_sid, turn_ctx} = open_turn_run(ctx)
 
     result =
-      loop(system, history_messages ++ [user_message], [], [], images, turn_ctx, correlation_id, 0)
+      loop(
+        system,
+        history_messages ++ [user_message],
+        [],
+        [],
+        images,
+        turn_ctx,
+        correlation_id,
+        0
+      )
 
-    close_turn_run(parent_sid, result)
+    close_turn_run(parent_sid, ctx, result)
   end
 
   defp open_turn_run(ctx) do
@@ -133,15 +146,15 @@ defmodule Tore.Capture.Router do
     end
   end
 
-  defp close_turn_run(nil, result), do: drop_sids(result)
+  defp close_turn_run(nil, _ctx, result), do: drop_sids(result)
 
-  defp close_turn_run(parent_sid, {:ok, bubbles, child_sids}) do
-    _ = Orchestrator.end_turn(parent_sid, child_sids)
+  defp close_turn_run(parent_sid, ctx, {:ok, bubbles, child_sids}) do
+    _ = Orchestrator.end_turn(Tore.Scope.for_household(ctx.household_id), parent_sid, child_sids)
     {:ok, bubbles}
   end
 
-  defp close_turn_run(parent_sid, {:error, _} = err) do
-    _ = Orchestrator.end_turn(parent_sid, [])
+  defp close_turn_run(parent_sid, ctx, {:error, _} = err) do
+    _ = Orchestrator.end_turn(Tore.Scope.for_household(ctx.household_id), parent_sid, [])
     err
   end
 
@@ -181,7 +194,14 @@ defmodule Tore.Capture.Router do
     # be forced to keep calling tools forever.
     choice = if iter == 0, do: tool_choice(images), else: "auto"
 
-    case Tore.LLM.chat_with_tools(system, messages, tool_catalogue(), tool_choice: choice) do
+    case Tore.LLM.chat_with_tools(
+           Tore.Scope.for_household(ctx.household_id),
+           system,
+           messages,
+           tool_catalogue(),
+           tool_choice: choice,
+           feature: :capture
+         ) do
       {:ok, {:message, text}, _usage} ->
         {:ok, bubbles_acc ++ [%{role: :assistant, text: text}], sids_acc}
 
@@ -211,7 +231,8 @@ defmodule Tore.Capture.Router do
       {:error, reason} ->
         require Logger
         Logger.warning("Capture.Router LLM call failed: #{inspect(reason)}")
-        {:ok, bubbles_acc ++ [%{role: :assistant, text: fallback_text()}], sids_acc}
+        text = Tore.LLM.refusal_text(reason) || fallback_text()
+        {:ok, bubbles_acc ++ [%{role: :assistant, text: text}], sids_acc}
     end
   end
 
@@ -258,7 +279,9 @@ defmodule Tore.Capture.Router do
 
   defp run_call(%{name: "ingest_receipt", args: args}, images, image_count, ctx) do
     with {:ok, indices} <- fetch_indices(args, image_count) do
-      bubbles = Enum.map(indices, fn i -> Dispatch.ingest_receipt(Enum.at(images, i - 1), ctx) end)
+      bubbles =
+        Enum.map(indices, fn i -> Dispatch.ingest_receipt(Enum.at(images, i - 1), ctx) end)
+
       {:ok, bubbles}
     end
   end
@@ -283,23 +306,25 @@ defmodule Tore.Capture.Router do
 
   defp run_call(%{name: "suggest_from_fridge", args: args}, images, image_count, ctx) do
     with {:ok, indices} <- fetch_indices(args, image_count) do
-      bubbles = Enum.map(indices, fn i -> Dispatch.suggest_from_fridge(Enum.at(images, i - 1), ctx) end)
+      bubbles =
+        Enum.map(indices, fn i -> Dispatch.suggest_from_fridge(Enum.at(images, i - 1), ctx) end)
+
       {:ok, bubbles}
     end
   end
 
-  defp run_call(%{name: "import_recipe_from_url", args: %{"url" => url}}, _images, _count, _ctx)
+  defp run_call(%{name: "import_recipe_from_url", args: %{"url" => url}}, _images, _count, ctx)
        when is_binary(url) do
-    {:ok, [Dispatch.import_recipe_from_url(url)]}
+    {:ok, [Dispatch.import_recipe_from_url(url, ctx)]}
   end
 
   defp run_call(%{name: "report_unrecognised_image", args: args}, _images, _count, _ctx) do
     {:ok, [Dispatch.report_unrecognised_image(args["suggestion"])]}
   end
 
-  defp run_call(%{name: "find_recipe", args: %{"query" => q}}, _images, _count, _ctx)
+  defp run_call(%{name: "find_recipe", args: %{"query" => q}}, _images, _count, ctx)
        when is_binary(q) do
-    {:ok, [Dispatch.find_recipe(q)]}
+    {:ok, [Dispatch.find_recipe(q, ctx)]}
   end
 
   defp run_call(%{name: "set_plan_slot", args: args}, _images, _count, ctx) do
@@ -311,15 +336,15 @@ defmodule Tore.Capture.Router do
     end
   end
 
-  defp run_call(%{name: "clear_plan_slot", args: %{"date" => date_str}}, _images, _count, _ctx) do
+  defp run_call(%{name: "clear_plan_slot", args: %{"date" => date_str}}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(date_str) do
-      {:ok, [Dispatch.clear_plan_slot(date)]}
+      {:ok, [Dispatch.clear_plan_slot(date, ctx)]}
     end
   end
 
-  defp run_call(%{name: "suggest_meals_from_pantry", args: args}, _images, _count, _ctx) do
+  defp run_call(%{name: "suggest_meals_from_pantry", args: args}, _images, _count, ctx) do
     count = args["count"] || 4
-    {:ok, [Dispatch.suggest_meals_from_pantry(count)]}
+    {:ok, [Dispatch.suggest_meals_from_pantry(count, ctx)]}
   end
 
   defp run_call(%{name: "add_to_shopping_list", args: args}, _images, _count, ctx)
@@ -332,61 +357,61 @@ defmodule Tore.Capture.Router do
     {:ok, [Dispatch.check_off_shopping_item(name, ctx)]}
   end
 
-  defp run_call(%{name: "list_shopping_list", args: args}, _images, _count, _ctx) do
-    {:ok, [Dispatch.list_shopping_list(args["unchecked_only"] == true)]}
+  defp run_call(%{name: "list_shopping_list", args: args}, _images, _count, ctx) do
+    {:ok, [Dispatch.list_shopping_list(args["unchecked_only"] == true, ctx)]}
   end
 
-  defp run_call(%{name: "generate_shopping_list_from_plan", args: args}, _images, _count, _ctx) do
+  defp run_call(%{name: "generate_shopping_list_from_plan", args: args}, _images, _count, ctx) do
     case args["date"] do
       nil ->
-        {:ok, [Dispatch.generate_shopping_list_from_plan(nil)]}
+        {:ok, [Dispatch.generate_shopping_list_from_plan(nil, ctx)]}
 
       str when is_binary(str) ->
         with {:ok, date} <- parse_iso_date(str) do
-          {:ok, [Dispatch.generate_shopping_list_from_plan(date)]}
+          {:ok, [Dispatch.generate_shopping_list_from_plan(date, ctx)]}
         end
     end
   end
 
-  defp run_call(%{name: "add_to_pantry", args: args}, _images, _count, _ctx)
+  defp run_call(%{name: "add_to_pantry", args: args}, _images, _count, ctx)
        when is_binary(:erlang.map_get("name", args)) do
-    {:ok, [Dispatch.add_to_pantry(args["name"], args["quantity"], args["unit"])]}
+    {:ok, [Dispatch.add_to_pantry(args["name"], args["quantity"], args["unit"], ctx)]}
   end
 
-  defp run_call(%{name: "remove_from_pantry", args: %{"name" => name}}, _images, _count, _ctx)
+  defp run_call(%{name: "remove_from_pantry", args: %{"name" => name}}, _images, _count, ctx)
        when is_binary(name) do
-    {:ok, [Dispatch.remove_from_pantry(name)]}
+    {:ok, [Dispatch.remove_from_pantry(name, ctx)]}
   end
 
-  defp run_call(%{name: "check_pantry", args: %{"name" => name}}, _images, _count, _ctx)
+  defp run_call(%{name: "check_pantry", args: %{"name" => name}}, _images, _count, ctx)
        when is_binary(name) do
-    {:ok, [Dispatch.check_pantry(name)]}
+    {:ok, [Dispatch.check_pantry(name, ctx)]}
   end
 
-  defp run_call(%{name: "mark_recipe_cooked", args: %{"recipe_id" => id}}, _images, _count, _ctx)
+  defp run_call(%{name: "mark_recipe_cooked", args: %{"recipe_id" => id}}, _images, _count, ctx)
        when is_integer(id) do
-    {:ok, [Dispatch.mark_recipe_cooked(id)]}
+    {:ok, [Dispatch.mark_recipe_cooked(id, ctx)]}
   end
 
-  defp run_call(%{name: "set_plan_servings", args: args}, _images, _count, _ctx) do
+  defp run_call(%{name: "set_plan_servings", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]),
          servings when is_integer(servings) and servings > 0 <- args["servings"] do
-      {:ok, [Dispatch.set_plan_servings(date, servings)]}
+      {:ok, [Dispatch.set_plan_servings(date, servings, ctx)]}
     else
       _ -> {:error, :invalid_servings}
     end
   end
 
-  defp run_call(%{name: "pin_plan_slot", args: args}, _images, _count, _ctx) do
+  defp run_call(%{name: "pin_plan_slot", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]) do
       pinned? = args["pinned"] != false
-      {:ok, [Dispatch.pin_plan_slot(date, pinned?)]}
+      {:ok, [Dispatch.pin_plan_slot(date, pinned?, ctx)]}
     end
   end
 
-  defp run_call(%{name: "skip_plan_meal", args: %{"date" => date_str}}, _images, _count, _ctx) do
+  defp run_call(%{name: "skip_plan_meal", args: %{"date" => date_str}}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(date_str) do
-      {:ok, [Dispatch.skip_plan_meal(date)]}
+      {:ok, [Dispatch.skip_plan_meal(date, ctx)]}
     end
   end
 
@@ -433,23 +458,28 @@ defmodule Tore.Capture.Router do
 
   defp tool_catalogue do
     [
-      tool("ingest_receipt",
+      tool(
+        "ingest_receipt",
         "Parse a store receipt and surface an editable card in the inbox.",
         image_indices_schema()
       ),
-      tool("ingest_recipe",
+      tool(
+        "ingest_recipe",
         "Extract a recipe from one or more photos (group multi-page recipes by listing all page indices).",
         image_indices_schema()
       ),
-      tool("update_pantry_from_shelf",
+      tool(
+        "update_pantry_from_shelf",
         "Read pantry items from a shelf or counter photo and update the household's pantry beliefs.",
         image_indices_schema()
       ),
-      tool("suggest_from_fridge",
+      tool(
+        "suggest_from_fridge",
         "Read fridge contents from a photo and suggest recipes from what's visible.",
         image_indices_schema()
       ),
-      tool("import_recipe_from_url",
+      tool(
+        "import_recipe_from_url",
         "Scrape a recipe from a URL the user pasted.",
         %{
           type: "object",
@@ -458,7 +488,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("report_unrecognised_image",
+      tool(
+        "report_unrecognised_image",
         "Use when an image can't be recognised — provide a short suggestion of what the user could try.",
         %{
           type: "object",
@@ -472,7 +503,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("find_recipe",
+      tool(
+        "find_recipe",
         "Search the recipe library by title or ingredient. Use this before set_plan_slot when the user names a recipe by phrase rather than id.",
         %{
           type: "object",
@@ -483,20 +515,28 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("set_plan_slot",
+      tool(
+        "set_plan_slot",
         "Assign a known recipe to a specific date's dinner slot. Date must be ISO yyyy-mm-dd (compute it yourself from today's date and the day-of-week the user mentioned).",
         %{
           type: "object",
           properties: %{
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."},
-            recipe_id: %{type: "integer", description: "The recipe's numeric id from find_recipe."},
-            servings: %{type: "integer", description: "Optional servings; defaults to 4 if omitted."}
+            recipe_id: %{
+              type: "integer",
+              description: "The recipe's numeric id from find_recipe."
+            },
+            servings: %{
+              type: "integer",
+              description: "Optional servings; defaults to 4 if omitted."
+            }
           },
           required: ["date", "recipe_id"],
           additionalProperties: false
         }
       ),
-      tool("clear_plan_slot",
+      tool(
+        "clear_plan_slot",
         "Remove any recipe assigned to a specific date's dinner slot.",
         %{
           type: "object",
@@ -507,7 +547,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("suggest_meals_from_pantry",
+      tool(
+        "suggest_meals_from_pantry",
         "Return up to `count` recipe suggestions ranked by what's in the pantry, on sale, and not recently cooked. Use when the user asks what to cook with no specific recipe in mind.",
         %{
           type: "object",
@@ -520,7 +561,8 @@ defmodule Tore.Capture.Router do
       ),
 
       # ── Shopping list ───────────────────────────────────────────────
-      tool("add_to_shopping_list",
+      tool(
+        "add_to_shopping_list",
         "Add a single ad-hoc item to the current week's shopping list. Use when the user says 'add X to the shopping list' or similar.",
         %{
           type: "object",
@@ -533,7 +575,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("check_off_shopping_item",
+      tool(
+        "check_off_shopping_item",
         "Check an item off the current week's shopping list by fuzzy name match. Use when the user says 'I got the milk' / 'I bought eggs'.",
         %{
           type: "object",
@@ -544,7 +587,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("list_shopping_list",
+      tool(
+        "list_shopping_list",
         "Return the current week's shopping list. Use when the user asks 'what's on the shopping list?' or 'what do I still need to buy?'.",
         %{
           type: "object",
@@ -558,7 +602,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("generate_shopping_list_from_plan",
+      tool(
+        "generate_shopping_list_from_plan",
         "Build a shopping list for the week from the planned recipes. Overwrites any existing list for that week. Use when the user says 'make a shopping list for this week'.",
         %{
           type: "object",
@@ -574,7 +619,8 @@ defmodule Tore.Capture.Router do
       ),
 
       # ── Pantry ──────────────────────────────────────────────────────
-      tool("add_to_pantry",
+      tool(
+        "add_to_pantry",
         "Add (or bump) an item in the pantry. Use when the user says 'I just bought 2kg flour' or 'we got more milk'.",
         %{
           type: "object",
@@ -587,7 +633,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("remove_from_pantry",
+      tool(
+        "remove_from_pantry",
         "Remove an item from the pantry by fuzzy name match. Use when the user says 'we're out of X' or 'finished the milk'.",
         %{
           type: "object",
@@ -598,7 +645,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("check_pantry",
+      tool(
+        "check_pantry",
         "Check whether an item is in the pantry. Use only when the PantryBeliefs capsule in the system prompt doesn't already make this obvious.",
         %{
           type: "object",
@@ -611,7 +659,8 @@ defmodule Tore.Capture.Router do
       ),
 
       # ── Plan adjustments ───────────────────────────────────────────
-      tool("mark_recipe_cooked",
+      tool(
+        "mark_recipe_cooked",
         "Mark a recipe as cooked tonight (bumps last_used_at so rotation deprioritises it). Use when the user says 'we made the chili tonight'.",
         %{
           type: "object",
@@ -622,7 +671,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("set_plan_servings",
+      tool(
+        "set_plan_servings",
         "Adjust servings on a specific date's dinner slot.",
         %{
           type: "object",
@@ -634,7 +684,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("pin_plan_slot",
+      tool(
+        "pin_plan_slot",
         "Pin or unpin a slot so re-planning won't change it. Use when the user says 'don't change Friday'.",
         %{
           type: "object",
@@ -646,7 +697,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("skip_plan_meal",
+      tool(
+        "skip_plan_meal",
         "Mark a day's dinner slot as skipped, for when there's no dinner and no eating out. Fails if the day has no meal.",
         %{
           type: "object",
@@ -657,7 +709,8 @@ defmodule Tore.Capture.Router do
           additionalProperties: false
         }
       ),
-      tool("mark_eating_out",
+      tool(
+        "mark_eating_out",
         "Mark a day as eating out. Cancels any recipe that day and works on an empty day. Call again to add the place or amount later.",
         %{
           type: "object",
@@ -783,13 +836,12 @@ defmodule Tore.Capture.Router do
     "Today is #{Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")}."
   end
 
-  defp chat_ctx do
-    today = Date.utc_today()
-    week_start = Date.add(today, -(Date.day_of_week(today) - 1))
+  defp chat_ctx(ctx) do
+    week_start = Tore.Streams.monday(Date.utc_today())
 
     %{
-      household_id: nil,
-      plan_stream_id: "plan:#{Date.to_iso8601(week_start)}",
+      household_id: ctx.household_id,
+      plan_stream_id: Tore.Streams.plan(Tore.Scope.for_household(ctx.household_id), week_start),
       week_start: week_start
     }
   end

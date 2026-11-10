@@ -1,69 +1,72 @@
 defmodule Tore.Costs do
-  alias Tore.{Repo, Costs.LLMUsage, Costs.Receipt, Costs.LineItem, Costs.DiningOut}
+  alias Tore.{Repo, Scope, Costs.LLMUsage, Costs.Receipt, Costs.LineItem, Costs.DiningOut}
   import Ecto.Query
 
-  def log_llm_usage(attrs) do
-    %LLMUsage{} |> LLMUsage.changeset(attrs) |> Repo.insert()
+  @doc "Records what an LLM call cost the household. Only `Tore.LLM` calls this, after each call."
+  @spec log_llm_usage(Scope.t(), map()) :: {:ok, LLMUsage.t()} | {:error, Ecto.Changeset.t()}
+  def log_llm_usage(%Scope{} = scope, attrs) do
+    %LLMUsage{household_id: scope.household_id} |> LLMUsage.changeset(attrs) |> Repo.insert()
   end
 
-  def llm_spend_this_month do
-    month_start = Date.beginning_of_month(Date.utc_today())
-    threshold = NaiveDateTime.new!(month_start, ~T[00:00:00])
-
-    Repo.one(
-      from u in LLMUsage,
-        where: u.inserted_at >= ^threshold,
-        select: coalesce(sum(u.cost_usd), 0.0)
+  @spec llm_spend_this_month(Scope.t()) :: float()
+  def llm_spend_this_month(%Scope{} = scope) do
+    from(u in LLMUsage,
+      where: u.inserted_at >= ^month_start(),
+      select: coalesce(sum(u.cost_usd), 0.0)
     )
+    |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def last_llm_call(feature) do
-    Repo.one(
-      from u in LLMUsage,
-        where: u.feature == ^to_string(feature),
-        order_by: [desc: u.inserted_at],
-        limit: 1
+  def last_llm_call(%Scope{} = scope, feature) do
+    from(u in LLMUsage,
+      where: u.feature == ^to_string(feature),
+      order_by: [desc: u.inserted_at],
+      limit: 1
     )
+    |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def llm_spend_last_30_days do
+  def llm_spend_last_30_days(%Scope{} = scope) do
     threshold = NaiveDateTime.add(NaiveDateTime.utc_now(), -30 * 24 * 3600)
 
-    Repo.one(
-      from u in LLMUsage,
-        where: u.inserted_at >= ^threshold,
-        select: coalesce(sum(u.cost_usd), 0.0)
+    from(u in LLMUsage,
+      where: u.inserted_at >= ^threshold,
+      select: coalesce(sum(u.cost_usd), 0.0)
     )
+    |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def llm_spend_total do
-    Repo.one(from u in LLMUsage, select: coalesce(sum(u.cost_usd), 0.0))
+  def llm_spend_total(%Scope{} = scope) do
+    Repo.one(from(u in LLMUsage, select: coalesce(sum(u.cost_usd), 0.0)), Scope.repo_opts(scope))
   end
 
-  def llm_calls_this_month_by_feature do
-    month_start = Date.beginning_of_month(Date.utc_today())
-    threshold = NaiveDateTime.new!(month_start, ~T[00:00:00])
-
-    Repo.all(
-      from u in LLMUsage,
-        where: u.inserted_at >= ^threshold,
-        group_by: u.feature,
-        select: {u.feature, count(u.id), coalesce(sum(u.cost_usd), 0.0)}
+  def llm_calls_this_month_by_feature(%Scope{} = scope) do
+    from(u in LLMUsage,
+      where: u.inserted_at >= ^month_start(),
+      group_by: u.feature,
+      select: {u.feature, count(u.id), coalesce(sum(u.cost_usd), 0.0)}
     )
+    |> Repo.all(Scope.repo_opts(scope))
   end
 
-  @spec recent_receipts(integer()) :: [Receipt.t()]
-  def recent_receipts(n) do
-    Repo.all(from r in Receipt, order_by: [desc: r.date], limit: ^n)
+  defp month_start do
+    Date.utc_today() |> Date.beginning_of_month() |> NaiveDateTime.new!(~T[00:00:00])
   end
 
-  @spec log_receipt(map()) :: {:ok, Receipt.t()} | {:error, term()}
-  def log_receipt(attrs) do
+  @spec recent_receipts(Scope.t(), integer()) :: [Receipt.t()]
+  def recent_receipts(%Scope{} = scope, n) do
+    Repo.all(from(r in Receipt, order_by: [desc: r.date], limit: ^n), Scope.repo_opts(scope))
+  end
+
+  @spec log_receipt(Scope.t(), map()) :: {:ok, Receipt.t()} | {:error, term()}
+  def log_receipt(%Scope{} = scope, attrs) do
     line_items = Map.get(attrs, :line_items, [])
     attrs = Map.delete(attrs, :line_items)
 
     Repo.transaction(fn ->
-      case %Receipt{} |> Receipt.changeset(attrs) |> Repo.insert() do
+      case %Receipt{household_id: scope.household_id}
+           |> Receipt.changeset(attrs)
+           |> Repo.insert() do
         {:ok, receipt} ->
           Enum.each(line_items, fn item ->
             %LineItem{}
@@ -79,12 +82,13 @@ defmodule Tore.Costs do
     end)
   end
 
-  def parse_receipt(image_binary, locale) do
+  def parse_receipt(%Scope{} = scope, image_binary, locale) do
     {system, user} = Tore.LLM.Prompts.parse_receipt(locale)
 
     with {:ok, data, _usage} <-
-           Tore.LLM.vision([{:image, image_binary}], system, user,
-             response_format: Tore.LLM.Prompts.receipt_json_schema()
+           Tore.LLM.vision(scope, [{:image, image_binary}], system, user,
+             response_format: Tore.LLM.Prompts.receipt_json_schema(),
+             feature: :parse_receipt
            ) do
       items =
         Enum.map(data["items"] || [], fn it ->
@@ -121,59 +125,66 @@ defmodule Tore.Costs do
   One row per plan slot. A later call fills in what it's given and keeps the
   rest, so an amount can follow the day after. An empty string clears a field.
   """
-  @spec save_dining_out(map()) :: {:ok, DiningOut.t()} | {:error, Ecto.Changeset.t()}
-  def save_dining_out(%{plan_id: plan_id, slot_key: slot_key} = attrs) do
+  @spec save_dining_out(Scope.t(), map()) :: {:ok, DiningOut.t()} | {:error, Ecto.Changeset.t()}
+  def save_dining_out(%Scope{} = scope, %{plan_id: plan_id, slot_key: slot_key} = attrs) do
     given = attrs |> Enum.reject(fn {_field, value} -> is_nil(value) end) |> Map.new()
 
-    (get_dining_out(plan_id, slot_key) || %DiningOut{})
+    (get_dining_out(scope, plan_id, slot_key) || %DiningOut{household_id: scope.household_id})
     |> DiningOut.changeset(given)
     |> Repo.insert_or_update()
   end
 
-  @spec get_dining_out(String.t(), String.t()) :: DiningOut.t() | nil
-  def get_dining_out(plan_id, slot_key) do
-    Repo.get_by(DiningOut, plan_id: plan_id, slot_key: slot_key)
+  @spec get_dining_out(Scope.t(), String.t(), String.t()) :: DiningOut.t() | nil
+  def get_dining_out(%Scope{} = scope, plan_id, slot_key) do
+    Repo.get_by(DiningOut, [plan_id: plan_id, slot_key: slot_key], Scope.repo_opts(scope))
   end
 
-  @spec delete_dining_out(String.t(), [String.t()]) :: :ok
-  def delete_dining_out(plan_id, slot_keys) do
+  @spec delete_dining_out(Scope.t(), String.t(), [String.t()]) :: :ok
+  def delete_dining_out(%Scope{} = scope, plan_id, slot_keys) do
     Repo.delete_all(
-      from d in DiningOut, where: d.plan_id == ^plan_id and d.slot_key in ^slot_keys
+      from(d in DiningOut, where: d.plan_id == ^plan_id and d.slot_key in ^slot_keys),
+      Scope.repo_opts(scope)
     )
 
     :ok
   end
 
-  @spec dining_out_in_month(integer(), integer()) :: [DiningOut.t()]
-  def dining_out_in_month(year, month) do
+  @spec dining_out_in_month(Scope.t(), integer(), integer()) :: [DiningOut.t()]
+  def dining_out_in_month(%Scope{} = scope, year, month) do
     {:ok, month_start} = Date.new(year, month, 1)
     month_end = Date.end_of_month(month_start)
 
     Repo.all(
-      from d in DiningOut,
+      from(d in DiningOut,
         where: d.date >= ^month_start and d.date <= ^month_end,
         order_by: [desc: d.date]
+      ),
+      Scope.repo_opts(scope)
     )
   end
 
-  @spec monthly_total(integer(), integer()) :: Decimal.t()
-  def monthly_total(year, month) do
+  @spec monthly_total(Scope.t(), integer(), integer()) :: Decimal.t()
+  def monthly_total(%Scope{} = scope, year, month) do
     {:ok, month_start} = Date.new(year, month, 1)
     month_end = Date.end_of_month(month_start)
 
     grocery =
       Repo.one(
-        from r in Receipt,
+        from(r in Receipt,
           where: r.date >= ^month_start and r.date <= ^month_end,
           select: coalesce(sum(r.total_amount), 0)
+        ),
+        Scope.repo_opts(scope)
       )
       |> to_decimal()
 
     dining =
       Repo.one(
-        from d in DiningOut,
+        from(d in DiningOut,
           where: d.date >= ^month_start and d.date <= ^month_end,
           select: coalesce(sum(d.total_amount), 0)
+        ),
+        Scope.repo_opts(scope)
       )
       |> to_decimal()
 

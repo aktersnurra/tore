@@ -9,7 +9,7 @@ defmodule ToreWeb.CookingLive do
   @cuisines ~w(swedish italian japanese korean mexican middle_eastern indian mediterranean)
 
   def mount(_params, _session, socket) do
-    prefs = Household.get_preferences()
+    prefs = Household.get_preferences(socket.assigns.current_scope)
 
     {:ok,
      assign(socket,
@@ -99,7 +99,7 @@ defmodule ToreWeb.CookingLive do
     prefs = socket.assigns.prefs
     full_attrs = Map.merge(prefs_to_map(prefs), attrs)
 
-    case Household.update_preferences(full_attrs) do
+    case Household.update_preferences(socket.assigns.current_scope, full_attrs) do
       {:ok, updated} ->
         assigns = [prefs: updated, saved: true] ++ extra
         {:noreply, assign(socket, assigns)}

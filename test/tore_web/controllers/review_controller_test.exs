@@ -6,7 +6,7 @@ defmodule ToreWeb.ReviewControllerTest do
 
   setup do
     user = user_fixture(name: "Gustaf")
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
 
@@ -34,7 +34,7 @@ defmodule ToreWeb.ReviewControllerTest do
     running = Run.evolve(%State.Draft{stream_id: sid}, opened)
     {:ok, [raised]} = Run.decide(%Commands.RaiseQuestion{question: "Which store?"}, running)
 
-    :ok = Run.append(sid, [opened, raised], %{household_id: household_id})
+    :ok = Run.append(Tore.Scope.for_household(household_id), sid, [opened, raised])
     sid
   end
 

@@ -19,6 +19,10 @@ defmodule Tore.Deals.Parsers.ICA do
   end
 
   @impl Tore.Deals.Parsers.Parser
+  def canonical_url(%URI{path: path}),
+    do: "https://www.ica.se" <> String.trim_trailing(path, "/") <> "/"
+
+  @impl Tore.Deals.Parsers.Parser
   def parse(html) do
     with {:ok, offers} <- extract_initial_data(html),
          {:ok, offers} <- extract_offers(offers) do

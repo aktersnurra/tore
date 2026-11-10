@@ -116,7 +116,12 @@ defmodule Tore.Harness.Orchestrator do
     run_dispatch(stream_id, metadata, "receipt_ingestion_run", fn ->
       with {:ok, state} <- open_run(stream_id, open_cmd, metadata),
            {:ok, state} <- enter(state, :gathering_context, metadata),
-           {:ok, parsed} <- ReceiptIngestion.parse(ctx.image_binary, household_locale()),
+           {:ok, parsed} <-
+             ReceiptIngestion.parse(
+               scope_for(ctx.household_id),
+               ctx.image_binary,
+               household_locale(ctx.household_id)
+             ),
            {:ok, state} <- enter(state, :proposing, metadata),
            cost =
              ReceiptIngestion.build_cost_entry(parsed,
@@ -182,8 +187,9 @@ defmodule Tore.Harness.Orchestrator do
            {:ok, state} <- enter(state, :gathering_context, metadata),
            summary = KitchenMemorySynthesis.events_summary(memory_capsule_ctx(ctx)),
            {:ok, state} <- enter(state, :proposing, metadata),
-           {:ok, insights} <- KitchenMemorySynthesis.synthesise(summary),
-           artifact = KitchenMemorySynthesis.build_artifact(insights),
+           {:ok, insights} <-
+             KitchenMemorySynthesis.synthesise(scope_for(ctx.household_id), summary),
+           artifact = KitchenMemorySynthesis.build_artifact(scope_for(ctx.household_id), insights),
            {:ok, state} <- enter(state, :verifying, metadata),
            {:ok, state} <- verify_and_finish_memory(state, artifact, metadata) do
         {:ok, state}
@@ -268,13 +274,13 @@ defmodule Tore.Harness.Orchestrator do
   their undo payloads, composes them, attaches a `RunBundle` artifact,
   and commits the parent.
   """
-  @spec end_turn(String.t(), [String.t()]) :: {:ok, State.t()} | {:error, term()}
-  def end_turn(parent_sid, child_sids) when is_list(child_sids) do
-    {:ok, state} = Run.load(parent_sid)
-    metadata = %{household_id: state.household_id}
+  @spec end_turn(Tore.Scope.t(), String.t(), [String.t()]) :: {:ok, State.t()} | {:error, term()}
+  def end_turn(%Tore.Scope{} = scope, parent_sid, child_sids) when is_list(child_sids) do
+    {:ok, state} = Run.load(scope, parent_sid)
+    metadata = %{household_id: scope.household_id}
 
     bundle = %RunBundle{child_stream_ids: child_sids}
-    payload = compose_children_payload(child_sids)
+    payload = compose_children_payload(scope, child_sids)
 
     with %State.Running{} <- state,
          {:ok, state} <-
@@ -305,7 +311,7 @@ defmodule Tore.Harness.Orchestrator do
       }) do
     sid = Run.next_stream_id()
     metadata = %{household_id: hh}
-    plan_id = plan_stream_id_for_date(date)
+    plan_id = Tore.Streams.plan(scope_for(hh), date)
     slot_key = slot_key_for_date(date)
 
     open_cmd = %Commands.Open{
@@ -324,9 +330,9 @@ defmodule Tore.Harness.Orchestrator do
     }
 
     run_dispatch(sid, metadata, "set_plan_slot_run", fn ->
-      with {:ok, recipe} <- fetch_recipe(recipe_id),
+      with {:ok, recipe} <- fetch_recipe(scope_for(hh), recipe_id),
            {:ok, events} <-
-             Planning.assign_recipe(plan_id, slot_key, recipe_id, servings),
+             Planning.assign_recipe(scope_for(hh), plan_id, slot_key, recipe_id, servings),
            plan_diff = build_plan_diff(plan_id, date, slot_key, events, recipe),
            {:ok, state} <- open_run(sid, open_cmd, metadata),
            {:ok, state} <-
@@ -343,8 +349,8 @@ defmodule Tore.Harness.Orchestrator do
     end)
   end
 
-  defp fetch_recipe(recipe_id) do
-    case Recipes.get!(recipe_id) do
+  defp fetch_recipe(scope, recipe_id) do
+    case Recipes.get!(scope, recipe_id) do
       %{} = r -> {:ok, r}
     end
   rescue
@@ -375,20 +381,15 @@ defmodule Tore.Harness.Orchestrator do
 
   defp event_payload(_other, _recipe), do: %{}
 
-  defp plan_stream_id_for_date(%Date{} = date) do
-    week_start = Date.add(date, -(Date.day_of_week(date) - 1))
-    "plan:#{Date.to_iso8601(week_start)}"
-  end
-
   defp slot_key_for_date(%Date{} = date) do
     day = Enum.at(~w(mon tue wed thu fri sat sun), Date.day_of_week(date) - 1)
     "#{day}_dinner"
   end
 
-  defp compose_children_payload(child_sids) do
+  defp compose_children_payload(scope, child_sids) do
     child_sids
     |> Enum.map(fn sid ->
-      case Run.load(sid) do
+      case Run.load(scope, sid) do
         {:ok, %State.Applied{undo_payload: p}} -> p
         _ -> nil
       end
@@ -402,11 +403,11 @@ defmodule Tore.Harness.Orchestrator do
   (possibly edited) cost, then logs the receipt. UI entrypoint; not part of
   `dispatch/2`.
   """
-  @spec commit_receipt(String.t(), CostEntry.t(), integer() | nil) ::
+  @spec commit_receipt(Tore.Scope.t(), String.t(), CostEntry.t(), integer() | nil) ::
           {:ok, State.t()} | {:error, term()}
-  def commit_receipt(stream_id, %CostEntry{} = cost, user_id) do
-    {:ok, state} = Run.load(stream_id)
-    metadata = %{household_id: state.household_id}
+  def commit_receipt(%Tore.Scope{} = scope, stream_id, %CostEntry{} = cost, user_id) do
+    {:ok, state} = Run.load(scope, stream_id)
+    metadata = %{household_id: scope.household_id}
 
     with %State.NeedsUser{} <- state,
          :ok <- CostEntryVerifier.verify(cost, %{}),
@@ -417,7 +418,7 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, _receipt} <- ReceiptIngestion.apply!(cost, user_id),
+         {:ok, _receipt} <- ReceiptIngestion.apply!(scope, cost, user_id),
          {:ok, state} <-
            apply_command(state.stream_id, %Commands.AddArtifact{artifact: cost}, state, metadata),
          run_summary = RunSummary.from_artifacts([cost], :applied),
@@ -448,14 +449,19 @@ defmodule Tore.Harness.Orchestrator do
   pending slot assignment — assigns it. UI entrypoint; not part of
   `dispatch/2`.
   """
-  @spec commit_recipe_proposal(String.t(), RecipeProposal.t(), integer() | nil) ::
+  @spec commit_recipe_proposal(Tore.Scope.t(), String.t(), RecipeProposal.t(), integer() | nil) ::
           {:ok, State.t()} | {:error, term()}
-  def commit_recipe_proposal(stream_id, %RecipeProposal{} = proposal, user_id) do
-    {:ok, state} = Run.load(stream_id)
-    metadata = %{household_id: state.household_id}
+  def commit_recipe_proposal(
+        %Tore.Scope{} = scope,
+        stream_id,
+        %RecipeProposal{} = proposal,
+        user_id
+      ) do
+    {:ok, state} = Run.load(scope, stream_id)
+    metadata = %{household_id: scope.household_id}
 
     with %State.NeedsUser{} <- state,
-         :ok <- RecipeProposalVerifier.verify(proposal, recipe_proposal_ctx()),
+         :ok <- RecipeProposalVerifier.verify(proposal, recipe_proposal_ctx(scope)),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -463,8 +469,8 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, recipe} <- Recipes.create(recipe_attrs(proposal, user_id)),
-         :ok <- assign_pending_slot(state, proposal, recipe),
+         {:ok, recipe} <- Recipes.create(scope, recipe_attrs(proposal, user_id)),
+         :ok <- assign_pending_slot(scope, state, proposal, recipe),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -523,13 +529,20 @@ defmodule Tore.Harness.Orchestrator do
   defp to_decimal_quantity(n) when is_integer(n), do: Decimal.new(n)
   defp to_decimal_quantity(n) when is_float(n), do: Decimal.from_float(n)
 
-  defp assign_pending_slot(_state, %RecipeProposal{pending_assignment: nil}, _recipe), do: :ok
+  defp assign_pending_slot(_scope, _state, %RecipeProposal{pending_assignment: nil}, _recipe),
+    do: :ok
 
-  defp assign_pending_slot(state, %RecipeProposal{pending_assignment: pending}, recipe) do
+  defp assign_pending_slot(scope, state, %RecipeProposal{pending_assignment: pending}, recipe) do
     slot_key = pending[:slot_key] || pending["slot_key"]
     servings = pending[:servings] || pending["servings"] || recipe.base_servings || 4
 
-    case Planning.assign_recipe(run_input(state, :plan_stream_id), slot_key, recipe.id, servings) do
+    case Planning.assign_recipe(
+           scope,
+           run_input(state, :plan_stream_id),
+           slot_key,
+           recipe.id,
+           servings
+         ) do
       {:error, reason} -> {:error, reason}
       _ -> :ok
     end
@@ -544,11 +557,11 @@ defmodule Tore.Harness.Orchestrator do
   and by the TTL sweep (`reason: :ttl_expired`). Records a `RunDiscarded`
   event and fire-and-forgets the photo cleanup.
   """
-  @spec discard_run(String.t(), keyword()) :: {:ok, State.t()} | {:error, term()}
-  def discard_run(stream_id, opts \\ []) do
+  @spec discard_run(Tore.Scope.t(), String.t(), keyword()) :: {:ok, State.t()} | {:error, term()}
+  def discard_run(%Tore.Scope{} = scope, stream_id, opts \\ []) do
     reason = Keyword.get(opts, :reason, :user_discarded)
 
-    case Run.load(stream_id) do
+    case Run.load(scope, stream_id) do
       {:ok, %State.NeedsUser{} = state} ->
         metadata = %{household_id: state.household_id}
 
@@ -588,12 +601,9 @@ defmodule Tore.Harness.Orchestrator do
     apply_command(sid, cmd, %State.Draft{stream_id: sid}, metadata)
   end
 
-  defp household_locale do
-    case Tore.Household.get_household!() do
-      %{locale: locale} when is_binary(locale) -> locale
-      _ -> nil
-    end
-  end
+  defp scope_for(household_id), do: Tore.Scope.for_household(household_id)
+
+  defp household_locale(household_id), do: Tore.Household.locale(scope_for(household_id))
 
   defp run_dispatch(stream_id, metadata, kind, fun) do
     result =
@@ -617,7 +627,8 @@ defmodule Tore.Harness.Orchestrator do
   end
 
   defp run_planner_loop(state, ctx, stream_id, user_text, opts, metadata) do
-    with {:ok, working_plan} <- Planning.load_plan(ctx.plan_stream_id),
+    with {:ok, working_plan} <-
+           Planning.load_plan(scope_for(ctx.household_id), ctx.plan_stream_id),
          {:ok, loop} <-
            PlannerAgent.run(
              system_prompt(ctx),
@@ -643,7 +654,7 @@ defmodule Tore.Harness.Orchestrator do
 
   defp absorb_trace(state, loop, metadata) do
     Enum.reduce_while(loop.tool_trace, {:ok, state}, fn entry, {:ok, acc} ->
-      ai_op_id = log_ai_operation(acc.stream_id, entry)
+      ai_op_id = log_ai_operation(scope_for(acc.household_id), acc.stream_id, entry)
 
       cmd = %Commands.RecordToolStep{
         step_index: entry.step_index,
@@ -689,11 +700,16 @@ defmodule Tore.Harness.Orchestrator do
   defp verify_and_finish(state, loop, ctx, metadata) do
     plan_diff = PlanDiffBuilder.build(loop.tool_trace, ctx)
 
-    case PlanVerifier.verify(plan_diff, verify_ctx(loop)) do
+    case PlanVerifier.verify(plan_diff, verify_ctx(loop, ctx)) do
       :ok ->
         run_summary = RunSummary.from_artifacts([plan_diff], :applied)
 
-        with :ok <- Planning.apply_events(ctx.plan_stream_id, loop.plan_events),
+        with :ok <-
+               Planning.apply_events(
+                 scope_for(ctx.household_id),
+                 ctx.plan_stream_id,
+                 loop.plan_events
+               ),
              {:ok, state} <-
                apply_command(
                  state.stream_id,
@@ -756,7 +772,11 @@ defmodule Tore.Harness.Orchestrator do
     # amending input.
     proposal = %{proposal | pending_assignment: normalise_pending(pending)}
 
-    with :ok <- RecipeProposalVerifier.verify(proposal, recipe_proposal_ctx()),
+    with :ok <-
+           RecipeProposalVerifier.verify(
+             proposal,
+             recipe_proposal_ctx(scope_for(state.household_id))
+           ),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -799,18 +819,18 @@ defmodule Tore.Harness.Orchestrator do
   defp normalise_pending(pending), do: pending
 
   # The verifier is pure, so the catalog it compares against is gathered here.
-  defp recipe_proposal_ctx do
-    %{existing_recipes: Recipes.catalog_fingerprints()}
+  defp recipe_proposal_ctx(scope) do
+    %{existing_recipes: Recipes.catalog_fingerprints(scope)}
   end
 
-  defp gather_pantry_items(:shelf_photo, %{image_binary: bin}),
-    do: PantryUpdate.parse_shelf_photo(bin)
+  defp gather_pantry_items(:shelf_photo, %{image_binary: bin} = ctx),
+    do: PantryUpdate.parse_shelf_photo(scope_for(ctx.household_id), bin)
 
   defp gather_pantry_items(_, %{items: items}) when is_list(items), do: {:ok, items}
   defp gather_pantry_items(_, _), do: {:error, :missing_items}
 
   defp verify_and_finish_pantry(state, %PantryBeliefUpdate{} = artifact, metadata) do
-    with :ok <- PantryVerifier.verify(artifact, %{}),
+    with :ok <- PantryVerifier.verify(artifact, %{scope: scope_for(state.household_id)}),
          {:ok, state} <-
            apply_command(
              state.stream_id,
@@ -818,7 +838,12 @@ defmodule Tore.Harness.Orchestrator do
              state,
              metadata
            ),
-         {:ok, counts, snaps} <- PantryUpdate.apply!(artifact, household_locale()),
+         {:ok, counts, snaps} <-
+           PantryUpdate.apply!(
+             scope_for(state.household_id),
+             artifact,
+             household_locale(state.household_id)
+           ),
          snapshot = %Tore.Harness.Artifact.PantrySnapshot{items: snaps},
          {:ok, state} <-
            apply_command(
@@ -863,7 +888,7 @@ defmodule Tore.Harness.Orchestrator do
       :ok ->
         run_summary = RunSummary.from_artifacts([artifact], :applied)
 
-        with {:ok, _} <- KitchenMemorySynthesis.apply!(artifact),
+        with {:ok, _} <- KitchenMemorySynthesis.apply!(scope_for(state.household_id), artifact),
              {:ok, state} <-
                apply_command(
                  state.stream_id,
@@ -891,8 +916,12 @@ defmodule Tore.Harness.Orchestrator do
     end
   end
 
-  defp verify_ctx(loop) do
-    %{plan_state: loop.working_plan, preferences: Tore.Household.get_preferences()}
+  defp verify_ctx(loop, ctx) do
+    %{
+      plan_state: loop.working_plan,
+      preferences: Tore.Household.get_preferences(scope_for(ctx.household_id)),
+      scope: scope_for(ctx.household_id)
+    }
   end
 
   # On any dispatch failure, close the run as Failed so it isn't a dangling open
@@ -900,7 +929,7 @@ defmodule Tore.Harness.Orchestrator do
   # rejects RecordFailure otherwise); a pre-Running failure persisted nothing to
   # close. Best-effort: a further append error is swallowed.
   defp record_failure(stream_id, metadata) do
-    case Run.load(stream_id) do
+    case Run.load(scope_for(metadata.household_id), stream_id) do
       {:ok, %State.Running{} = state} ->
         cmd = %Commands.RecordFailure{
           code: :internal_error,
@@ -920,7 +949,7 @@ defmodule Tore.Harness.Orchestrator do
 
   defp apply_command(stream_id, command, state, metadata) do
     with {:ok, events} <- Run.decide(command, state),
-         :ok <- Run.append(stream_id, events, metadata) do
+         :ok <- Run.append(scope_for(metadata.household_id), stream_id, events) do
       new_state = Enum.reduce(events, state, fn ev, acc -> Run.evolve(acc, ev) end)
       {:ok, new_state}
     end
@@ -931,9 +960,9 @@ defmodule Tore.Harness.Orchestrator do
   defp commit_command(%{artifacts: artifacts}),
     do: %Commands.Commit{undo_payload: UndoPayload.from_artifacts(artifacts)}
 
-  defp log_ai_operation(stream_id, entry) do
+  defp log_ai_operation(scope, stream_id, entry) do
     {:ok, op} =
-      AiOperations.log(%{
+      AiOperations.log(scope, %{
         run_stream_id: stream_id,
         kind: "planner_agent." <> Atom.to_string(entry.step_kind),
         step_index: entry.step_index,
@@ -948,7 +977,7 @@ defmodule Tore.Harness.Orchestrator do
     [
       agent_preamble(),
       date_line(),
-      week_mode_line(),
+      week_mode_line(ctx),
       Capsules.compose(@planner_capsules, capsule_ctx(ctx))
     ]
     |> Enum.reject(&is_nil/1)
@@ -960,8 +989,10 @@ defmodule Tore.Harness.Orchestrator do
     "Today is #{Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")}."
   end
 
-  defp week_mode_line do
-    case Tore.WeekMode.mode_prompt_fragment(Tore.WeekMode.get_current_mode()) do
+  defp week_mode_line(ctx) do
+    case Tore.WeekMode.mode_prompt_fragment(
+           Tore.WeekMode.get_current_mode(scope_for(ctx.household_id))
+         ) do
       nil -> nil
       fragment -> "Current week mode: #{fragment}"
     end

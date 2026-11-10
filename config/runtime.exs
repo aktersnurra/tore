@@ -31,7 +31,8 @@ if config_env() == :prod do
          System.get_env("UPLOADS_DIR") ||
            raise("environment variable UPLOADS_DIR is missing. Example: /var/data/tore/uploads")
 
-  config :tore, :openrouter_api_key, System.fetch_env!("OPENROUTER_API_KEY")
+  # Optional: without a key no household can use the server's LLM (Tore.LLM.available?/1).
+  config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
 
   config :tore,
          :openrouter_site_url,

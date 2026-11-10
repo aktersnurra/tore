@@ -1,6 +1,8 @@
 defmodule ToreWeb.OidcControllerTest do
   use ToreWeb.ConnCase, async: false
 
+  import Ecto.Query
+
   alias Tore.Accounts.User
   alias Tore.Repo
 
@@ -67,7 +69,7 @@ defmodule ToreWeb.OidcControllerTest do
     conn = callback(build_conn(), %{"code" => "good-code", "state" => "st"})
 
     assert get_session(conn, :user_id) == Repo.get_by!(User, oidc_sub: "sub-alice").id
-    assert Repo.aggregate(User, :count) == 1
+    assert Repo.aggregate(from(u in User, where: u.oidc_sub == "sub-alice"), :count) == 1
   end
 
   test "a state that doesn't match is refused", %{conn: conn} do

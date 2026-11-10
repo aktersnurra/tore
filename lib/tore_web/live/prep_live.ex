@@ -5,8 +5,8 @@ defmodule ToreWeb.PrepLive do
 
   def mount(_params, _session, socket) do
     week_start = week_start(Date.utc_today())
-    plan_id = "plan:#{Date.to_iso8601(week_start)}"
-    guide = Prep.get_guide_for_week(week_start)
+    plan_id = Tore.Streams.plan(socket.assigns.current_scope, week_start)
+    guide = Prep.get_guide_for_week(socket.assigns.current_scope, week_start)
 
     {:ok,
      assign(socket,
@@ -21,13 +21,13 @@ defmodule ToreWeb.PrepLive do
   def handle_event("set_tab", %{"tab" => tab}, socket), do: {:noreply, assign(socket, tab: tab)}
 
   def handle_event("generate_guide", _params, socket) do
-    %{plan_id: plan_id, week_start: week_start} = socket.assigns
+    %{plan_id: plan_id, week_start: week_start, current_scope: scope} = socket.assigns
     lv = self()
 
     Task.start(fn ->
       result =
         try do
-          Prep.generate_guide(plan_id, week_start)
+          Prep.generate_guide(scope, plan_id, week_start)
         rescue
           e -> {:error, e}
         catch
@@ -44,11 +44,12 @@ defmodule ToreWeb.PrepLive do
     {:noreply, assign(socket, guide: guide, generating: false)}
   end
 
-  def handle_info({:guide_ready, {:error, :budget_exceeded}}, socket) do
+  def handle_info({:guide_ready, {:error, reason}}, socket)
+      when reason in [:ai_unavailable, :budget_exceeded] do
     {:noreply,
      socket
      |> assign(generating: false)
-     |> put_flash(:error, gettext("Monthly LLM budget reached"))}
+     |> put_flash(:error, Tore.LLM.refusal_text(reason))}
   end
 
   def handle_info({:guide_ready, {:error, :cooldown}}, socket) do

@@ -61,7 +61,7 @@ defmodule ToreWeb.HomeLiveTest do
     {:ok, [raised]} =
       Run.decide(%Commands.RaiseQuestion{question: "Which store is this receipt from?"}, running)
 
-    :ok = Run.append(sid, [opened, raised], %{household_id: household_id})
+    :ok = Run.append(Tore.Scope.for_household(household_id), sid, [opened, raised])
     sid
   end
 
@@ -114,7 +114,7 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   test "review pill shows when runs need attention", %{conn: conn, user: user} do
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
 
@@ -135,12 +135,12 @@ defmodule ToreWeb.HomeLiveTest do
     today = Date.utc_today()
     dow = Date.day_of_week(today)
     week_start = Date.add(today, -(dow - 1))
-    "plan:#{Date.to_iso8601(week_start)}"
+    Tore.Streams.plan(home_scope(), week_start)
   end
 
   defp seed_tonight_recipe do
     {:ok, recipe} =
-      Tore.Recipes.create(%{
+      Tore.Recipes.create(home_scope(), %{
         title: "Chicken gratäng",
         recipe_type: :meal,
         base_servings: 4,
@@ -148,7 +148,7 @@ defmodule ToreWeb.HomeLiveTest do
         cook_time_minutes: 30
       })
 
-    Tore.Planning.assign_recipe(plan_id_for_today(), today_slot_key(), recipe.id, 4)
+    Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), recipe.id, 4)
     recipe
   end
 
@@ -224,9 +224,14 @@ defmodule ToreWeb.HomeLiveTest do
     day = Enum.at(~w(mon tue wed thu fri sat sun), Date.day_of_week(today) - 1)
 
     {:ok, _} =
-      Tore.Planning.eat_out("plan:#{Date.to_iso8601(monday)}", "#{day}_dinner", %{
-        user_id: user.id
-      })
+      Tore.Planning.eat_out(
+        home_scope(),
+        Tore.Streams.plan(home_scope(), monday),
+        "#{day}_dinner",
+        %{
+          user_id: user.id
+        }
+      )
 
     {:ok, _lv, html} = live(conn, "/")
     assert html =~ "Äter ute ikväll"

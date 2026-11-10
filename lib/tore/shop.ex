@@ -1,40 +1,43 @@
 defmodule Tore.Shop do
-  alias Tore.{EventStore, Shop.Decider, Shop.Commands, Shop.Aggregator, Pantry}
+  alias Tore.{EventStore, Scope, Shop.Decider, Shop.Commands, Shop.Aggregator, Pantry}
   alias Phoenix.PubSub
 
   @pubsub Tore.PubSub
-  @topic "shop_list"
 
-  def load_list(list_id) do
-    EventStore.load(list_id, Decider)
+  @doc "The topic a household's shopping-list changes are broadcast on."
+  @spec topic(Scope.t()) :: String.t()
+  def topic(%Scope{household_id: id}), do: "shop_list:household:#{id}"
+
+  def load_list(%Scope{} = scope, list_id) do
+    EventStore.load(scope, list_id, Decider)
   end
 
-  def build_list(list_id, week_start, recipe_ids) do
-    all_items = Aggregator.aggregate_by_ids(recipe_ids)
-    pantry = Pantry.list_usable()
+  def build_list(%Scope{} = scope, list_id, week_start, recipe_ids) do
+    all_items = Aggregator.aggregate_by_ids(scope, recipe_ids)
+    pantry = Pantry.list_usable(scope)
 
     items =
       if pantry == [] do
         all_items
       else
-        case filter_pantry_items(all_items, pantry) do
+        case filter_pantry_items(scope, all_items, pantry) do
           {:ok, filtered} -> filtered
           _ -> all_items
         end
       end
 
-    EventStore.reset(list_id)
-    run(list_id, %Commands.BuildList{week_start: week_start, items: items})
+    EventStore.reset(scope, list_id)
+    run(scope, list_id, %Commands.BuildList{week_start: week_start, items: items})
   end
 
-  def add_item(list_id, name, quantity, unit, user_id) do
+  def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
     section =
-      case classify_grocery_item(name) do
+      case classify_grocery_item(scope, name) do
         {:ok, s} -> s
         _ -> :other
       end
 
-    run(list_id, %Commands.AddItem{
+    run(scope, list_id, %Commands.AddItem{
       item_id: Ecto.UUID.generate(),
       name: name,
       quantity: quantity,
@@ -46,14 +49,15 @@ defmodule Tore.Shop do
 
   @valid_sections ~w(produce meat fish dairy deli frozen bread dry_goods canned beverages herbs_spices condiments household other)
 
-  defp filter_pantry_items(ingredients, pantry) do
+  defp filter_pantry_items(scope, ingredients, pantry) do
     {system, user} = Tore.LLM.Prompts.filter_pantry_items(ingredients, pantry)
 
     fallback = Application.get_env(:tore, :openrouter_check_model_fallback, "openai/gpt-oss-120b")
 
-    case Tore.LLM.text(system, user,
+    case Tore.LLM.text(scope, system, user,
            model: fallback,
-           response_format: Tore.LLM.Prompts.filter_pantry_schema()
+           response_format: Tore.LLM.Prompts.filter_pantry_schema(),
+           feature: :filter_pantry
          ) do
       {:ok, items, _usage} when is_list(items) -> {:ok, build_filter_result(items)}
       {:ok, %{"items" => items}, _usage} when is_list(items) -> {:ok, build_filter_result(items)}
@@ -62,10 +66,10 @@ defmodule Tore.Shop do
     end
   end
 
-  defp classify_grocery_item(name) do
+  defp classify_grocery_item(scope, name) do
     {system, user} = Tore.LLM.Prompts.classify_grocery_item(name)
 
-    case Tore.LLM.text(system, user, []) do
+    case Tore.LLM.text(scope, system, user, feature: :classify_item) do
       {:ok, %{"section" => section}, _usage} -> {:ok, to_section_atom(section)}
       {:ok, _, _} -> {:error, :invalid_response}
       {:error, _} = err -> err
@@ -108,11 +112,11 @@ defmodule Tore.Shop do
   Adds two fields per item: `:pantry_belief` (`:confirmed | :probable |
   :uncertain | nil`) and `:pantry_last_seen_at` (`DateTime.t() | nil`).
   """
-  def annotate_with_pantry_belief(items) do
+  def annotate_with_pantry_belief(%Scope{} = scope, items) do
     now = DateTime.utc_now()
 
     pantry =
-      Pantry.list_inventory()
+      Pantry.list_inventory(scope)
       |> Enum.map(fn row ->
         {row, Tore.Pantry.PantryItem.effective_belief(row, now), name_tokens(row.name)}
       end)
@@ -163,21 +167,21 @@ defmodule Tore.Shop do
 
   defp tokens_overlap?(a, b), do: not MapSet.disjoint?(a, b)
 
-  def remove_item(list_id, item_id, user_id) do
-    run(list_id, %Commands.RemoveItem{item_id: item_id, removed_by: user_id})
+  def remove_item(%Scope{} = scope, list_id, item_id, user_id) do
+    run(scope, list_id, %Commands.RemoveItem{item_id: item_id, removed_by: user_id})
   end
 
-  def check_item(list_id, item_id, user_id) do
-    with {:ok, state} <- EventStore.load(list_id, Decider),
+  def check_item(%Scope{} = scope, list_id, item_id, user_id) do
+    with {:ok, state} <- EventStore.load(scope, list_id, Decider),
          {:ok, events} <-
            Decider.decide(%Commands.CheckItem{item_id: item_id, checked_by: user_id}, state),
-         :ok <- EventStore.append(list_id, events) do
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
+         :ok <- EventStore.append(scope, list_id, events) do
+      PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       item = Map.get(state.items, item_id)
 
       if item do
         Tore.Harness.Orchestrator.dispatch(:pantry_belief_update_run, %{
-          household_id: Tore.Household.get_household!().id,
+          household_id: scope.household_id,
           user_id: user_id,
           channel: :grocery_checkoff,
           items: [%{name: item.name, quantity: item.quantity, unit: item.unit}]
@@ -192,14 +196,14 @@ defmodule Tore.Shop do
   Resolve a free-text item name to a single uncheckéd item on `list_id`
   by case-insensitive bidirectional substring match.
   """
-  @spec find_item_fuzzy(String.t(), String.t()) ::
+  @spec find_item_fuzzy(Scope.t(), String.t(), String.t()) ::
           {:ok, {String.t(), map()}}
           | {:ambiguous, [{String.t(), map()}]}
           | {:error, :not_found}
-  def find_item_fuzzy(list_id, query) when is_binary(query) do
+  def find_item_fuzzy(%Scope{} = scope, list_id, query) when is_binary(query) do
     needle = String.downcase(String.trim(query))
 
-    case load_list(list_id) do
+    case load_list(scope, list_id) do
       {:ok, %{items: items}} when map_size(items) > 0 ->
         matches =
           items
@@ -220,12 +224,12 @@ defmodule Tore.Shop do
     end
   end
 
-  def uncheck_item(list_id, item_id, user_id) do
-    run(list_id, %Commands.UncheckItem{item_id: item_id, unchecked_by: user_id})
+  def uncheck_item(%Scope{} = scope, list_id, item_id, user_id) do
+    run(scope, list_id, %Commands.UncheckItem{item_id: item_id, unchecked_by: user_id})
   end
 
-  def export_list(list_id) do
-    with {:ok, state} <- EventStore.load(list_id, Decider) do
+  def export_list(%Scope{} = scope, list_id) do
+    with {:ok, state} <- EventStore.load(scope, list_id, Decider) do
       lines =
         state.items
         |> Map.values()
@@ -240,11 +244,11 @@ defmodule Tore.Shop do
     end
   end
 
-  defp run(list_id, command) do
-    with {:ok, state} <- EventStore.load(list_id, Decider),
+  defp run(scope, list_id, command) do
+    with {:ok, state} <- EventStore.load(scope, list_id, Decider),
          {:ok, events} <- Decider.decide(command, state),
-         :ok <- EventStore.append(list_id, events) do
-      PubSub.broadcast(@pubsub, @topic, {:events, events})
+         :ok <- EventStore.append(scope, list_id, events) do
+      PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       {:ok, events}
     end
   end

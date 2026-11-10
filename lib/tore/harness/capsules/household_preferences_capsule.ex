@@ -8,8 +8,9 @@ defmodule Tore.Harness.Capsules.HouseholdPreferencesCapsule do
   @type t :: %__MODULE__{guidance: String.t() | nil}
 
   @impl true
-  def build(_ctx) do
-    guidance = Household.prefs_to_dietary_guidance(Household.get_preferences())
+  def build(ctx) do
+    prefs = Household.get_preferences(Tore.Scope.for_household(ctx.household_id))
+    guidance = Household.prefs_to_dietary_guidance(prefs)
     %__MODULE__{guidance: guidance}
   end
 

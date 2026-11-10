@@ -9,16 +9,13 @@ defmodule ToreWeb.RunReviewRecipeTest do
   alias Tore.Harness.Run.State
 
   setup do
-    household = Tore.Household.get_household!()
+    household = home_household()
     user = user_fixture(name: "Tester")
 
     conn = Plug.Test.init_test_session(build_conn(), %{user_id: user.id})
 
     {:ok,
-     conn: conn,
-     user: user,
-     household: household,
-     plan_stream_id: "plan:" <> Ecto.UUID.generate()}
+     conn: conn, user: user, household: household, plan_stream_id: "plan:" <> Ecto.UUID.generate()}
   end
 
   defp proposal do
@@ -97,7 +94,7 @@ defmodule ToreWeb.RunReviewRecipeTest do
     view |> element("button[type=submit]") |> render_click()
     await_run_tasks()
 
-    assert [%{title: "Vegetarian Miso Ramen"}] = Tore.Recipes.list()
+    assert [%{title: "Vegetarian Miso Ramen"}] = Tore.Recipes.list(home_scope())
   end
 
   test "discarding saves nothing", %{conn: conn} = ctx do
@@ -109,7 +106,7 @@ defmodule ToreWeb.RunReviewRecipeTest do
     view |> element("button[phx-click=confirm_discard]") |> render_click()
     await_run_tasks()
 
-    assert Tore.Recipes.list() == []
-    assert {:ok, %State.Discarded{}} = Tore.Harness.Run.load(state.stream_id)
+    assert Tore.Recipes.list(home_scope()) == []
+    assert {:ok, %State.Discarded{}} = Tore.Harness.Run.load(home_scope(), state.stream_id)
   end
 end

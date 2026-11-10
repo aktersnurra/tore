@@ -27,8 +27,7 @@ defmodule Tore.Household.Preferences do
       :default_portions,
       :default_leftover_portions,
       :include_lunches,
-      :planning_days,
-      :household_id
+      :planning_days
     ])
     |> validate_number(:default_portions, greater_than: 0)
     |> validate_number(:default_leftover_portions, greater_than_or_equal_to: 0)

@@ -2,21 +2,28 @@ defmodule Tore.Storage.RunPhotos do
   @moduledoc """
   Storage helpers for photos attached to a `KitchenRun` (uploaded receipts,
   shelf photos, fridge photos). Photos are stored in the `runs` bucket
-  under `<stream_id>/<uuid>.jpg` and deleted when the run terminates.
+  under `households/<household_id>/<stream_id>/<uuid>.jpg` and deleted when
+  the run terminates.
 
   See `Tore.Storage.Buckets` for the bucket convention.
   """
 
+  alias Tore.Scope
   alias Tore.Storage.Buckets
+
+  @doc "The key prefix every photo of the household's runs lives under."
+  @spec prefix(Scope.t()) :: String.t()
+  def prefix(%Scope{household_id: id}), do: "households/#{id}/"
 
   @doc """
   Persist `binary` for `stream_id` and return the S3 key. The key is what
   the orchestrator stores on the run's `Opened.input.image_path` — pass it
   back to `url/1` to render, or to `delete/1` to clean up.
   """
-  @spec store(String.t(), binary()) :: {:ok, String.t()} | {:error, term()}
-  def store(stream_id, binary) when is_binary(stream_id) and is_binary(binary) do
-    key = "#{stream_id}/#{Ecto.UUID.generate()}.jpg"
+  @spec store(Scope.t(), String.t(), binary()) :: {:ok, String.t()} | {:error, term()}
+  def store(%Scope{} = scope, stream_id, binary)
+      when is_binary(stream_id) and is_binary(binary) do
+    key = "#{prefix(scope)}#{stream_id}/#{Ecto.UUID.generate()}.jpg"
 
     case storage().put_object(Buckets.runs(), key, binary, content_type: "image/jpeg") do
       {:ok, _url} -> {:ok, key}

@@ -222,8 +222,7 @@ defmodule Tore.Harness.UndoPayload do
         stream_id: data["stream_id"],
         stream_type: data["stream_type"],
         event_types: data["event_types"] || [],
-        compensating_events:
-          Enum.map(data["compensating_events"] || [], &comp_event_from_json/1)
+        compensating_events: Enum.map(data["compensating_events"] || [], &comp_event_from_json/1)
       }
     }
   end

@@ -36,7 +36,7 @@ defmodule Tore.Harness.Capsules.RecentHistoryCapsule do
         }
 
   @impl true
-  def build(_ctx) do
+  def build(ctx) do
     cutoff =
       DateTime.utc_now()
       |> DateTime.add(-@window_days * 86_400, :second)
@@ -47,7 +47,7 @@ defmodule Tore.Harness.Capsules.RecentHistoryCapsule do
         where: e.stream_type == "planning" and e.inserted_at >= ^cutoff,
         order_by: [asc: e.id]
       )
-      |> Repo.all()
+      |> Repo.all(Tore.Scope.repo_opts(Tore.Scope.for_household(ctx.household_id)))
 
     counts = Enum.frequencies_by(events, & &1.event_type)
     assigned = Map.get(counts, "RecipeAssigned", 0)

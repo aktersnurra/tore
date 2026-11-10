@@ -43,7 +43,7 @@ defmodule Tore.Harness.OrchestratorTest do
     end)
 
     {:ok, state} = Orchestrator.dispatch(:planner_command_run, @ctx)
-    {:ok, replayed} = Run.load(state.stream_id)
+    {:ok, replayed} = Run.load(home_scope(), state.stream_id)
     sid = state.stream_id
     assert %State.Applied{stream_id: ^sid} = replayed
   end
@@ -55,7 +55,7 @@ defmodule Tore.Harness.OrchestratorTest do
     end)
 
     {:ok, state} = Orchestrator.dispatch(:planner_command_run, @ctx)
-    rows = Tore.AiOperations.list_for_run(state.stream_id)
+    rows = Tore.AiOperations.list_for_run(home_scope(), state.stream_id)
     assert rows != []
     assert Enum.all?(rows, fn r -> r.run_stream_id == state.stream_id end)
   end
@@ -72,9 +72,11 @@ defmodule Tore.Harness.OrchestratorTest do
   end
 
   test "dispatch builds a real PlanDiff from the planner's skip_meal call" do
-    {:ok, recipe} = Tore.Recipes.create(%{title: "Chili", recipe_type: :meal, base_servings: 4})
-    plan = "plan:2026-06-01"
-    Tore.Planning.assign_recipe(plan, "mon_dinner", recipe.id, 4)
+    {:ok, recipe} =
+      Tore.Recipes.create(home_scope(), %{title: "Chili", recipe_type: :meal, base_servings: 4})
+
+    plan = Tore.Streams.plan(home_scope(), ~D[2026-06-01])
+    Tore.Planning.assign_recipe(home_scope(), plan, "mon_dinner", recipe.id, 4)
 
     Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, _msgs, _tools, _opts ->
       {:ok,
@@ -133,7 +135,7 @@ defmodule Tore.Harness.OrchestratorTest do
       household_id: 1,
       user_id: 1,
       command: "skip monday",
-      plan_stream_id: "plan:2026-06-01",
+      plan_stream_id: Tore.Streams.plan(home_scope(), ~D[2026-06-01]),
       week_start: ~D[2026-06-01]
     }
 
@@ -143,7 +145,7 @@ defmodule Tore.Harness.OrchestratorTest do
     sid = latest_run_stream_id()
 
     assert {:ok, %Tore.Harness.Run.State.Failed{failure_code: :internal_error}} =
-             Tore.Harness.Run.load(sid)
+             Tore.Harness.Run.load(home_scope(), sid)
   end
 
   test "dispatch returns {:run_crashed, exception} and records Failed when a step raises" do
@@ -155,7 +157,7 @@ defmodule Tore.Harness.OrchestratorTest do
       household_id: 1,
       user_id: 1,
       command: "skip monday",
-      plan_stream_id: "plan:2026-06-01",
+      plan_stream_id: Tore.Streams.plan(home_scope(), ~D[2026-06-01]),
       week_start: ~D[2026-06-01]
     }
 
@@ -163,13 +165,15 @@ defmodule Tore.Harness.OrchestratorTest do
              Tore.Harness.Orchestrator.dispatch(:planner_command_run, ctx)
 
     sid = latest_run_stream_id()
-    assert {:ok, %Tore.Harness.Run.State.Failed{}} = Tore.Harness.Run.load(sid)
+    assert {:ok, %Tore.Harness.Run.State.Failed{}} = Tore.Harness.Run.load(home_scope(), sid)
   end
 
   test "dispatch applies accumulated plan events to the plan stream exactly once" do
-    {:ok, recipe} = Tore.Recipes.create(%{title: "Stew", recipe_type: :meal, base_servings: 4})
+    {:ok, recipe} =
+      Tore.Recipes.create(home_scope(), %{title: "Stew", recipe_type: :meal, base_servings: 4})
+
     plan = "plan:2026-06-08-apply"
-    Tore.Planning.assign_recipe(plan, "mon_dinner", recipe.id, 4)
+    Tore.Planning.assign_recipe(home_scope(), plan, "mon_dinner", recipe.id, 4)
 
     Mox.expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
       {:ok,
@@ -198,7 +202,7 @@ defmodule Tore.Harness.OrchestratorTest do
 
     {:ok, %State.Applied{}} = Orchestrator.dispatch(:planner_command_run, ctx)
 
-    {:ok, plan_state} = Tore.Planning.load_plan(plan)
+    {:ok, plan_state} = Tore.Planning.load_plan(home_scope(), plan)
     assert plan_state.slots["mon_dinner"].skipped == true
   end
 
@@ -216,17 +220,21 @@ defmodule Tore.Harness.OrchestratorTest do
 
     assert {:error, {:step_failed, :boom}} = Orchestrator.dispatch(:planner_command_run, ctx)
 
-    {:ok, plan_state} = Tore.Planning.load_plan(plan)
+    {:ok, plan_state} = Tore.Planning.load_plan(home_scope(), plan)
     assert plan_state.slots == %{}
   end
 
   test "a verifier failure records Failed, applies nothing, commits nothing" do
     {:ok, recipe} =
-      Tore.Recipes.create(%{title: "Pinned dish", recipe_type: :meal, base_servings: 4})
+      Tore.Recipes.create(home_scope(), %{
+        title: "Pinned dish",
+        recipe_type: :meal,
+        base_servings: 4
+      })
 
     plan = "plan:2026-06-08-pinned"
-    Tore.Planning.assign_recipe(plan, "mon_dinner", recipe.id, 4)
-    Tore.Planning.pin_slot(plan, "mon_dinner", true)
+    Tore.Planning.assign_recipe(home_scope(), plan, "mon_dinner", recipe.id, 4)
+    Tore.Planning.pin_slot(home_scope(), plan, "mon_dinner", true)
 
     Mox.expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
       {:ok,
@@ -264,24 +272,26 @@ defmodule Tore.Harness.OrchestratorTest do
     # still holds the original recipe, is not skipped, and no slot was added.
     # (Proves "not applied", not "applied then undone": the fail branch never
     # calls apply_events, so the skip event was never written.)
-    {:ok, plan_state} = Tore.Planning.load_plan(plan)
+    {:ok, plan_state} = Tore.Planning.load_plan(home_scope(), plan)
     assert Map.keys(plan_state.slots) == ["mon_dinner"]
     assert plan_state.slots["mon_dinner"].recipe_id == recipe.id
     refute plan_state.slots["mon_dinner"].skipped
 
     # no Committed event on the run stream — the run is Failed
     sid = latest_run_stream_id()
-    {:ok, run} = Run.load(sid)
+    {:ok, run} = Run.load(home_scope(), sid)
     assert %State.Failed{} = run
   end
 
   defp latest_run_stream_id do
     Tore.Repo.one(
-      from e in Tore.EventStore.Event,
+      from(e in Tore.EventStore.Event,
         where: e.stream_type == "run",
         order_by: [desc: e.id],
         limit: 1,
         select: e.stream_id
+      ),
+      Tore.Scope.repo_opts(home_scope())
     )
   end
 
@@ -293,13 +303,14 @@ defmodule Tore.Harness.OrchestratorTest do
       assert {:ok, sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
       assert is_binary(sid)
 
-      {:ok, %State.Running{kind: "capture_turn_run", household_id: 1}} = Run.load(sid)
+      {:ok, %State.Running{kind: "capture_turn_run", household_id: 1}} =
+        Run.load(home_scope(), sid)
     end
 
     test "end_turn/2 with no children produces an irreversible RunBundle and commits" do
       {:ok, sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
 
-      assert {:ok, %State.Applied{} = state} = Orchestrator.end_turn(sid, [])
+      assert {:ok, %State.Applied{} = state} = Orchestrator.end_turn(home_scope(), sid, [])
       assert [%RunBundle{child_stream_ids: []}] = state.artifacts
       assert %UndoPayload{kind: :irreversible} = state.undo_payload
     end
@@ -311,7 +322,7 @@ defmodule Tore.Harness.OrchestratorTest do
       child_b = seed_applied_child(1)
 
       assert {:ok, %State.Applied{} = state} =
-               Orchestrator.end_turn(parent, [child_a, child_b])
+               Orchestrator.end_turn(home_scope(), parent, [child_a, child_b])
 
       assert [%RunBundle{child_stream_ids: [^child_a, ^child_b]}] = state.artifacts
       assert %UndoPayload{kind: :composite, data: %{children: children}} = state.undo_payload
@@ -320,7 +331,11 @@ defmodule Tore.Harness.OrchestratorTest do
 
     test "apply_set_plan_slot/1 opens a child Run, assigns the recipe, commits with a PlanDiff" do
       {:ok, recipe} =
-        %Tore.Recipes.Recipe{title: "Carbonara", recipe_type: :meal}
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
         |> Tore.Repo.insert()
 
       ctx = %{
@@ -335,10 +350,12 @@ defmodule Tore.Harness.OrchestratorTest do
                Orchestrator.apply_set_plan_slot(ctx)
 
       assert is_binary(sid)
-      {:ok, %State.Applied{} = state} = Run.load(sid)
+      {:ok, %State.Applied{} = state} = Run.load(home_scope(), sid)
       assert state.kind == "set_plan_slot_run"
+
       assert [%Tore.Harness.Artifact.PlanDiff{events: [%{event_type: "RecipeAssigned"}]}] =
                state.artifacts
+
       assert %Tore.Harness.UndoPayload{kind: :event_sourced} = state.undo_payload
     end
 
@@ -389,7 +406,7 @@ defmodule Tore.Harness.OrchestratorTest do
       payload = UndoPayload.from_artifacts([diff])
 
       :ok =
-        Run.append(sid, [
+        Run.append(home_scope(), sid, [
           opened,
           %Events.ArtifactAdded{artifact: diff},
           %Events.Committed{at: DateTime.utc_now(), undo_payload: payload}

@@ -3,6 +3,7 @@ defmodule Tore.Costs.LLMUsage do
   import Ecto.Changeset
 
   schema "llm_usage" do
+    field :household_id, :integer
     field :feature, :string
     field :prompt_tokens, :integer
     field :completion_tokens, :integer

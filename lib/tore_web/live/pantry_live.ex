@@ -5,22 +5,28 @@ defmodule ToreWeb.PantryLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, groups: Pantry.list_inventory_by_belief())}
+    {:ok, assign(socket, groups: Pantry.list_inventory_by_belief(socket.assigns.current_scope))}
   end
 
   @impl true
   def handle_event("remove_item", %{"id" => id}, socket) do
-    Pantry.remove_item(String.to_integer(id))
-    {:noreply, assign(socket, groups: Pantry.list_inventory_by_belief())}
+    Pantry.remove_item(socket.assigns.current_scope, String.to_integer(id))
+
+    {:noreply,
+     assign(socket, groups: Pantry.list_inventory_by_belief(socket.assigns.current_scope))}
   end
 
   def handle_event("set_expiry", %{"item_id" => id, "expires_at" => value}, socket) do
     case parse_expiry(value) do
-      {:ok, expires_at} -> Pantry.set_expiry(String.to_integer(id), expires_at)
-      :error -> :ok
+      {:ok, expires_at} ->
+        Pantry.set_expiry(socket.assigns.current_scope, String.to_integer(id), expires_at)
+
+      :error ->
+        :ok
     end
 
-    {:noreply, assign(socket, groups: Pantry.list_inventory_by_belief())}
+    {:noreply,
+     assign(socket, groups: Pantry.list_inventory_by_belief(socket.assigns.current_scope))}
   end
 
   defp parse_expiry(""), do: {:ok, nil}
@@ -53,7 +59,10 @@ defmodule ToreWeb.PantryLive do
             {belief_label(belief)}
           </h2>
           <ul class="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
-            <li :for={item <- items} class={["flex items-center justify-between p-3", belief == :missing && "opacity-50"]}>
+            <li
+              :for={item <- items}
+              class={["flex items-center justify-between p-3", belief == :missing && "opacity-50"]}
+            >
               <div>
                 <p class="text-stone-900">{String.capitalize(item.name)}</p>
                 <p :if={item.quantity} class="text-xs text-stone-500">

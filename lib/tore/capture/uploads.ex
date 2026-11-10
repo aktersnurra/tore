@@ -8,7 +8,7 @@ defmodule Tore.Capture.Uploads do
   import Ecto.Query
 
   alias Tore.Capture.UploadedImage
-  alias Tore.Repo
+  alias Tore.{Repo, Scope}
 
   @doc "Hex SHA-256 of the binary."
   @spec content_hash(binary()) :: String.t()
@@ -20,13 +20,15 @@ defmodule Tore.Capture.Uploads do
   Returns `{:ok, stream_id}` if the bytes are already on record for this
   household, otherwise `:fresh`.
   """
-  @spec already_uploaded?(integer(), String.t()) :: {:ok, String.t()} | :fresh
-  def already_uploaded?(household_id, content_hash) do
+  @spec already_uploaded?(Scope.t(), String.t()) :: {:ok, String.t()} | :fresh
+  def already_uploaded?(%Scope{} = scope, content_hash) do
     case Repo.one(
-           from u in UploadedImage,
-             where: u.household_id == ^household_id and u.content_hash == ^content_hash,
+           from(u in UploadedImage,
+             where: u.content_hash == ^content_hash,
              select: u.stream_id,
              limit: 1
+           ),
+           Scope.repo_opts(scope)
          ) do
       nil -> :fresh
       stream_id -> {:ok, stream_id}
@@ -38,11 +40,11 @@ defmodule Tore.Capture.Uploads do
   existing_stream_id}` if the household already uploaded these bytes. The
   unique index does the heavy lifting — this is the race-safe path.
   """
-  @spec record(integer(), String.t(), String.t(), String.t()) ::
+  @spec record(Scope.t(), String.t(), String.t(), String.t()) ::
           {:ok, String.t()} | {:duplicate, String.t()}
-  def record(household_id, content_hash, stream_id, kind) do
+  def record(%Scope{} = scope, content_hash, stream_id, kind) do
     attrs = %{
-      household_id: household_id,
+      household_id: scope.household_id,
       content_hash: content_hash,
       stream_id: stream_id,
       kind: kind
@@ -54,7 +56,7 @@ defmodule Tore.Capture.Uploads do
 
       {:error, %Ecto.Changeset{errors: errors}} ->
         if Keyword.has_key?(errors, :household_id) or duplicate_error?(errors) do
-          {:ok, existing} = already_uploaded?(household_id, content_hash)
+          {:ok, existing} = already_uploaded?(scope, content_hash)
           {:duplicate, existing}
         else
           {:ok, stream_id}

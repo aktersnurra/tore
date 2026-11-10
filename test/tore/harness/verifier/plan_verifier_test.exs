@@ -11,7 +11,8 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
   defp ev(slot, type, payload \\ %{}, rationale \\ ["x"]),
     do: %{slot_key: slot, event_type: type, payload: payload, rationale: rationale}
 
-  defp ctx(plan \\ %State{}, prefs \\ %Preferences{}), do: %{plan_state: plan, preferences: prefs}
+  defp ctx(plan \\ %State{}, prefs \\ %Preferences{}),
+    do: %{plan_state: plan, preferences: prefs, scope: home_scope()}
 
   test "passes a clean assign" do
     plan =
@@ -70,7 +71,7 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
 
   test "fails when a swapped-in recipe contains a disliked ingredient" do
     {:ok, r} =
-      Tore.Recipes.create(%{
+      Tore.Recipes.create(home_scope(), %{
         title: "Peanut Curry",
         base_servings: 2,
         instructions: "x",
@@ -97,7 +98,7 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
 
   test "fails when an assigned recipe contains a disliked ingredient" do
     {:ok, r} =
-      Tore.Recipes.create(%{
+      Tore.Recipes.create(home_scope(), %{
         title: "Peanut Stew",
         base_servings: 2,
         instructions: "x",

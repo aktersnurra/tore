@@ -11,7 +11,7 @@ defmodule ToreWeb.CostLiveTest do
 
   setup do
     user = user_fixture(name: "Tester")
-    household_id = Tore.Household.get_household!().id
+    household_id = home_scope().household_id
     {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
 
@@ -29,8 +29,19 @@ defmodule ToreWeb.CostLiveTest do
   end
 
   test "shows this month's total against last month", %{conn: conn, user: user} do
-    {:ok, _} = Costs.log_receipt(%{date: this_month(1), total_amount: "1500", user_id: user.id})
-    {:ok, _} = Costs.log_receipt(%{date: last_month(1), total_amount: "1000", user_id: user.id})
+    {:ok, _} =
+      Costs.log_receipt(home_scope(), %{
+        date: this_month(1),
+        total_amount: "1500",
+        user_id: user.id
+      })
+
+    {:ok, _} =
+      Costs.log_receipt(home_scope(), %{
+        date: last_month(1),
+        total_amount: "1000",
+        user_id: user.id
+      })
 
     {:ok, lv, html} = live(conn, "/settings/costs")
 
@@ -84,18 +95,18 @@ defmodule ToreWeb.CostLiveTest do
       "total_amount" => "5"
     })
 
-    assert Costs.recent_receipts(5) == []
+    assert Costs.recent_receipts(home_scope(), 5) == []
   end
 
   test "lists eating out from the plan, with and without an amount", %{conn: conn, user: user} do
     today = Date.utc_today()
     monday = Date.add(today, -(Date.day_of_week(today) - 1))
-    plan_id = "plan:#{Date.to_iso8601(monday)}"
+    plan_id = Tore.Streams.plan(home_scope(), monday)
     days = ~w(mon tue wed thu fri sat sun)
     key = "#{Enum.at(days, Date.day_of_week(today) - 1)}_dinner"
 
     {:ok, _} =
-      Planning.eat_out(plan_id, key, %{
+      Planning.eat_out(home_scope(), plan_id, key, %{
         description: "Sushi",
         total_amount: "450",
         user_id: user.id
@@ -107,7 +118,11 @@ defmodule ToreWeb.CostLiveTest do
     assert row =~ "450 kr"
 
     {:ok, _} =
-      Planning.eat_out(plan_id, key, %{description: "", total_amount: "", user_id: user.id})
+      Planning.eat_out(home_scope(), plan_id, key, %{
+        description: "",
+        total_amount: "",
+        user_id: user.id
+      })
 
     {:ok, lv, _html} = live(conn, "/settings/costs")
     row = lv |> element("#eating-out") |> render()
@@ -146,14 +161,20 @@ defmodule ToreWeb.CostLiveTest do
     end
 
     test "says so when the photo was already uploaded", %{conn: conn} do
-      household_id = Tore.Household.get_household!().id
-      Uploads.record(household_id, Uploads.content_hash("receipt-bytes"), "kr_seen", "receipt")
+      household_id = home_scope().household_id
+
+      Uploads.record(
+        Tore.Scope.for_household(household_id),
+        Uploads.content_hash("receipt-bytes"),
+        "kr_seen",
+        "receipt"
+      )
 
       {:ok, lv, _html} = live(conn, "/settings/costs")
       upload(lv)
 
       assert_eventually(fn -> render(lv) =~ "redan laddat upp" end)
-      assert Costs.recent_receipts(5) == []
+      assert Costs.recent_receipts(home_scope(), 5) == []
     end
 
     defp assert_eventually(check, tries \\ 40) do

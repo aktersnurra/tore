@@ -7,7 +7,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
   defp ctx_for(week_start) do
     %{
       household_id: 1,
-      plan_stream_id: "plan:#{Date.to_iso8601(week_start)}",
+      plan_stream_id: Tore.Streams.plan(home_scope(), week_start),
       week_start: week_start
     }
   end
@@ -17,7 +17,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
     ctx = ctx_for(week_start)
 
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Roast chicken",
         recipe_type: :meal,
         base_servings: 4,
@@ -25,7 +25,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
         cook_time_minutes: 30
       })
 
-    Planning.assign_recipe(ctx.plan_stream_id, "tue_dinner", recipe.id, 4)
+    Planning.assign_recipe(home_scope(), ctx.plan_stream_id, "tue_dinner", recipe.id, 4)
 
     capsule = Capsule.build(ctx)
     assert length(capsule.slots) == 7
@@ -39,7 +39,9 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
   test "to_prompt/1 tells the planner a day is eating out, not empty" do
     ctx = ctx_for(~D[2026-06-08])
     user = user_fixture(name: "Tester")
-    {:ok, _} = Planning.eat_out(ctx.plan_stream_id, "fri_dinner", %{user_id: user.id})
+
+    {:ok, _} =
+      Planning.eat_out(home_scope(), ctx.plan_stream_id, "fri_dinner", %{user_id: user.id})
 
     prompt = ctx |> Capsule.build() |> Capsule.to_prompt()
     assert prompt =~ "Friday 2026-06-12 (fri_dinner): eating_out"
@@ -60,7 +62,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
     ctx = ctx_for(week_start)
 
     {:ok, recipe} =
-      Recipes.create(%{
+      Recipes.create(home_scope(), %{
         title: "Pizza Margherita",
         recipe_type: :meal,
         base_servings: 4,
@@ -68,7 +70,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
         cook_time_minutes: 15
       })
 
-    Planning.assign_recipe(ctx.plan_stream_id, "fri_dinner", recipe.id, 4)
+    Planning.assign_recipe(home_scope(), ctx.plan_stream_id, "fri_dinner", recipe.id, 4)
 
     prompt = ctx |> Capsule.build() |> Capsule.to_prompt()
     assert prompt =~ "Friday 2026-06-12 (fri_dinner): Pizza Margherita"

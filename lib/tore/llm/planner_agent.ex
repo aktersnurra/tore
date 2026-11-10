@@ -66,8 +66,10 @@ defmodule Tore.LLM.PlannerAgent do
 
   # ---------- Loop ----------
 
+  defp scope(state), do: Tore.Scope.for_household(state.ctx.household_id)
+
   defp loop(system, %{round_trips: rt, max_round_trips: max} = state) when rt >= max do
-    case Tore.LLM.chat_with_tools(system, state.messages, [], []) do
+    case Tore.LLM.chat_with_tools(scope(state), system, state.messages, [], feature: :planner) do
       {:ok, {:message, text}, usage} ->
         finish(record_step(state, :message, %{text: text}, usage), {:capped, text})
 
@@ -83,7 +85,9 @@ defmodule Tore.LLM.PlannerAgent do
   end
 
   defp loop(system, state) do
-    case Tore.LLM.chat_with_tools(system, state.messages, state.tools_json, []) do
+    case Tore.LLM.chat_with_tools(scope(state), system, state.messages, state.tools_json,
+           feature: :planner
+         ) do
       {:ok, {:message, text}, usage} ->
         finish(record_step(state, :message, %{text: text}, usage), {:message, text})
 

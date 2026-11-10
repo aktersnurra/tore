@@ -5,22 +5,23 @@ defmodule Tore.Harness.ProjectorTest do
   alias Tore.Harness.Run.{Commands, State}
 
   setup do
-    {:ok, pid} = ProjectorSupervisor.start_or_lookup(99)
+    hh = household_fixture().id
+    {:ok, pid} = ProjectorSupervisor.start_or_lookup(hh)
     on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
-    :ok
+    %{hh: hh}
   end
 
-  test "latest_on_surface/2 returns nil when no run has been opened" do
-    assert Projector.latest_on_surface(99, :plan) == nil
+  test "latest_on_surface/2 returns nil when no run has been opened", %{hh: hh} do
+    assert Projector.latest_on_surface(hh, :plan) == nil
   end
 
-  test "latest_on_surface/2 reflects a newly opened run after PubSub broadcast" do
+  test "latest_on_surface/2 reflects a newly opened run after PubSub broadcast", %{hh: hh} do
     sid = Run.next_stream_id()
 
     {:ok, [ev]} =
       Run.decide(
         %Commands.Open{
-          household_id: 99,
+          household_id: hh,
           kind: "planner_command_run",
           surface: :plan,
           started_by: "user",
@@ -30,25 +31,26 @@ defmodule Tore.Harness.ProjectorTest do
         %State.Draft{stream_id: sid}
       )
 
-    :ok = Run.append(sid, [ev], %{household_id: 99})
+    :ok = Run.append(Tore.Scope.for_household(hh), sid, [ev])
 
     # Wait briefly for the projector to handle the broadcast.
     Process.sleep(50)
-    state = Projector.latest_on_surface(99, :plan)
+    state = Projector.latest_on_surface(hh, :plan)
     assert %State.Running{stream_id: ^sid} = state
   end
 
-  test "lookup/2 returns nil for an unknown stream_id" do
-    assert Projector.lookup(99, "run-unknown") == nil
+  test "lookup/2 returns nil for an unknown stream_id", %{hh: hh} do
+    assert Projector.lookup(hh, "run-unknown") == nil
   end
 
   test "projector boots by replaying open runs only" do
+    other = household_fixture().id
     sid = Run.next_stream_id()
 
     {:ok, [ev]} =
       Run.decide(
         %Commands.Open{
-          household_id: 100,
+          household_id: other,
           kind: "planner_command_run",
           surface: :plan,
           started_by: "user",
@@ -58,11 +60,11 @@ defmodule Tore.Harness.ProjectorTest do
         %State.Draft{stream_id: sid}
       )
 
-    :ok = Run.append(sid, [ev], %{household_id: 100})
+    :ok = Run.append(Tore.Scope.for_household(other), sid, [ev])
 
-    {:ok, _pid} = ProjectorSupervisor.start_or_lookup(100)
+    {:ok, _pid} = ProjectorSupervisor.start_or_lookup(other)
     Process.sleep(50)
 
-    assert %State.Running{stream_id: ^sid} = Projector.latest_on_surface(100, :plan)
+    assert %State.Running{stream_id: ^sid} = Projector.latest_on_surface(other, :plan)
   end
 end

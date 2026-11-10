@@ -22,7 +22,7 @@ defmodule ToreWeb.RunReviewLive do
       |> assign(:confirming_discard?, false)
       |> assign(:lightbox?, false)
 
-    case Run.load(stream_id) do
+    case Run.load(socket.assigns.current_scope, stream_id) do
       {:ok, %State.NeedsUser{} = state} ->
         {:ok, mount_needs_user(socket, stream_id, state)}
 
@@ -119,10 +119,15 @@ defmodule ToreWeb.RunReviewLive do
         _ -> gettext("Receipt discarded.")
       end
 
+    scope = socket.assigns.current_scope
+
     Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      case Orchestrator.discard_run(stream_id, reason: :user_discarded) do
-        {:ok, _} -> broadcast_toast(user_id, :info, discarded_msg)
-        {:error, reason} -> broadcast_toast(user_id, :error, "Couldn't discard: #{inspect(reason)}.")
+      case Orchestrator.discard_run(scope, stream_id, reason: :user_discarded) do
+        {:ok, _} ->
+          broadcast_toast(user_id, :info, discarded_msg)
+
+        {:error, reason} ->
+          broadcast_toast(user_id, :error, "Couldn't discard: #{inspect(reason)}.")
       end
     end)
 
@@ -132,13 +137,13 @@ defmodule ToreWeb.RunReviewLive do
   def handle_event("confirm", _params, socket) do
     cost = build_cost(socket.assigns.cost, socket.assigns.form_data)
     user_id = socket.assigns.current_user && socket.assigns.current_user.id
-    stream_id = socket.assigns.stream_id
+    %{stream_id: stream_id, current_scope: scope} = socket.assigns
 
     # Fire-and-forget: bounce the user back immediately. The toast on
     # completion lands wherever they happen to be (PubSub topic
     # "toasts:user:<id>").
     Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      Orchestrator.commit_receipt(stream_id, cost, user_id)
+      Orchestrator.commit_receipt(scope, stream_id, cost, user_id)
       |> case do
         {:ok, _} ->
           broadcast_toast(user_id, :info, "Receipt saved.")
@@ -157,13 +162,13 @@ defmodule ToreWeb.RunReviewLive do
   def handle_event("save_recipe", _params, socket) do
     proposal = socket.assigns.proposal
     user_id = socket.assigns.current_user && socket.assigns.current_user.id
-    stream_id = socket.assigns.stream_id
+    %{stream_id: stream_id, current_scope: scope} = socket.assigns
 
     # Same fire-and-forget shape as the receipt save: the commit re-runs the
     # verifier and writes the catalog, so bounce the user back now and let the
     # toast confirm it landed.
     Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      case Orchestrator.commit_recipe_proposal(stream_id, proposal, user_id) do
+      case Orchestrator.commit_recipe_proposal(scope, stream_id, proposal, user_id) do
         {:ok, _} ->
           broadcast_toast(user_id, :info, gettext("Recipe saved."))
 
@@ -171,7 +176,11 @@ defmodule ToreWeb.RunReviewLive do
           broadcast_toast(user_id, :error, verifier_message(code))
 
         {:error, reason} ->
-          broadcast_toast(user_id, :error, "#{gettext("Couldn't save recipe")}: #{inspect(reason)}.")
+          broadcast_toast(
+            user_id,
+            :error,
+            "#{gettext("Couldn't save recipe")}: #{inspect(reason)}."
+          )
       end
     end)
 
@@ -311,7 +320,9 @@ defmodule ToreWeb.RunReviewLive do
       <section>
         <h3 class="text-sm font-medium text-[color:var(--text)] mb-2">{gettext("Line items")}</h3>
         <p :if={sum_mismatch?(@form_data)} class="text-xs text-amber-600 mb-2">
-          {gettext("Lines sum to")} {sum_display(@form_data)}; {gettext("receipt total")} {@form_data.total} — {gettext("looks off, is something missing?")}
+          {gettext("Lines sum to")} {sum_display(@form_data)}; {gettext("receipt total")} {@form_data.total} — {gettext(
+            "looks off, is something missing?"
+          )}
         </p>
         <div class="space-y-2">
           <div

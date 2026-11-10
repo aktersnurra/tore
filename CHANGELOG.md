@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Several households
+
+- Several households share one server. Every function that reads or writes a household's data takes a `%Tore.Scope{}`, and `Tore.Repo` raises on a household table queried without one, so a missed query crashes instead of leaking.
+- Event streams, PubSub topics, storage keys and the image controllers carry the household, so nothing crosses households except deals.
+- A first sign-in joins the households that added that Pocket ID username, or starts a household of its own, which picks its language once at `/welcome`.
+- Settings: add a member by username, remove one or leave (not as the last member), rename the household, and switch between households when you're in two or more.
+- Stores are shared and fetched once, however many households use them.
+- AI is per household: a member with the `tore_ai` claim can let the household use their credits. `Tore.LLM` refuses calls without a sponsor or past the household's monthly limit, records spend per household, and the app says which refusal it was. The OpenRouter key is optional, also in dev.
+- The planning and memory crons run per household, and only for households that can use AI and are under their limit.
+
 ### Pocket ID login
 
 - Pocket ID is the only way to sign in. The 16-digit codes, the setup page, roles, the rate limiter and `argon2` are gone.

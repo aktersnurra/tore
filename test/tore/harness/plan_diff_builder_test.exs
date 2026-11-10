@@ -3,7 +3,7 @@ defmodule Tore.Harness.PlanDiffBuilderTest do
   alias Tore.Harness.PlanDiffBuilder
   alias Tore.Harness.Artifact.PlanDiff
 
-  @ctx %{plan_stream_id: "plan:2026-06-01", week_start: ~D[2026-06-01]}
+  @ctx %{plan_stream_id: "plan:1:2026-06-01", week_start: ~D[2026-06-01]}
 
   defp calls_entry(idx, calls) do
     encoded =
@@ -27,7 +27,11 @@ defmodule Tore.Harness.PlanDiffBuilderTest do
     ]
 
     diff = PlanDiffBuilder.build(trace, @ctx)
-    assert %PlanDiff{plan_stream_id: "plan:2026-06-01", week_start: ~D[2026-06-01]} = diff
+
+    assert %PlanDiff{
+             plan_stream_id: "plan:1:2026-06-01",
+             week_start: ~D[2026-06-01]
+           } = diff
 
     assert [
              %{

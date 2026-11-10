@@ -12,7 +12,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
   @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
 
   setup do
-    %{ctx: %{household_id: Tore.Household.get_household!().id, user_id: nil}}
+    %{ctx: %{household_id: home_scope().household_id, user_id: nil}}
   end
 
   defp item(name, quantity \\ nil, unit \\ nil) do
@@ -45,7 +45,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
   end
 
   defp photo(n), do: <<255, 216, 255, n>>
-  defp row(name), do: Repo.get_by!(PantryItem, name: name)
+  defp row(name), do: Repo.get_by!(PantryItem, [name: name], Tore.Scope.repo_opts(home_scope()))
 
   test "a photo with five items applies straight away and says what was added", %{ctx: ctx} do
     names = ~w(mjölk ägg smör ost salt)
@@ -53,10 +53,12 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    assert {:ok, %State.Applied{}} = Run.load(bubble.run_stream_id)
+    assert {:ok, %State.Applied{}} = Run.load(home_scope(), bubble.run_stream_id)
     refute Map.has_key?(bubble, :review_link)
     for name <- names, do: assert(bubble.text =~ name)
-    assert Enum.map(Pantry.list_inventory(), & &1.name) |> Enum.sort() == Enum.sort(names)
+
+    assert Enum.map(Pantry.list_inventory(home_scope()), & &1.name) |> Enum.sort() ==
+             Enum.sort(names)
   end
 
   test "a photo keeps no copy of the image", %{ctx: ctx} do
@@ -64,7 +66,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    {:ok, %State.Applied{input: input}} = Run.load(bubble.run_stream_id)
+    {:ok, %State.Applied{input: input}} = Run.load(home_scope(), bubble.run_stream_id)
     assert (input[:image_path] || input["image_path"]) == nil
   end
 
@@ -80,7 +82,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
   test "a photo with no readable quantity keeps the one we know", %{ctx: ctx} do
     {:ok, _, :added, _} =
-      Pantry.upsert_belief(%{
+      Pantry.upsert_belief(home_scope(), %{
         name: "mjöl",
         quantity: Decimal.new(2),
         unit: "kg",
@@ -96,15 +98,15 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
   test "ticks and manual adds still add to the quantity" do
     attrs = %{name: "mjöl", quantity: Decimal.new(1), unit: "kg", provenance: "grocery_checkoff"}
-    {:ok, _, :added, _} = Pantry.upsert_belief(attrs)
-    {:ok, _, :bumped, _} = Pantry.upsert_belief(attrs)
+    {:ok, _, :added, _} = Pantry.upsert_belief(home_scope(), attrs)
+    {:ok, _, :bumped, _} = Pantry.upsert_belief(home_scope(), attrs)
 
     assert Decimal.equal?(row("mjöl").quantity, 2)
   end
 
   test "undo removes new items and restores the ones the photo changed", %{ctx: ctx} do
     {:ok, _, :added, _} =
-      Pantry.upsert_belief(%{
+      Pantry.upsert_belief(home_scope(), %{
         name: "mjölk",
         quantity: Decimal.new(1),
         unit: "l",
@@ -115,19 +117,20 @@ defmodule Tore.Capture.ShelfPhotoTest do
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
     assert Decimal.equal?(row("mjölk").quantity, 3)
 
-    assert :ok = RunReceipts.revert(bubble.run_stream_id)
+    assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
 
     assert Decimal.equal?(row("mjölk").quantity, 1)
-    assert Repo.get_by(PantryItem, name: "ägg") == nil
+    assert Repo.get_by(PantryItem, [name: "ägg"], Tore.Scope.repo_opts(home_scope())) == nil
   end
 
   test "undo restores a quantity that was unknown before the photo", %{ctx: ctx} do
-    {:ok, _, :added, _} = Pantry.upsert_belief(%{name: "mjölk", provenance: "manual"})
+    {:ok, _, :added, _} =
+      Pantry.upsert_belief(home_scope(), %{name: "mjölk", provenance: "manual"})
 
     expect_photo([item("mjölk", 3, "l")])
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    assert :ok = RunReceipts.revert(bubble.run_stream_id)
+    assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
 
     assert row("mjölk").quantity == nil
     assert row("mjölk").unit == nil
@@ -135,7 +138,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
   test "undo is right when two lines in a photo are the same ingredient", %{ctx: ctx} do
     {:ok, _, :added, _} =
-      Pantry.upsert_belief(%{
+      Pantry.upsert_belief(home_scope(), %{
         name: "mjölk",
         quantity: Decimal.new(1),
         unit: "l",
@@ -146,7 +149,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    assert :ok = RunReceipts.revert(bubble.run_stream_id)
+    assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
 
     assert Decimal.equal?(row("mjölk").quantity, 1)
   end
@@ -161,7 +164,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
     refute Map.has_key?(bubble, :run_stream_id)
-    assert Pantry.list_inventory() == []
+    assert Pantry.list_inventory(home_scope()) == []
   end
 
   describe "shelf life" do
@@ -208,7 +211,12 @@ defmodule Tore.Capture.ShelfPhotoTest do
       Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
       assert row("mjölk").expires_at == nil
-      assert Repo.get!(Tore.Recipes.Ingredient, row("mjölk").ingredient_id).shelf_life_days == nil
+
+      assert Repo.get!(
+               Tore.Recipes.Ingredient,
+               row("mjölk").ingredient_id,
+               Tore.Scope.repo_opts(home_scope())
+             ).shelf_life_days == nil
     end
 
     test "a second photo doesn't make an item fresher", %{ctx: ctx} do
@@ -225,9 +233,10 @@ defmodule Tore.Capture.ShelfPhotoTest do
     end
 
     test "undo restores the date", %{ctx: ctx} do
-      {:ok, _, :added, _} = Pantry.upsert_belief(%{name: "mjölk", provenance: "manual"})
+      {:ok, _, :added, _} =
+        Pantry.upsert_belief(home_scope(), %{name: "mjölk", provenance: "manual"})
 
-      {:ok, _} = Pantry.set_expiry(row("mjölk").id, ~D[2026-12-01])
+      {:ok, _} = Pantry.set_expiry(home_scope(), row("mjölk").id, ~D[2026-12-01])
 
       {:ok, _} =
         row("mjölk") |> Ecto.Changeset.change(expires_source: "estimate") |> Repo.update()
@@ -236,18 +245,19 @@ defmodule Tore.Capture.ShelfPhotoTest do
       bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
       assert row("mjölk").expires_at == ~D[2027-02-02]
 
-      assert :ok = RunReceipts.revert(bubble.run_stream_id)
+      assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
 
       assert row("mjölk").expires_at == ~D[2026-12-01]
       assert row("mjölk").expires_source == "estimate"
     end
 
     test "undo clears a date the item didn't have before", %{ctx: ctx} do
-      {:ok, _, :added, _} = Pantry.upsert_belief(%{name: "mjölk", provenance: "manual"})
+      {:ok, _, :added, _} =
+        Pantry.upsert_belief(home_scope(), %{name: "mjölk", provenance: "manual"})
 
       expect_guess("mjölk", 7)
       bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
-      assert :ok = RunReceipts.revert(bubble.run_stream_id)
+      assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
 
       assert row("mjölk").expires_at == nil
       assert row("mjölk").expires_source == nil

@@ -4,7 +4,7 @@ defmodule Tore.Harness.Run do
   alias Tore.Harness.{Artifact, UndoPayload}
   alias Tore.EventStore
   alias Tore.EventStore.Event
-  alias Tore.Repo
+  alias Tore.{Repo, Scope}
 
   @stream_type "run"
 
@@ -12,14 +12,15 @@ defmodule Tore.Harness.Run do
   def next_stream_id,
     do: "run-" <> (:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false))
 
-  @spec load(String.t()) :: {:ok, State.t()}
-  def load(stream_id) do
+  @doc "A run as its household sees it. Another household's run loads as an empty `Draft`."
+  @spec load(Scope.t(), String.t()) :: {:ok, State.t()}
+  def load(%Scope{} = scope, stream_id) do
     state =
       from(e in Event,
         where: e.stream_id == ^stream_id and e.stream_type == ^@stream_type,
         order_by: [asc: e.id]
       )
-      |> Repo.all()
+      |> Repo.all(Scope.repo_opts(scope))
       |> Enum.reduce(%State.Draft{stream_id: stream_id}, fn raw, acc ->
         event = deserialize(raw.event_type, raw.data)
         Decider.evolve(acc, event)
@@ -31,15 +32,12 @@ defmodule Tore.Harness.Run do
   defdelegate decide(command, state), to: Decider
   defdelegate evolve(state, event), to: Decider
 
-  @spec append(String.t(), [struct()], map()) :: :ok | {:error, term()}
-  def append(stream_id, events, metadata \\ %{}) do
-    opts =
-      case Map.get(metadata, :household_id) do
-        nil -> []
-        hh -> [broadcast: "harness:household:#{hh}", broadcast_tag: :run_event]
-      end
-
-    EventStore.append(stream_id, Enum.map(events, &prepare/1), opts)
+  @spec append(Scope.t(), String.t(), [struct()]) :: :ok | {:error, term()}
+  def append(%Scope{household_id: hh} = scope, stream_id, events) do
+    EventStore.append(scope, stream_id, Enum.map(events, &prepare/1),
+      broadcast: "harness:household:#{hh}",
+      broadcast_tag: :run_event
+    )
   end
 
   defp prepare(%Events.ArtifactAdded{artifact: %_{} = artifact} = ev),

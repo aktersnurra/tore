@@ -18,32 +18,36 @@ defmodule Tore.Harness.ResolversTest do
     end)
 
     {:ok, _} =
-      Recipes.create(%{title: "Salmon pasta", base_servings: 2, instructions: "x"})
+      Recipes.create(home_scope(), %{title: "Salmon pasta", base_servings: 2, instructions: "x"})
 
     {:ok, _} =
-      Recipes.create(%{title: "Salmon soup", base_servings: 2, instructions: "x"})
+      Recipes.create(home_scope(), %{title: "Salmon soup", base_servings: 2, instructions: "x"})
 
     {:ok, _} =
-      Recipes.create(%{title: "Chicken skewers", base_servings: 2, instructions: "x"})
+      Recipes.create(home_scope(), %{
+        title: "Chicken skewers",
+        base_servings: 2,
+        instructions: "x"
+      })
 
     :ok
   end
 
   test "exact-ish title resolves with high confidence" do
     assert {:ok, %ResolvedRecipe{label: "Chicken skewers", source: :resolve_recipe} = h} =
-             Resolvers.resolve_recipe("chicken skewers")
+             Resolvers.resolve_recipe(home_scope(), "chicken skewers")
 
     assert h.confidence > 0.9
   end
 
   test "shared prefix is ambiguous" do
-    assert {:ambiguous, handles} = Resolvers.resolve_recipe("salmon")
+    assert {:ambiguous, handles} = Resolvers.resolve_recipe(home_scope(), "salmon")
     assert length(handles) == 2
     assert Enum.all?(handles, &match?(%ResolvedRecipe{}, &1))
   end
 
   test "garbage is not found" do
-    assert :not_found = Resolvers.resolve_recipe("zzzz qqqq")
+    assert :not_found = Resolvers.resolve_recipe(home_scope(), "zzzz qqqq")
   end
 
   describe "resolve_slot/2" do
