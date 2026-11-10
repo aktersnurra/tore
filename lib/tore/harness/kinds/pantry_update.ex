@@ -1,8 +1,8 @@
 defmodule Tore.Harness.Kinds.PantryUpdate do
   @moduledoc """
-  Items go into the pantry from a shelf photo, a ticked shopping item, or by hand. `ctx` holds
-  `:channel` (`:shelf_photo`, `:grocery_checkoff` or `:manual`), and `:image_binary` for a photo
-  or `:items` otherwise.
+  Items go into the pantry from a shelf photo, a ticked shopping item, or by hand, and come out
+  by hand. `ctx` holds `:channel` (`:shelf_photo`, `:grocery_checkoff` or `:manual`), and
+  `:image_binary` for a photo or `:items` otherwise. An item with an `:item_id` removes that row.
 
   `resolve` sends the names through the LLM canonicaliser, and `verify` refuses an answer that
   names a catalogue ingredient the household doesn't have, so an invented key never creates one.
@@ -40,14 +40,17 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
     do: {:ok, artifact(items, channel), @no_usage}
 
   @impl true
-  def resolve(%PantryBeliefUpdate{items: []} = update, _ctx), do: {:ok, update}
-
   def resolve(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do
-    raws = Enum.map(items, &%{raw_name: &1.name})
+    # Only additions need a catalogue name; a removal names a row already there.
+    case for(%{change: :added, name: name} <- items, do: %{raw_name: name}) do
+      [] ->
+        {:ok, update}
 
-    with {:ok, norms} <- Pantry.canonicalise(scope, raws, Household.locale(scope)) do
-      by_name = Map.new(norms, &{&1.raw_name, &1})
-      {:ok, %{update | items: Enum.map(items, &resolved(&1, by_name[&1.name]))}}
+      raws ->
+        with {:ok, norms} <- Pantry.canonicalise(scope, raws, Household.locale(scope)) do
+          by_name = Map.new(norms, &{&1.raw_name, &1})
+          {:ok, %{update | items: Enum.map(items, &resolved(&1, by_name[&1.name]))}}
+        end
     end
   end
 
@@ -72,11 +75,11 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   @impl true
   def apply_proposal(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do
     Enum.reduce_while(items, {:ok, []}, fn item, {:ok, steps} ->
-      case Pantry.upsert_belief(scope, item) do
+      case write(scope, item) do
         {:ok, row, :added, nil} ->
           {:cont, {:ok, [{:restore_pantry_item, row.id, :absent} | steps]}}
 
-        {:ok, row, :bumped, before} ->
+        {:ok, row, change, before} when change in [:bumped, :removed] ->
           {:cont, {:ok, [{:restore_pantry_item, row.id, before} | steps]}}
 
         {:error, _} = error ->
@@ -89,6 +92,20 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
     end
   end
 
+  defp write(scope, %{change: :removed, item_id: id}) do
+    case Repo.get(Tore.Pantry.PantryItem, id, Scope.repo_opts(scope)) do
+      nil ->
+        {:error, :not_found}
+
+      row ->
+        :ok = Pantry.remove_item(scope, id)
+        {:ok, row, :removed, Pantry.before_image(row)}
+    end
+  end
+
+  defp write(scope, item), do: Pantry.upsert_belief(scope, item)
+
+  defp resolved(%{change: :removed} = item, _norm), do: item
   defp resolved(item, nil), do: item
 
   defp resolved(item, norm) do
@@ -110,13 +127,14 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
         Enum.map(items, fn it ->
           %{
             name: it[:name] || it["name"],
-            change: :added,
+            change: if(it[:item_id], do: :removed, else: :added),
             quantity: it[:quantity] || it["quantity"],
             unit: it[:unit] || it["unit"],
             category: it[:category] || it["category"],
             expires_on: it[:expires_on],
             provenance: provenance(channel),
-            last_seen_at: now
+            last_seen_at: now,
+            item_id: it[:item_id]
           }
         end)
     }

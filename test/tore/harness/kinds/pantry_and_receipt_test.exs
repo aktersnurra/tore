@@ -114,6 +114,34 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
                })
     end
 
+    test "Capture adding by hand says what it did, and undo takes it out" do
+      canonicalise(["mjölk"], %{"mjölk" => {"Mjölk", nil}})
+      ctx = %{household_id: home_scope().household_id, user_id: nil}
+
+      bubble = Tore.Capture.Dispatch.add_to_pantry("mjölk", 1, "l", ctx)
+
+      assert bubble.text =~ "mjölk"
+      assert names() == ["mjölk"]
+      {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
+      assert names() == []
+    end
+
+    test "Capture removing asks no model, and undo puts the row back as it was" do
+      canonicalise(["smör"])
+      {:ok, _} = tick([%{name: "smör", quantity: 2, unit: "st"}])
+      before = inventory()
+      ctx = %{household_id: home_scope().household_id, user_id: nil}
+
+      bubble = Tore.Capture.Dispatch.remove_from_pantry("smör", ctx)
+
+      assert %KitchenRun{status: :applied, artifacts: [%{items: [%{change: :removed}]}]} =
+               Runs.get(home_scope(), bubble.run_stream_id)
+
+      assert names() == []
+      {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
+      assert inventory() == before
+    end
+
     test "a stored item that isn't what an item looks like raises on load" do
       json = %{"items" => [%{"name" => "x"}]}
       assert_raise MatchError, fn -> PantryBeliefUpdate.from_json(json) end

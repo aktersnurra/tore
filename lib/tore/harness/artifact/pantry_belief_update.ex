@@ -20,7 +20,8 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
           category: String.t() | nil,
           expires_on: Date.t() | nil,
           provenance: String.t(),
-          last_seen_at: DateTime.t()
+          last_seen_at: DateTime.t(),
+          item_id: integer() | nil
         }
 
   @derive Jason.Encoder
@@ -61,9 +62,10 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
   end
 
   # The canonicaliser's answer (`catalogue_name`, `matched_key`, `default_unit`,
-  # `shelf_life_days`) is nil until the run resolves the items.
-  @resolved ~w(catalogue_name matched_key default_unit shelf_life_days)a
-  @json_keys ~w(name change quantity unit category expires_on provenance last_seen_at catalogue_name matched_key default_unit shelf_life_days)
+  # `shelf_life_days`) is nil until the run resolves the items. `item_id` is the pantry row a
+  # removal takes out, and nil otherwise.
+  @resolved ~w(catalogue_name matched_key default_unit shelf_life_days item_id)a
+  @json_keys ~w(name change quantity unit category expires_on provenance last_seen_at catalogue_name matched_key default_unit shelf_life_days item_id)
 
   defp item_to_json(it) do
     %{
@@ -95,7 +97,8 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
       catalogue_name: m["catalogue_name"],
       matched_key: m["matched_key"],
       default_unit: m["default_unit"],
-      shelf_life_days: m["shelf_life_days"]
+      shelf_life_days: m["shelf_life_days"],
+      item_id: m["item_id"]
     }
   end
 

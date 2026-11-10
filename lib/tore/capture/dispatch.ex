@@ -436,31 +436,23 @@ defmodule Tore.Capture.Dispatch do
 
   @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_pantry(name, quantity, unit, ctx) when is_binary(name) do
-    attrs = %{
-      name: name,
-      quantity: to_decimal(quantity),
-      unit: unit,
-      provenance: "manual"
-    }
+    item = %{name: name, quantity: to_decimal(quantity), unit: unit}
 
-    case Pantry.upsert_belief(scope(ctx), attrs) do
-      {:ok, item, :added, _before} ->
-        %{
-          role: :assistant,
-          text:
-            gettext("Added %{name} to the pantry.",
-              name: item.name
-            )
-        }
+    case Runs.start(scope(ctx), Kinds.PantryUpdate, %{channel: :manual, items: [item]}) do
+      {:ok, %KitchenRun{status: :applied, id: id, undo: {:steps, [step]}}} ->
+        text =
+          case step do
+            {:restore_pantry_item, _id, :absent} ->
+              gettext("Added %{name} to the pantry.", name: name)
 
-      {:ok, item, :bumped, _before} ->
-        %{
-          role: :assistant,
-          text:
-            gettext("Bumped %{name} in the pantry.",
-              name: item.name
-            )
-        }
+            {:restore_pantry_item, _id, _before} ->
+              gettext("Bumped %{name} in the pantry.", name: name)
+          end
+
+        %{role: :assistant, text: text, run_stream_id: id}
+
+      {:ok, %KitchenRun{failure_code: code}} ->
+        error_bubble(:pantry, code)
 
       {:error, reason} ->
         error_bubble(:pantry, reason)
@@ -471,15 +463,18 @@ defmodule Tore.Capture.Dispatch do
   def remove_from_pantry(name, ctx) when is_binary(name) do
     case Pantry.find_by_name_fuzzy(scope(ctx), name) do
       {:ok, item} ->
-        case Pantry.remove_item(scope(ctx), item.id) do
-          :ok ->
+        removal = %{name: item.name, item_id: item.id}
+
+        case Runs.start(scope(ctx), Kinds.PantryUpdate, %{channel: :manual, items: [removal]}) do
+          {:ok, %KitchenRun{status: :applied, id: id}} ->
             %{
               role: :assistant,
-              text:
-                gettext("Removed %{name} from the pantry.",
-                  name: item.name
-                )
+              text: gettext("Removed %{name} from the pantry.", name: item.name),
+              run_stream_id: id
             }
+
+          {:ok, %KitchenRun{failure_code: code}} ->
+            error_bubble(:pantry, code)
 
           {:error, reason} ->
             error_bubble(:pantry, reason)
