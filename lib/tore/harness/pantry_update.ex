@@ -80,7 +80,10 @@ defmodule Tore.Harness.PantryUpdate do
 
             {:ok, item, :bumped, before} ->
               {Map.update!(counts, :bumped, &(&1 + 1)),
-               [%{item_id: item.id, before: before, after: snapshot_of(item)} | snaps]}
+               [
+                 %{item_id: item.id, before: snapshot_of(before), after: snapshot_of(item)}
+                 | snaps
+               ]}
 
             {:error, reason} ->
               Tore.Repo.rollback(reason)

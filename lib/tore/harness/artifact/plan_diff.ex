@@ -17,14 +17,16 @@ defmodule Tore.Harness.Artifact.PlanDiff do
           rationale: [String.t()]
         }
 
-  @derive Jason.Encoder
+  # `events` describe the change for the receipt; `plan_events` are what applying it appends.
+  @derive {Jason.Encoder, only: [:plan_stream_id, :week_start, :events]}
   @enforce_keys [:plan_stream_id, :week_start, :events]
-  defstruct [:plan_stream_id, :week_start, :events]
+  defstruct [:plan_stream_id, :week_start, :events, plan_events: []]
 
   @type t :: %__MODULE__{
           plan_stream_id: String.t(),
           week_start: Date.t(),
-          events: [event_entry()]
+          events: [event_entry()],
+          plan_events: [Tore.Planning.Events.t()]
         }
 
   @impl true
@@ -49,20 +51,27 @@ defmodule Tore.Harness.Artifact.PlanDiff do
     do: Enum.all?(events, fn e -> e.rationale != [] end)
 
   @impl true
-  def to_json(%__MODULE__{plan_stream_id: psid, week_start: ws, events: events}) do
+  def to_json(%__MODULE__{plan_stream_id: psid, week_start: ws, events: events} = diff) do
     %{
       "plan_stream_id" => psid,
       "week_start" => Date.to_iso8601(ws),
-      "events" => Enum.map(events, &event_to_json/1)
+      "events" => Enum.map(events, &event_to_json/1),
+      "plan_events" => Enum.map(diff.plan_events, &Tore.Planning.Events.to_json/1)
     }
   end
 
   @impl true
-  def from_json(%{"plan_stream_id" => psid, "week_start" => ws, "events" => events}) do
+  def from_json(%{
+        "plan_stream_id" => psid,
+        "week_start" => ws,
+        "events" => events,
+        "plan_events" => plan_events
+      }) do
     %__MODULE__{
       plan_stream_id: psid,
       week_start: Date.from_iso8601!(ws),
-      events: Enum.map(events, &event_from_json/1)
+      events: Enum.map(events, &event_from_json/1),
+      plan_events: Enum.map(plan_events, &Tore.Planning.Events.from_json/1)
     }
   end
 

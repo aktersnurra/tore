@@ -400,7 +400,26 @@ defmodule Tore.Harness.Runs do
   defp undo!(scope, {:steps, steps}),
     do: steps |> Enum.reverse() |> Enum.each(&undo_step!(scope, &1))
 
-  defp undo_step!(scope, {:delete_receipt, id}), do: :ok = Tore.Costs.delete_receipt(scope, id)
+  # A receipt or recipe someone has since deleted is already undone.
+  defp undo_step!(scope, {:delete_receipt, id}) do
+    case Tore.Costs.delete_receipt(scope, id) do
+      :ok -> :ok
+      {:error, :not_found} -> :ok
+    end
+  end
+
+  defp undo_step!(scope, {:restore_plan_slots, plan_id, befores}),
+    do: :ok = Tore.Planning.restore_slots(scope, plan_id, befores)
+
+  defp undo_step!(scope, {:restore_pantry_item, id, before}),
+    do: :ok = Tore.Pantry.restore_item(scope, id, before)
+
+  defp undo_step!(scope, {:delete_recipe, id}) do
+    with %Tore.Recipes.Recipe{} = recipe <- Tore.Recipes.get(scope, id),
+         do: {:ok, _} = Tore.Recipes.delete(scope, recipe)
+
+    :ok
+  end
 
   defp undo_step!(scope, {:restore_memory, added, forgotten}),
     do: :ok = Tore.Household.Memory.restore(scope, added, forgotten)

@@ -1,8 +1,15 @@
 defmodule Tore.Harness.Kinds do
   @moduledoc "Finds a kind's module from the name stored on its runs."
 
-  # Grows as kinds are ported. Tests add kinds of their own through config.
-  @modules [Tore.Harness.Kinds.MemoryReview] ++
+  # Tests add kinds of their own through config.
+  @modules [
+             Tore.Harness.Kinds.MemoryReview,
+             Tore.Harness.Kinds.PantryUpdate,
+             Tore.Harness.Kinds.PlannerCommand,
+             Tore.Harness.Kinds.Receipt,
+             Tore.Harness.Kinds.SetPlanSlot,
+             Tore.Harness.Kinds.WeeklyPlanning
+           ] ++
              Application.compile_env(:tore, :extra_run_kinds, [])
 
   @spec fetch!(String.t()) :: module()

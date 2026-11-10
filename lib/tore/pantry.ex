@@ -86,7 +86,8 @@ defmodule Tore.Pantry do
   pantry row keyed on ingredient_id, or inserts a new one. The pantry row
   always shows the catalogue name — never the receipt's product variant.
 
-  Returns `{:ok, %PantryItem{}, :added | :bumped}`.
+  Returns `{:ok, item, :added | :bumped, before}`, where `before` is a bumped item's
+  `before_image/1` and nil for an added one.
   """
   @spec upsert_belief(Scope.t(), map()) ::
           {:ok, PantryItem.t(), :added | :bumped, map() | nil} | {:error, term()}
@@ -106,7 +107,7 @@ defmodule Tore.Pantry do
           {item, :added, nil}
 
         existing ->
-          before = snapshot_attrs(existing)
+          before = before_image(existing)
           {:ok, item} = bump_existing(existing, attrs, ingredient)
           {item, :bumped, before}
       end
@@ -115,19 +116,6 @@ defmodule Tore.Pantry do
       {:ok, {item, change, before}} -> {:ok, item, change, before}
       {:error, _} = err -> err
     end
-  end
-
-  defp snapshot_attrs(%PantryItem{} = item) do
-    %{
-      quantity: item.quantity && Decimal.to_string(item.quantity),
-      unit: item.unit,
-      last_seen_at: item.last_seen_at,
-      provenance: item.provenance,
-      belief: item.belief,
-      added_at: item.added_at,
-      expires_at: item.expires_at,
-      expires_source: item.expires_source
-    }
   end
 
   defp expiry_attrs(current, attrs, ingredient) do
@@ -279,6 +267,36 @@ defmodule Tore.Pantry do
   end
 
   @spec remove_item(Scope.t(), integer()) :: :ok | {:error, :not_found}
+  @before_fields ~w(name ingredient_id quantity unit category added_at expires_at expires_source provenance belief last_seen_at)a
+
+  @doc "An item as `Tore.Harness.Undo` stores it, so a run can put it back."
+  @spec before_image(PantryItem.t()) :: Tore.Harness.Undo.pantry_before()
+  def before_image(%PantryItem{} = item), do: Map.take(item, @before_fields)
+
+  @doc """
+  Puts an item back as `before_image/1` found it, or removes it if the run created it
+  (`:absent`). An item since removed comes back with its id; one already gone stays gone.
+  """
+  @spec restore_item(Scope.t(), integer(), Tore.Harness.Undo.pantry_before() | :absent) :: :ok
+  def restore_item(%Scope{} = scope, item_id, :absent) do
+    _ = remove_item(scope, item_id)
+    :ok
+  end
+
+  def restore_item(%Scope{} = scope, item_id, before) do
+    case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
+      nil ->
+        %PantryItem{id: item_id, household_id: scope.household_id}
+        |> Ecto.Changeset.change(before)
+        |> Repo.insert!()
+
+      item ->
+        item |> Ecto.Changeset.change(before) |> Repo.update!()
+    end
+
+    :ok
+  end
+
   def remove_item(%Scope{} = scope, item_id) do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil -> {:error, :not_found}

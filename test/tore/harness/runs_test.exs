@@ -185,12 +185,19 @@ defmodule Tore.Harness.RunsTest do
     end
 
     test "a step that can't be undone rolls the whole revert back" do
+      {:ok, run} = start(%{entry: @entry, mode: "undo_fails"})
+
+      assert_raise MatchError, fn -> Runs.revert(scope(), run.id) end
+      assert %KitchenRun{status: :applied} = Runs.get(scope(), run.id)
+      assert [_] = receipts()
+    end
+
+    test "a receipt deleted by hand since counts as undone" do
       {:ok, run} = start(%{entry: @entry})
       [receipt] = receipts()
       :ok = Costs.delete_receipt(scope(), receipt.id)
 
-      assert_raise MatchError, fn -> Runs.revert(scope(), run.id) end
-      assert %KitchenRun{status: :applied} = Runs.get(scope(), run.id)
+      assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(scope(), run.id)
     end
   end
 

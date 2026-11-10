@@ -1,6 +1,6 @@
 defmodule Tore.Planning do
   alias Tore.{Costs, Deals, EventStore, Repo, Recipes, Scope, SpendGuard, Streams}
-  alias Tore.Planning.{Commands, Decider, Events}
+  alias Tore.Planning.{Commands, Decider, Events, State}
   alias Phoenix.PubSub
 
   @pubsub Tore.PubSub
@@ -157,12 +157,129 @@ defmodule Tore.Planning do
   def apply_events(%Scope{}, _plan_id, []), do: :ok
 
   def apply_events(%Scope{} = scope, plan_id, events) do
-    with :ok <- EventStore.append(scope, plan_id, events) do
-      Costs.delete_dining_out(scope, plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
+    with :ok <- append_events(scope, plan_id, events) do
       PubSub.broadcast(@pubsub, topic(scope), {:events, events})
       :ok
     end
   end
+
+  @doc """
+  `apply_events/3` without the broadcast, for a run's transaction, where announcing a change that
+  can still roll back would be wrong. Call `announce/1` once it commits.
+  """
+  @spec append_events(Scope.t(), String.t(), [Tore.Planning.Events.t()]) ::
+          :ok | {:error, term()}
+  def append_events(%Scope{}, _plan_id, []), do: :ok
+
+  def append_events(%Scope{} = scope, plan_id, events) do
+    with :ok <- EventStore.append(scope, plan_id, events) do
+      Costs.delete_dining_out(scope, plan_id, Enum.flat_map(events, &slot_no_longer_eating_out/1))
+      :ok
+    end
+  end
+
+  @doc "Tells plan screens to reload, after a run's transaction has committed."
+  @spec announce(Scope.t()) :: :ok
+  def announce(%Scope{} = scope), do: PubSub.broadcast(@pubsub, topic(scope), {:events, []})
+
+  @doc """
+  What `slot_keys` hold now, as `Tore.Harness.Undo` stores it, so a run can put them back.
+  """
+  @spec slots_before(State.t(), [String.t()]) :: %{String.t() => Tore.Harness.Undo.slot_before()}
+  def slots_before(%State{} = state, slot_keys) do
+    Map.new(slot_keys, fn key ->
+      slot =
+        case state.slots[key] do
+          nil ->
+            :empty
+
+          slot ->
+            %{
+              recipe_id: slot.recipe_id,
+              servings: slot.servings,
+              skipped: slot.skipped,
+              leftover: slot.leftover,
+              reason: Map.get(slot, :reason)
+            }
+        end
+
+      {key, %{slot: slot, pin: Map.get(state.pins, key, :none)}}
+    end)
+  end
+
+  @doc """
+  Puts slots back as `slots_before/2` found them, appending only the events that change a slot.
+  The dining-out entry of a day that was eating out isn't brought back, only the day's state.
+  """
+  @spec restore_slots(Scope.t(), String.t(), %{String.t() => Tore.Harness.Undo.slot_before()}) ::
+          :ok | {:error, term()}
+  def restore_slots(%Scope{} = scope, plan_id, befores) do
+    with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
+      append_events(scope, plan_id, restore_events(state, befores))
+    end
+  end
+
+  @doc false
+  # Pure, so the property test can check apply-then-restore over generated plans.
+  @spec restore_events(State.t(), map()) :: [Tore.Planning.Events.t()]
+  def restore_events(%State{} = state, befores) do
+    befores
+    |> Enum.sort()
+    |> Enum.flat_map(fn {key, %{slot: slot, pin: pin}} ->
+      now = state.slots[key]
+
+      # Only a person makes a day eating out, and restoring over it would drop its cost.
+      slot_events =
+        if State.eating_out?(now) and not State.eating_out?(slot),
+          do: [],
+          else: slot_events(key, now, slot)
+
+      slot_events ++ pin_events(key, Map.get(state.pins, key, :none), pin)
+    end)
+  end
+
+  defp slot_events(_key, nil, :empty), do: []
+  defp slot_events(key, _now, :empty), do: [%Events.RecipeRemoved{slot_key: key}]
+
+  # Rebuilds the slot from its base event, then sets back each field the base event doesn't.
+  defp slot_events(key, now, before) do
+    if same_slot?(now, before) do
+      []
+    else
+      base =
+        if before.reason == "eating_out",
+          do: %Events.MealSkipped{slot_key: key, reason: "eating_out"},
+          else: %Events.RecipeAssigned{
+            slot_key: key,
+            recipe_id: before.recipe_id,
+            servings: before.servings
+          }
+
+      built = Decider.evolve(%State{}, base).slots[key]
+
+      [base] ++
+        if(built.servings != before.servings,
+          do: [%Events.ServingsChanged{slot_key: key, servings: before.servings}],
+          else: []
+        ) ++
+        if(before.leftover and not built.leftover,
+          do: [%Events.LeftoverMarked{slot_key: key}],
+          else: []
+        ) ++
+        if before.skipped and not built.skipped,
+          do: [%Events.MealSkipped{slot_key: key}],
+          else: []
+    end
+  end
+
+  defp same_slot?(nil, _before), do: false
+
+  defp same_slot?(now, before),
+    do: Map.put_new(now, :reason, nil) == before
+
+  defp pin_events(_key, same, same), do: []
+  defp pin_events(key, _now, :none), do: [%Events.SlotUnpinned{slot_key: key}]
+  defp pin_events(key, _now, pin), do: [%Events.SlotPinned{slot_key: key, pin: pin}]
 
   # These replace whatever the slot held, so a day that was eating out isn't any more.
   defp slot_no_longer_eating_out(%Events.RecipeAssigned{slot_key: sk}), do: [sk]

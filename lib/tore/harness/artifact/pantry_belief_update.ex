@@ -60,6 +60,11 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
     %__MODULE__{items: Enum.map(items, &item_from_json/1)}
   end
 
+  # The canonicaliser's answer (`catalogue_name`, `matched_key`, `default_unit`,
+  # `shelf_life_days`) is nil until the run resolves the items.
+  @resolved ~w(catalogue_name matched_key default_unit shelf_life_days)a
+  @json_keys ~w(name change quantity unit category expires_on provenance last_seen_at catalogue_name matched_key default_unit shelf_life_days)
+
   defp item_to_json(it) do
     %{
       "name" => it.name,
@@ -71,9 +76,13 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
       "provenance" => it.provenance,
       "last_seen_at" => DateTime.to_iso8601(it.last_seen_at)
     }
+    |> Map.merge(Map.new(@resolved, &{Atom.to_string(&1), it[&1]}))
   end
 
+  # Strict: a stored item has exactly these keys, and a quantity that isn't a number raises.
   defp item_from_json(m) do
+    true = m |> Map.keys() |> Enum.sort() == Enum.sort(@json_keys)
+
     %{
       name: m["name"],
       change: change_atom(m["change"]),
@@ -82,7 +91,11 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
       category: m["category"],
       expires_on: m["expires_on"] && Date.from_iso8601!(m["expires_on"]),
       provenance: m["provenance"],
-      last_seen_at: parse_dt(m["last_seen_at"])
+      last_seen_at: parse_dt(m["last_seen_at"]),
+      catalogue_name: m["catalogue_name"],
+      matched_key: m["matched_key"],
+      default_unit: m["default_unit"],
+      shelf_life_days: m["shelf_life_days"]
     }
   end
 
@@ -98,16 +111,7 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
   end
 
   defp to_decimal(nil), do: nil
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
-
-  defp to_decimal(s) when is_binary(s) do
-    case Decimal.parse(s) do
-      {d, _} -> d
-      :error -> nil
-    end
-  end
+  defp to_decimal(s) when is_binary(s), do: Decimal.new(s)
 
   defp decimal_to_string(nil), do: nil
   defp decimal_to_string(%Decimal{} = d), do: Decimal.to_string(d)

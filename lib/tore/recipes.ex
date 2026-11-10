@@ -13,8 +13,13 @@ defmodule Tore.Recipes do
   @spec topic(Scope.t()) :: String.t()
   def topic(%Scope{household_id: id}), do: "recipes:household:#{id}"
 
-  @spec create(Scope.t(), map()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
-  def create(%Scope{} = scope, attrs) do
+  @doc """
+  Creates a recipe and starts making its picture. Inside an outer transaction, such as a run's,
+  pass `image: false` and call `start_image/2` once it commits, since the task can't see the
+  recipe before then.
+  """
+  @spec create(Scope.t(), map(), keyword()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
+  def create(%Scope{} = scope, attrs, opts \\ []) do
     {tag_names, attrs} = Map.pop(attrs, :tags, [])
     {ingredients, attrs} = Map.pop(attrs, :ingredients, [])
 
@@ -29,7 +34,9 @@ defmodule Tore.Recipes do
     end)
     |> case do
       {:ok, recipe} ->
-        maybe_generate_image(scope, recipe, Map.get(attrs, :image_url))
+        if Keyword.get(opts, :image, true),
+          do: maybe_generate_image(scope, recipe, Map.get(attrs, :image_url))
+
         {:ok, get!(scope, recipe.id)}
 
       {:error, reason} ->
@@ -357,6 +364,17 @@ defmodule Tore.Recipes do
     # insert_ingredients uses Repo.insert! — raises on failure, transaction rolls back
     insert_ingredients(scope, recipe, ingredients)
     {:ok, recipe}
+  end
+
+  @doc "Starts making the picture of a recipe created with `image: false`."
+  @spec start_image(Scope.t(), integer()) :: :ok
+  def start_image(%Scope{} = scope, recipe_id) do
+    case get(scope, recipe_id) do
+      nil -> :ok
+      recipe -> maybe_generate_image(scope, recipe, nil)
+    end
+
+    :ok
   end
 
   defp maybe_generate_image(scope, recipe, image_url) do

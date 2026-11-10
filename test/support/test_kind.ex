@@ -64,9 +64,18 @@ defmodule Tore.Harness.TestKind do
       })
 
     case run.input["mode"] do
-      "write_then_error" -> {:error, :later_step_failed}
-      "write_then_fail" -> {:fail, :sum_mismatch, :reject}
-      _ -> {:ok, {:steps, [{:delete_receipt, receipt.id}]}, [entry]}
+      "write_then_error" ->
+        {:error, :later_step_failed}
+
+      "write_then_fail" ->
+        {:fail, :sum_mismatch, :reject}
+
+      # Undo runs last step first: the receipt goes, then a memory entry that isn't there raises.
+      "undo_fails" ->
+        {:ok, {:steps, [{:restore_memory, [-1], []}, {:delete_receipt, receipt.id}]}, [entry]}
+
+      _ ->
+        {:ok, {:steps, [{:delete_receipt, receipt.id}]}, [entry]}
     end
   end
 end
