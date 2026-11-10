@@ -318,7 +318,6 @@ defmodule Tore.Harness.Runs do
           surface: kind.surface(),
           actor: actor,
           input: input,
-          parent_id: ctx[:parent_id],
           phase: :gathering_context
         },
         now()

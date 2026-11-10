@@ -28,7 +28,6 @@ defmodule Tore.Harness.KitchenRun do
   schema "runs" do
     field :household_id, :integer
     field :user_id, :integer
-    field :parent_id, :string
     field :kind, :string
     field :actor, Ecto.Enum, values: [:user, :system, :mcp]
     field :surface, Ecto.Enum, values: [:today, :plan, :shop]
@@ -70,7 +69,6 @@ defmodule Tore.Harness.KitchenRun do
       status: :running
     }
     |> cast(Map.put(attrs, :opened_at, now), [
-      :parent_id,
       :kind,
       :actor,
       :surface,

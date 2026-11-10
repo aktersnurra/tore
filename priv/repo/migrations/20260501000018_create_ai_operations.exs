@@ -9,7 +9,6 @@ defmodule Tore.Repo.Migrations.CreateAiOperations do
         id                TEXT PRIMARY KEY,
         household_id      INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
         user_id           INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        parent_id         TEXT REFERENCES runs(id) ON DELETE CASCADE,
         kind              TEXT NOT NULL,
         actor             TEXT NOT NULL,
         surface           TEXT,
@@ -43,7 +42,6 @@ defmodule Tore.Repo.Migrations.CreateAiOperations do
 
     create index(:runs, [:household_id, :status, :opened_at])
     create index(:runs, [:household_id, :surface, :opened_at])
-    create index(:runs, [:parent_id])
 
     create table(:ai_operations) do
       add :household_id, references(:households, on_delete: :delete_all), null: false
