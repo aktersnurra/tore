@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### The app opens where you need it
+
+- `/` opens the screen the household most likely needs now, picked by a decision model (TypeSafe's Jev, `typesafe/jev-1.14`) and stored as the latest `:home_pick_run`. Opening the app never waits for it: a pick older than an hour, or older than a change since, starts a new one in the background for next time, at most once every ten minutes and never without AI. Below 0.6 confidence, or without AI, a fixed rule picks: a review waiting, the list on Saturday morning, next week's plan on Sunday evening, otherwise tonight.
+- A new decision tier: `Tore.LLM.decide/4` asks typed questions through OpenRouter's Decisions API, through the same gate and cost records as every other call. `DECISIONS_MODEL` and `DECISIONS_URL` configure it.
+- A chat bar at the bottom of every screen replaces the navigation bars and Today's review pill: up to three quick swaps, a chat box that opens Capture with what you typed, and a ≡ menu of every page with the reviews waiting.
+- Capture can suggest the next steps for the bar with a `quick_swaps` tool. They're not stored; the next pick replaces them.
+- Today moved from `/` to `/today`. Times use the server's clock: set `TZ`.
+
 ### Run core and household memory
 
 - A run is one row in a `runs` table, moved through its steps by a pure transition function. The event-sourced run aggregate, its Projector, `UndoPayload` and `RunReceipts` are gone. A kind of run implements `Tore.Harness.Kind` (propose, resolve, verify, review, apply), and `Tore.Harness.Runs` drives it.

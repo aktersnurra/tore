@@ -8,7 +8,7 @@
 
 ## Status
 
-- **Source-of-truth date:** 2026-11-10
+- **Source-of-truth date:** 2026-11-11
 - **2026-05-31:** Reversed the Family→Household naming. `Tore.Household` is canonical; `Tore.Family.*` deleted.
 - **2026-06-02:** Added §Agent Harness Layer. Tore is reframed as a household food-operations harness; every state-changing AI action is a `KitchenRun` producing typed artifacts, verified deterministically, applied atomically. §The Six LLM-Native Features rewritten in harness terms. Future sub-specs implement the harness primitives, verifiers, capsules, risk tiers, resolved references, and Kitchen Skills.
 - **2026-06-02:** UI/UX vocabulary adopted. Canonical names: `CounterNote` (artifact and code module — replaces the working name `Opportunity` from the first draft of §A), `Shop` (UI surface and route `/shop` — replaces `Groceries` / `/groceries`), `Capture` (UI surface and route `/capture` — replaces `Chat` / `/chat`), `Tore.Capture` (module namespace — replaces `Tore.Chat`). The code rename is a separate sub-plan; SPEC.md uses the new names throughout from this commit forward.
@@ -24,6 +24,7 @@
 - **Supersedes:** the original Scullion SPEC.md (2026-05-02), now archived in git history at commit `af0ad48`.
 - **Companion docs:** `docs/specs/llm-native-features.md` (the design brief this spec absorbs), `docs/specs/ui.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo; its run model is superseded by run core, §A.2). Per-feature design notes live under `docs/specs/`.
 - **Naming:** the project is *Tore*. Any remaining reference to Scullion or Family in code is legacy and slated for deletion (see §Removed in Rewrite).
+- **2026-11-11:** The app opens where the household needs it. A decision model (Jev, a fourth model tier, §A.8, Pattern C) picks the screen `/` opens on and the quick swaps above a chat box that sits at the bottom of every screen, with a ≡ menu in place of the navigation bars (§Interfaces). The pick is the latest applied `:home_pick_run`; a fixed rule picks without AI. Capture can suggest its own swaps with a `quick_swaps` tool.
 
 ---
 
@@ -84,7 +85,7 @@ behind a context boundary. LiveViews call context APIs only; the context modules
 | **Recipes**   | Reference catalog.                                                |
 | **Deals**     | Scraped weekly from stores added by link, expire automatically.   |
 | **Pantry**    | Approximate inventory. **No primary management UI.** See §Pantry. |
-| **Costs**     | Receipts, for cost tracking; eating out is read from the plan (§7). **Not in main nav.** |
+| **Costs**     | Receipts, for cost tracking; eating out is read from the plan (§7). Reached from Settings and the menu. |
 | **Runs** (`Tore.Harness.Runs`) | One `runs` row per `KitchenRun`, moved through its steps by pure transitions (§A.2). Replaced an event-sourced run aggregate on 2026-11-10. |
 | **Prep**      | LLM-generated text guides, on demand. Optional. Read-only.        |
 | **AIOperations** | Low-level audit log of every LLM call with correlation IDs, step index, model, and token usage. Each `KitchenRun` owns its rows by correlation ID. |
@@ -224,6 +225,7 @@ how the other implements its half.
 | `CostEntry` | `:receipt_ingestion_run` | Parsed receipt: store, date, total, line items, optional photo path |
 | `MemoryBatch` | `:memory_review_run`, `:memory_update_run` | Add, patch and remove operations on one part of the household's memory (§1) |
 | `ShopChange` | `:shop_edit_run` | An item added or checked off, or the week's list built |
+| `HomePick` | `:home_pick_run` | The screen the app opens on, the quick swaps, and whether the decision model or the fixed rule picked them |
 
 A proposal is a registered artifact or a list of them, because a run waiting for review
 stores it until it is confirmed.
@@ -357,7 +359,7 @@ requires explicit confirmation before anything is written.
 
 | Tier | Examples | Apply policy |
 |---|---|---|
-| **Tier 0 — Surface only** | Capture's `suggest_from_fridge` and `suggest_meals_from_pantry` tools | They reply with what they found and write nothing, so they need no run. Acting on a suggestion is a separate request. |
+| **Tier 0 — Surface only** | Capture's `suggest_from_fridge`, `suggest_meals_from_pantry` and `quick_swaps` tools; `:home_pick_run` | They write no domain state. The tools need no run; the home pick is a run only so its pick is stored, and its undo is empty. Acting on a suggestion is a separate request. |
 | **Tier 1 — Reversible domain edits** | `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`, `:pantry_belief_update_run`, `:memory_review_run`, `:memory_update_run` | Auto-apply after verifier passes. The run receipt is visible. Undo is one tap. |
 | **Tier 2 — Reversible ingestion** | `:receipt_ingestion_run`, `:recipe_ingestion_run`, and a planner run that proposes a recipe | Reviewed when the kind's `review_question/1` asks, per the rule below. Otherwise applies straight away with undo. |
 | **Tier 3 — Destructive or sensitive** | Bulk operations like *clear the week*; any change touching dietary constraints or allergens | Never auto-applies. Proposal is produced; commit requires explicit user confirmation. |
@@ -538,7 +540,7 @@ affordance.
 
 ### A.8 — Model routing
 
-The harness routes LLM calls to one of three model tiers based on the
+The harness routes LLM calls to one of four model tiers based on the
 callback's pattern (§LLM Interface Conventions) and the run kind's risk tier
 (§A.6.1). Routing is per-callback, not per-feature. The model used on each
 call is recorded on `AIOperations.model` for cost telemetry.
@@ -550,11 +552,13 @@ call is recorded on `AIOperations.model` for cost telemetry.
 | **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `cook_mode_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
 | **Strong tool-capable** | Pattern B `chat_with_tools/4` for `:planner_command_run`, `:weekly_planning_run`, Capture's router, and any future skill-driven run that calls multiple tools across multiple turns | A frontier tool-calling model |
 | **Vision** | Any callback whose primary input is an image or PDF: `parse_receipt`, `parse_recipe_images`, `parse_pantry_image` | A vision-capable model; may overlap with "cheap structured" when the structured-output is small |
+| **Decision** | Pattern C `decide/3`, for a call that only chooses among options Tore wrote: the home pick (`:home_pick_run`) | A decision model that returns typed answers with probabilities and no text: TypeSafe's Jev (`typesafe/jev-1.14`) through OpenRouter's Decisions API |
 
 Concrete model names are configured per tier in runtime config, not
 hard-coded in callsites. Today's runtime keys are `openrouter_model`,
 `openrouter_vision_model`, `openrouter_image_model`, and
-`openrouter_check_model` (+ `_fallback`). The routing sub-spec maps these
+`openrouter_check_model` (+ `_fallback`), and for the decision tier
+`decisions_model` and `decisions_url` (`DECISIONS_MODEL`, `DECISIONS_URL`). The routing sub-spec maps these
 onto the three tiers: `openrouter_strong_model` and `openrouter_cheap_model`
 land with it and subsume today's general/check split.
 
@@ -564,7 +568,8 @@ land with it and subsume today's general/check split.
 - **Pattern B tool-loop failure.** A `chat_with_tools/4` run whose verifier fails does **not** auto-retry with a stronger model. The repair state surfaces to the user (§A.5).
 
 **No per-feature routing.** A skill or run kind cannot override the model
-tier its callbacks would normally use. This rules out the "this feature
+tier its callbacks would normally use. The decision tier is chosen by the
+callback (`decide/3`), like the others, not by the feature that calls it. This rules out the "this feature
 deserves the strong model" creep that produces opaque cost lines on the
 bill.
 
@@ -618,10 +623,11 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §9 Prep | Built, optional and on demand |
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it, a person reviews it, then it's saved |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
+| The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
 
 **Run kinds in the code** (`Tore.Harness.Kinds`): `:planner_command_run`, `:weekly_planning_run`,
 `:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`, `:pantry_belief_update_run`, `:receipt_ingestion_run`,
-`:recipe_ingestion_run`, `:memory_review_run` and `:memory_update_run`.
+`:recipe_ingestion_run`, `:memory_review_run`, `:memory_update_run` and `:home_pick_run`.
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
@@ -633,6 +639,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
 Run core and household memory landed on 2026-11-10 (§A.2, §1).
+The home pick, the chat bar and the menu landed on 2026-11-11 (§Interfaces).
 
 ### 1. Household Memory → `:memory_review_run`, `:memory_update_run`
 
@@ -827,14 +834,42 @@ Plan links to "Prep this week". The page generates a guide from the week's plan 
 
 ## Interfaces
 
-### Home (`/`)
+### Opening the app (`/`)
 
-The phone/laptop landing surface, distinct from the planner.
+`/` redirects to the screen the stored pick names, without waiting on a model. The stored pick
+is the latest applied `:home_pick_run` (`Tore.Home`):
 
-- Tonight + tomorrow card pair. A night marked as eating out says so instead of showing a dinner.
-- A review pill when runs are waiting for the household. It opens the oldest one, then returns to Home.
-- A week strip showing this week's plan at a glance.
-- Capture pill → `/capture`.
+- **The pick.** One Pattern C call asks the decision model a choice among the screens that make
+  sense now (Today, Plan, Shop, Cooking with a dinner planned, Review with something waiting,
+  Costs) and a yes/no per quick swap that makes sense now. The state it reads is worked out in
+  code: weekday and time, tonight, what's unplanned this week and next, the list, the reviews
+  waiting, this week's plan and the household memory. Below 0.6 confidence, or when the call fails
+  for any reason but the gate, the run stores the fixed rule's pick.
+- **When.** Only when someone opens `/` and the pick is stale: older than an hour, or older than
+  another run applied since. The open starts a new pick in the background for next time, at most
+  one per ten minutes per household, and never without AI. There's no cron.
+- **The fixed rule.** A review waiting → Review; Saturday before 14:00 → Shop; Sunday from 16:00 →
+  Plan; otherwise Today. Its swaps open the other main screens.
+- **Times** are the server's local clock: set `TZ` to the household's time zone.
+
+A stored pick is narrowed when it is read, so it never opens on a review that has been handled.
+
+### The chat bar and menu (every screen)
+
+`ToreWeb.ChatBarLive`, a sticky LiveView at the bottom of every screen, in place of the
+navigation bars:
+
+- Up to three quick swaps: the stored pick's, or the ones the last Capture turn suggested, until
+  the next pick. A swap opens a screen or sends a request to Capture. The swap for the screen
+  already shown is left out.
+- The chat box. Sending opens Capture with the text, which Capture sends at once, and Capture's
+  Close returns to the screen it was opened from.
+- ≡ opens a menu of every page, with the number of reviews waiting. It works without AI.
+
+### Today (`/today`)
+
+- Tonight's dinner. A night marked as eating out says so instead of showing a dinner.
+- Long-press on tonight for its object sheet.
 
 ### Planner (`/plan`)
 
@@ -856,6 +891,10 @@ through `Runs.start/3`. The runs: plan edits (`:plan_edit_run`, `:set_plan_slot_
 shopping list (`:shop_edit_run`), the pantry, receipts, recipes (`:recipe_ingestion_run`,
 whose line links to its review) and memory (`:memory_update_run`). Building the
 shopping list has no Undo, since it replaces the list.
+
+A turn may end with `quick_swaps`: up to three next steps for the chat bar, each opening a
+listed screen or sending a one-line request. They're checked by `Tore.Home.suggested_swaps/1`,
+sent to the person's bar and not stored; invalid ones go back to the model.
 
 Deleting a recipe, a receipt or a shopping item is a plain tool with no review or undo.
 The model finds the id itself (`find_recipe`, `list_receipts`) and deletes only what the
@@ -879,9 +918,9 @@ dispatches a `:pantry_belief_update_run` (see §4).
 - AI usage.
 - Links to the pantry view ("Approximate inventory") and costs ("Spending").
 
-### Costs (`/settings/costs`, out of main nav)
+### Costs (`/settings/costs`)
 
-One page, reachable from Settings:
+One page, reachable from Settings and the menu:
 
 - This month's total against last month.
 - The five most recent receipts.
@@ -910,13 +949,14 @@ plans must remove these explicitly — they are not deprecated, they are gone.
 ## Module Map
 
 Files marked `PLANNED` are named by this spec but not yet in the tree;
-everything else reflects the code as of 2026-11-10.
+everything else reflects the code as of 2026-11-11.
 
 ```
 lib/tore/
   scope.ex                   # %Scope{household_id, user_id}, the first argument of household functions
   streams.ex                 # event stream ids per household and week
   household.ex               # canonical household context (preferences, language, sponsor, each_scope)
+  home.ex                    # where the app opens: facts, the fixed rule, the stored pick, swaps
   household/
     memory.ex                # profile and notes: snapshot, stores, write, forget, restore
     memory/ops.ex            # the pure batch check: plan/3 and the content rules
@@ -959,7 +999,7 @@ lib/tore/
     kinds.ex                 # kind name → module
     kinds/                   # planner_command, weekly_planning (sharing planner.ex), set_plan_slot,
                              # plan_edit, shop_edit, pantry_update, receipt, recipe_ingestion,
-                             # memory_review, memory_update
+                             # memory_review, memory_update, home_pick
     runs.ex                  # start, submit, confirm, discard, revert, queries, fail_interrupted
     undo.ex                  # {:steps, [step]} | {:irreversible, reason}
     inbox_sweeper.ex         # weekly TTL sweep: stale :needs_user → :discarded
@@ -967,14 +1007,14 @@ lib/tore/
     plan_diff_builder.ex
     artifact.ex              # RunArtifact behaviour + artifact/registry.ex
     artifact/                # plan_diff, recipe_proposal, pantry_belief_update, cost_entry,
-                             # memory_batch, shop_change
+                             # memory_batch, shop_change, home_pick
     capsule.ex               # capsule behaviour; capsules.ex assembles per-run capsule lists
     capsules/                # 6 landed, memory_capsule among them; deals_digest_capsule + cost_intent_capsule PLANNED
     verifier/                # plan, pantry, cost_entry, recipe_proposal
     resolvers.ex             # resolve_recipe, resolve_slot; grocery item and pantry item PLANNED
     handles.ex
     skills.ex                # PLANNED: V1 Kitchen Skills catalog
-  llm.ex                     # the gate and facade, scope first: text/4, web_search/4, vision/5, chat/4, chat_with_tools/5
+  llm.ex                     # the gate and facade, scope first: text/4, web_search/4, vision/5, chat/4, chat_with_tools/5, decide/4
   llm/
     spec.ex                  # wire-spec behaviour: provider body shape behind the facade
     openai.ex                # OpenAI-compatible Spec implementation
@@ -990,8 +1030,11 @@ lib/tore/
 ```
 
 ```
+lib/tore_web/controllers/home_controller.ex   # GET /: redirects to the stored pick's screen
+
 lib/tore_web/live/
-  home_live.ex
+  home_live.ex               # /today: tonight
+  chat_bar_live.ex           # sticky: quick swaps, the chat box and the ≡ menu, on every screen
   planner_live.ex            # command bar drives PlannerAgent
   capture_live.ex            # capture → run dispatch → artifact rendering
   run_review_live.ex         # :needs_user review + receipt detail
@@ -1018,7 +1061,7 @@ lib/tore_web/user_session.ex # starts and ends a session
 ## LLM Surface
 
 Every LLM call goes through the `Tore.LLM` facade and is logged to `AIOperations`
-with a correlation ID. The facade exposes five transport callbacks, defined by
+with a correlation ID. The facade exposes six transport callbacks, defined by
 the `Tore.LLM.Spec` behaviour (a Spec encodes one provider's body shape and
 decodes its responses; transport is the `open_router` library). The arities below are the
 Spec's; each facade function takes the household's `%Scope{}` before them:
@@ -1030,6 +1073,7 @@ Spec's; each facade function takes the household's `%Scope{}` before them:
 | `vision/4` | Image/PDF blobs + prompts → strict-JSON structured output (Pattern A, vision input) |
 | `chat/3` | Multi-turn messages → prose reply. Nothing calls it at the moment |
 | `chat_with_tools/4` | Tool-calling chat. Powers `PlannerAgent` (§2) and every Pattern B run. |
+| `decide/3` | State lines + typed questions → an answer per question, through OpenRouter's Decisions API (Pattern C). Powers the home pick |
 
 Purpose-level operations are **not** behaviour callbacks. Each one — parse a
 receipt, parse a recipe, parse a shelf photo, review the household's memory, suggest a
@@ -1055,7 +1099,7 @@ cross the limit, and a per-feature cooldown, both per household. Image generatio
 
 ## LLM Interface Conventions
 
-Two patterns, used deliberately:
+Three patterns, used deliberately:
 
 ### Pattern A — Structured Output (default for parsers and extractors)
 
@@ -1081,11 +1125,25 @@ router (`Tore.Capture.Router`).
 - Every round-trip is one `AIOperations` row, sharing a `correlation_id` with `step_index` for the sequence.
 - The model comes from the strong tool-capable tier (§A.8). No per-call or per-feature override.
 
+### Pattern C — Typed Decision (for choosing among fixed options)
+
+Used when the answer is one of a few options Tore wrote, and code acts on it: the home pick.
+
+- Implementation: `decide(state, questions, opts)`. `state` is a list of text lines;
+  `questions` maps a name to a `choice` (options with criteria), a `noul` (a yes/no
+  proposition) or a `score`. The answer per question carries probabilities and, for a choice,
+  a confidence.
+- No text comes back, so there is nothing to parse and nothing to hallucinate. The caller sets
+  a confidence threshold and falls back to a fixed rule below it.
+- Facts the model would have to compute, such as dates and counts, are computed in code and sent
+  as plain lines.
+
 ### When to use which
 
 - **Parser, extractor, classifier, or "summarise this":** Pattern A. Always.
 - **The LLM needs to look something up that wasn't pre-stuffed into the prompt:** Pattern B.
 - **The LLM needs to perform actions that change app state and might require multiple steps:** Pattern B.
+- **Choosing among a fixed set of options for code to act on:** Pattern C.
 - **Anything new that doesn't clearly fit:** Pattern A first. Escalate to Pattern B only when a concrete use case shows single-shot can't reach the goal.
 
 ### Universal rules

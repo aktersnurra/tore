@@ -8,6 +8,7 @@ An AI-assisted meal planner built with Phoenix LiveView — named as a homage to
 
 ## What it does
 
+- **Opens where you need it** — the app opens on the screen you most likely want now, such as tonight's dinner, the list on Saturday morning or next week's plan on Sunday evening, picked ahead of time by a decision model. A chat box with a few suggested next steps sits at the bottom of every screen, and a menu lists every page.
 - **Weekly meal planning** — fills open dinners on Saturdays from your recipe catalog, respecting the pantry, current deals and what it remembers about your household. Tell it what to change in plain words, or tap. It can also find a recipe on the web or adapt one of yours, for you to save or discard.
 - **Recipes** — import from a link or a photo, review before it's saved, and browse your collection. Recipes come in your household's language.
 - **Pantry as a belief** — Tore keeps a rough idea of what you have from checked-off groceries, shelf photos and what you tell it. It guesses shelf life, and uses that in planning and on the list.
@@ -75,6 +76,8 @@ lib/
 
 **LLM gate** — `Tore.LLM` refuses calls for a household nobody sponsors, and once the household has spent its monthly limit; it records each call's cost per household. `Tore.SpendGuard` adds an estimate check and a cooldown for a few expensive features (prep guide, recipe suggestions, web search). The monthly limit is what stops a runaway loop draining API credits.
 
+**Decision tier** — a call that only chooses among options Tore wrote goes to a decision model (TypeSafe's Jev, through OpenRouter's Decisions API) with `Tore.LLM.decide/4`. It returns probabilities, not text; below a confidence threshold a fixed rule decides. The home pick is the first such call (`Tore.Home`).
+
 **Canonical ingredient keys** — ingredients store a `key` column (e.g. `gul_lok`) derived from the display name. Used for deduplication, pantry matching, and grocery aggregation across locales.
 
 **Cheap pre-flight** — before calling the expensive extraction model on a scraped URL, a cheap free-tier model checks whether the HTML actually contains a recipe.
@@ -95,7 +98,10 @@ OPENROUTER_MODEL=openai/gpt-4o-mini
 OPENROUTER_VISION_MODEL=google/gemini-2.5-flash-lite
 OPENROUTER_IMAGE_MODEL=google/gemini-3.1-flash-image-preview
 OPENROUTER_CHECK_MODEL=openai/gpt-oss-120b:free
+DECISIONS_MODEL=typesafe/jev-1.14
 ```
+
+Times such as "Saturday morning" use the server's clock, so set `TZ` to the household's time zone.
 
 ### Signing in with Pocket ID
 

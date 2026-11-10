@@ -126,41 +126,36 @@ Chat is for ambiguous input, photos, and complex commands. The main product shou
 
 ## 3. Information architecture
 
-### 3.1 Primary nav
+### 3.1 Where the app opens, and the chat bar
 
-Use **three main destinations plus one action** on phone/laptop:
+There are no navigation bars. Opening the app (`/`) lands on the screen the household
+most likely needs now, picked ahead of time by a decision model and stored
+(`SPEC.md` §Interfaces): tonight at five, the list on Saturday morning, next week's
+plan on Sunday evening, a receipt waiting for review. The pick is never computed
+while someone waits.
 
-```md
-[Today]  [Plan]  ( pill )  [Shop]
-```
-
-Capture is not a destination — it is the command pill in the center slot of
-the bottom bar (tabs are destinations; actions are buttons). Tapping the
-pill opens Capture as a slide-up sheet over the current surface; closing it
-returns exactly where you were (`return_to`). The pill is neutral chrome:
-no AI iconography, no label, no animation, no badge — never a
-support-widget bubble.
-
-Settings is accessed from the desktop header / profile affordance, not the
-mobile bar.
-
-Do not expose these as primary tabs:
+Every screen has the same bar at the bottom:
 
 ```md
-Recipes
-Pantry
-Deals
-Costs
-Prep
+(Inköpslistan) (Planera nästa vecka)     ← quick swaps, up to three
+[≡] [ Fråga Tore…                ] (↑)   ← menu, chat box, send
 ```
 
-Those are system resources, not user destinations. A pending review is reached
-through Today's review pill, never from the nav.
+- **Quick swaps** open a screen or send a short request to Capture. They come from the
+  stored pick, or from the last Capture turn until the next pick. The swap for the screen
+  already shown is left out. They're plain chips: no AI iconography, no animation.
+- **The chat box** is the way to anything else. Sending opens Capture with the text;
+  Capture's Close returns exactly where you were.
+- **≡** opens a sheet listing every page, with the number of reviews waiting. It's the
+  escape hatch: fixed, and it works without AI.
+
+Without AI, a fixed rule picks the screen and the swaps, and nothing else changes.
 
 ### 3.2 Route map
 
 ```md
-/              → Today
+/              → The stored pick's screen (redirect)
+/today         → Today
 /plan          → Plan
 /shop          → Shop
 /capture       → Capture (routable for deep links; presents as a sheet)
@@ -168,9 +163,9 @@ through Today's review pill, never from the nav.
 /settings      → Settings
 /settings/pantry
 /settings/costs
-/review        → Opens the oldest pending review (not in nav; via review pill)
-/runs/:id      → Run review: a receipt to check, or a recipe proposal to save or discard (not in nav; deep-linkable)
-/recipes       → Recipe catalog (system resource, not in nav)
+/review        → Opens the oldest pending review (from the menu, a swap, or the pick)
+/runs/:id      → Run review: a receipt to check, or a recipe proposal to save or discard (deep-linkable)
+/recipes       → Recipe catalog (in the menu)
 /prep          → Prep guide (system resource, via Plan's "Prep this week")
 ```
 
@@ -179,19 +174,9 @@ presented as layers, not destinations.
 
 ### 3.3 Navigation behavior
 
-On mobile:
-
-```md
-Bottom bar:
-[Today] [Plan] (pill) [Shop]
-```
-
-On desktop/tablet:
-
-```md
-Header:
-Today · Plan · Shop · Capture · Settings
-```
+The same on phone, tablet and desktop: the bar at the bottom, the menu as a sheet that
+rises from it. The bar stays put across navigation, so the swaps and the text being
+typed don't reset between screens.
 
 ---
 
