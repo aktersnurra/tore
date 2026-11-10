@@ -3,8 +3,7 @@ defmodule ToreWeb.HomeLiveTest do
   import Phoenix.LiveViewTest
   import Mox
 
-  alias Tore.Harness.Run
-  alias Tore.Harness.Run.{Commands, State}
+  import Tore.RunFixtures
 
   setup :verify_on_exit!
   setup :set_mox_from_context
@@ -38,31 +37,6 @@ defmodule ToreWeb.HomeLiveTest do
       Process.sleep(10)
       eventually(fun, attempts - 1)
     end
-  end
-
-  defp open_needs_user_run(household_id, user_id) do
-    sid = Run.next_stream_id()
-
-    {:ok, [opened]} =
-      Run.decide(
-        %Commands.Open{
-          household_id: household_id,
-          kind: "receipt_ingestion_run",
-          surface: :plan,
-          started_by: "user",
-          user_id: user_id,
-          input: %{}
-        },
-        %State.Draft{stream_id: sid}
-      )
-
-    running = Run.evolve(%State.Draft{stream_id: sid}, opened)
-
-    {:ok, [raised]} =
-      Run.decide(%Commands.RaiseQuestion{question: "Which store is this receipt from?"}, running)
-
-    :ok = Run.append(Tore.Scope.for_household(household_id), sid, [opened, raised])
-    sid
   end
 
   test "mounts without crash and shows tonight section", %{conn: conn} do
@@ -113,20 +87,18 @@ defmodule ToreWeb.HomeLiveTest do
     end
   end
 
-  test "review pill shows when runs need attention", %{conn: conn, user: user} do
-    household_id = home_scope().household_id
-    {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
-    on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
-
-    open_needs_user_run(household_id, user.id)
-    Process.sleep(50)
+  test "review pill shows when runs need attention", %{conn: conn} do
+    pending_review_fixture(home_scope())
 
     {:ok, _view, html} = live(conn, ~p"/")
     assert html =~ ~s(data-role="review-pill")
     assert html =~ ~s(href="/review")
   end
 
-  test "review pill is absent when nothing needs review", %{conn: conn} do
+  test "review pill is absent when nothing needs review, even with a question waiting", %{
+    conn: conn
+  } do
+    pending_question_fixture(home_scope())
     {:ok, _view, html} = live(conn, ~p"/")
     refute html =~ ~s(data-role="review-pill")
   end

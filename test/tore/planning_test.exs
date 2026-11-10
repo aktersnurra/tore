@@ -2,7 +2,6 @@ defmodule Tore.PlanningTest do
   use ExUnit.Case, async: false
 
   import Mox
-  import Ecto.Query, only: [from: 2]
   import Tore.AccountsFixtures
 
   alias Tore.Planning
@@ -222,8 +221,11 @@ defmodule Tore.PlanningTest do
     expected_week_start = Date.add(today, days_ahead)
     expected_stream = Tore.Streams.plan(home_scope(), expected_week_start)
 
-    assert {:ok, state} = Planning.plan_upcoming_week(home_scope())
-    assert state.__struct__ == Tore.Harness.Run.State.Applied
+    assert {:ok,
+            %Tore.Harness.KitchenRun{status: :applied, kind: "weekly_planning_run", input: input}} =
+             Planning.plan_upcoming_week(home_scope())
+
+    assert input["plan_stream_id"] == expected_stream
     assert {:ok, _plan} = Planning.load_plan(home_scope(), expected_stream)
   end
 
@@ -439,13 +441,11 @@ defmodule Tore.PlanningTest do
       end)
 
       assert :ok = Planning.plan_upcoming_weeks()
-      assert [_] = Tore.Harness.RunReceipts.list(home_scope())
-      assert [_] = Tore.Harness.RunReceipts.list(other)
+      runs = fn scope -> Tore.Repo.all(Tore.Harness.KitchenRun, Tore.Scope.repo_opts(scope)) end
+      assert [%{status: :applied}] = runs.(home_scope())
+      assert [%{status: :applied}] = runs.(other)
       # No run opened at all, not just none applied: the cron skipped the household.
-      refute Tore.Repo.exists?(
-               from(e in Tore.EventStore.Event, where: e.stream_type == "run"),
-               household_id: unsponsored.household_id
-             )
+      assert runs.(unsponsored) == []
     end
 
     defp sponsored_household do

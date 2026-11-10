@@ -7,18 +7,18 @@ defmodule ToreWeb.Live.Auth do
     socket = socket |> mount_current_user(session) |> attach_current_path()
 
     if socket.assigns.current_user do
-      household_id = socket.assigns.current_scope.household_id
+      scope = socket.assigns.current_scope
 
       if Phoenix.LiveView.connected?(socket) do
         Phoenix.PubSub.subscribe(Tore.PubSub, "toasts:user:#{socket.assigns.current_user.id}")
-        Phoenix.PubSub.subscribe(Tore.PubSub, "harness:household:#{household_id}")
+        Phoenix.PubSub.subscribe(Tore.PubSub, Tore.Harness.Runs.topic(scope))
       end
 
       socket =
         socket
-        |> assign(:inbox_count, inbox_count(household_id))
+        |> assign(:inbox_count, inbox_count(scope))
         |> attach_toast_hook()
-        |> attach_inbox_count_hook(household_id)
+        |> attach_inbox_count_hook(scope)
 
       {:cont, socket}
     else
@@ -32,6 +32,11 @@ defmodule ToreWeb.Live.Auth do
       do: {:cont, socket},
       else: {:halt, redirect(socket, to: "/welcome")}
   end
+
+  # A page that shows runs says so with `on_mount {ToreWeb.Live.Auth, :hears_runs}`; other pages
+  # never see `{:run_changed, run}`, so they need no clause for it.
+  def on_mount(:hears_runs, _params, _session, socket),
+    do: {:cont, assign(socket, :hears_runs, true)}
 
   defp attach_current_path(socket) do
     socket
@@ -68,18 +73,16 @@ defmodule ToreWeb.Live.Auth do
 
   # Keep the global :inbox_count assign in sync — every authenticated
   # LiveView shares this via @inbox_count, most visibly Today's review pill.
-  defp attach_inbox_count_hook(socket, household_id) do
+  defp attach_inbox_count_hook(socket, scope) do
     Phoenix.LiveView.attach_hook(socket, :inbox_count, :handle_info, fn
-      {:run_state_changed, _stream_id, _state}, socket ->
-        {:cont, assign(socket, :inbox_count, inbox_count(household_id))}
+      {:run_changed, _run}, socket ->
+        socket = assign(socket, :inbox_count, inbox_count(scope))
+        if socket.assigns[:hears_runs], do: {:cont, socket}, else: {:halt, socket}
 
       _other, socket ->
         {:cont, socket}
     end)
   end
 
-  defp inbox_count(household_id) do
-    Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
-    length(Tore.Harness.Projector.list_pending(household_id))
-  end
+  defp inbox_count(scope), do: length(Tore.Harness.Runs.list_reviews(scope))
 end

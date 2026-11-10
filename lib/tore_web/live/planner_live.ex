@@ -1,6 +1,11 @@
 defmodule ToreWeb.PlannerLive do
   use ToreWeb, :live_view
 
+  on_mount {ToreWeb.Live.Auth, :hears_runs}
+
+  alias Tore.Harness.{KitchenRun, Runs}
+  alias Tore.Harness.Kinds.PlannerCommand
+
   alias Tore.{Costs, Recipes, Planning, Shop, PlanHealth}
   alias Tore.Planning.State
   alias Phoenix.PubSub
@@ -13,17 +18,14 @@ defmodule ToreWeb.PlannerLive do
     scope = socket.assigns.current_scope
     plan_id = plan_id(scope, week_start)
 
-    household_id = scope.household_id
-
     if connected?(socket) do
+      # Run changes come through ToreWeb.Live.Auth, which subscribes for every view.
       PubSub.subscribe(Tore.PubSub, Tore.Planning.topic(scope))
-      {:ok, _pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
-      Phoenix.PubSub.subscribe(Tore.PubSub, "harness:household:#{household_id}")
     end
 
     {:ok, plan_state} = Planning.load_plan(scope, plan_id)
     recipes = Recipes.list(scope, sort: :alphabetical)
-    current_run = Tore.Harness.Projector.latest_on_surface(household_id, :plan)
+    current_run = Runs.latest_on_surface(scope, :plan)
 
     {:ok,
      assign(socket,
@@ -248,27 +250,7 @@ defmodule ToreWeb.PlannerLive do
   end
 
   def handle_event("quick_command", %{"command" => command}, socket) when command != "" do
-    pid = self()
-
-    ctx = %{
-      household_id: socket.assigns.current_scope.household_id,
-      user_id: socket.assigns.current_user.id,
-      command: command,
-      plan_stream_id: socket.assigns.plan_id,
-      week_start: socket.assigns.week_start
-    }
-
-    Task.start(fn ->
-      result =
-        try do
-          Tore.Harness.Orchestrator.dispatch(:planner_command_run, ctx)
-        rescue
-          e -> {:error, e}
-        end
-
-      send(pid, {:run_dispatched, result})
-    end)
-
+    start_command(socket, command, nil)
     {:noreply, assign(socket, quick_loading: true)}
   end
 
@@ -278,36 +260,36 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_event("slot_command", %{"command" => command}, socket) when command != "" do
     %{slot_key: slot_key} = socket.assigns.slot_action
-    pid = self()
-
-    ctx = %{
-      household_id: socket.assigns.current_scope.household_id,
-      user_id: socket.assigns.current_user.id,
-      command: command,
-      plan_stream_id: socket.assigns.plan_id,
-      week_start: socket.assigns.week_start,
-      scoped_slot: slot_key
-    }
 
     # Save pending sheet edits before the run starts, so the agent plans
-    # against what the user sees and the save can't land after apply_events.
+    # against what the user sees and the save can't land after the run applies.
     socket = auto_save_slot(socket)
-
-    Task.start(fn ->
-      result =
-        try do
-          Tore.Harness.Orchestrator.dispatch(:planner_command_run, ctx)
-        rescue
-          e -> {:error, e}
-        end
-
-      send(pid, {:run_dispatched, result})
-    end)
+    start_command(socket, command, slot_key)
 
     {:noreply, assign(socket, slot_action: nil, quick_loading: true)}
   end
 
   def handle_event("slot_command", _params, socket), do: {:noreply, socket}
+
+  defp maybe_toast_reverted(socket, %KitchenRun{status: :reverted, surface: :plan}),
+    do: put_flash(socket, :info, gettext("Undone."))
+
+  defp maybe_toast_reverted(socket, _run), do: socket
+
+  # The run's own process ends it failed if it crashes, so the reply always comes.
+  defp start_command(socket, command, scoped_slot) do
+    pid = self()
+    scope = socket.assigns.current_scope
+
+    ctx = %{
+      command: command,
+      plan_stream_id: socket.assigns.plan_id,
+      week_start: socket.assigns.week_start,
+      scoped_slot: scoped_slot
+    }
+
+    Task.start(fn -> send(pid, {:run_dispatched, Runs.start(scope, PlannerCommand, ctx)}) end)
+  end
 
   def handle_info({:run_dispatched, {:ok, state}}, socket) do
     {:noreply, assign(socket, current_run: state, quick_loading: false)}
@@ -324,23 +306,16 @@ defmodule ToreWeb.PlannerLive do
      |> assign(quick_loading: false)}
   end
 
-  def handle_info({:run_state_changed, _stream_id, state}, socket) do
+  def handle_info({:run_changed, %KitchenRun{} = run}, socket) do
     current = socket.assigns[:current_run]
-    socket = maybe_toast_reverted(socket, state)
+    socket = maybe_toast_reverted(socket, run)
 
-    if current && current.stream_id == state.stream_id do
-      {:noreply, assign(socket, current_run: state)}
+    if current && current.id == run.id do
+      {:noreply, assign(socket, current_run: run)}
     else
       {:noreply, socket}
     end
   end
-
-  defp maybe_toast_reverted(socket, %Tore.Harness.Run.State.Reverted{surface: :plan}),
-    do: put_flash(socket, :info, gettext("Undone."))
-
-  defp maybe_toast_reverted(socket, _state), do: socket
-
-  def handle_info({:run_event, _stream_id, _event}, socket), do: {:noreply, socket}
 
   def handle_info({:events, _events}, socket) do
     {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, socket.assigns.plan_id)

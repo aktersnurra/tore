@@ -2,7 +2,6 @@ defmodule ToreWeb.CaptureLive do
   use ToreWeb, :live_view
 
   alias Tore.Capture.Router
-  alias Tore.Harness.RunReceipts
 
   @impl true
   def mount(params, _session, socket) do
@@ -29,8 +28,8 @@ defmodule ToreWeb.CaptureLive do
   end
 
   def handle_event("undo_run", %{"sid" => sid}, socket) do
-    case RunReceipts.revert(socket.assigns.current_scope, sid) do
-      :ok ->
+    case Tore.Harness.Runs.revert(socket.assigns.current_scope, sid) do
+      {:ok, _run} ->
         messages =
           Enum.map(socket.assigns.messages, fn
             %{run_stream_id: ^sid} = m -> Map.put(m, :reverted, true)
@@ -107,9 +106,6 @@ defmodule ToreWeb.CaptureLive do
      |> assign(:loading, false)
      |> update(:messages, &(&1 ++ [bubble]))}
   end
-
-  def handle_info({:run_event, _stream_id, _event}, socket), do: {:noreply, socket}
-  def handle_info({:run_state_changed, _stream_id, _state}, socket), do: {:noreply, socket}
 
   @impl true
   def render(assigns) do

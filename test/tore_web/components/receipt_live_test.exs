@@ -2,7 +2,7 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   use ToreWeb.ConnCase, async: true
   import Phoenix.LiveViewTest
   alias ToreWeb.Components.ReceiptLive
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.KitchenRun
   alias Tore.Harness.Artifact.{PlanDiff, RunSummary}
 
   # render_component/2 bypasses the LiveView mount (and ToreWeb.Live.Auth's
@@ -15,19 +15,17 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   defp base_running do
-    %State.Running{
-      stream_id: "run-x",
+    %KitchenRun{
+      status: :running,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{command: "x"},
       opened_at: ~U[2026-06-02 12:00:00Z],
       phase: :proposing,
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      artifacts: []
     }
   end
 
@@ -37,19 +35,17 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   test "renders question for NeedsUser" do
-    needs = %State.NeedsUser{
-      stream_id: "run-x",
+    needs = %KitchenRun{
+      status: :needs_user,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
       question: "Which Monday?",
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      artifacts: []
     }
 
     html = render_component(ReceiptLive, id: "r", run: needs)
@@ -65,19 +61,16 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
 
     rs = RunSummary.from_artifacts([diff], :applied)
 
-    applied = %State.Applied{
-      stream_id: "run-x",
+    applied = %KitchenRun{
+      status: :applied,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      committed_at: ~U[2026-06-02 12:01:00Z],
-      tool_trace: [],
-      artifacts: [diff, rs],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      artifacts: [diff, rs]
     }
 
     html = render_component(ReceiptLive, id: "r", run: applied)
@@ -87,22 +80,18 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   test "renders failure for Failed with header text and user message" do
-    failed = %State.Failed{
-      stream_id: "run-x",
+    failed = %KitchenRun{
+      status: :failed,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      failed_at: ~U[2026-06-02 12:00:01Z],
       failure_code: :slot_locked,
-      failure_user_message: "That slot is pinned.",
-      failure_repair_action: nil,
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      repair_action: nil,
+      artifacts: []
     }
 
     html = render_component(ReceiptLive, id: "r", run: failed)
@@ -111,22 +100,18 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   test "Failed renders the message for :internal_error from failure_code" do
-    failed = %State.Failed{
-      stream_id: "run-x",
+    failed = %KitchenRun{
+      status: :failed,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      failed_at: ~U[2026-06-02 12:00:01Z],
       failure_code: :internal_error,
-      failure_user_message: nil,
-      failure_repair_action: nil,
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      repair_action: nil,
+      artifacts: []
     }
 
     html = render_component(ReceiptLive, id: "r", run: failed)
@@ -134,22 +119,18 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   test "Failed renders a fallback message for an unknown failure_code" do
-    failed = %State.Failed{
-      stream_id: "run-x",
+    failed = %KitchenRun{
+      status: :failed,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      failed_at: ~U[2026-06-02 12:00:01Z],
       failure_code: :some_unknown,
-      failure_user_message: nil,
-      failure_repair_action: nil,
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      repair_action: nil,
+      artifacts: []
     }
 
     html = render_component(ReceiptLive, id: "r", run: failed)
@@ -158,22 +139,18 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   defp base_failed(code, repair \\ nil) do
-    %State.Failed{
-      stream_id: "run-f",
+    %KitchenRun{
+      status: :failed,
+      id: "run-f",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{command: "x"},
       opened_at: ~U[2026-06-08 12:00:00Z],
-      failed_at: ~U[2026-06-08 12:00:01Z],
       failure_code: code,
-      failure_user_message: nil,
-      failure_repair_action: repair,
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      repair_action: repair,
+      artifacts: []
     }
   end
 
@@ -208,19 +185,17 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
   end
 
   test "renders quiet line for Reverted" do
-    reverted = %State.Reverted{
-      stream_id: "run-x",
+    reverted = %KitchenRun{
+      status: :reverted,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
       reverted_at: ~U[2026-06-02 12:01:00Z],
-      tool_trace: [],
-      artifacts: [],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      artifacts: []
     }
 
     html = render_component(ReceiptLive, id: "r", run: reverted)
@@ -231,19 +206,16 @@ defmodule ToreWeb.Components.ReceiptLiveTest do
     diff = %PlanDiff{plan_stream_id: "plan-1", week_start: ~D[2026-06-01], events: events}
     rs = RunSummary.from_artifacts([diff], :applied)
 
-    %State.Applied{
-      stream_id: "run-x",
+    %KitchenRun{
+      status: :applied,
+      id: "run-x",
       household_id: 1,
       kind: "planner_command_run",
       surface: :plan,
-      started_by: "user",
       user_id: 1,
       input: %{},
       opened_at: ~U[2026-06-02 12:00:00Z],
-      committed_at: ~U[2026-06-02 12:01:00Z],
-      tool_trace: [],
-      artifacts: [diff, rs],
-      model_usage: %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)}
+      artifacts: [diff, rs]
     }
   end
 

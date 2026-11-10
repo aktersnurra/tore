@@ -1,6 +1,8 @@
 defmodule ToreWeb.ShopLive do
   use ToreWeb, :live_view
 
+  on_mount {ToreWeb.Live.Auth, :hears_runs}
+
   alias Tore.Shop
   alias Phoenix.PubSub
 
@@ -120,7 +122,11 @@ defmodule ToreWeb.ShopLive do
       "[The user is referring to the grocery item \"#{item.name}\" on the shopping list.] " <>
         command
 
+    locale = Gettext.get_locale(ToreWeb.Gettext)
+
     Task.start(fn ->
+      # Gettext's locale is per process, so the replies need it set here too.
+      Gettext.put_locale(ToreWeb.Gettext, locale)
       result = Tore.Capture.Router.route(prefixed, [], ctx, [])
       send(pid, {:item_command_complete, result})
     end)
@@ -155,14 +161,10 @@ defmodule ToreWeb.ShopLive do
     {:noreply, assign(socket, grocery_state: grocery_state)}
   end
 
-  def handle_info(
-        {:run_state_changed, _sid, %Tore.Harness.Run.State.Reverted{surface: :shop}},
-        socket
-      ),
-      do: {:noreply, put_flash(socket, :info, gettext("Undone."))}
+  def handle_info({:run_changed, %{status: :reverted, surface: :shop}}, socket),
+    do: {:noreply, put_flash(socket, :info, gettext("Undone."))}
 
-  def handle_info({:run_state_changed, _sid, _state}, socket), do: {:noreply, socket}
-  def handle_info({:run_event, _sid, _event}, socket), do: {:noreply, socket}
+  def handle_info({:run_changed, _run}, socket), do: {:noreply, socket}
 
   def render(assigns) do
     items =

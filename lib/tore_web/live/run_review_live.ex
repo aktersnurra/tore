@@ -1,18 +1,14 @@
 defmodule ToreWeb.RunReviewLive do
   @moduledoc """
-  Editable card surface for a `:receipt_ingestion_run` in `:needs_user` state.
-
-  Loads the run's CostEntry proposal, lets the user correct
-  store/date/total/line-items, and confirms via
-  `Tore.Harness.Orchestrator.commit_receipt/3` — which re-runs the verifier
-  before applying.
+  A run waiting for review: a receipt whose lines don't add up to its total, or a recipe the
+  planner proposed. A receipt's card corrects the store, total and date (which sets its week);
+  confirming goes through `Runs.confirm/3`, which verifies it again before applying.
   """
 
   use ToreWeb, :live_view
 
   alias Tore.Harness.Artifact.{CostEntry, RecipeProposal}
-  alias Tore.Harness.{Orchestrator, Run}
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.{KitchenRun, Runs}
 
   @impl true
   def mount(%{"stream_id" => stream_id} = params, _session, socket) do
@@ -22,18 +18,13 @@ defmodule ToreWeb.RunReviewLive do
       |> assign(:confirming_discard?, false)
       |> assign(:lightbox?, false)
 
-    case Run.load(socket.assigns.current_scope, stream_id) do
-      {:ok, %State.NeedsUser{} = state} ->
-        {:ok, mount_needs_user(socket, stream_id, state)}
+    case Runs.get(socket.assigns.current_scope, stream_id) do
+      %KitchenRun{status: :needs_user, artifacts: [_ | _]} = run ->
+        {:ok, mount_needs_user(socket, stream_id, run)}
 
-      {:ok, %State.Applied{}} ->
-        {:ok, assign(socket, stream_id: stream_id, state: :applied, error: nil)}
-
-      {:ok, %State.Failed{failure_code: code}} ->
-        {:ok, assign(socket, stream_id: stream_id, state: :failed, error: code)}
-
-      {:ok, %State.Discarded{}} ->
-        {:ok, assign(socket, stream_id: stream_id, state: :discarded, error: nil)}
+      %KitchenRun{status: status, failure_code: code}
+      when status in [:applied, :failed, :discarded, :reverted] ->
+        {:ok, assign(socket, stream_id: stream_id, state: status, error: code)}
 
       _ ->
         {:ok,
@@ -45,8 +36,8 @@ defmodule ToreWeb.RunReviewLive do
 
   # A recipe proposal carries no CostEntry, so it cannot go through the
   # receipt path — form_data_from/1 builds itself from the cost artifact.
-  defp mount_needs_user(socket, stream_id, %State.NeedsUser{} = state) do
-    case extract_recipe_proposal(state) do
+  defp mount_needs_user(socket, stream_id, %KitchenRun{artifacts: [proposal]} = run) do
+    case proposal do
       %RecipeProposal{} = proposal ->
         socket
         |> assign(:stream_id, stream_id)
@@ -55,20 +46,17 @@ defmodule ToreWeb.RunReviewLive do
         |> assign(:proposal, proposal)
         |> assign(:error, nil)
 
-      nil ->
-        cost = Enum.find(state.artifacts, &match?(%CostEntry{}, &1))
-
+      %CostEntry{} = cost ->
         socket
         |> assign(:stream_id, stream_id)
         |> assign(:state, :needs_user)
-        |> assign(:has_photo?, has_image_path?(state.input))
+        |> assign(:has_photo?, has_image_path?(run.input))
         |> assign(:cost, cost)
         |> assign(:form_data, form_data_from(cost))
         |> assign(:error, nil)
     end
   end
 
-  defp has_image_path?(%{image_path: p}) when is_binary(p) and p != "", do: true
   defp has_image_path?(%{"image_path" => p}) when is_binary(p) and p != "", do: true
   defp has_image_path?(_), do: false
 
@@ -82,17 +70,6 @@ defmodule ToreWeb.RunReviewLive do
   @impl true
   def handle_event("update", %{"receipt" => params}, socket) do
     {:noreply, assign(socket, :form_data, merge_form(socket.assigns.form_data, params))}
-  end
-
-  def handle_event("remove_item", %{"index" => idx_str}, socket) do
-    idx = String.to_integer(idx_str)
-    items = List.delete_at(socket.assigns.form_data.line_items, idx)
-    {:noreply, assign(socket, :form_data, %{socket.assigns.form_data | line_items: items})}
-  end
-
-  def handle_event("add_item", _params, socket) do
-    items = socket.assigns.form_data.line_items ++ [blank_line_item()]
-    {:noreply, assign(socket, :form_data, %{socket.assigns.form_data | line_items: items})}
   end
 
   def handle_event("open_lightbox", _params, socket),
@@ -121,8 +98,8 @@ defmodule ToreWeb.RunReviewLive do
 
     scope = socket.assigns.current_scope
 
-    Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      case Orchestrator.discard_run(scope, stream_id, reason: :user_discarded) do
+    in_background(fn ->
+      case Runs.discard(scope, stream_id, :user_discarded) do
         {:ok, _} ->
           broadcast_toast(user_id, :info, discarded_msg)
 
@@ -142,17 +119,16 @@ defmodule ToreWeb.RunReviewLive do
     # Fire-and-forget: bounce the user back immediately. The toast on
     # completion lands wherever they happen to be (PubSub topic
     # "toasts:user:<id>").
-    Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      Orchestrator.commit_receipt(scope, stream_id, cost, user_id)
-      |> case do
+    in_background(fn ->
+      case Runs.confirm(scope, stream_id, cost) do
         {:ok, _} ->
-          broadcast_toast(user_id, :info, "Receipt saved.")
+          broadcast_toast(user_id, :info, gettext("Receipt saved."))
 
         {:error, {:verifier_failed, code, _}} ->
-          broadcast_toast(user_id, :error, "Couldn't save receipt: #{code}.")
+          broadcast_toast(user_id, :error, receipt_message(code))
 
-        {:error, reason} ->
-          broadcast_toast(user_id, :error, "Couldn't save receipt: #{inspect(reason)}.")
+        {:error, _reason} ->
+          broadcast_toast(user_id, :error, gettext("Couldn't save the receipt."))
       end
     end)
 
@@ -167,8 +143,8 @@ defmodule ToreWeb.RunReviewLive do
     # Same fire-and-forget shape as the receipt save: the commit re-runs the
     # verifier and writes the catalog, so bounce the user back now and let the
     # toast confirm it landed.
-    Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-      case Orchestrator.commit_recipe_proposal(scope, stream_id, proposal, user_id) do
+    in_background(fn ->
+      case Runs.confirm(scope, stream_id, proposal) do
         {:ok, _} ->
           broadcast_toast(user_id, :info, gettext("Recipe saved."))
 
@@ -191,16 +167,34 @@ defmodule ToreWeb.RunReviewLive do
     do: gettext("You already have a recipe just like this one.")
 
   defp verifier_message(:no_ingredients), do: gettext("That recipe has no ingredients.")
+
+  defp verifier_message(:slot_pinned),
+    do: gettext("That day is pinned now, so the recipe wasn't saved. Unpin it and try again.")
+
+  defp verifier_message(:slot_eating_out),
+    do: gettext("You're eating out that day now, so the recipe wasn't saved.")
+
   defp verifier_message(_), do: gettext("That recipe came back incomplete.")
+
+  # The toast is translated in the task, so it takes the page's locale along.
+  defp in_background(fun) do
+    locale = Gettext.get_locale(ToreWeb.Gettext)
+
+    Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
+      Gettext.put_locale(ToreWeb.Gettext, locale)
+      fun.()
+    end)
+  end
+
+  defp receipt_message(:missing_store), do: gettext("The receipt needs a store.")
+  defp receipt_message(:missing_total), do: gettext("The receipt needs a total.")
+  defp receipt_message(:date_in_future), do: gettext("The date is in the future.")
+  defp receipt_message(_), do: gettext("Couldn't save the receipt.")
 
   defp broadcast_toast(nil, _kind, _msg), do: :ok
 
   defp broadcast_toast(user_id, kind, message) do
     Phoenix.PubSub.broadcast(Tore.PubSub, "toasts:user:#{user_id}", {:toast, kind, message})
-  end
-
-  defp blank_line_item do
-    %{name: "", quantity: "", total_price: "", unit: "", category: nil}
   end
 
   @impl true
@@ -229,7 +223,10 @@ defmodule ToreWeb.RunReviewLive do
       {gettext("Review receipt")}
     </h2>
     <p class="text-sm text-[color:var(--muted)] mb-4">
-      {gettext("Edit anything that looks wrong, then save.")}
+      {gettext("The lines add up to %{sum}, but the total says %{total}. Check the total, then save.",
+        sum: sum_display(@cost),
+        total: decimal_to_str(@cost.total)
+      )}
     </p>
 
     <.error_banner :if={@error} code={@error} />
@@ -316,68 +313,6 @@ defmodule ToreWeb.RunReviewLive do
           class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
         />
       </label>
-
-      <section>
-        <h3 class="text-sm font-medium text-[color:var(--text)] mb-2">{gettext("Line items")}</h3>
-        <p :if={sum_mismatch?(@form_data)} class="text-xs text-amber-600 mb-2">
-          {gettext("Lines sum to")} {sum_display(@form_data)}; {gettext("receipt total")} {@form_data.total} — {gettext(
-            "looks off, is something missing?"
-          )}
-        </p>
-        <div class="space-y-2">
-          <div
-            :for={{item, idx} <- Enum.with_index(@form_data.line_items)}
-            class="grid grid-cols-12 gap-2 items-center"
-          >
-            <input
-              type="text"
-              name={"receipt[line_items][#{idx}][name]"}
-              value={item.name}
-              placeholder="Item"
-              class="col-span-6 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm"
-            />
-            <input
-              type="text"
-              name={"receipt[line_items][#{idx}][quantity]"}
-              value={item.quantity}
-              placeholder="Qty"
-              class="col-span-3 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm"
-            />
-            <input
-              type="text"
-              name={"receipt[line_items][#{idx}][unit]"}
-              value={item.unit}
-              placeholder="Unit"
-              class="col-span-2 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm"
-            />
-            <input
-              type="hidden"
-              name={"receipt[line_items][#{idx}][total_price]"}
-              value={item.total_price}
-            />
-            <button
-              type="button"
-              phx-click="remove_item"
-              phx-value-index={idx}
-              class="col-span-1 text-[color:var(--muted)] hover:text-red-500"
-              aria-label="Remove"
-            >
-              <.icon name="hero-x-mark" class="size-4" />
-            </button>
-          </div>
-        </div>
-        <p :if={@form_data.line_items == []} class="text-xs text-[color:var(--muted)] mt-2">
-          {gettext("No items parsed.")}
-        </p>
-
-        <button
-          type="button"
-          phx-click="add_item"
-          class="mt-3 inline-flex items-center gap-1 text-sm text-[color:var(--accent)] hover:underline"
-        >
-          <.icon name="hero-plus" class="size-4" /> {gettext("Add item")}
-        </button>
-      </section>
 
       <%= if @confirming_discard? do %>
         <div class="flex gap-2">
@@ -502,19 +437,25 @@ defmodule ToreWeb.RunReviewLive do
 
   defp render_body(%{state: :applied} = assigns) do
     ~H"""
-    <p class="text-[color:var(--accent)] font-semibold">{gettext("Receipt already saved.")}</p>
+    <p class="text-[color:var(--accent)] font-semibold">{gettext("Already saved.")}</p>
+    """
+  end
+
+  defp render_body(%{state: :reverted} = assigns) do
+    ~H"""
+    <p class="text-[color:var(--muted)] font-semibold">{gettext("This was undone.")}</p>
     """
   end
 
   defp render_body(%{state: :discarded} = assigns) do
     ~H"""
-    <p class="text-[color:var(--muted)] font-semibold">{gettext("This receipt was discarded.")}</p>
+    <p class="text-[color:var(--muted)] font-semibold">{gettext("This was discarded.")}</p>
     """
   end
 
   defp render_body(%{state: :failed} = assigns) do
     ~H"""
-    <p class="text-red-500 font-semibold">{gettext("This receipt failed.")} {@error}</p>
+    <p class="text-red-500 font-semibold">{gettext("This failed.")} {@error}</p>
     """
   end
 
@@ -542,119 +483,43 @@ defmodule ToreWeb.RunReviewLive do
     """
   end
 
-  defp extract_recipe_proposal(%State.NeedsUser{artifacts: artifacts}),
-    do: Enum.find(artifacts, &match?(%RecipeProposal{}, &1))
-
   defp form_data_from(%CostEntry{} = c) do
     %{
       store_name: c.store_name || "",
       date: Date.to_iso8601(c.date),
       date_inferred?: c.date_inferred? || false,
-      total: decimal_to_str(c.total),
-      line_items:
-        Enum.map(c.line_items, fn it ->
-          %{
-            name: it.name || "",
-            quantity: decimal_to_str(it[:quantity]),
-            total_price: decimal_to_str(it[:total_price]),
-            unit: it[:unit] || "",
-            category: it[:category]
-          }
-        end)
+      total: decimal_to_str(c.total)
     }
   end
 
-  # Phoenix form params come back as %{"line_items" => %{"0" => %{...}, "1" => ...}}.
-  # Re-key by integer index to preserve order even when the user removes an item.
   defp merge_form(current, params) do
-    items =
-      case params["line_items"] do
-        nil ->
-          current.line_items
-
-        items when is_map(items) ->
-          items
-          |> Enum.sort_by(fn {k, _} -> String.to_integer(k) end)
-          |> Enum.map(fn {idx_str, attrs} ->
-            existing = Enum.at(current.line_items, String.to_integer(idx_str), %{})
-
-            %{
-              name: attrs["name"] || existing[:name] || "",
-              quantity: attrs["quantity"] || existing[:quantity] || "",
-              total_price: attrs["total_price"] || existing[:total_price] || "",
-              unit: attrs["unit"] || existing[:unit] || "",
-              category: existing[:category]
-            }
-          end)
-      end
-
-    # User-supplied date overrides the inferred flag — once they touch the
-    # field we trust it and drop the warning.
+    # Once someone touches the date we trust it and drop the warning.
     new_date = params["date"] || current.date
-
-    date_inferred? =
-      cond do
-        is_nil(params["date"]) -> Map.get(current, :date_inferred?, false)
-        new_date != current.date -> false
-        true -> Map.get(current, :date_inferred?, false)
-      end
 
     %{
       store_name: params["store_name"] || current.store_name,
       date: new_date,
-      date_inferred?: date_inferred?,
-      total: params["total"] || current.total,
-      line_items: items
+      date_inferred?: current.date_inferred? and new_date == current.date,
+      total: params["total"] || current.total
     }
   end
 
+  # The lines stay as read; the card corrects the store, total and date.
   defp build_cost(%CostEntry{} = c, form) do
     %CostEntry{
       c
-      | store_name: form.store_name,
+      | store_name: String.trim(form.store_name),
         date: parse_date(form.date, c.date),
-        total: parse_decimal(form.total) || c.total,
-        line_items:
-          Enum.map(form.line_items, fn it ->
-            %{
-              name: String.trim(it.name),
-              quantity: parse_decimal(it.quantity),
-              unit: blank_to_nil(it[:unit]),
-              total_price: parse_decimal(it.total_price),
-              category: it[:category]
-            }
-          end)
+        total: parse_decimal(form.total) || c.total
     }
   end
 
-  defp blank_to_nil(nil), do: nil
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(s) when is_binary(s), do: String.trim(s)
-
-  defp line_sum(form) do
-    Enum.reduce(form.line_items, Decimal.new(0), fn it, acc ->
-      case parse_decimal(it.total_price) do
-        nil -> acc
-        d -> Decimal.add(acc, d)
-      end
+  defp sum_display(%CostEntry{line_items: items}) do
+    items
+    |> Enum.reduce(Decimal.new(0), fn it, acc ->
+      if it[:total_price], do: Decimal.add(acc, it.total_price), else: acc
     end)
-  end
-
-  defp sum_display(form), do: form |> line_sum() |> Decimal.to_string(:normal)
-
-  defp sum_mismatch?(form) do
-    case {parse_decimal(form.total), line_sum(form)} do
-      {nil, _} ->
-        false
-
-      {_total, sum} ->
-        if Decimal.equal?(sum, Decimal.new(0)) do
-          false
-        else
-          diff = form.total |> parse_decimal() |> Decimal.sub(sum) |> Decimal.abs()
-          Decimal.compare(diff, Decimal.new("1.00")) == :gt
-        end
-    end
+    |> Decimal.to_string(:normal)
   end
 
   defp parse_date(str, fallback) do

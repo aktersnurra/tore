@@ -4,8 +4,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
   setup :verify_on_exit!
 
   alias Tore.Capture.Dispatch
-  alias Tore.Harness.{Run, RunReceipts}
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Pantry
   alias Tore.Pantry.PantryItem
 
@@ -53,7 +52,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    assert {:ok, %State.Applied{}} = Run.load(home_scope(), bubble.run_stream_id)
+    assert %KitchenRun{status: :applied} = Runs.get(home_scope(), bubble.run_stream_id)
     refute Map.has_key?(bubble, :review_link)
     for name <- names, do: assert(bubble.text =~ name)
 
@@ -66,7 +65,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    {:ok, %State.Applied{input: input}} = Run.load(home_scope(), bubble.run_stream_id)
+    %KitchenRun{status: :applied, input: input} = Runs.get(home_scope(), bubble.run_stream_id)
     assert (input[:image_path] || input["image_path"]) == nil
   end
 
@@ -117,7 +116,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
     assert Decimal.equal?(row("mjölk").quantity, 3)
 
-    assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
+    assert {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
 
     assert Decimal.equal?(row("mjölk").quantity, 1)
     assert Repo.get_by(PantryItem, [name: "ägg"], Tore.Scope.repo_opts(home_scope())) == nil
@@ -130,7 +129,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
     expect_photo([item("mjölk", 3, "l")])
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
+    assert {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
 
     assert row("mjölk").quantity == nil
     assert row("mjölk").unit == nil
@@ -149,7 +148,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
-    assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
+    assert {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
 
     assert Decimal.equal?(row("mjölk").quantity, 1)
   end
@@ -245,7 +244,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
       bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
       assert row("mjölk").expires_at == ~D[2027-02-02]
 
-      assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
+      assert {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
 
       assert row("mjölk").expires_at == ~D[2026-12-01]
       assert row("mjölk").expires_source == "estimate"
@@ -257,7 +256,7 @@ defmodule Tore.Capture.ShelfPhotoTest do
 
       expect_guess("mjölk", 7)
       bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
-      assert :ok = RunReceipts.revert(home_scope(), bubble.run_stream_id)
+      assert {:ok, _} = Runs.revert(home_scope(), bubble.run_stream_id)
 
       assert row("mjölk").expires_at == nil
       assert row("mjölk").expires_source == nil

@@ -5,17 +5,18 @@ defmodule ToreWeb.RunReviewRecipeTest do
   setup :verify_on_exit!
 
   alias Tore.Harness.Artifact.RecipeProposal
-  alias Tore.Harness.Orchestrator
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.{KitchenRun, Runs}
+  alias Tore.Harness.Kinds.PlannerCommand
 
   setup do
     household = home_household()
     user = user_fixture(name: "Tester")
 
     conn = Plug.Test.init_test_session(build_conn(), %{user_id: user.id})
+    # A confirmed recipe's picture is made after commit; these tests don't look at it.
+    stub(Tore.MockLLM, :text, fn _, _, _ -> {:error, :ai_unavailable} end)
 
-    {:ok,
-     conn: conn, user: user, household: household, plan_stream_id: "plan:" <> Ecto.UUID.generate()}
+    {:ok, conn: conn, user: user, household: household}
   end
 
   defp proposal do
@@ -32,32 +33,16 @@ defmodule ToreWeb.RunReviewRecipeTest do
   end
 
   defp needs_user_run(ctx) do
-    p = proposal()
+    week = ~D[2026-08-17]
 
-    proposal_tool = %Tore.LLM.Tool{
-      name: "fake_proposal_tool",
-      description: "test double",
-      kind: :read,
-      parameters: %{type: "object", properties: %{}, required: []},
-      run: fn _args, _c, plan -> {:proposal, p, %{}, plan} end
-    }
-
-    expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
-      {:ok, {:tool_calls, [%{id: "c1", name: "fake_proposal_tool", args: %{}}]},
-       %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-    end)
-
-    {:ok, %State.NeedsUser{} = state} =
-      Orchestrator.dispatch(:planner_command_run, %{
-        household_id: ctx.household.id,
-        user_id: nil,
+    {:ok, %KitchenRun{status: :needs_user} = run} =
+      Runs.submit(scope_fixture(ctx.user), PlannerCommand, proposal(), %{
         command: "make it vegetarian",
-        plan_stream_id: ctx.plan_stream_id,
-        week_start: ~D[2026-08-17],
-        extra_tools: [proposal_tool]
+        plan_stream_id: Tore.Streams.plan(home_scope(), week),
+        week_start: week
       })
 
-    state
+    run
   end
 
   # The commit is fire-and-forget through Tore.TaskSupervisor (same as the
@@ -78,18 +63,18 @@ defmodule ToreWeb.RunReviewRecipeTest do
   end
 
   test "the review page shows the proposed recipe", %{conn: conn} = ctx do
-    state = needs_user_run(ctx)
+    run = needs_user_run(ctx)
 
-    {:ok, _view, html} = live(conn, ~p"/runs/#{state.stream_id}")
+    {:ok, _view, html} = live(conn, ~p"/runs/#{run.id}")
 
     assert html =~ "Vegetarian Miso Ramen"
     assert html =~ "firm tofu"
   end
 
   test "confirming saves the recipe", %{conn: conn} = ctx do
-    state = needs_user_run(ctx)
+    run = needs_user_run(ctx)
 
-    {:ok, view, _html} = live(conn, ~p"/runs/#{state.stream_id}")
+    {:ok, view, _html} = live(conn, ~p"/runs/#{run.id}")
 
     view |> element("button[type=submit]") |> render_click()
     await_run_tasks()
@@ -98,15 +83,15 @@ defmodule ToreWeb.RunReviewRecipeTest do
   end
 
   test "discarding saves nothing", %{conn: conn} = ctx do
-    state = needs_user_run(ctx)
+    run = needs_user_run(ctx)
 
-    {:ok, view, _html} = live(conn, ~p"/runs/#{state.stream_id}")
+    {:ok, view, _html} = live(conn, ~p"/runs/#{run.id}")
 
     view |> element("button[phx-click=ask_discard]") |> render_click()
     view |> element("button[phx-click=confirm_discard]") |> render_click()
     await_run_tasks()
 
     assert Tore.Recipes.list(home_scope()) == []
-    assert {:ok, %State.Discarded{}} = Tore.Harness.Run.load(home_scope(), state.stream_id)
+    assert %KitchenRun{status: :discarded} = Runs.get(home_scope(), run.id)
   end
 end

@@ -8,13 +8,13 @@ defmodule ToreWeb.RunPhotoController do
 
   use ToreWeb, :controller
 
-  alias Tore.Harness.Run
+  alias Tore.Harness.Runs
   alias Tore.Storage
   alias Tore.Storage.Buckets
 
   def show(conn, %{"stream_id" => stream_id}) do
-    with {:ok, state} <- Run.load(conn.assigns.current_scope, stream_id),
-         key when is_binary(key) <- image_path_from(state),
+    with %{input: %{"image_path" => key}} when is_binary(key) <-
+           Runs.get(conn.assigns.current_scope, stream_id),
          {:ok, body} <- Storage.client().get_object(Buckets.runs(), key) do
       conn
       |> put_resp_content_type("image/jpeg")
@@ -24,8 +24,4 @@ defmodule ToreWeb.RunPhotoController do
       _ -> send_resp(conn, 404, "")
     end
   end
-
-  defp image_path_from(%{input: %{image_path: path}}) when is_binary(path), do: path
-  defp image_path_from(%{input: %{"image_path" => path}}) when is_binary(path), do: path
-  defp image_path_from(_), do: nil
 end

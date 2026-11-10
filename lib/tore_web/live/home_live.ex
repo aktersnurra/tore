@@ -169,25 +169,21 @@ defmodule ToreWeb.HomeLive do
 
   def handle_event("tonight_command", %{"command" => command}, socket) when command != "" do
     pid = self()
+    scope = socket.assigns.current_scope
 
     ctx = %{
-      household_id: socket.assigns.current_scope.household_id,
-      user_id: socket.assigns.current_user.id,
       command: command,
       plan_stream_id: socket.assigns.plan_id,
       week_start: socket.assigns.week_start,
       scoped_slot: socket.assigns.today_key
     }
 
+    # A crash in the run ends it failed and still replies.
     Task.start(fn ->
-      result =
-        try do
-          Tore.Harness.Orchestrator.dispatch(:planner_command_run, ctx)
-        rescue
-          e -> {:error, e}
-        end
-
-      send(pid, {:run_dispatched, result})
+      send(
+        pid,
+        {:run_dispatched, Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PlannerCommand, ctx)}
+      )
     end)
 
     {:noreply, assign(socket, tonight_sheet: false)}
@@ -225,10 +221,6 @@ defmodule ToreWeb.HomeLive do
 
     {:noreply, socket}
   end
-
-  # Every signed-in page hears about runs, for the review count.
-  def handle_info({:run_event, _stream_id, _event}, socket), do: {:noreply, socket}
-  def handle_info({:run_state_changed, _stream_id, _state}, socket), do: {:noreply, socket}
 
   defp today_slot_key(today) do
     dow = Date.day_of_week(today)

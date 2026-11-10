@@ -90,14 +90,15 @@ defmodule ToreWeb.CostLive do
     {:noreply, push_navigate(socket, to: ~p"/runs/#{stream_id}?from=/settings/costs")}
   end
 
+  # Saved straight away: show it, with the rest of the month.
+  def handle_info({:receipt_read, %{run_stream_id: _id, text: text}}, socket) do
+    {:noreply, socket |> load_costs() |> assign(scanning: false) |> put_flash(:info, text)}
+  end
+
   # A duplicate photo or a failure: the reply says which.
   def handle_info({:receipt_read, %{text: text}}, socket) do
     {:noreply, socket |> assign(scanning: false) |> put_flash(:error, text)}
   end
-
-  # Every signed-in page hears about runs, for the review count.
-  def handle_info({:run_event, _stream_id, _event}, socket), do: {:noreply, socket}
-  def handle_info({:run_state_changed, _stream_id, _state}, socket), do: {:noreply, socket}
 
   @impl true
   def render(assigns) do

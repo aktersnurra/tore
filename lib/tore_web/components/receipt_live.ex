@@ -1,7 +1,7 @@
 defmodule ToreWeb.Components.ReceiptLive do
   use ToreWeb, :live_component
 
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.KitchenRun
   alias Tore.Harness.Artifact.PlanDiff
 
   @impl true
@@ -44,27 +44,24 @@ defmodule ToreWeb.Components.ReceiptLive do
 
   # Header per (kind, state-variant) ------------------------------------------
 
-  defp header_for(%State.Running{kind: "planner_command_run"}),
-    do: gettext("Tore is working on it")
+  defp header_for(%KitchenRun{kind: "planner_command_run", status: status}),
+    do: planner_header(status)
 
-  defp header_for(%State.NeedsUser{kind: "planner_command_run"}),
-    do: gettext("Tore needs a moment")
-
-  defp header_for(%State.Applied{kind: "planner_command_run"}),
-    do: gettext("Tore adjusted the plan")
-
-  defp header_for(%State.Failed{kind: "planner_command_run"}),
-    do: gettext("Tore couldn't update the plan")
-
-  defp header_for(%State.Reverted{kind: "planner_command_run"}), do: gettext("Reverted")
   defp header_for(_), do: gettext("Tore")
+
+  defp planner_header(:running), do: gettext("Tore is working on it")
+  defp planner_header(:needs_user), do: gettext("Tore needs a moment")
+  defp planner_header(:applied), do: gettext("Tore adjusted the plan")
+  defp planner_header(:failed), do: gettext("Tore couldn't update the plan")
+  defp planner_header(:reverted), do: gettext("Reverted")
+  defp planner_header(:discarded), do: gettext("Tore")
 
   # Body per state-variant ----------------------------------------------------
 
-  defp body(%State.Running{phase: phase}), do: escape(phase_label(phase))
-  defp body(%State.NeedsUser{question: q}), do: escape(q)
-  defp body(%State.Failed{failure_code: code}), do: escape(failure_message(code))
-  defp body(%State.Reverted{}), do: escape(gettext("Changes reverted."))
+  defp body(%KitchenRun{status: :running, phase: phase}), do: escape(phase_label(phase))
+  defp body(%KitchenRun{status: :needs_user, question: q}), do: escape(q)
+  defp body(%KitchenRun{status: :failed, failure_code: code}), do: escape(failure_message(code))
+  defp body(%KitchenRun{status: :reverted}), do: escape(gettext("Changes reverted."))
   defp body(_), do: ""
 
   defp failure_message(:slot_pinned),
@@ -82,13 +79,28 @@ defmodule ToreWeb.Components.ReceiptLive do
   defp failure_message(:dietary_violation),
     do: gettext("A suggested recipe didn't fit your household's needs.")
 
+  defp failure_message(:near_duplicate),
+    do: gettext("You already have a recipe just like this one.")
+
+  defp failure_message(code)
+       when code in [
+              :missing_title,
+              :missing_instructions,
+              :no_ingredients,
+              :empty_ingredient_name
+            ],
+       do: gettext("That recipe came back incomplete — nothing was saved.")
+
+  defp failure_message(:interrupted),
+    do: gettext("Tore was restarted before it finished — nothing was changed.")
+
   defp failure_message(:internal_error),
     do: gettext("Tore couldn't finish that — nothing was changed.")
 
   defp failure_message(_),
     do: gettext("Tore couldn't finish that.")
 
-  defp focus_param(%State.Failed{failure_repair_action: {:edit_plan, slots}}),
+  defp focus_param(%KitchenRun{status: :failed, repair_action: {:edit_plan, slots}}),
     do: Enum.join(slots, ",")
 
   defp focus_param(_), do: nil
@@ -98,12 +110,13 @@ defmodule ToreWeb.Components.ReceiptLive do
   defp phase_label(:gathering_context), do: gettext("Gathering context")
   defp phase_label(:proposing), do: gettext("Proposing")
   defp phase_label(:verifying), do: gettext("Verifying")
+  defp phase_label(nil), do: gettext("Proposing")
 
   # Applied runs render a list of per-change lines; other variants use body/1.
-  defp body_lines(%State.Applied{} = run), do: applied_lines(run)
+  defp body_lines(%KitchenRun{status: :applied} = run), do: applied_lines(run)
   defp body_lines(_), do: nil
 
-  defp applied_lines(%State.Applied{artifacts: artifacts}) do
+  defp applied_lines(%KitchenRun{artifacts: artifacts}) do
     case Enum.find(artifacts, &match?(%PlanDiff{}, &1)) do
       %PlanDiff{} = diff ->
         case PlanDiff.summarise(diff) do

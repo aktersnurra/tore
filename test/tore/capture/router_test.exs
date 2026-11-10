@@ -4,12 +4,10 @@ defmodule Tore.Capture.RouterTest do
   setup :verify_on_exit!
 
   alias Tore.Capture.Router
-  alias Tore.Harness.Run
-  alias Tore.Harness.Run.State
-  alias Tore.Harness.Artifact.RunBundle
+  alias Tore.Harness.{KitchenRun, Runs}
 
   describe "route/4 with set_plan_slot" do
-    test "wraps the turn in a :capture_turn_run that bundles the set_plan_slot child" do
+    test "sets the slot through a run the reply can undo" do
       {:ok, recipe} =
         %Tore.Recipes.Recipe{
           household_id: home_scope().household_id,
@@ -40,37 +38,15 @@ defmodule Tore.Capture.RouterTest do
         end
       end)
 
-      ctx = %{household_id: 1, user_id: 42, locale: "en"}
+      ctx = %{household_id: 1, user_id: user_fixture().id, locale: "en"}
       assert {:ok, bubbles} = Router.route("plan pizza tuesday", [], ctx)
 
       # The user-facing bubbles still flow through.
       assert Enum.any?(bubbles, fn b -> Map.get(b, :text) =~ "Pizza" end)
 
-      # A capture_turn_run Run was opened, bundled, and applied with the child sid.
-      [parent_run] = list_applied_turn_runs()
-      assert %State.Applied{kind: "capture_turn_run"} = parent_run
-      assert [%RunBundle{child_stream_ids: [child_sid]}] = parent_run.artifacts
-
-      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(home_scope(), child_sid)
-    end
-
-    defp list_applied_turn_runs do
-      import Ecto.Query
-      alias Tore.EventStore.Event
-      alias Tore.Repo
-
-      from(e in Event,
-        where: e.stream_type == "run" and e.event_type == "Opened",
-        where: fragment("json_extract(?, '$.kind') = ?", e.data, "capture_turn_run"),
-        select: e.stream_id
-      )
-      |> Repo.all(Tore.Scope.repo_opts(home_scope()))
-      |> Enum.flat_map(fn sid ->
-        case Run.load(home_scope(), sid) do
-          {:ok, %State.Applied{} = s} -> [s]
-          _ -> []
-        end
-      end)
+      # The slot was set through its own run, which the bubble's Undo reverts.
+      %{run_stream_id: id} = Enum.find(bubbles, &Map.has_key?(&1, :run_stream_id))
+      assert %KitchenRun{status: :applied, kind: "set_plan_slot_run"} = Runs.get(home_scope(), id)
     end
   end
 

@@ -2,9 +2,7 @@ defmodule Tore.Capture.DispatchTest do
   use Tore.DataCase, async: false
 
   alias Tore.Capture.Dispatch
-  alias Tore.Harness.Orchestrator
-  alias Tore.Harness.Run
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.{KitchenRun, Runs}
 
   describe "replies" do
     test "are in Swedish, with the day name in lower case mid-sentence" do
@@ -18,10 +16,9 @@ defmodule Tore.Capture.DispatchTest do
         }
         |> Tore.Repo.insert()
 
-      {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
-      ctx = %{household_id: 1, user_id: 42, parent_stream_id: parent_sid}
+      ctx = %{household_id: 1, user_id: user_fixture().id}
 
-      assert {%{text: "La till Carbonara på måndag 2026-11-02."}, _child} =
+      assert %{text: "La till Carbonara på måndag 2026-11-02."} =
                Dispatch.set_plan_slot(~D[2026-11-02], recipe.id, 4, ctx)
 
       assert %{text: "Hoppade över måndag 2026-11-02."} =
@@ -30,7 +27,7 @@ defmodule Tore.Capture.DispatchTest do
   end
 
   describe "set_plan_slot/2" do
-    test "opens a child Run via Orchestrator and returns {bubble, child_sid}" do
+    test "applies through a run whose Undo the bubble carries" do
       {:ok, recipe} =
         %Tore.Recipes.Recipe{
           household_id: home_scope().household_id,
@@ -39,32 +36,51 @@ defmodule Tore.Capture.DispatchTest do
         }
         |> Tore.Repo.insert()
 
-      {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
-
-      ctx = %{
-        household_id: 1,
-        user_id: 42,
-        parent_stream_id: parent_sid
-      }
-
-      assert {bubble, child_sid} =
-               Dispatch.set_plan_slot(~D[2026-06-23], recipe.id, 4, ctx)
+      ctx = %{household_id: 1, user_id: user_fixture().id}
+      bubble = Dispatch.set_plan_slot(~D[2026-06-23], recipe.id, 4, ctx)
 
       assert bubble.role == :assistant
       assert bubble.text =~ "Carbonara"
-      assert is_binary(child_sid)
-      {:ok, %State.Applied{kind: "set_plan_slot_run"}} = Run.load(home_scope(), child_sid)
+
+      assert %KitchenRun{status: :applied, kind: "set_plan_slot_run"} =
+               Runs.get(home_scope(), bubble.run_stream_id)
     end
 
-    test "returns {error_bubble, nil} when recipe does not exist" do
-      {:ok, parent_sid} = Orchestrator.start_turn(%{household_id: 1, user_id: 42})
+    test "says so, and leaves the day, when the day is pinned" do
+      Gettext.put_locale(ToreWeb.Gettext, "sv")
 
-      ctx = %{household_id: 1, user_id: 42, parent_stream_id: parent_sid}
+      {:ok, recipe} =
+        %Tore.Recipes.Recipe{
+          household_id: home_scope().household_id,
+          title: "Carbonara",
+          recipe_type: :meal
+        }
+        |> Tore.Repo.insert()
 
-      assert {bubble, nil} =
-               Dispatch.set_plan_slot(~D[2026-06-23], 999_999, 4, ctx)
+      plan = Tore.Streams.plan(home_scope(), ~D[2026-06-23])
+      {:ok, _} = Tore.Planning.pin_slot(home_scope(), plan, "tue_dinner", true)
+
+      bubble =
+        Dispatch.set_plan_slot(~D[2026-06-23], recipe.id, 4, %{
+          household_id: 1,
+          user_id: user_fixture().id
+        })
+
+      assert bubble.text =~ "tisdag"
+      refute Map.has_key?(bubble, :run_stream_id)
+      {:ok, state} = Tore.Planning.load_plan(home_scope(), plan)
+      refute Map.has_key?(state.slots, "tue_dinner")
+    end
+
+    test "replies with an error when the recipe does not exist" do
+      bubble =
+        Dispatch.set_plan_slot(~D[2026-06-23], 999_999, 4, %{
+          household_id: 1,
+          user_id: user_fixture().id
+        })
 
       assert bubble.role == :assistant
+      refute Map.has_key?(bubble, :run_stream_id)
     end
   end
 

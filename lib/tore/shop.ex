@@ -180,9 +180,7 @@ defmodule Tore.Shop do
       item = Map.get(state.items, item_id)
 
       if item do
-        Tore.Harness.Orchestrator.dispatch(:pantry_belief_update_run, %{
-          household_id: scope.household_id,
-          user_id: user_id,
+        Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PantryUpdate, %{
           channel: :grocery_checkoff,
           items: [%{name: item.name, quantity: item.quantity, unit: item.unit}]
         })

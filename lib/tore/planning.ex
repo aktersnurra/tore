@@ -21,8 +21,8 @@ defmodule Tore.Planning do
   end
 
   @doc """
-  Plan the upcoming week (next Monday-Sunday) for the household by dispatching a
-  headless `:weekly_planning_run`.
+  Plan the upcoming week (next Monday-Sunday) for the household through a
+  `Kinds.WeeklyPlanning` run.
   """
   def plan_upcoming_week(%Scope{} = scope) do
     today = Date.utc_today()
@@ -30,14 +30,10 @@ defmodule Tore.Planning do
     days_ahead = if days_ahead == 0, do: 7, else: days_ahead
     week_start = Date.add(today, days_ahead)
 
-    ctx = %{
-      household_id: scope.household_id,
-      user_id: nil,
+    Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.WeeklyPlanning, %{
       plan_stream_id: Streams.plan(scope, week_start),
       week_start: week_start
-    }
-
-    Tore.Harness.Orchestrator.dispatch(:weekly_planning_run, ctx)
+    })
   end
 
   def assign_recipe(%Scope{} = scope, plan_id, slot_key, recipe_id, servings) do

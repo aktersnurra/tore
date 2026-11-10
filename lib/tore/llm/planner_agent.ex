@@ -1,7 +1,7 @@
 defmodule Tore.LLM.PlannerAgent do
   @moduledoc """
   Bounded tool-calling loop. Pure: no DB writes, no system-prompt construction,
-  no correlation-id generation. Called by `Tore.Harness.Orchestrator`.
+  no correlation-id generation. Called by `Tore.Harness.Kinds.Planner`.
   """
 
   alias Tore.LLM.{Tool, PlannerTools}

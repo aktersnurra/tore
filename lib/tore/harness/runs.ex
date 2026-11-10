@@ -130,6 +130,14 @@ defmodule Tore.Harness.Runs do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
+  @doc """
+  Runs waiting with a proposal for someone to review, oldest first. A run waiting on a question
+  has nothing to review, so it isn't one.
+  """
+  @spec list_reviews(Scope.t()) :: [KitchenRun.t()]
+  def list_reviews(%Scope{} = scope),
+    do: scope |> list_pending() |> Enum.reject(&(&1.artifacts == [])) |> Enum.reverse()
+
   @spec latest_on_surface(Scope.t(), atom()) :: KitchenRun.t() | nil
   def latest_on_surface(%Scope{} = scope, surface) do
     from(r in KitchenRun, where: r.surface == ^surface, order_by: [desc: r.opened_at], limit: 1)

@@ -12,10 +12,9 @@ defmodule Tore.Capture.Dispatch do
   use Gettext, backend: ToreWeb.Gettext
 
   alias Tore.Capture.Uploads
-  alias Tore.Harness.Artifact.PantryBeliefUpdate
-  alias Tore.Harness.Orchestrator
-  alias Tore.Harness.Run
-  alias Tore.Harness.Run.State
+  alias Tore.Harness.Artifact.{CostEntry, PantryBeliefUpdate}
+  alias Tore.Harness.{KitchenRun, Runs}
+  alias Tore.Harness.Kinds
   alias Tore.Pantry
   alias Tore.Planning
   alias Tore.Recipes
@@ -37,22 +36,17 @@ defmodule Tore.Capture.Dispatch do
 
   @spec ingest_receipt(binary(), ctx()) :: bubble()
   def ingest_receipt(image, ctx) when is_binary(image) do
-    with_dedup(image, ctx, "receipt", fn stream_id ->
-      image_path = stash_photo(Tore.Scope.for_household(ctx.household_id), stream_id, image)
+    with_dedup(image, ctx, "receipt", fn upload_id ->
+      image_path = stash_photo(scope(ctx), upload_id, image)
 
-      dispatch_ctx = %{
-        household_id: ctx.household_id,
-        user_id: ctx[:user_id],
-        stream_id: stream_id,
-        image_binary: image,
-        image_path: image_path
-      }
+      case Runs.start(scope(ctx), Kinds.Receipt, %{image_binary: image, image_path: image_path}) do
+        {:ok, %KitchenRun{status: :needs_user, id: id}} ->
+          review_bubble(:receipt, id)
 
-      case Orchestrator.dispatch(:receipt_ingestion_run, dispatch_ctx) do
-        {:ok, %State.NeedsUser{stream_id: sid}} ->
-          review_bubble(:receipt, sid)
+        {:ok, %KitchenRun{status: :applied} = run} ->
+          receipt_bubble(run)
 
-        {:ok, %State.Failed{failure_code: code}} ->
+        {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
           if image_path, do: RunPhotos.delete_async(image_path)
           error_bubble(:receipt, code)
 
@@ -63,24 +57,31 @@ defmodule Tore.Capture.Dispatch do
     end)
   end
 
+  defp receipt_bubble(%KitchenRun{id: id, artifacts: [%CostEntry{} = cost]}) do
+    %{
+      role: :assistant,
+      text:
+        gettext("Saved the receipt from %{store}: %{total} kr.",
+          store: cost.store_name,
+          total: Decimal.to_string(Decimal.round(cost.total, 2), :normal)
+        ),
+      run_stream_id: id
+    }
+  end
+
   # ── shelf → pantry update ──────────────────────────────────────────────
 
   @spec update_pantry_from_shelf(binary(), ctx()) :: bubble()
   def update_pantry_from_shelf(image, ctx) when is_binary(image) do
-    with_dedup(image, ctx, "shelf", fn stream_id ->
-      dispatch_ctx = %{
-        household_id: ctx.household_id,
-        user_id: ctx[:user_id],
-        stream_id: stream_id,
-        channel: :shelf_photo,
-        image_binary: image
-      }
+    with_dedup(image, ctx, "shelf", fn _upload_id ->
+      case Runs.start(scope(ctx), Kinds.PantryUpdate, %{
+             channel: :shelf_photo,
+             image_binary: image
+           }) do
+        {:ok, %KitchenRun{status: :applied} = run} ->
+          shelf_bubble(run)
 
-      case Orchestrator.dispatch(:pantry_belief_update_run, dispatch_ctx) do
-        {:ok, %State.Applied{} = state} ->
-          shelf_bubble(state)
-
-        {:ok, %State.Failed{failure_code: code}} ->
+        {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
           error_bubble(:pantry, code)
 
         {:error, reason} ->
@@ -89,7 +90,7 @@ defmodule Tore.Capture.Dispatch do
     end)
   end
 
-  defp shelf_bubble(%State.Applied{stream_id: sid, artifacts: artifacts}) do
+  defp shelf_bubble(%KitchenRun{id: sid, artifacts: artifacts}) do
     %PantryBeliefUpdate{items: items} = Enum.find(artifacts, &match?(%PantryBeliefUpdate{}, &1))
 
     case items do
@@ -203,38 +204,45 @@ defmodule Tore.Capture.Dispatch do
 
   # ── plan slot mutation ─────────────────────────────────────────────────
 
-  @spec set_plan_slot(Date.t(), integer(), integer() | nil, ctx()) ::
-          {bubble(), String.t() | nil}
+  @doc "Puts a recipe on a day through a run, so a pinned day stays as it is."
+  @spec set_plan_slot(Date.t(), integer(), integer() | nil, ctx()) :: bubble()
   def set_plan_slot(%Date{} = date, recipe_id, servings, ctx)
       when is_integer(recipe_id) and is_map(ctx) do
-    orch_ctx = %{
-      household_id: ctx.household_id,
-      user_id: ctx[:user_id],
-      date: date,
-      recipe_id: recipe_id,
-      servings: servings || @default_servings
-    }
-
-    case Orchestrator.apply_set_plan_slot(orch_ctx) do
-      {:ok, %{stream_id: sid, recipe: %{title: title}}} ->
-        {%{
-           role: :assistant,
-           text:
-             gettext("Added %{title} to %{day} %{date}.",
-               title: title,
-               day: long_day_for(date),
-               date: Date.to_iso8601(date)
-             ),
-           run_stream_id: sid
-         }, sid}
-
-      {:error, :recipe_not_found} ->
-        {error_bubble(:plan, :recipe_not_found), nil}
-
-      {:error, reason} ->
-        {error_bubble(:plan, reason), nil}
+    with {:ok, diff, run_ctx} <-
+           Kinds.SetPlanSlot.proposal(scope(ctx), date, recipe_id, servings || @default_servings),
+         {:ok, %KitchenRun{} = run} <- Runs.submit(scope(ctx), Kinds.SetPlanSlot, diff, run_ctx) do
+      slot_bubble(run, date, diff)
+    else
+      {:error, reason} -> error_bubble(:plan, reason)
     end
   end
+
+  defp slot_bubble(%KitchenRun{status: :applied, id: id}, date, diff) do
+    [%{payload: %{"label" => title}}] = diff.events
+
+    %{
+      role: :assistant,
+      text:
+        gettext("Added %{title} to %{day} %{date}.",
+          title: title,
+          day: long_day_for(date),
+          date: Date.to_iso8601(date)
+        ),
+      run_stream_id: id
+    }
+  end
+
+  defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_pinned}, date, _diff) do
+    %{
+      role: :assistant,
+      text:
+        gettext("%{day} is pinned, so I left it as it was.",
+          day: long_day_for(date)
+        )
+    }
+  end
+
+  defp slot_bubble(%KitchenRun{failure_code: code}, _date, _diff), do: error_bubble(:plan, code)
 
   @spec clear_plan_slot(Date.t(), ctx()) :: bubble()
   def clear_plan_slot(%Date{} = date, ctx) do
@@ -691,15 +699,15 @@ defmodule Tore.Capture.Dispatch do
 
   defp scope(ctx), do: %Tore.Scope{household_id: ctx.household_id, user_id: ctx[:user_id]}
 
-  # Race-safe: reserve a stream_id, then try to record the hash. If the
-  # unique index trips, another upload already claimed these bytes — return
-  # the existing stream_id and never dispatch a duplicate run.
+  # Race-safe: reserve an upload id, then try to record the hash. If the
+  # unique index trips, another upload already claimed these bytes, so no
+  # duplicate run starts. The id also names the stashed photo.
   defp with_dedup(image, ctx, kind, run_fn) do
     hash = Uploads.content_hash(image)
-    stream_id = Run.next_stream_id()
+    upload_id = KitchenRun.new_id()
 
-    case Uploads.record(scope(ctx), hash, stream_id, kind) do
-      {:ok, ^stream_id} -> run_fn.(stream_id)
+    case Uploads.record(scope(ctx), hash, upload_id, kind) do
+      {:ok, ^upload_id} -> run_fn.(upload_id)
       {:duplicate, existing_stream_id} -> duplicate_bubble(kind, existing_stream_id)
     end
   end

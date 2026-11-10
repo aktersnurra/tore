@@ -3,7 +3,7 @@ defmodule Tore.Recipes.Variant do
   Generate a variant of an existing recipe ("simpler", "vegetarian", "for 6")
   as a `RecipeProposal`. Nothing is written to the catalog here — the
   proposal goes to a `:needs_user` card and only
-  `Orchestrator.commit_recipe_proposal/3` turns it into a real recipe
+  confirming the run (`Tore.Harness.Kinds.Planner`) turns it into a real recipe
   (SPEC §A.6.1: invented content never auto-commits).
   """
 

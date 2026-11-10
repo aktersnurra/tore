@@ -11,12 +11,16 @@ defmodule ToreWeb.CostLiveTest do
 
   setup do
     user = user_fixture(name: "Tester")
-    household_id = home_scope().household_id
-    {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
-    on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
-
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
+  end
+
+  defp eventually(fun, attempts \\ 100) do
+    cond do
+      fun.() -> true
+      attempts == 0 -> flunk("Timed out waiting for condition")
+      true -> Process.sleep(20) && eventually(fun, attempts - 1)
+    end
   end
 
   defp this_month(day), do: Date.utc_today() |> Date.beginning_of_month() |> Date.add(day - 1)
@@ -51,8 +55,14 @@ defmodule ToreWeb.CostLiveTest do
 
   test "survives a run finishing elsewhere while it's open", %{conn: conn} do
     {:ok, lv, _html} = live(conn, "/settings/costs")
-    send(lv.pid, {:run_event, "run-x", :anything})
-    send(lv.pid, {:run_state_changed, "run-x", :anything})
+    run = Tore.RunFixtures.pending_review_fixture(home_scope())
+
+    Phoenix.PubSub.broadcast(
+      Tore.PubSub,
+      Tore.Harness.Runs.topic(home_scope()),
+      {:run_changed, run}
+    )
+
     assert render(lv) =~ "cost-page"
   end
 
@@ -140,7 +150,7 @@ defmodule ToreWeb.CostLiveTest do
       render_upload(photo, "receipt.jpg")
     end
 
-    test "opens the review card", %{conn: conn} do
+    test "saves a receipt that adds up, and says so", %{conn: conn} do
       expect(Tore.MockLLM, :vision, fn _images, _system, _user, _opts ->
         {:ok,
          %{
@@ -156,8 +166,8 @@ defmodule ToreWeb.CostLiveTest do
       {:ok, lv, _html} = live(conn, "/settings/costs")
       upload(lv)
 
-      {path, _flash} = assert_redirect(lv, 2_000)
-      assert path =~ ~r{^/runs/.+from=(/|%2F)settings(/|%2F)costs}
+      eventually(fn -> render(lv) =~ "ICA" end)
+      assert [%{store_name: "ICA"}] = Costs.recent_receipts(home_scope(), 5)
     end
 
     test "says so when the photo was already uploaded", %{conn: conn} do

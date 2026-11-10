@@ -12,11 +12,11 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   `pending_assignment` carries the slot the user was talking about when they
   asked for the recipe ("make *tonight's* ramen vegetarian"). It rides on the
   artifact rather than the run's `input` because the slot is only known
-  mid-loop, after `Commands.Open` has already written `input` — and there is
-  no command for amending it. `nil` means "save the recipe, slot nothing".
+  mid-loop, after the run has opened with its `input`. `nil` means "save the
+  recipe, slot nothing".
 
-  Nothing here is persisted until `Orchestrator.commit_recipe_proposal/3`
-  turns it into a real `Tore.Recipes.Recipe`.
+  Nothing here is persisted until someone confirms the run, which turns it into
+  a real `Tore.Recipes.Recipe`.
   """
 
   @behaviour Tore.Harness.Artifact

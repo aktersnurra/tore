@@ -1,64 +1,25 @@
 defmodule ToreWeb.ReviewControllerTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
-  alias Tore.Harness.Run
-  alias Tore.Harness.Run.{Commands, State}
+  import Tore.RunFixtures
 
   setup do
     user = user_fixture(name: "Gustaf")
-    household_id = home_scope().household_id
-    {:ok, pid} = Tore.Harness.ProjectorSupervisor.start_or_lookup(household_id)
-    on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid, :normal) end)
-
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
-    %{conn: conn, user: user, household_id: household_id}
-  end
-
-  defp open_pending_run(household_id, user_id, opened_at, kind \\ "receipt_ingestion_run") do
-    sid = Run.next_stream_id()
-
-    {:ok, [opened]} =
-      Run.decide(
-        %Commands.Open{
-          household_id: household_id,
-          kind: kind,
-          surface: :plan,
-          started_by: "user",
-          user_id: user_id,
-          input: %{}
-        },
-        %State.Draft{stream_id: sid}
-      )
-
-    opened = %{opened | opened_at: opened_at}
-    running = Run.evolve(%State.Draft{stream_id: sid}, opened)
-    {:ok, [raised]} = Run.decide(%Commands.RaiseQuestion{question: "Which store?"}, running)
-
-    :ok = Run.append(Tore.Scope.for_household(household_id), sid, [opened, raised])
-    sid
+    %{conn: conn, user: user}
   end
 
   test "opens the oldest pending review and returns to Home", ctx do
-    newer = open_pending_run(ctx.household_id, ctx.user.id, ~U[2026-11-05 10:00:00Z])
-    older = open_pending_run(ctx.household_id, ctx.user.id, ~U[2026-11-04 10:00:00Z])
-    assert older != newer
-    Process.sleep(50)
+    pending_review_fixture(home_scope(), ~U[2026-11-05 10:00:00Z])
+    %{id: older} = pending_review_fixture(home_scope(), ~U[2026-11-04 10:00:00Z])
 
     conn = get(ctx.conn, ~p"/review")
 
     assert redirected_to(conn) == ~p"/runs/#{older}?#{[from: "/"]}"
   end
 
-  test "only receipts wait for review", ctx do
-    open_pending_run(
-      ctx.household_id,
-      ctx.user.id,
-      ~U[2026-11-04 10:00:00Z],
-      "pantry_belief_update_run"
-    )
-
-    Process.sleep(50)
-
+  test "a question has nothing to review", ctx do
+    pending_question_fixture(home_scope())
     assert ctx.conn |> get(~p"/review") |> redirected_to() == ~p"/"
   end
 
