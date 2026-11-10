@@ -8,7 +8,7 @@ defmodule ToreWeb.Layouts do
 
   defp nav_items do
     [
-      {"/", gettext("Today"), "nav-home"},
+      {"/today", gettext("Today"), "nav-home"},
       {"/plan", gettext("Plan"), "nav-week"},
       {"/shop", gettext("Shop"), "nav-shop"}
     ]
@@ -57,7 +57,7 @@ defmodule ToreWeb.Layouts do
       class="md:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-4 bg-[var(--surface)] border-t border-[color:var(--border)]"
     >
       <%!-- fixed 4-slot bar (Today, Plan, pill, Shop) — deliberately not driven by nav_items/0; keep grid-cols in sync --%>
-      <.bottom_link path="/" current={@current_path} icon="nav-home" />
+      <.bottom_link path="/today" current={@current_path} icon="nav-home" />
       <.bottom_link path="/plan" current={@current_path} icon="nav-week" />
       <a
         href={~p"/capture?return_to=#{@current_path}"}

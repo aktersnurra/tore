@@ -38,7 +38,7 @@ defmodule ToreWeb.HomeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_path="/">
+    <Layouts.app flash={@flash} current_path="/today">
       <.link
         :if={@inbox_count > 0}
         href={~p"/review"}

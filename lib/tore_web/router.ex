@@ -43,6 +43,7 @@ defmodule ToreWeb.Router do
 
     get "/images/recipes/:id", RecipeImageController, :show
     get "/images/runs/:stream_id", RunPhotoController, :show
+    get "/", HomeController, :show
     get "/review", ReviewController, :next
 
     live_session :welcome, on_mount: [{ToreWeb.Live.Auth, :require_authenticated}] do
@@ -54,7 +55,7 @@ defmodule ToreWeb.Router do
         {ToreWeb.Live.Auth, :require_authenticated},
         {ToreWeb.Live.Auth, :require_language}
       ] do
-      live "/", HomeLive
+      live "/today", HomeLive
       live "/plan", PlannerLive
       live "/recipes", RecipeLive
       live "/shop", ShopLive

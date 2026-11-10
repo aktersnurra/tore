@@ -40,22 +40,22 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   test "mounts without crash and shows tonight section", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/")
+    {:ok, _view, html} = live(conn, ~p"/today")
     assert html =~ "Ikväll"
   end
 
   test "shows nothing planned when no recipe assigned", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/")
+    {:ok, _view, html} = live(conn, ~p"/today")
     assert html =~ "Inget planerat ikväll"
   end
 
   test "today does not render the week strip", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/")
+    {:ok, _view, html} = live(conn, ~p"/today")
     refute html =~ "Föregående vecka"
   end
 
   test "renders the command pill linking to capture", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/")
+    {:ok, view, _html} = live(conn, ~p"/today")
 
     bottom_nav_html = view |> element(~s(nav[data-role="bottom-nav"])) |> render()
     assert bottom_nav_html =~ ~s(data-role="command-pill")
@@ -66,7 +66,7 @@ defmodule ToreWeb.HomeLiveTest do
 
   describe "app shell nav" do
     test "shows only Today, Plan, Shop as destinations", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/today")
 
       nav_html = view |> element("header nav") |> render()
       bottom_nav_html = view |> element(~s(nav[data-role="bottom-nav"])) |> render()
@@ -90,7 +90,7 @@ defmodule ToreWeb.HomeLiveTest do
   test "review pill shows when runs need attention", %{conn: conn} do
     pending_review_fixture(home_scope())
 
-    {:ok, _view, html} = live(conn, ~p"/")
+    {:ok, _view, html} = live(conn, ~p"/today")
     assert html =~ ~s(data-role="review-pill")
     assert html =~ ~s(href="/review")
   end
@@ -99,7 +99,7 @@ defmodule ToreWeb.HomeLiveTest do
     conn: conn
   } do
     pending_question_fixture(home_scope())
-    {:ok, _view, html} = live(conn, ~p"/")
+    {:ok, _view, html} = live(conn, ~p"/today")
     refute html =~ ~s(data-role="review-pill")
   end
 
@@ -128,7 +128,7 @@ defmodule ToreWeb.HomeLiveTest do
     test "long-pressing the tonight card opens a sheet scoped to today with a scoped input",
          %{conn: conn} do
       seed_tonight_recipe()
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/today")
 
       view
       |> element(~s([phx-hook="LongPress"][data-long-press-event="open_tonight_sheet"]))
@@ -163,7 +163,7 @@ defmodule ToreWeb.HomeLiveTest do
 
     test "escape closes the tonight sheet without dispatching", %{conn: conn} do
       seed_tonight_recipe()
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/today")
 
       view
       |> element(~s([phx-hook="LongPress"][data-long-press-event="open_tonight_sheet"]))
@@ -179,7 +179,7 @@ defmodule ToreWeb.HomeLiveTest do
     end
 
     test "no sheet opens on the empty state", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/today")
 
       render_hook(view, "open_tonight_sheet", %{})
 
@@ -200,7 +200,7 @@ defmodule ToreWeb.HomeLiveTest do
         %{}
       )
 
-    {:ok, _lv, html} = live(conn, "/")
+    {:ok, _lv, html} = live(conn, ~p"/today")
     assert html =~ "Äter ute ikväll"
     refute html =~ "Inget planerat"
   end
