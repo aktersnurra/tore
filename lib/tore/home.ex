@@ -371,6 +371,58 @@ defmodule Tore.Home do
 
   # ----- swaps -------------------------------------------------------------------------------
 
+  @max_label 24
+  @max_prompt 200
+
+  @doc "Where a Capture turn's swaps go for one person's chat bar, as `{:quick_swaps, [swap]}`."
+  @spec swaps_topic(integer()) :: String.t()
+  def swaps_topic(user_id), do: "chat_bar:user:#{user_id}"
+
+  @doc """
+  Swaps a Capture turn suggests, from the chat model's `quick_swaps` call: at most three, each a
+  short label that opens a screen in the list or sends one line to Capture. An error says why,
+  for the model to correct.
+  """
+  @spec suggested_swaps(term()) :: {:ok, [swap()]} | {:error, String.t()}
+  def suggested_swaps(raw) when is_list(raw) and length(raw) <= @max_swaps do
+    Enum.reduce_while(raw, {:ok, []}, fn item, {:ok, acc} ->
+      case suggested_swap(item) do
+        {:ok, swap} -> {:cont, {:ok, acc ++ [swap]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  def suggested_swaps(raw) when is_list(raw), do: {:error, "send at most #{@max_swaps} swaps"}
+  def suggested_swaps(_raw), do: {:error, "swaps must be a list"}
+
+  defp suggested_swap(%{"label" => label} = item) when is_binary(label) do
+    label = String.trim(label)
+
+    cond do
+      label == "" or String.length(label) > @max_label ->
+        {:error, "each label must be 1 to #{@max_label} characters"}
+
+      Map.has_key?(item, "screen") == Map.has_key?(item, "prompt") ->
+        {:error, "each swap needs either a screen or a prompt, not both"}
+
+      Map.has_key?(item, "screen") ->
+        case Enum.find(@screens, &(Atom.to_string(&1) == item["screen"])) do
+          nil -> {:error, "screen must be one of #{Enum.join(@screens, ", ")}"}
+          screen -> {:ok, %{label: label, action: {:open, screen}}}
+        end
+
+      true ->
+        prompt = if is_binary(item["prompt"]), do: String.trim(item["prompt"]), else: ""
+
+        if prompt == "" or prompt =~ "\n" or String.length(prompt) > @max_prompt,
+          do: {:error, "each prompt must be one line of at most #{@max_prompt} characters"},
+          else: {:ok, %{label: label, action: {:prompt, prompt}}}
+    end
+  end
+
+  defp suggested_swap(_item), do: {:error, "each swap needs a label"}
+
   @doc "A swap's label and what tapping it does, in the current locale."
   @spec swap(swap_key()) :: swap()
   def swap(:open_today), do: open_swap(:open_today, gettext("Tonight"), :today)

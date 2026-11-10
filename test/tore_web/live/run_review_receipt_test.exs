@@ -51,7 +51,10 @@ defmodule ToreWeb.RunReviewReceiptTest do
     {:ok, view, _html} = live(ctx.conn, ~p"/runs/#{run.id}")
     Phoenix.PubSub.subscribe(Tore.PubSub, "toasts:user:#{ctx.user.id}")
 
-    view |> element(~s(form[phx-submit="confirm"])) |> render_change(%{receipt: %{store_name: " "}})
+    view
+    |> element(~s(form[phx-submit="confirm"]))
+    |> render_change(%{receipt: %{store_name: " "}})
+
     view |> element(~s(form[phx-submit="confirm"])) |> render_submit()
     await_run_tasks()
 

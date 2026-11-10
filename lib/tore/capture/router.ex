@@ -93,6 +93,10 @@ defmodule Tore.Capture.Router do
       `list_receipts`), `remove_shopping_item`. These can't be undone, so
       delete only what they clearly named, and ask if more than one matches.
 
+  Next steps:
+    - When there's an obvious next step, call `quick_swaps` once, last in the turn, with up
+      to three: a screen to open ("plan", "shop", …) or a short request in their words.
+
   When there is nothing actionable, reply with plain text.
   """
 
@@ -277,6 +281,9 @@ defmodule Tore.Capture.Router do
        when is_binary(url) do
     {:ok, [Dispatch.import_recipe_from_url(url, ctx)]}
   end
+
+  defp run_call(%{name: "quick_swaps", args: args}, _, _, ctx),
+    do: {:ok, [Dispatch.quick_swaps(args["swaps"], ctx)]}
 
   # A malformed batch is Ops' to refuse, so the model hears why.
   defp run_call(%{name: "memory", args: args}, _, _, ctx),
@@ -735,6 +742,36 @@ defmodule Tore.Capture.Router do
         }
       ),
       tool(
+        "quick_swaps",
+        "Suggest up to three next steps, shown as buttons above the chat box until the next " <>
+          "turn. Each opens a screen or sends its prompt back to you as if typed. Labels are " <>
+          "at most 24 characters, in the household's language.",
+        %{
+          type: "object",
+          properties: %{
+            swaps: %{
+              type: "array",
+              maxItems: 3,
+              items: %{
+                type: "object",
+                properties: %{
+                  label: %{type: "string"},
+                  screen: %{
+                    type: "string",
+                    enum: Enum.map(Tore.Home.screens(), &Atom.to_string/1)
+                  },
+                  prompt: %{type: "string"}
+                },
+                required: ["label"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["swaps"],
+          additionalProperties: false
+        }
+      ),
+      tool(
         "memory",
         "Keep what the household tells you that will still matter next week, without being asked. " <>
           "profile is who they cook for; notes is what has been learned and agreed. " <>
@@ -868,6 +905,9 @@ defmodule Tore.Capture.Router do
 
   defp tool_result_payload("list_receipts", bubble),
     do: %{status: "ok", receipts: bubble[:receipts] || []}
+
+  defp tool_result_payload("quick_swaps", %{rejection: rejection}),
+    do: %{status: "rejected", message: rejection}
 
   # A rejected batch goes back whole, so the model can correct it and call again. A saved one
   # comes back with the memory as it now is, since the prompt's copy is from before the turn.

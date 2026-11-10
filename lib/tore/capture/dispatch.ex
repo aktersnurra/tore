@@ -723,6 +723,31 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
+  # ── quick swaps ────────────────────────────────────────────────────────
+
+  @doc """
+  Shows the swaps a turn suggests above this person's chat box (`Tore.Home.suggested_swaps/1`).
+  Nothing is stored. Invalid ones come back with the rejection, for the model to correct.
+  """
+  @spec quick_swaps(term(), ctx()) :: bubble()
+  def quick_swaps(raw, ctx) do
+    case Tore.Home.suggested_swaps(raw) do
+      {:ok, swaps} ->
+        if ctx[:user_id] do
+          Phoenix.PubSub.broadcast(
+            Tore.PubSub,
+            Tore.Home.swaps_topic(ctx.user_id),
+            {:quick_swaps, swaps}
+          )
+        end
+
+        %{role: :assistant, text: ""}
+
+      {:error, reason} ->
+        %{role: :assistant, text: "", rejection: reason}
+    end
+  end
+
   # ── memory ─────────────────────────────────────────────────────────────
 
   @doc """

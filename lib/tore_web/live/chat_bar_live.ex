@@ -8,17 +8,13 @@ defmodule ToreWeb.ChatBarLive do
   page already shown, and sends Capture back here when it closes.
 
   The swaps are the stored pick's (`Tore.Home.current/1`), until a Capture turn suggests its own
-  (`{:quick_swaps, swaps}` on `topic/1`), which last until the next pick.
+  (`{:quick_swaps, swaps}` on `Tore.Home.swaps_topic/1`), which last until the next pick.
   """
 
   use ToreWeb, :live_view
 
   alias Tore.Home
   alias Tore.Harness.{KitchenRun, Runs}
-
-  @doc "Where Capture sends the swaps a turn suggests for this person's bar."
-  @spec topic(integer()) :: String.t()
-  def topic(user_id), do: "chat_bar:user:#{user_id}"
 
   @impl true
   def mount(_params, %{"user_id" => user_id}, socket) do
@@ -28,7 +24,7 @@ defmodule ToreWeb.ChatBarLive do
 
         if connected?(socket) do
           Phoenix.PubSub.subscribe(Tore.PubSub, Runs.topic(scope))
-          Phoenix.PubSub.subscribe(Tore.PubSub, topic(user.id))
+          Phoenix.PubSub.subscribe(Tore.PubSub, Home.swaps_topic(user.id))
         end
 
         {:ok,

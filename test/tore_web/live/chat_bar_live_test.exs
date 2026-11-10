@@ -100,7 +100,7 @@ defmodule ToreWeb.ChatBarLiveTest do
 
     Phoenix.PubSub.broadcast(
       Tore.PubSub,
-      ToreWeb.ChatBarLive.topic(user.id),
+      Tore.Home.swaps_topic(user.id),
       {:quick_swaps, [%{label: "Mer pasta", action: {:prompt, "Mer pasta"}}]}
     )
 
