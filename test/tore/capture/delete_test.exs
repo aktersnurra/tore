@@ -13,7 +13,7 @@ defmodule Tore.Capture.DeleteTest do
   setup do
     Gettext.put_locale(ToreWeb.Gettext, "sv")
     user = user_fixture()
-    %{ctx: %{household_id: home_scope().household_id, user_id: user.id}, user: user}
+    %{ctx: capture_ctx(home_scope().household_id, user.id), user: user}
   end
 
   test "remove_shopping_item takes the item off this week's list", %{ctx: ctx} do

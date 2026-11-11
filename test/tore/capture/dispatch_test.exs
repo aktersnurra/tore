@@ -16,13 +16,13 @@ defmodule Tore.Capture.DispatchTest do
         }
         |> Tore.Repo.insert()
 
-      ctx = %{household_id: 1, user_id: user_fixture().id}
+      ctx = capture_ctx(1, user_fixture().id)
 
       assert %{text: "La till Carbonara på måndag 2026-11-02."} =
                Dispatch.set_plan_slot(~D[2026-11-02], recipe.id, 4, ctx)
 
       assert %{text: "Hoppade över måndag 2026-11-02."} =
-               Dispatch.skip_plan_meal(~D[2026-11-02], %{household_id: home_scope().household_id})
+               Dispatch.skip_plan_meal(~D[2026-11-02], capture_ctx(home_scope().household_id))
     end
   end
 
@@ -36,7 +36,7 @@ defmodule Tore.Capture.DispatchTest do
         }
         |> Tore.Repo.insert()
 
-      ctx = %{household_id: 1, user_id: user_fixture().id}
+      ctx = capture_ctx(1, user_fixture().id)
       bubble = Dispatch.set_plan_slot(~D[2026-06-23], recipe.id, 4, ctx)
 
       assert bubble.role == :assistant
@@ -61,10 +61,7 @@ defmodule Tore.Capture.DispatchTest do
       {:ok, _} = Tore.Planning.pin_slot(home_scope(), plan, "tue_dinner", true)
 
       bubble =
-        Dispatch.set_plan_slot(~D[2026-06-23], recipe.id, 4, %{
-          household_id: 1,
-          user_id: user_fixture().id
-        })
+        Dispatch.set_plan_slot(~D[2026-06-23], recipe.id, 4, capture_ctx(1, user_fixture().id))
 
       assert bubble.text =~ "tisdag"
       refute Map.has_key?(bubble, :run_stream_id)
@@ -74,10 +71,7 @@ defmodule Tore.Capture.DispatchTest do
 
     test "replies with an error when the recipe does not exist" do
       bubble =
-        Dispatch.set_plan_slot(~D[2026-06-23], 999_999, 4, %{
-          household_id: 1,
-          user_id: user_fixture().id
-        })
+        Dispatch.set_plan_slot(~D[2026-06-23], 999_999, 4, capture_ctx(1, user_fixture().id))
 
       assert bubble.role == :assistant
       refute Map.has_key?(bubble, :run_stream_id)
@@ -97,7 +91,7 @@ defmodule Tore.Capture.DispatchTest do
           "receipt"
         )
 
-      bubble = Dispatch.ingest_receipt(image, %{household_id: household_id, user_id: nil})
+      bubble = Dispatch.ingest_receipt(image, capture_ctx(household_id))
 
       assert bubble.text =~ "already uploaded"
       refute Map.has_key?(bubble, :review_link)
@@ -112,7 +106,7 @@ defmodule Tore.Capture.DispatchTest do
       end)
 
       image = <<255, 216, 255, 9, 9, 9>>
-      ctx = %{household_id: home_scope().household_id, user_id: nil}
+      ctx = capture_ctx(home_scope().household_id)
 
       Dispatch.ingest_receipt(image, ctx)
       bubble = Dispatch.ingest_receipt(image, ctx)
@@ -126,7 +120,7 @@ defmodule Tore.Capture.DispatchTest do
   describe "mark_eating_out/3" do
     setup do
       user = user_fixture(name: "Tester")
-      %{ctx: %{household_id: 1, user_id: user.id}}
+      %{ctx: capture_ctx(1, user.id)}
     end
 
     test "marks the day, and a later call adds the amount", %{ctx: ctx} do

@@ -62,9 +62,10 @@ defmodule Tore.HouseholdLanguageTest do
     end)
 
     assert %{review_link: true, text: text} =
-             Dispatch.import_recipe_from_url("https://example.com/soup", %{
-               household_id: home_scope().household_id
-             })
+             Dispatch.import_recipe_from_url(
+               "https://example.com/soup",
+               capture_ctx(home_scope().household_id)
+             )
 
     assert text =~ "Soup"
   end

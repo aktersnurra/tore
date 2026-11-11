@@ -102,10 +102,7 @@ defmodule Tore.Capture.Router do
 
   @max_tool_loop_iterations 5
 
-  @type ctx :: %{
-          required(:household_id) => integer(),
-          optional(:user_id) => integer() | nil
-        }
+  @type ctx :: %{required(:scope) => Tore.Scope.t()}
   @type reply :: map()
 
   @spec route(String.t(), [binary()], ctx(), [map()]) :: {:ok, [reply()]} | {:error, term()}
@@ -113,7 +110,7 @@ defmodule Tore.Capture.Router do
       when is_binary(text) and is_list(images) and is_map(ctx) and is_list(history) do
     correlation_id = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
 
-    AiOperations.log(Tore.Scope.for_household(ctx.household_id), %{
+    AiOperations.log(ctx.scope, %{
       run_stream_id: correlation_id,
       kind: "capture_route",
       payload: %{
@@ -123,7 +120,7 @@ defmodule Tore.Capture.Router do
       }
     })
 
-    locale = Tore.Household.locale(Tore.Scope.for_household(ctx.household_id))
+    locale = Tore.Household.locale(ctx.scope)
 
     system =
       [
@@ -170,7 +167,7 @@ defmodule Tore.Capture.Router do
     choice = if iter == 0, do: tool_choice(images), else: "auto"
 
     case Tore.LLM.chat_with_tools(
-           Tore.Scope.for_household(ctx.household_id),
+           ctx.scope,
            system,
            messages,
            tool_catalogue(),
@@ -927,8 +924,8 @@ defmodule Tore.Capture.Router do
     week_start = Tore.Streams.monday(Tore.Clock.today())
 
     %{
-      household_id: ctx.household_id,
-      plan_stream_id: Tore.Streams.plan(Tore.Scope.for_household(ctx.household_id), week_start),
+      household_id: ctx.scope.household_id,
+      plan_stream_id: Tore.Streams.plan(ctx.scope, week_start),
       week_start: week_start
     }
   end

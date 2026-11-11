@@ -134,7 +134,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "Capture adding by hand asks no model, and undo takes it out" do
-      ctx = %{household_id: home_scope().household_id, user_id: nil}
+      ctx = capture_ctx(home_scope().household_id)
 
       bubble = Tore.Capture.Dispatch.add_to_pantry("mjölk", 1, "l", ctx)
 
@@ -148,7 +148,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       canonicalise(["smör"])
       {:ok, _} = tick([%{name: "smör", quantity: 2, unit: "st"}])
       before = inventory()
-      ctx = %{household_id: home_scope().household_id, user_id: nil}
+      ctx = capture_ctx(home_scope().household_id)
 
       bubble = Tore.Capture.Dispatch.remove_from_pantry("smör", ctx)
 
@@ -163,7 +163,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     test "undoing a removal after the item came back leaves one row" do
       canonicalise(["smör"])
       {:ok, _} = tick([%{name: "smör", quantity: 2, unit: "st"}])
-      ctx = %{household_id: home_scope().household_id, user_id: nil}
+      ctx = capture_ctx(home_scope().household_id)
 
       removed = Tore.Capture.Dispatch.remove_from_pantry("smör", ctx)
       canonicalise(["smör"])
@@ -263,35 +263,6 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
 
       assert {:ok, %KitchenRun{status: :failed, failure_code: :missing_store}} = start()
       assert Costs.recent_receipts(member(), 5) == []
-    end
-
-    test "lines that don't add up wait for someone to check the total" do
-      cost = %CostEntry{
-        store_name: "ICA",
-        date: ~D[2026-11-04],
-        total: Decimal.new("100"),
-        line_items: [
-          %{
-            name: "MJÖLK",
-            quantity: nil,
-            unit: nil,
-            total_price: Decimal.new("20"),
-            category: "dairy"
-          }
-        ]
-      }
-
-      assert {:ok, %KitchenRun{status: :needs_user, question: question} = run} =
-               Runs.submit(member(), Receipt, cost, %{})
-
-      assert question =~ "don't add up"
-      assert Costs.recent_receipts(member(), 5) == []
-
-      assert {:ok, %KitchenRun{status: :applied}} =
-               Runs.confirm(member(), run.id, %{cost | total: Decimal.new("20")})
-
-      assert [%{total_amount: total}] = Costs.recent_receipts(member(), 5)
-      assert Decimal.equal?(total, 20)
     end
   end
 end

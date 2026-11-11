@@ -37,7 +37,7 @@ defmodule Tore.EventStore do
     :ok
   end
 
-  @spec append(Scope.t(), String.t(), [struct()], keyword()) :: :ok | {:error, term()}
+  @spec append(Scope.t(), String.t(), [struct()], keyword()) :: :ok
   def append(%Scope{household_id: household_id}, stream_id, events, opts \\ []) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
@@ -69,8 +69,6 @@ defmodule Tore.EventStore do
 
         :ok
     end
-  rescue
-    e -> {:error, e}
   end
 
   defp events_module_for(decider) do

@@ -185,7 +185,13 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_event("get_substitution", %{"missing" => missing}, socket) when missing != "" do
     recipe_title = (socket.assigns.selected && socket.assigns.selected.title) || "current recipe"
-    send(self(), {:run_substitution, missing, recipe_title})
+    scope = socket.assigns.current_scope
+
+    ToreWeb.Background.run(
+      fn -> Recipes.suggest_substitution(scope, missing, recipe_title) end,
+      &{:substitution, &1}
+    )
+
     {:noreply, assign(socket, substitution_loading: true)}
   end
 
@@ -195,7 +201,13 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_event("enter_cook_mode", _params, socket) do
     recipe = socket.assigns.selected
-    send(self(), {:load_cook_mode, recipe})
+    scope = socket.assigns.current_scope
+
+    ToreWeb.Background.run(
+      fn -> Recipes.cook_mode_steps(scope, Map.from_struct(recipe)) end,
+      &{:cook_mode_steps, &1}
+    )
+
     {:noreply, assign(socket, cook_mode: true, cook_mode_loading: true, cook_mode_steps: nil)}
   end
 
@@ -242,11 +254,13 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, recipes: recipes, selected: selected)}
   end
 
-  def handle_info({:run_substitution, missing, recipe_context}, socket) do
-    result =
-      case Recipes.suggest_substitution(socket.assigns.current_scope, missing, recipe_context) do
-        {:ok, r} ->
-          r
+  # Both answers come from the model, so they're asked for off the screen's own process:
+  # the screen stays responsive while it waits.
+  def handle_info({:substitution, result}, socket) do
+    substitution =
+      case result do
+        {:ok, substitution} ->
+          substitution
 
         {:error, _} ->
           %{
@@ -255,14 +269,14 @@ defmodule ToreWeb.RecipeLive do
           }
       end
 
-    {:noreply, assign(socket, substitution: result, substitution_loading: false)}
+    {:noreply, assign(socket, substitution: substitution, substitution_loading: false)}
   end
 
-  def handle_info({:load_cook_mode, recipe}, socket) do
+  def handle_info({:cook_mode_steps, result}, socket) do
     steps =
-      case Recipes.cook_mode_steps(socket.assigns.current_scope, Map.from_struct(recipe)) do
-        {:ok, s} ->
-          s
+      case result do
+        {:ok, steps} ->
+          steps
 
         {:error, _} ->
           %{

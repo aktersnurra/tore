@@ -112,8 +112,7 @@ defmodule ToreWeb.ShopLive do
     item = socket.assigns.item_sheet
 
     ctx = %{
-      household_id: socket.assigns.current_scope.household_id,
-      user_id: socket.assigns.current_user && socket.assigns.current_user.id,
+      scope: socket.assigns.current_scope,
       locale: socket.assigns.current_user && socket.assigns.current_user.locale
     }
 

@@ -65,13 +65,10 @@ defmodule ToreWeb.CostLive do
       image =
         consume_uploaded_entry(socket, entry, fn %{path: path} -> {:ok, File.read!(path)} end)
 
-      ctx = %{
-        household_id: socket.assigns.current_scope.household_id,
-        user_id: socket.assigns.current_user.id
-      }
+      scope = socket.assigns.current_scope
 
       ToreWeb.Background.run(
-        fn -> Dispatch.ingest_receipt(image, ctx) end,
+        fn -> Dispatch.read_receipt(scope, image) end,
         &{:receipt_read, &1}
       )
 
@@ -82,17 +79,17 @@ defmodule ToreWeb.CostLive do
   end
 
   @impl true
-  def handle_info({:receipt_read, %{stream_id: stream_id}}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/runs/#{stream_id}?from=/settings/costs")}
+  def handle_info({:receipt_read, {:review, run_id}}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/runs/#{run_id}?from=/settings/costs")}
   end
 
   # Saved straight away: show it, with the rest of the month.
-  def handle_info({:receipt_read, %{run_stream_id: _id, text: text}}, socket) do
+  def handle_info({:receipt_read, {:saved, _run_id, text}}, socket) do
     {:noreply, socket |> load_costs() |> assign(scanning: false) |> put_flash(:info, text)}
   end
 
   # A duplicate photo or a failure: the reply says which.
-  def handle_info({:receipt_read, %{text: text}}, socket) do
+  def handle_info({:receipt_read, {tag, text}}, socket) when tag in [:duplicate, :failed] do
     {:noreply, socket |> assign(scanning: false) |> put_flash(:error, text)}
   end
 

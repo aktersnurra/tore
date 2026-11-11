@@ -19,7 +19,7 @@ defmodule Tore.Capture.RouterTest do
           else: {:ok, {:tool_calls, [receipts, broken]}, %{}}
       end)
 
-      ctx = %{household_id: home_scope().household_id, user_id: nil, locale: "en"}
+      ctx = Map.put(capture_ctx(home_scope().household_id), :locale, "en")
       assert {:ok, bubbles} = Router.route("receipts", [<<1, 1>>, <<2, 2>>], ctx)
 
       # Two photos, two replies, then the model's own words. Nothing for the bad index.
@@ -60,7 +60,7 @@ defmodule Tore.Capture.RouterTest do
         end
       end)
 
-      ctx = %{household_id: 1, user_id: user_fixture().id, locale: "en"}
+      ctx = Map.put(capture_ctx(1, user_fixture().id), :locale, "en")
       assert {:ok, bubbles} = Router.route("plan pizza tuesday", [], ctx)
 
       # The user-facing bubbles still flow through.
@@ -93,7 +93,7 @@ defmodule Tore.Capture.RouterTest do
         {:ok, {:message, "Done."}, usage}
       end)
 
-      ctx = %{household_id: 1, user_id: user.id}
+      ctx = capture_ctx(1, user.id)
       assert {:ok, _bubbles} = Router.route("vi äter ute på fredag", [], ctx)
 
       {:ok, state} =

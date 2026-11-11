@@ -14,7 +14,6 @@ defmodule Tore.Harness.Kinds.ShopEdit do
 
   alias Tore.{Scope, Shop}
   alias Tore.Harness.Artifact.ShopChange
-  alias Tore.Harness.{Kinds, Runs}
   alias Tore.Shop.Commands
 
   @doc "A new item for `list_id`, sorted into its shop section."
@@ -72,10 +71,9 @@ defmodule Tore.Harness.Kinds.ShopEdit do
     Shop.announce(scope)
     [item] = change.items
 
-    Runs.start(scope, Kinds.PantryUpdate, %{
-      channel: :grocery_checkoff,
-      items: [%{name: item["name"], quantity: decimal(item["quantity"]), unit: item["unit"]}]
-    })
+    Shop.pantry_checkoff(scope, [
+      %{name: item["name"], quantity: decimal(item["quantity"]), unit: item["unit"]}
+    ])
 
     :ok
   end

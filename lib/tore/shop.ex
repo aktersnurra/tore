@@ -187,14 +187,19 @@ defmodule Tore.Shop do
       item = Map.get(state.items, item_id)
 
       if item do
-        Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PantryUpdate, %{
-          channel: :grocery_checkoff,
-          items: [%{name: item.name, quantity: item.quantity, unit: item.unit}]
-        })
+        pantry_checkoff(scope, [%{name: item.name, quantity: item.quantity, unit: item.unit}])
       end
 
       {:ok, events}
     end
+  end
+
+  @doc "Puts checked-off items (`name`, `quantity`, `unit`) into the pantry, as a pantry run."
+  def pantry_checkoff(%Scope{} = scope, items) do
+    Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PantryUpdate, %{
+      channel: :grocery_checkoff,
+      items: items
+    })
   end
 
   @doc """

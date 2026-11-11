@@ -36,7 +36,7 @@ defmodule Tore.Capture.QuickSwapsTest do
     ])
 
     assert {:ok, bubbles} =
-             Router.route("vad blir det ikväll?", [], %{household_id: 1, user_id: user.id})
+             Router.route("vad blir det ikväll?", [], capture_ctx(1, user.id))
 
     assert_receive {:quick_swaps,
                     [
@@ -53,7 +53,7 @@ defmodule Tore.Capture.QuickSwapsTest do
     Phoenix.PubSub.subscribe(Tore.PubSub, Home.swaps_topic(user.id))
     turn([%{"label" => "Admin", "screen" => "settings/users"}])
 
-    assert {:ok, bubbles} = Router.route("hej", [], %{household_id: 1, user_id: user.id})
+    assert {:ok, bubbles} = Router.route("hej", [], capture_ctx(1, user.id))
 
     assert_receive {:tool_result, %{"status" => "rejected", "message" => message}}
     assert message =~ "screen"

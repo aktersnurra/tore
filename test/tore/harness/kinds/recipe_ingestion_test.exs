@@ -31,7 +31,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
 
     stub(Tore.MockLLM, :text, fn _, _, _ -> {:error, :ai_unavailable} end)
 
-    %{ctx: %{household_id: home_scope().household_id, user_id: user_fixture().id}}
+    %{ctx: capture_ctx(home_scope().household_id, user_fixture().id)}
   end
 
   defp titles, do: home_scope() |> Recipes.list() |> Enum.map(& &1.title)

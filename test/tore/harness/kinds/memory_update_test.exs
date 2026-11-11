@@ -7,7 +7,7 @@ defmodule Tore.Harness.Kinds.MemoryUpdateTest do
 
   setup do
     Gettext.put_locale(ToreWeb.Gettext, "sv")
-    %{ctx: %{household_id: home_scope().household_id, user_id: user_fixture().id}}
+    %{ctx: capture_ctx(home_scope().household_id, user_fixture().id)}
   end
 
   defp notes, do: home_scope() |> Memory.list("notes") |> Enum.map(& &1.text)

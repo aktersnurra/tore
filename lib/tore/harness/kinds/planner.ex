@@ -10,6 +10,8 @@ defmodule Tore.Harness.Kinds.Planner do
   clearing it. Plan screens hear about the change after the run commits.
   """
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.{AiOperations, Household, Planning, Recipes, Scope}
   alias Tore.Harness.{Capsules, Handles, PlanDiffBuilder}
   alias Tore.Harness.Artifact.{PlanDiff, RecipeProposal}
@@ -82,7 +84,7 @@ defmodule Tore.Harness.Kinds.Planner do
 
   @spec review_question(PlanDiff.t() | RecipeProposal.t()) :: String.t() | nil
   def review_question(%PlanDiff{}), do: nil
-  def review_question(%RecipeProposal{}), do: "Review this recipe before saving it."
+  def review_question(%RecipeProposal{}), do: gettext("Review this recipe before saving it.")
 
   @spec apply_proposal(PlanDiff.t() | RecipeProposal.t(), map()) ::
           {:ok, Tore.Harness.Undo.t(), [struct()]} | {:fail, atom(), term()} | {:error, term()}

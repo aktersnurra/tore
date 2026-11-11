@@ -27,7 +27,7 @@ defmodule Tore.Harness.Kinds.PlanEditTest do
       })
 
     {:ok, _} = Planning.assign_recipe(home_scope(), plan, "mon_dinner", stew.id, 4)
-    %{ctx: %{household_id: home_scope().household_id, user_id: user.id}, plan: plan, stew: stew}
+    %{ctx: capture_ctx(home_scope().household_id, user.id), plan: plan, stew: stew}
   end
 
   defp plan(plan) do

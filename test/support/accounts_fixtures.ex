@@ -40,6 +40,10 @@ defmodule Tore.AccountsFixtures do
   @doc "The scope of the household people sign in to. Data a signed-in test user should see goes here."
   def home_scope, do: Scope.for_household(home_household().id)
 
+  @doc "The ctx Capture is called with: the scope of `household_id`, for `user_id` when someone is asking."
+  def capture_ctx(household_id, user_id \\ nil),
+    do: %{scope: %Scope{household_id: household_id, user_id: user_id}}
+
   @doc "The household test users join: id 1, seeded by `test/test_helper.exs`."
   def home_household do
     Tore.Repo.get!(Tore.Household.HouseholdSchema, 1)

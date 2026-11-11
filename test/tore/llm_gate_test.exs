@@ -105,7 +105,7 @@ defmodule Tore.LLMGateTest do
 
   test "Capture tells someone a refused household why, instead of to try again" do
     unsponsored = scope_fixture(household_fixture())
-    ctx = %{household_id: unsponsored.household_id, user_id: unsponsored.user_id}
+    ctx = %{scope: unsponsored}
 
     assert {:ok, bubbles} = Tore.Capture.Router.route("plan tuesday", [], ctx)
     assert List.last(bubbles).text == LLM.refusal_text(:ai_unavailable)

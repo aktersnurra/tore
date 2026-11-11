@@ -4,6 +4,7 @@ defmodule Tore.Capture.Dispatch do
 
   Each function corresponds 1:1 to a tool in the catalogue and produces a
   rendered assistant bubble (a plain map the LiveView already renders).
+  `read_receipt/2` is the exception: the same receipt reading for a page outside the chat.
   """
 
   use Gettext, backend: ToreWeb.Gettext
@@ -25,68 +26,86 @@ defmodule Tore.Capture.Dispatch do
   @default_servings 4
   @suggestion_limit 4
 
-  @type ctx :: %{
-          required(:household_id) => integer(),
-          optional(:user_id) => integer() | nil
-        }
+  @type ctx :: %{required(:scope) => Tore.Scope.t()}
   @type bubble :: map()
 
   # ── receipt ────────────────────────────────────────────────────────────
 
-  @spec ingest_receipt(binary(), ctx()) :: bubble()
-  def ingest_receipt(image, ctx) when is_binary(image) do
-    with_dedup(image, ctx, "receipt", fn upload_id ->
-      image_path = stash_photo(scope(ctx), upload_id, image)
+  @type receipt_result ::
+          {:review, run_id :: String.t()}
+          | {:saved, run_id :: String.t(), text :: String.t()}
+          | {:duplicate, text :: String.t()}
+          | {:failed, text :: String.t()}
 
-      case Runs.start(scope(ctx), Kinds.Receipt, %{image_binary: image, image_path: image_path}) do
-        {:ok, %KitchenRun{status: :needs_user, id: id}} ->
-          {:ok, review_bubble(:receipt, id)}
+  @doc """
+  Reads a receipt photo and says what came of it, with the words to show for it. For a caller
+  that is not the chat, such as the costs page; `ingest_receipt/2` is the same as a chat bubble.
+  """
+  @spec read_receipt(Tore.Scope.t(), binary()) :: receipt_result()
+  def read_receipt(%Tore.Scope{} = scope, image) when is_binary(image) do
+    result =
+      with_dedup(image, scope, "receipt", fn upload_id ->
+        image_path = stash_photo(scope, upload_id, image)
 
-        {:ok, %KitchenRun{status: :applied} = run} ->
-          {:ok, receipt_bubble(run)}
+        case Runs.start(scope, Kinds.Receipt, %{image_binary: image, image_path: image_path}) do
+          {:ok, %KitchenRun{status: :needs_user, id: id}} ->
+            {:ok, {:review, id}}
 
-        {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
-          if image_path, do: RunPhotos.delete_async(image_path)
-          {:failed, error_bubble(:receipt, code)}
+          {:ok, %KitchenRun{status: :applied} = run} ->
+            {:ok, {:saved, run.id, receipt_text(run)}}
 
-        {:error, reason} ->
-          if image_path, do: RunPhotos.delete_async(image_path)
-          {:failed, error_bubble(:receipt, reason)}
-      end
-    end)
+          {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
+            if image_path, do: RunPhotos.delete_async(image_path)
+            {:failed, {:failed, error_text(:receipt, code)}}
+
+          {:error, reason} ->
+            if image_path, do: RunPhotos.delete_async(image_path)
+            {:failed, {:failed, error_text(:receipt, reason)}}
+        end
+      end)
+
+    with :duplicate <- result, do: {:duplicate, duplicate_text()}
   end
 
-  defp receipt_bubble(%KitchenRun{id: id, artifacts: [%CostEntry{} = cost]}) do
-    %{
-      role: :assistant,
-      text:
-        gettext("Saved the receipt from %{store}: %{total} kr.",
-          store: cost.store_name,
-          total: Decimal.to_string(Decimal.round(cost.total, 2), :normal)
-        ),
-      run_stream_id: id
-    }
+  @spec ingest_receipt(binary(), ctx()) :: bubble()
+  def ingest_receipt(image, ctx) when is_binary(image) do
+    case read_receipt(ctx.scope, image) do
+      {:review, id} -> review_bubble(:receipt, id)
+      {:saved, id, text} -> %{role: :assistant, text: text, run_stream_id: id}
+      {:duplicate, text} -> %{role: :assistant, text: text}
+      {:failed, text} -> %{role: :assistant, error: true, text: text}
+    end
+  end
+
+  defp receipt_text(%KitchenRun{artifacts: [%CostEntry{} = cost]}) do
+    gettext("Saved the receipt from %{store}: %{total} kr.",
+      store: cost.store_name,
+      total: Decimal.to_string(Decimal.round(cost.total, 2), :normal)
+    )
   end
 
   # ── shelf → pantry update ──────────────────────────────────────────────
 
   @spec update_pantry_from_shelf(binary(), ctx()) :: bubble()
   def update_pantry_from_shelf(image, ctx) when is_binary(image) do
-    with_dedup(image, ctx, "shelf", fn _upload_id ->
-      case Runs.start(scope(ctx), Kinds.PantryUpdate, %{
-             channel: :shelf_photo,
-             image_binary: image
-           }) do
-        {:ok, %KitchenRun{status: :applied} = run} ->
-          {:ok, shelf_bubble(run)}
+    result =
+      with_dedup(image, ctx.scope, "shelf", fn _upload_id ->
+        case Runs.start(ctx.scope, Kinds.PantryUpdate, %{
+               channel: :shelf_photo,
+               image_binary: image
+             }) do
+          {:ok, %KitchenRun{status: :applied} = run} ->
+            {:ok, shelf_bubble(run)}
 
-        {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
-          {:failed, error_bubble(:pantry, code)}
+          {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
+            {:failed, error_bubble(:pantry, code)}
 
-        {:error, reason} ->
-          {:failed, error_bubble(:pantry, reason)}
-      end
-    end)
+          {:error, reason} ->
+            {:failed, error_bubble(:pantry, reason)}
+        end
+      end)
+
+    with :duplicate <- result, do: %{role: :assistant, text: duplicate_text()}
   end
 
   defp shelf_bubble(%KitchenRun{id: sid, artifacts: artifacts}) do
@@ -111,7 +130,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec ingest_recipe([binary()], ctx()) :: bubble()
   def ingest_recipe(images, ctx) when is_list(images) and images != [] do
-    case Runs.start(scope(ctx), Kinds.RecipeIngestion, %{images: images}) do
+    case Runs.start(ctx.scope, Kinds.RecipeIngestion, %{images: images}) do
       {:error, {:step_failed, reason}} ->
         refusal_bubble(reason) || error_bubble(:recipe, reason)
 
@@ -156,7 +175,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec suggest_from_fridge(binary(), ctx()) :: bubble()
   def suggest_from_fridge(image, ctx) when is_binary(image) do
-    case Tore.Pantry.parse_image(scope(ctx), image) do
+    case Tore.Pantry.parse_image(ctx.scope, image) do
       {:ok, items} ->
         names = items |> Enum.map(&(&1[:name] || &1["name"])) |> Enum.take(5) |> Enum.join(", ")
 
@@ -180,7 +199,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec import_recipe_from_url(String.t(), ctx()) :: bubble()
   def import_recipe_from_url(url, ctx) when is_binary(url) do
-    case Runs.start(scope(ctx), Kinds.RecipeIngestion, %{url: url}) do
+    case Runs.start(ctx.scope, Kinds.RecipeIngestion, %{url: url}) do
       {:error, {:step_failed, :not_a_recipe}} ->
         %{role: :assistant, text: gettext("That page doesn't look like a recipe.")}
 
@@ -200,7 +219,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec find_recipe(String.t(), ctx()) :: bubble()
   def find_recipe(query, ctx) when is_binary(query) do
-    case Recipes.search(scope(ctx), query) do
+    case Recipes.search(ctx.scope, query) do
       [] ->
         %{
           role: :assistant,
@@ -233,8 +252,8 @@ defmodule Tore.Capture.Dispatch do
   def set_plan_slot(%Date{} = date, recipe_id, servings, ctx)
       when is_integer(recipe_id) and is_map(ctx) do
     with {:ok, diff, run_ctx} <-
-           Kinds.SetPlanSlot.proposal(scope(ctx), date, recipe_id, servings || @default_servings),
-         {:ok, %KitchenRun{} = run} <- Runs.submit(scope(ctx), Kinds.SetPlanSlot, diff, run_ctx) do
+           Kinds.SetPlanSlot.proposal(ctx.scope, date, recipe_id, servings || @default_servings),
+         {:ok, %KitchenRun{} = run} <- Runs.submit(ctx.scope, Kinds.SetPlanSlot, diff, run_ctx) do
       slot_bubble(run, date, diff)
     else
       {:error, reason} -> error_bubble(:plan, reason)
@@ -276,7 +295,7 @@ defmodule Tore.Capture.Dispatch do
     plan_id = plan_stream_id_for(ctx, today)
     next_empty = next_empty_slot_key(ctx, today)
 
-    case Planning.suggest_recipes_for_slot(scope(ctx), plan_id, next_empty, limit: count) do
+    case Planning.suggest_recipes_for_slot(ctx.scope, plan_id, next_empty, limit: count) do
       {:ok, []} ->
         %{
           role: :assistant,
@@ -310,7 +329,7 @@ defmodule Tore.Capture.Dispatch do
   @spec add_to_shopping_list(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_shopping_list(name, quantity, unit, ctx) when is_binary(name) do
     qty = to_decimal(quantity)
-    change = Kinds.ShopEdit.add(scope(ctx), current_shop_list_id(ctx), name, qty, unit)
+    change = Kinds.ShopEdit.add(ctx.scope, current_shop_list_id(ctx), name, qty, unit)
 
     edit_shop(ctx, change, true, fn ->
       gettext("Added %{label} to the shopping list.", label: shopping_label(name, qty, unit))
@@ -319,7 +338,7 @@ defmodule Tore.Capture.Dispatch do
 
   # A shop change through a shop edit run. The reply offers Undo when the change has one.
   defp edit_shop(ctx, change, undoable?, applied_text) do
-    case Runs.submit(scope(ctx), Kinds.ShopEdit, change, %{change: change}) do
+    case Runs.submit(ctx.scope, Kinds.ShopEdit, change, %{change: change}) do
       {:ok, %KitchenRun{status: :applied, id: id}} ->
         bubble = %{role: :assistant, shop_link: true, text: applied_text.()}
         if undoable?, do: Map.put(bubble, :run_stream_id, id), else: bubble
@@ -343,7 +362,7 @@ defmodule Tore.Capture.Dispatch do
   def check_off_shopping_item(name, ctx) when is_binary(name) do
     list_id = current_shop_list_id(ctx)
 
-    case Shop.find_item_fuzzy(scope(ctx), list_id, name) do
+    case Shop.find_item_fuzzy(ctx.scope, list_id, name) do
       {:ok, {_id, item}} ->
         edit_shop(ctx, Kinds.ShopEdit.check(list_id, item), true, fn ->
           gettext("Checked off %{name}.", name: item.name)
@@ -376,7 +395,7 @@ defmodule Tore.Capture.Dispatch do
   def list_shopping_list(unchecked_only?, ctx) when is_boolean(unchecked_only?) do
     list_id = current_shop_list_id(ctx)
 
-    case Shop.load_list(scope(ctx), list_id) do
+    case Shop.load_list(ctx.scope, list_id) do
       {:ok, %{items: items}} when map_size(items) == 0 ->
         %{
           role: :assistant,
@@ -415,10 +434,10 @@ defmodule Tore.Capture.Dispatch do
   def generate_shopping_list_from_plan(date, ctx) do
     target_date = date || Tore.Clock.today()
     week_start = Streams.monday(target_date)
-    list_id = Streams.shop_list(scope(ctx), week_start)
-    plan_id = Streams.plan(scope(ctx), week_start)
+    list_id = Streams.shop_list(ctx.scope, week_start)
+    plan_id = Streams.plan(ctx.scope, week_start)
 
-    case Planning.load_plan(scope(ctx), plan_id) do
+    case Planning.load_plan(ctx.scope, plan_id) do
       {:ok, state} ->
         recipe_ids =
           state.slots
@@ -427,7 +446,7 @@ defmodule Tore.Capture.Dispatch do
           |> Enum.reject(&is_nil/1)
           |> Enum.uniq()
 
-        change = Kinds.ShopEdit.build(scope(ctx), list_id, week_start, recipe_ids)
+        change = Kinds.ShopEdit.build(ctx.scope, list_id, week_start, recipe_ids)
 
         edit_shop(ctx, change, false, fn ->
           gettext(
@@ -448,7 +467,7 @@ defmodule Tore.Capture.Dispatch do
   def add_to_pantry(name, quantity, unit, ctx) when is_binary(name) do
     item = %{name: name, quantity: to_decimal(quantity), unit: unit}
 
-    case Runs.start(scope(ctx), Kinds.PantryUpdate, %{channel: :manual, items: [item]}) do
+    case Runs.start(ctx.scope, Kinds.PantryUpdate, %{channel: :manual, items: [item]}) do
       {:ok, %KitchenRun{status: :applied, id: id, undo: {:steps, [step]}}} ->
         text =
           case step do
@@ -471,11 +490,11 @@ defmodule Tore.Capture.Dispatch do
 
   @spec remove_from_pantry(String.t(), ctx()) :: bubble()
   def remove_from_pantry(name, ctx) when is_binary(name) do
-    case Pantry.find_by_name_fuzzy(scope(ctx), name) do
+    case Pantry.find_by_name_fuzzy(ctx.scope, name) do
       {:ok, item} ->
         removal = %{name: item.name, item_id: item.id}
 
-        case Runs.start(scope(ctx), Kinds.PantryUpdate, %{channel: :manual, items: [removal]}) do
+        case Runs.start(ctx.scope, Kinds.PantryUpdate, %{channel: :manual, items: [removal]}) do
           {:ok, %KitchenRun{status: :applied, id: id}} ->
             %{
               role: :assistant,
@@ -515,7 +534,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec check_pantry(String.t(), ctx()) :: bubble()
   def check_pantry(name, ctx) when is_binary(name) do
-    case Pantry.find_by_name_fuzzy(scope(ctx), name) do
+    case Pantry.find_by_name_fuzzy(ctx.scope, name) do
       {:ok, item} ->
         qty_str =
           case {item.quantity, item.unit} do
@@ -559,7 +578,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec mark_recipe_cooked(integer(), ctx()) :: bubble()
   def mark_recipe_cooked(recipe_id, ctx) when is_integer(recipe_id) do
-    :ok = Recipes.record_used(scope(ctx), recipe_id)
+    :ok = Recipes.record_used(ctx.scope, recipe_id)
 
     %{
       role: :assistant,
@@ -620,8 +639,8 @@ defmodule Tore.Capture.Dispatch do
     plan_id = plan_stream_id_for(ctx, date)
     command = command.(Streams.slot_key(date))
 
-    with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(scope(ctx), plan_id, command),
-         {:ok, %KitchenRun{} = run} <- Runs.submit(scope(ctx), Kinds.PlanEdit, diff, run_ctx) do
+    with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(ctx.scope, plan_id, command),
+         {:ok, %KitchenRun{} = run} <- Runs.submit(ctx.scope, Kinds.PlanEdit, diff, run_ctx) do
       case run do
         %KitchenRun{status: :applied, id: id} ->
           %{role: :assistant, text: applied_text.(), run_stream_id: id}
@@ -651,9 +670,9 @@ defmodule Tore.Capture.Dispatch do
   def remove_shopping_item(name, ctx) when is_binary(name) do
     list_id = current_shop_list_id(ctx)
 
-    case Shop.find_item_fuzzy(scope(ctx), list_id, name) do
+    case Shop.find_item_fuzzy(ctx.scope, list_id, name) do
       {:ok, {id, item}} ->
-        case Shop.remove_item(scope(ctx), list_id, id, ctx[:user_id]) do
+        case Shop.remove_item(ctx.scope, list_id, id, ctx.scope.user_id) do
           {:ok, _events} ->
             %{
               role: :assistant,
@@ -684,12 +703,12 @@ defmodule Tore.Capture.Dispatch do
 
   @spec delete_recipe(integer(), ctx()) :: bubble()
   def delete_recipe(recipe_id, ctx) when is_integer(recipe_id) do
-    case Recipes.get(scope(ctx), recipe_id) do
+    case Recipes.get(ctx.scope, recipe_id) do
       nil ->
         %{role: :assistant, text: gettext("I couldn't find that recipe.")}
 
       recipe ->
-        case Recipes.delete(scope(ctx), recipe) do
+        case Recipes.delete(ctx.scope, recipe) do
           {:ok, _} -> %{role: :assistant, text: gettext("Deleted %{title}.", title: recipe.title)}
           {:error, reason} -> error_bubble(:recipe, reason)
         end
@@ -699,7 +718,7 @@ defmodule Tore.Capture.Dispatch do
   @spec list_receipts(ctx()) :: bubble()
   def list_receipts(ctx) do
     receipts =
-      for r <- Costs.recent_receipts(scope(ctx), 10) do
+      for r <- Costs.recent_receipts(ctx.scope, 10) do
         %{id: r.id, store: r.store_name, date: r.date, total: r.total_amount}
       end
 
@@ -714,7 +733,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec delete_receipt(integer(), ctx()) :: bubble()
   def delete_receipt(receipt_id, ctx) when is_integer(receipt_id) do
-    case Costs.delete_receipt(scope(ctx), receipt_id) do
+    case Costs.delete_receipt(ctx.scope, receipt_id) do
       :ok -> %{role: :assistant, text: gettext("Deleted the receipt.")}
       {:error, :not_found} -> %{role: :assistant, text: gettext("I couldn't find that receipt.")}
     end
@@ -730,10 +749,10 @@ defmodule Tore.Capture.Dispatch do
   def quick_swaps(raw, ctx) do
     case Tore.Home.suggested_swaps(raw) do
       {:ok, swaps} ->
-        if ctx[:user_id] do
+        if ctx.scope.user_id do
           Phoenix.PubSub.broadcast(
             Tore.PubSub,
-            Tore.Home.swaps_topic(ctx.user_id),
+            Tore.Home.swaps_topic(ctx.scope.user_id),
             {:quick_swaps, swaps}
           )
         end
@@ -757,11 +776,11 @@ defmodule Tore.Capture.Dispatch do
   def memory(target, operations, ctx) do
     batch = %MemoryBatch{target: target, operations: operations}
 
-    case Kinds.MemoryReview.check(scope(ctx), [batch]) do
+    case Kinds.MemoryReview.check(ctx.scope, [batch]) do
       :ok ->
-        case Runs.submit(scope(ctx), Kinds.MemoryUpdate, [batch], %{batch: batch}) do
+        case Runs.submit(ctx.scope, Kinds.MemoryUpdate, [batch], %{batch: batch}) do
           {:ok, %KitchenRun{status: :applied} = run} ->
-            run |> memory_bubble() |> Map.put(:memory, Memory.snapshot(scope(ctx)))
+            run |> memory_bubble() |> Map.put(:memory, Memory.snapshot(ctx.scope))
 
           {:ok, %KitchenRun{failure_code: code}} ->
             error_bubble(:memory, code)
@@ -827,30 +846,30 @@ defmodule Tore.Capture.Dispatch do
 
   # ── helpers ────────────────────────────────────────────────────────────
 
-  defp scope(ctx), do: %Tore.Scope{household_id: ctx.household_id, user_id: ctx[:user_id]}
-
   # The hash is recorded before the photo is read, so two uploads of the same bytes at once
   # can't both start a run. A photo whose reading failed is forgotten again, so it can be
   # retried. The upload id also names the stashed photo.
-  defp with_dedup(image, ctx, kind, run_fn) do
+  defp with_dedup(image, scope, kind, run_fn) do
     hash = Uploads.content_hash(image)
     upload_id = KitchenRun.new_id()
 
-    case Uploads.record(scope(ctx), hash, upload_id, kind) do
+    case Uploads.record(scope, hash, upload_id, kind) do
       {:ok, ^upload_id} ->
         case run_fn.(upload_id) do
-          {:ok, bubble} ->
-            bubble
+          {:ok, result} ->
+            result
 
-          {:failed, bubble} ->
-            Uploads.forget(scope(ctx), hash)
-            bubble
+          {:failed, result} ->
+            Uploads.forget(scope, hash)
+            result
         end
 
       {:duplicate, _upload_id} ->
-        %{role: :assistant, text: gettext("You've already uploaded this photo.")}
+        :duplicate
     end
   end
+
+  defp duplicate_text, do: gettext("You've already uploaded this photo.")
 
   defp stash_photo(scope, stream_id, image) do
     case RunPhotos.store(scope, stream_id, image) do
@@ -868,7 +887,7 @@ defmodule Tore.Capture.Dispatch do
     %{role: :assistant, review_link: true, stream_id: sid, text: gettext("I parsed a receipt.")}
   end
 
-  defp current_shop_list_id(ctx), do: Streams.shop_list(scope(ctx), Tore.Clock.today())
+  defp current_shop_list_id(ctx), do: Streams.shop_list(ctx.scope, Tore.Clock.today())
 
   defp to_decimal(nil), do: nil
   defp to_decimal(%Decimal{} = d), do: d
@@ -882,7 +901,7 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(scope(ctx), date)
+  defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(ctx.scope, date)
 
   defp long_day_for(%Date{} = date) do
     case Date.day_of_week(date) do
@@ -897,7 +916,7 @@ defmodule Tore.Capture.Dispatch do
   end
 
   defp next_empty_slot_key(ctx, %Date{} = today) do
-    case Planning.load_plan(scope(ctx), plan_stream_id_for(ctx, today)) do
+    case Planning.load_plan(ctx.scope, plan_stream_id_for(ctx, today)) do
       {:ok, state} ->
         today_idx = Date.day_of_week(today) - 1
 
@@ -918,10 +937,13 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  defp error_bubble(kind, reason) do
+  defp error_bubble(kind, reason),
+    do: %{role: :assistant, error: true, text: error_text(kind, reason)}
+
+  defp error_text(kind, reason) do
     require Logger
     Logger.warning("Capture.Dispatch #{kind} failed: #{inspect(reason)}")
 
-    %{role: :assistant, error: true, text: gettext("Something went wrong. Please try again.")}
+    gettext("Something went wrong. Please try again.")
   end
 end

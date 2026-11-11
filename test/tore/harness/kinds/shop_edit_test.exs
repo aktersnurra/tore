@@ -18,7 +18,7 @@ defmodule Tore.Harness.Kinds.ShopEditTest do
     end)
 
     user = user_fixture()
-    %{ctx: %{household_id: home_scope().household_id, user_id: user.id}}
+    %{ctx: capture_ctx(home_scope().household_id, user.id)}
   end
 
   defp list(date \\ Tore.Clock.today()) do

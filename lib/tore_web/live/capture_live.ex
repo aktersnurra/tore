@@ -90,10 +90,7 @@ defmodule ToreWeb.CaptureLive do
       user_bubble = user_bubble_for(text, images)
       messages = history ++ [user_bubble]
 
-      ctx = %{
-        household_id: socket.assigns.current_scope.household_id,
-        user_id: socket.assigns.current_user && socket.assigns.current_user.id
-      }
+      ctx = %{scope: socket.assigns.current_scope}
 
       ToreWeb.Background.run(
         fn -> Router.route(text, images, ctx, history) end,
