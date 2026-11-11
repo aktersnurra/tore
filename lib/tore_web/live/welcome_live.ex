@@ -40,7 +40,7 @@ defmodule ToreWeb.WelcomeLive do
               type="button"
               phx-click="pick"
               phx-value-locale={locale}
-              class="w-full rounded-xl border border-[color:var(--hairline)] px-4 py-3 text-left font-medium text-[var(--text)] hover:border-[color:var(--accent)]"
+              class="w-full rounded-[var(--r-md)] border border-[color:var(--hairline)] px-4 py-3 text-left font-medium text-[var(--text)] hover:border-[color:var(--accent)]"
               style="font-size: var(--t-body);"
             >
               {Household.locale_label(locale)}

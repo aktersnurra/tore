@@ -246,7 +246,7 @@ defmodule ToreWeb.RunReviewLive do
         <img
           src={~p"/images/runs/#{@stream_id}"}
           alt={gettext("Original photo")}
-          class="w-full max-h-[60vh] object-contain rounded-2xl border border-[color:var(--border)] bg-[color:var(--accent-soft)]/30 cursor-zoom-in"
+          class="w-full max-h-[60vh] object-contain rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[color:var(--accent-soft)]/30 cursor-zoom-in"
         />
       </button>
       <figcaption class="mt-1 text-xs text-[color:var(--muted)] text-center">
@@ -288,7 +288,7 @@ defmodule ToreWeb.RunReviewLive do
             type="text"
             name="receipt[store_name]"
             value={@form_data.store_name}
-            class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
           />
         </label>
         <label class="block">
@@ -298,7 +298,7 @@ defmodule ToreWeb.RunReviewLive do
             name="receipt[date]"
             value={@form_data.date}
             class={[
-              "w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm",
+              "w-full rounded-[var(--r-md)] border bg-[var(--surface)] px-3 py-2 text-sm",
               @form_data.date_inferred? && "border-[color:var(--warn)]",
               !@form_data.date_inferred? && "border-[color:var(--border)]"
             ]}
@@ -315,7 +315,7 @@ defmodule ToreWeb.RunReviewLive do
           inputmode="decimal"
           name="receipt[total]"
           value={@form_data.total}
-          class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+          class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
         />
       </label>
 
@@ -324,14 +324,14 @@ defmodule ToreWeb.RunReviewLive do
           <button
             type="button"
             phx-click="cancel_discard"
-            class="flex-1 rounded-xl border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] py-3 font-semibold"
+            class="flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] py-3 font-semibold"
           >
             {gettext("Cancel")}
           </button>
           <button
             type="button"
             phx-click="confirm_discard"
-            class="flex-1 rounded-xl bg-[color:var(--danger)] text-white py-3 font-semibold"
+            class="flex-1 rounded-[var(--r-md)] bg-[color:var(--danger)] text-white py-3 font-semibold"
           >
             {gettext("Discard")}
           </button>
@@ -341,13 +341,13 @@ defmodule ToreWeb.RunReviewLive do
           <button
             type="button"
             phx-click="ask_discard"
-            class="shrink-0 rounded-xl border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] px-4 py-3 font-semibold"
+            class="shrink-0 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] px-4 py-3 font-semibold"
           >
             {gettext("Discard")}
           </button>
           <button
             type="submit"
-            class="flex-1 rounded-xl bg-[color:var(--accent)] text-white py-3 font-semibold"
+            class="flex-1 rounded-[var(--r-md)] bg-[color:var(--accent)] text-white py-3 font-semibold"
           >
             {gettext("Save receipt")}
           </button>
@@ -366,7 +366,7 @@ defmodule ToreWeb.RunReviewLive do
 
     <.error_banner :if={@error} code={@error} />
 
-    <div class="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4 space-y-4">
+    <div class="rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)] p-4 space-y-4">
       <p :if={@proposal.description} class="text-sm text-[color:var(--text)]">
         {@proposal.description}
       </p>
@@ -407,14 +407,14 @@ defmodule ToreWeb.RunReviewLive do
         <button
           type="button"
           phx-click="cancel_discard"
-          class="flex-1 rounded-xl border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] py-3 font-semibold"
+          class="flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] py-3 font-semibold"
         >
           {gettext("Cancel")}
         </button>
         <button
           type="button"
           phx-click="confirm_discard"
-          class="flex-1 rounded-xl bg-[color:var(--danger)] text-white py-3 font-semibold"
+          class="flex-1 rounded-[var(--r-md)] bg-[color:var(--danger)] text-white py-3 font-semibold"
         >
           {gettext("Discard")}
         </button>
@@ -424,14 +424,14 @@ defmodule ToreWeb.RunReviewLive do
         <button
           type="button"
           phx-click="ask_discard"
-          class="shrink-0 rounded-xl border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] px-4 py-3 font-semibold"
+          class="shrink-0 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] px-4 py-3 font-semibold"
         >
           {gettext("Discard")}
         </button>
         <button
           type="submit"
           phx-click="save_recipe"
-          class="flex-1 rounded-xl bg-[color:var(--accent)] text-white py-3 font-semibold"
+          class="flex-1 rounded-[var(--r-md)] bg-[color:var(--accent)] text-white py-3 font-semibold"
         >
           {gettext("Save recipe")}
         </button>
@@ -482,7 +482,7 @@ defmodule ToreWeb.RunReviewLive do
 
   defp error_banner(assigns) do
     ~H"""
-    <div class="mb-4 rounded-lg border border-[color:var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
+    <div class="mb-4 rounded-[var(--r-md)] border border-[color:var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
       {gettext("Couldn't save:")} {@code}
     </div>
     """

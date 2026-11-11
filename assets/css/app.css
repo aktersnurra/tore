@@ -25,57 +25,90 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* ---------------------------------------------------------------------- */
-/* Design tokens — see SPEC_FEAT_ui-redesign.md                           */
+/* Design tokens: "Porslin". See docs/specs/ui.md §4.                      */
+/* Colours come from Swedish tableware: porcelain, cobalt, saffron,       */
+/* lingonberry. Screens use these tokens only, never raw colours.         */
 /* ---------------------------------------------------------------------- */
 
 :root {
-  /* Color — warm light theme, deep forest green accent (draft-ui.png) */
-  --bg: #F2EFE8;
-  --surface: #FAF8F3;
-  --text: #1F2933;
-  --muted: #6B7280;
-  --subtle: #9ca3af;
-  --border: #ebe8e1;
-  --hairline: #efece6;
-  --accent: #355E3B;
-  --accent-hover: #3d6d44;
-  --accent-soft: #DCE8DD;
-  --accent-ink: #37623e;
-  --warn: #C96A3D;
-  --warn-soft: #fbe7d4;
-  --danger: #dc2626;
-  --danger-soft: #fdecea;
+  /* Colour */
+  --bg: #F3F4F1;            /* porslin: cool porcelain, the page */
+  --surface: #FFFFFF;       /* cards, sheets, inputs */
+  --sunken: #ECEEEA;        /* wells: empty photos, pressed rows */
+  --text: #1C2127;          /* spis */
+  --muted: #5C636D;
+  --subtle: #979DA6;
+  --border: #DFE2DC;
+  --hairline: #EBEDE8;
+  --accent: #27407A;        /* kobolt */
+  --accent-hover: #1E3263;
+  --accent-soft: #E4E9F5;
+  --accent-ink: #223A70;
+  --warn: #8F6212;          /* saffran, dark enough for text */
+  --warn-soft: #F8EDD3;
+  --danger: #A3312B;        /* lingon */
+  --danger-soft: #F7E6E4;
 
-  /* Radius */
+  /* Radius follows hierarchy: sheets, cards, controls, chips */
   --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
+  --r-md: 10px;
+  --r-lg: 14px;
   --r-xl: 20px;
   --r-pill: 9999px;
 
-  /* Shadow */
-  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.04), 0 1px 3px rgba(17, 24, 39, 0.05);
-  --shadow-pop: 0 6px 24px rgba(17, 24, 39, 0.08);
+  /* Shadow: cards sit on hairlines, only things that float get a shadow */
+  --shadow-card: 0 1px 0 rgba(28, 33, 39, 0.03);
+  --shadow-pop: 0 12px 32px -8px rgba(28, 33, 39, 0.18), 0 2px 6px rgba(28, 33, 39, 0.06);
 
   /* Type scale */
-  --t-display: 32px;
-  --t-h1: 24px;
-  --t-h2: 18px;
+  --t-display: 34px;
+  --t-h1: 26px;
+  --t-h2: 17px;
   --t-body: 16px;
   --t-meta: 14px;
   --t-micro: 12px;
 
   /* Layout */
-  --nav-height: 56px;
   --tap-min: 44px;
 }
 
 html, body {
   background: var(--bg);
   color: var(--text);
-  font: 400 var(--t-body)/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 400 var(--t-body)/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3 { letter-spacing: -0.015em; text-wrap: balance; }
+
+::selection { background: var(--accent-soft); }
+
+/* One focus ring everywhere, shown for keyboards only */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset: 0; }
+
+/* Section label: sentence case, quiet. Replaces tracked capitals. */
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+/* Horizontal chip rows scroll without showing a scrollbar */
+.scroll-quiet { scrollbar-width: none; }
+.scroll-quiet::-webkit-scrollbar { display: none; }
+
+/* Prices and quantities line up in columns */
+.num { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
 /* ── Slot modal panels ──────────────────────────────────────────────────── */
@@ -114,20 +147,4 @@ html, body {
   transform: translateX(0);
   opacity: 1;
   pointer-events: auto;
-}
-
-/* Nav icons: tint traced SVGs to match active/muted nav colors */
-/* Active (accent #355E3B) */
-a[data-active="true"] .nav-icon {
-  filter: invert(27%) sepia(22%) saturate(700%) hue-rotate(95deg) brightness(75%);
-  transition: filter 0.15s;
-}
-/* Inactive (muted #6B7280) */
-a:not([data-active]) .nav-icon {
-  filter: invert(47%) sepia(5%) saturate(400%) hue-rotate(180deg) brightness(95%);
-  transition: filter 0.15s;
-}
-/* Hover: brighten toward accent */
-a:not([data-active]):hover .nav-icon {
-  filter: invert(27%) sepia(22%) saturate(700%) hue-rotate(95deg) brightness(85%);
 }

@@ -15,6 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Capture can suggest the next steps for the bar with a `quick_swaps` tool. They're not stored; the next pick replaces them.
 - Today moved from `/` to `/today`.
 - Every calendar date comes from `Tore.Clock`, the server's local clock, instead of UTC, so the pick and every screen agree on the day after local midnight. Set `TZ` to the household's time zone.
+- A new look, "Porslin": cobalt on porcelain white with saffron and lingonberry states, the device's own typeface, corners that follow hierarchy (sheets 20, cards 14, controls 10), hairlines instead of shadows, sentence-case section labels and no arrows on links. Today is tonight's dinner in large type. Plan rows show the whole dish name, Recipes is a compact list, and every page title sits on the page at one size. Recipes' "Get ideas" placeholder is gone.
 - Every screen draws its colours from the design tokens: no raw Tailwind greys, blue, red, amber or `dark:` classes are left, and the undefined `--surface-raised` and `--ink` are gone. A `--danger-soft` token backs error notices.
 - Shop no longer scrolls sideways on a phone: the add-item field can shrink.
 - With AI off, checking off a shopping item adds it to the pantry again, keeping its name as written.

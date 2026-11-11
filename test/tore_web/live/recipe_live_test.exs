@@ -12,18 +12,17 @@ defmodule ToreWeb.RecipeLiveTest do
   defp authed(conn, user), do: Plug.Test.init_test_session(conn, %{user_id: user.id})
 
   describe "page render" do
-    test "shows recipe grid and single control card", %{conn: conn, user: user, recipe: recipe} do
+    test "shows the recipes and the search", %{conn: conn, user: user, recipe: recipe} do
       {:ok, _lv, html} = live(authed(conn, user), "/recipes")
       assert html =~ "Recept"
       assert html =~ recipe.title
       assert html =~ "Sök recept"
-      assert html =~ "Vad kan vi laga ikväll?"
     end
 
     test "more filters hidden by default", %{conn: conn, user: user} do
       {:ok, _lv, html} = live(authed(conn, user), "/recipes")
       refute html =~ "quick"
-      refute html =~ "Alla"
+      refute html =~ "Sortera"
     end
   end
 
@@ -32,9 +31,9 @@ defmodule ToreWeb.RecipeLiveTest do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       html = render_click(lv, "toggle_more_filters")
       assert html =~ "quick"
-      assert html =~ "Alla"
+      assert html =~ "Sortera"
       html = render_click(lv, "toggle_more_filters")
-      refute html =~ "Alla"
+      refute html =~ "Sortera"
     end
   end
 
@@ -60,14 +59,6 @@ defmodule ToreWeb.RecipeLiveTest do
       )
 
       assert render(lv) =~ "/images/recipes/#{recipe.id}"
-    end
-  end
-
-  describe "get_ideas" do
-    test "shows coming soon flash", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
-      html = render_click(lv, "get_ideas")
-      assert html =~ "Kommer snart"
     end
   end
 

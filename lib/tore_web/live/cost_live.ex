@@ -113,20 +113,17 @@ defmodule ToreWeb.CostLive do
       current_path={assigns[:current_path] || "/settings/costs"}
     >
       <.page max_width={:md}>
+        <header class="mb-5 pt-2">
+          <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
+            {gettext("Food costs")}
+          </h1>
+        </header>
+
         <div
           id="cost-page"
-          class="overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[var(--surface)] shadow-[0_18px_70px_rgba(31,41,51,0.08)]"
+          class="overflow-hidden rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)]"
         >
-          <header class="px-6 py-6 md:px-8">
-            <h1
-              class="font-semibold tracking-[-0.025em] text-[color:var(--text)]"
-              style="font-size: clamp(22px, 4.5vw, 28px); line-height: 1.15;"
-            >
-              {gettext("Food costs")}
-            </h1>
-          </header>
-
-          <section class="border-t border-[color:var(--hairline)] px-6 py-7 md:px-8">
+          <section class="px-6 py-7 md:px-8">
             <p class="mb-4 font-medium text-[color:var(--muted)]" style="font-size: 15px;">
               {gettext("Total this month")}
             </p>
@@ -189,7 +186,7 @@ defmodule ToreWeb.CostLive do
     ~H"""
     <section id={@id} class="px-6 pb-7 md:px-8">
       <h2 class="mb-4 font-medium text-[color:var(--text)]" style="font-size: 15px;">{@title}</h2>
-      <div class="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white/35">
+      <div class="overflow-hidden rounded-[var(--r-lg)] border border-[color:var(--border)] bg-white/35">
         {render_slot(@inner_block)}
       </div>
     </section>
@@ -239,7 +236,7 @@ defmodule ToreWeb.CostLive do
   defp add_receipt(assigns) do
     ~H"""
     <section id="add-receipt" class="px-6 pb-8 md:px-8">
-      <div class="rounded-3xl bg-gradient-to-br from-[#f7f3ed] to-[#fbfaf6] p-5">
+      <div class="rounded-[var(--r-lg)] bg-[var(--sunken)] p-5">
         <%= if @scanning do %>
           <div
             class="flex items-center justify-center gap-2 py-4 text-[color:var(--muted)]"
@@ -252,7 +249,7 @@ defmodule ToreWeb.CostLive do
             <.live_file_input upload={@uploads.receipt_photo} class="hidden" />
             <label
               for={@uploads.receipt_photo.ref}
-              class="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--border)] bg-white/45 py-3 text-[color:var(--muted)] transition hover:border-[color:var(--accent)] hover:text-[var(--text)]"
+              class="flex cursor-pointer items-center justify-center gap-2 rounded-[var(--r-lg)] border border-dashed border-[color:var(--border)] bg-white/45 py-3 text-[color:var(--muted)] transition hover:border-[color:var(--accent)] hover:text-[var(--text)]"
               style="font-size: var(--t-meta);"
             >
               <.icon name="hero-camera" class="size-4" /> {gettext("Scan receipt photo")}

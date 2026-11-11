@@ -48,19 +48,21 @@ defmodule ToreWeb.PantryLive do
       current_scope={assigns[:current_scope]}
       current_path={assigns[:current_path] || "/settings/pantry"}
     >
-      <div class="max-w-2xl mx-auto p-4">
-        <header class="mb-4">
-          <h1 class="text-2xl font-semibold">{gettext("Approximate inventory")}</h1>
-          <p class="text-sm text-[color:var(--muted)]">
+      <div class="max-w-2xl mx-auto">
+        <header class="mb-5 pt-2">
+          <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
+            {gettext("Approximate inventory")}
+          </h1>
+          <p class="mt-1 text-sm text-[color:var(--muted)]">
             {gettext("What Tore thinks you have. Remove anything that's wrong.")}
           </p>
         </header>
 
         <div :for={{belief, items} <- @groups} class="mb-6">
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-[color:var(--muted)] mb-2">
+          <h2 class="section-label mb-2">
             {belief_label(belief)}
           </h2>
-          <ul class="divide-y divide-[color:var(--hairline)] rounded-lg border border-[color:var(--border)] bg-[var(--surface)]">
+          <ul class="divide-y divide-[color:var(--hairline)] rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)]">
             <li
               :for={item <- items}
               class={["flex items-center justify-between p-3", belief == :missing && "opacity-50"]}
@@ -103,7 +105,7 @@ defmodule ToreWeb.PantryLive do
 
         <div
           :if={@groups == []}
-          class="rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[color:var(--muted)]"
+          class="rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[color:var(--muted)]"
         >
           {gettext(
             "Nothing in the pantry yet. Items appear here when you check off groceries or send a photo of your shelves."

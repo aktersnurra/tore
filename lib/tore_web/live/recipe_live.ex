@@ -72,10 +72,6 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, show_more_filters: !socket.assigns.show_more_filters)}
   end
 
-  def handle_event("get_ideas", _, socket) do
-    {:noreply, put_flash(socket, :info, gettext("Coming soon"))}
-  end
-
   def handle_event("new_recipe", _, socket) do
     {:noreply,
      assign(socket,
@@ -303,17 +299,20 @@ defmodule ToreWeb.RecipeLive do
       current_path={assigns[:current_path] || "/recipes"}
     >
       <.page max_width={:md}>
-        <.card class="mb-6">
-          <header class="flex items-center justify-between gap-4 mb-5 pb-5 border-b border-[color:var(--hairline)]">
+        <div class="mb-6">
+          <header class="mb-5 flex items-end justify-between gap-4 pt-2">
             <div>
-              <h1 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h1);">
+              <h1
+                class="font-bold text-[var(--text)]"
+                style="font-size: var(--t-h1); line-height: 1.15;"
+              >
                 {gettext("Recipes")}
               </h1>
-              <p class="mt-0.5 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              <p class="num mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
                 {recipe_count_label(@recipes)}
               </p>
             </div>
-            <.button variant={:primary} phx-click="new_recipe">
+            <.button variant={:secondary} phx-click="new_recipe">
               <.icon name="hero-plus" class="size-4" /> {gettext("New recipe")}
             </.button>
           </header>
@@ -330,7 +329,7 @@ defmodule ToreWeb.RecipeLive do
                 name="query"
                 value={@search}
                 placeholder={gettext("Search recipes, ingredients, or meals…")}
-                class="w-full h-12 pl-10 pr-3 bg-[color:var(--hairline)] rounded-[var(--r-lg)] border-2 border-[color:var(--border)] text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none focus:border-[color:var(--accent)]"
+                class="w-full h-12 pl-11 pr-3 bg-[var(--surface)] rounded-[var(--r-md)] border border-[color:var(--border)] text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none focus:border-[color:var(--accent)]"
                 style="font-size: var(--t-body);"
               />
             </form>
@@ -343,15 +342,15 @@ defmodule ToreWeb.RecipeLive do
                   phx-click="filter_type"
                   phx-value-type={type}
                   class={[
-                    "px-3 h-8 rounded-[var(--r-pill)] transition-colors capitalize",
+                    "px-3 h-8 rounded-[var(--r-pill)] border transition-colors",
                     @filter_type == type &&
-                      "bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)]",
+                      "bg-[color:var(--text)] text-white border-[color:var(--text)]",
                     @filter_type != type &&
-                      "bg-[color:var(--hairline)] text-[color:var(--muted)] hover:text-[var(--text)]"
+                      "bg-[var(--surface)] text-[color:var(--muted)] border-[color:var(--border)] hover:text-[var(--text)]"
                   ]}
-                  style="font-size: var(--t-meta); font-weight: 500;"
+                  style="font-size: 13px; font-weight: 500;"
                 >
-                  {type}
+                  {type_label(type)}
                 </button>
               </div>
               <button
@@ -361,9 +360,9 @@ defmodule ToreWeb.RecipeLive do
                   "shrink-0 inline-flex items-center gap-1 px-3 h-8 rounded-[var(--r-pill)] transition-colors",
                   @show_more_filters && "bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)]",
                   !@show_more_filters &&
-                    "text-[color:var(--muted)] hover:text-[var(--text)] hover:bg-[color:var(--hairline)]"
+                    "text-[color:var(--muted)] hover:text-[var(--text)] hover:bg-[var(--sunken)]"
                 ]}
-                style="font-size: var(--t-meta); font-weight: 500;"
+                style="font-size: 13px; font-weight: 500;"
               >
                 {gettext("More filters")}
                 <.icon
@@ -421,34 +420,8 @@ defmodule ToreWeb.RecipeLive do
                 </button>
               </div>
             </div>
-
-            <%!-- Hero prompt --%>
-            <div class="flex items-center justify-between gap-4 px-4 py-3 rounded-[var(--r-lg)] bg-[color:var(--accent-soft)]/40">
-              <div class="flex items-start gap-3">
-                <.icon name="hero-sparkles" class="size-5 text-[color:var(--accent)] shrink-0 mt-0.5" />
-                <div>
-                  <p class="font-semibold text-[var(--text)]" style="font-size: var(--t-meta);">
-                    {gettext("What can we cook tonight?")}
-                  </p>
-                  <p class="text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-                    {gettext("Get ideas based on your pantry and this week's deals")}
-                  </p>
-                </div>
-              </div>
-              <.button variant={:secondary} phx-click="get_ideas">{gettext("Get ideas")}</.button>
-            </div>
-
-            <%!-- Import row — single input surface lives in /capture --%>
-            <.link
-              navigate={~p"/capture"}
-              class="flex items-center gap-3 h-11 px-3.5 bg-[var(--surface)] rounded-[var(--r-lg)] border border-dashed border-[color:var(--border)] text-[color:var(--muted)] hover:border-[color:var(--accent)] hover:text-[color:var(--text)]"
-              style="font-size: var(--t-body);"
-            >
-              <.icon name="hero-plus" class="size-4" />
-              {gettext("Paste a recipe URL or drop a photo in capture")}
-            </.link>
           </div>
-        </.card>
+        </div>
 
         <p :if={@error} class="mb-4 text-[color:var(--danger)]" style="font-size: var(--t-meta);">
           {@error}
@@ -457,45 +430,47 @@ defmodule ToreWeb.RecipeLive do
         <%= if @recipes == [] do %>
           <.card><.empty message={gettext("No recipes — add one or import from a URL")} /></.card>
         <% else %>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button
-              :for={recipe <- @recipes}
-              type="button"
-              phx-click="select_recipe"
-              phx-value-id={recipe.id}
-              class={[
-                "group block text-left bg-[var(--surface)] rounded-[var(--r-xl)] overflow-hidden border transition-all shadow-[0_1px_2px_rgba(17,24,39,0.04)] hover:shadow-[0_4px_16px_rgba(17,24,39,0.08)]",
-                @selected && @selected.id == recipe.id && "border-[color:var(--accent)]",
-                !(@selected && @selected.id == recipe.id) && "border-[color:var(--border)]"
-              ]}
-            >
-              <div class="aspect-[4/3] w-full bg-[color:var(--hairline)] flex items-center justify-center text-[color:var(--subtle)]">
-                <img
-                  :if={recipe.image_path}
-                  src={~p"/images/recipes/#{recipe.id}"}
-                  alt=""
-                  class="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-                />
-                <.icon :if={!recipe.image_path} name="hero-photo" class="size-10" />
-              </div>
-              <div class="p-4">
-                <p class="font-semibold text-[var(--text)] truncate" style="font-size: var(--t-body);">
-                  {recipe.title}
-                </p>
-                <div
-                  class="mt-1.5 flex items-center gap-3 text-[color:var(--muted)]"
-                  style="font-size: var(--t-meta);"
+          <.card padded={false}>
+            <ul class="divide-y divide-[color:var(--hairline)]">
+              <li :for={recipe <- @recipes}>
+                <button
+                  type="button"
+                  phx-click="select_recipe"
+                  phx-value-id={recipe.id}
+                  class="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-[var(--sunken)]"
                 >
-                  <span class="inline-flex items-center gap-1">
-                    <.icon name="hero-clock" class="size-3.5" /> {total_time(recipe)}
+                  <img
+                    :if={recipe.image_path}
+                    src={~p"/images/recipes/#{recipe.id}"}
+                    alt=""
+                    class="size-16 shrink-0 rounded-[var(--r-md)] object-cover"
+                  />
+                  <span
+                    :if={!recipe.image_path}
+                    aria-hidden="true"
+                    class="flex size-16 shrink-0 items-center justify-center rounded-[var(--r-md)] bg-[var(--sunken)] text-xl font-bold text-[color:var(--subtle)]"
+                  >
+                    {String.first(recipe.title)}
                   </span>
-                </div>
-                <div :if={recipe.tags != []} class="flex flex-wrap gap-1.5 mt-3">
-                  <.chip :for={tag <- Enum.take(recipe.tags, 3)} tone={:accent}>{tag.name}</.chip>
-                </div>
-              </div>
-            </button>
-          </div>
+                  <span class="min-w-0 flex-1">
+                    <span
+                      class="line-clamp-2 font-semibold text-[var(--text)]"
+                      style="font-size: var(--t-body); line-height: 1.3;"
+                    >
+                      {recipe.title}
+                    </span>
+                    <span
+                      class="num mt-0.5 block truncate text-[color:var(--muted)]"
+                      style="font-size: var(--t-meta);"
+                    >
+                      {recipe_meta(recipe)}
+                    </span>
+                  </span>
+                  <.icon name="hero-chevron-right" class="size-5 shrink-0 text-[color:var(--subtle)]" />
+                </button>
+              </li>
+            </ul>
+          </.card>
         <% end %>
 
         <div
@@ -506,7 +481,7 @@ defmodule ToreWeb.RecipeLive do
         >
           <div class="absolute inset-0 bg-black/30" phx-click="close"></div>
           <div
-            class="relative w-full md:max-w-lg bg-[var(--surface)] rounded-[var(--r-xl)] shadow-[0_8px_32px_rgba(17,24,39,0.16)] overflow-y-auto"
+            class="relative w-full md:max-w-lg bg-[var(--surface)] rounded-[var(--r-xl)] shadow-[var(--shadow-pop)] overflow-y-auto"
             style="max-height: 90vh;"
           >
             <%= cond do %>
@@ -651,8 +626,7 @@ defmodule ToreWeb.RecipeLive do
             <div :for={{phase, steps} <- grouped_steps(@selected)} class="mb-5 last:mb-0">
               <h4
                 :if={phase}
-                class="font-medium text-[color:var(--muted)] mb-2 uppercase tracking-wide"
-                style="font-size: var(--t-micro);"
+                class="section-label mb-2"
               >
                 {phase}
               </h4>
@@ -713,11 +687,11 @@ defmodule ToreWeb.RecipeLive do
                 name="missing"
                 placeholder={gettext("e.g. crème fraîche")}
                 autocomplete="off"
-                class="flex-1 rounded-xl border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                class="flex-1 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
               />
               <button
                 type="submit"
-                class="bg-[color:var(--accent)] text-white rounded-xl px-4 py-2.5 text-sm font-semibold"
+                class="bg-[color:var(--accent)] text-white rounded-[var(--r-md)] px-4 py-2.5 text-sm font-semibold"
               >
                 {gettext("Ask")}
               </button>
@@ -728,7 +702,7 @@ defmodule ToreWeb.RecipeLive do
             <% end %>
 
             <%= if @substitution do %>
-              <div class="mt-3 rounded-2xl bg-[var(--surface)] p-4">
+              <div class="mt-3 rounded-[var(--r-lg)] bg-[var(--surface)] p-4">
                 <p class="text-sm text-[var(--text)] leading-relaxed">{@substitution.suggestion}</p>
                 <%= if @substitution.updated_steps do %>
                   <p class="mt-2 text-sm text-[color:var(--muted)] leading-relaxed">
@@ -745,13 +719,13 @@ defmodule ToreWeb.RecipeLive do
           <%= if !@cook_mode do %>
             <button
               phx-click="enter_cook_mode"
-              class="w-full py-3 rounded-2xl bg-[color:var(--accent)] text-white text-sm font-semibold flex items-center justify-center gap-2"
+              class="w-full py-3 rounded-[var(--r-lg)] bg-[color:var(--accent)] text-white text-sm font-semibold flex items-center justify-center gap-2"
             >
               <.icon name="hero-fire" class="size-4" />
               {gettext("Start cooking")}
             </button>
           <% else %>
-            <div class="rounded-2xl bg-[var(--surface)] p-4">
+            <div class="rounded-[var(--r-lg)] bg-[var(--surface)] p-4">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-semibold text-[var(--text)]">{gettext("Cook mode")}</h3>
                 <button phx-click="exit_cook_mode" class="text-[color:var(--muted)] text-sm">
@@ -766,7 +740,7 @@ defmodule ToreWeb.RecipeLive do
               <%= if @cook_mode_steps do %>
                 <div class="space-y-4">
                   <div>
-                    <p class="text-xs font-semibold text-[color:var(--accent)] uppercase tracking-wide mb-2">
+                    <p class="section-label mb-2">
                       {gettext("Do first")}
                     </p>
                     <ul class="space-y-1">
@@ -782,7 +756,7 @@ defmodule ToreWeb.RecipeLive do
 
                   <%= if @cook_mode_steps.while_cooking != [] do %>
                     <div>
-                      <p class="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-2">
+                      <p class="section-label mb-2">
                         {gettext("While it cooks")}
                       </p>
                       <ul class="space-y-1">
@@ -798,7 +772,7 @@ defmodule ToreWeb.RecipeLive do
                   <% end %>
 
                   <div>
-                    <p class="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-2">
+                    <p class="section-label mb-2">
                       {gettext("Finish")}
                     </p>
                     <ul class="space-y-1">
@@ -1084,6 +1058,21 @@ defmodule ToreWeb.RecipeLive do
         |> Enum.chunk_by(& &1["phase"])
         |> Enum.map(fn steps -> {hd(steps)["phase"], steps} end)
     end
+  end
+
+  defp type_label(type) do
+    case to_string(type) do
+      "all" -> gettext("All")
+      "meal" -> gettext("Meals")
+      "component" -> gettext("Components")
+      "assembly" -> gettext("Assemblies")
+    end
+  end
+
+  # "35 min, vegetarian, quick": time first, then up to two tags.
+  defp recipe_meta(recipe) do
+    time = if total_time(recipe) == "—", do: [], else: [total_time(recipe)]
+    Enum.join(time ++ (recipe.tags |> Enum.take(2) |> Enum.map(& &1.name)), ", ")
   end
 
   defp total_time(recipe) do

@@ -527,8 +527,7 @@ defmodule ToreWeb.CoreComponents do
   end
 
   @doc ~S"""
-  Card surface — white, rounded-2xl, soft shadow + 1px border.
-  Default container for screens in the draft-ui design.
+  Card surface: white on the porcelain page, held by a hairline border.
 
       <.card>…</.card>
       <.card padded={false}>…</.card>
@@ -542,12 +541,11 @@ defmodule ToreWeb.CoreComponents do
     ~H"""
     <div
       class={[
-        "bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-xl)]",
+        "bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)]",
         "shadow-[var(--shadow-card)]",
         @padded && "p-5 md:p-6",
         @class
       ]}
-      style="--shadow-card: 0 1px 2px rgba(17,24,39,0.04), 0 1px 3px rgba(17,24,39,0.05);"
       {@rest}
     >
       {render_slot(@inner_block)}
@@ -599,7 +597,7 @@ defmodule ToreWeb.CoreComponents do
       class={[
         "flex items-center gap-3 px-4 min-h-[var(--tap-min)] py-3 border-b border-[color:var(--hairline)] last:border-b-0",
         @clickable &&
-          "cursor-pointer hover:bg-[color:var(--accent-soft)]/40 -mx-4 rounded-[var(--r-md)]"
+          "cursor-pointer hover:bg-[var(--sunken)] -mx-4 rounded-[var(--r-md)]"
       ]}
       {@rest}
     >
@@ -633,7 +631,7 @@ defmodule ToreWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "inline-flex items-center justify-center gap-2 font-semibold rounded-[var(--r-lg)] transition-colors disabled:opacity-40 disabled:pointer-events-none",
+        "inline-flex items-center justify-center gap-2 font-semibold rounded-[var(--r-md)] transition-[background-color,border-color,color,transform] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none",
         button_size_class(@size),
         button_variant_class(@variant),
         @full && "w-full"
@@ -650,15 +648,15 @@ defmodule ToreWeb.CoreComponents do
   defp button_size_class(:xl), do: "h-14 px-7 text-[length:var(--t-h2)]"
 
   defp button_variant_class(:primary),
-    do:
-      "bg-[color:var(--accent)] text-white hover:bg-[color:var(--accent-hover)] shadow-[0_1px_2px_rgba(17,24,39,0.06)]"
+    do: "bg-[color:var(--accent)] text-white hover:bg-[color:var(--accent-hover)]"
 
   defp button_variant_class(:secondary),
     do:
-      "bg-[var(--surface)] text-[var(--text)] border border-[color:var(--border)] hover:border-[color:var(--subtle)]"
+      "bg-[var(--surface)] text-[var(--text)] border border-[color:var(--border)] hover:bg-[var(--sunken)]"
 
   defp button_variant_class(:ghost),
-    do: "bg-transparent text-[color:var(--muted)] hover:text-[var(--text)]"
+    do:
+      "bg-transparent text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[var(--text)]"
 
   defp button_variant_class(:danger),
     do: "bg-transparent text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
@@ -676,7 +674,7 @@ defmodule ToreWeb.CoreComponents do
     ~H"""
     <button
       type="button"
-      class="inline-flex items-center justify-center size-11 rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--border)] hover:text-[var(--text)]"
+      class="inline-flex items-center justify-center size-11 rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[var(--text)]"
       {@rest}
     >
       <.icon name={@icon} class="size-5" />
@@ -718,7 +716,7 @@ defmodule ToreWeb.CoreComponents do
         value={@value}
         placeholder={@placeholder}
         class={[
-          "w-full h-11 px-3.5 bg-[var(--surface)] rounded-[var(--r-lg)] border text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none transition-colors",
+          "w-full h-11 px-3.5 bg-[var(--surface)] rounded-[var(--r-md)] border text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none transition-colors",
           @errors == [] && "border-[color:var(--border)] focus:border-[color:var(--accent)]",
           @errors != [] && "border-[color:var(--danger)]"
         ]}
@@ -751,7 +749,7 @@ defmodule ToreWeb.CoreComponents do
       role="checkbox"
       aria-checked={to_string(@checked)}
       class={[
-        "inline-flex items-center justify-center size-6 rounded-[var(--r-sm)] border-2 transition-colors",
+        "inline-flex items-center justify-center size-6 rounded-[var(--r-pill)] border-[1.5px] transition-colors",
         @checked && "bg-[color:var(--accent)] border-[color:var(--accent)] text-white",
         !@checked && "bg-transparent border-[color:var(--subtle)] hover:border-[color:var(--accent)]"
       ]}
@@ -791,7 +789,7 @@ defmodule ToreWeb.CoreComponents do
   defp chip_tone_class(:accent),
     do: "bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)]"
 
-  defp chip_tone_class(:warn), do: "bg-[color:var(--warn-soft)] text-[#9a4a13]"
+  defp chip_tone_class(:warn), do: "bg-[color:var(--warn-soft)] text-[color:var(--warn)]"
   defp chip_tone_class(:muted), do: "bg-transparent text-[color:var(--muted)]"
 
   @doc ~S"""
@@ -814,7 +812,7 @@ defmodule ToreWeb.CoreComponents do
         phx-click={@event}
         phx-value-tab={item.id}
         class={[
-          "h-11 px-4 -mb-px border-b-2 transition-colors",
+          "h-11 px-3 -mb-px border-b-2 transition-colors",
           item.id == @active && "text-[var(--text)] border-[color:var(--accent)]",
           item.id != @active &&
             "text-[color:var(--muted)] border-transparent hover:text-[var(--text)]"
@@ -847,7 +845,7 @@ defmodule ToreWeb.CoreComponents do
       class="group block w-full text-left"
       {@rest}
     >
-      <div class="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--r-xl)] bg-[color:var(--hairline)]">
+      <div class="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)]">
         <img
           :if={@image}
           src={@image}

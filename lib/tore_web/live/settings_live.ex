@@ -191,19 +191,16 @@ defmodule ToreWeb.SettingsLive do
       current_path={assigns[:current_path] || "/settings"}
     >
       <.page max_width={:md}>
-        <.card padded={false}>
-          <header class="px-6 pt-6 pb-3">
-            <h1 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h1);">
-              {gettext("Settings")}
-            </h1>
-          </header>
+        <header class="mb-5 pt-2">
+          <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
+            {gettext("Settings")}
+          </h1>
+        </header>
 
+        <.card padded={false}>
           <%!-- Members --%>
-          <section class="px-6 pt-3 pb-5 border-t border-[color:var(--hairline)]">
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
+          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+            <h2 class="section-label mb-3">
               {gettext("Members")}
             </h2>
 
@@ -264,7 +261,7 @@ defmodule ToreWeb.SettingsLive do
                 aria-label={gettext("Pocket ID username")}
                 autocomplete="off"
                 required
-                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
                 style="font-size: var(--t-body);"
               />
               <.button type="submit" variant={:primary}>
@@ -301,10 +298,7 @@ defmodule ToreWeb.SettingsLive do
             :if={length(@households) >= 2}
             class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]"
           >
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
+            <h2 class="section-label mb-3">
               {gettext("Your households")}
             </h2>
             <div class="flex flex-col gap-3">
@@ -337,11 +331,8 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- Household --%>
-          <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
+          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+            <h2 class="section-label mb-3">
               {gettext("Household")}
             </h2>
             <form phx-submit="rename_household" class="mb-4 flex items-center gap-2">
@@ -352,7 +343,7 @@ defmodule ToreWeb.SettingsLive do
                 aria-label={gettext("Household name")}
                 required
                 maxlength="100"
-                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
                 style="font-size: var(--t-body);"
               />
               <.button type="submit" variant={:secondary}>{gettext("Rename")}</.button>
@@ -374,11 +365,8 @@ defmodule ToreWeb.SettingsLive do
 
           <%!-- Device tokens --%>
           <%!-- Kitchen memory --%>
-          <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
+          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+            <h2 class="section-label mb-3">
               {gettext("Things Tore has learned")}
             </h2>
             <%= if Enum.all?(@memory, &(&1.entries == [])) do %>
@@ -396,7 +384,7 @@ defmodule ToreWeb.SettingsLive do
                 <ul class="space-y-2">
                   <li
                     :for={entry <- part.entries}
-                    class="flex items-start justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3"
+                    class="flex items-start justify-between gap-3 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] p-3"
                   >
                     <p class="flex-1 text-sm">{entry.text}</p>
                     <button
@@ -413,11 +401,8 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- Stores --%>
-          <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
+          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+            <h2 class="section-label mb-3">
               {gettext("Stores")}
             </h2>
 
@@ -464,7 +449,7 @@ defmodule ToreWeb.SettingsLive do
                 placeholder="https://www.ica.se/erbjudanden/…"
                 aria-label={gettext("Link to a store's offers")}
                 required
-                class="flex-1 min-w-0 rounded-lg border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
                 style="font-size: var(--t-body);"
               />
               <.button type="submit" variant={:primary}>
@@ -481,11 +466,8 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- AI usage --%>
-          <section class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]">
-            <h2
-              class="uppercase tracking-wider text-[color:var(--subtle)] mb-3"
-              style="font-size: var(--t-micro); font-weight: 600;"
-            >
+          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+            <h2 class="section-label mb-3">
               {gettext("AI usage")}
             </h2>
             <div :if={@current_user.ai_enabled} class="mb-4 flex items-center justify-between gap-3">
@@ -574,17 +556,17 @@ defmodule ToreWeb.SettingsLive do
         </.card>
 
         <section class="mt-8 border-t border-[color:var(--border)] pt-6">
-          <h2 class="text-sm font-semibold text-[color:var(--muted)] uppercase tracking-widest mb-3">
+          <h2 class="section-label mb-3">
             {gettext("More")}
           </h2>
-          <ul class="divide-y divide-[color:var(--hairline)] rounded-lg border border-[color:var(--border)] bg-[var(--surface)]">
+          <ul class="divide-y divide-[color:var(--hairline)] rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)]">
             <li>
               <.link
                 navigate={~p"/settings/pantry"}
                 class="flex items-center justify-between p-4 hover:bg-[var(--bg)]"
               >
                 <span>{gettext("Approximate inventory")}</span>
-                <span aria-hidden="true">→</span>
+                <.icon name="hero-chevron-right" class="size-4 text-[color:var(--subtle)]" />
               </.link>
             </li>
             <li>
@@ -593,7 +575,7 @@ defmodule ToreWeb.SettingsLive do
                 class="flex items-center justify-between p-4 hover:bg-[var(--bg)]"
               >
                 <span>{gettext("Spending")}</span>
-                <span aria-hidden="true">→</span>
+                <.icon name="hero-chevron-right" class="size-4 text-[color:var(--subtle)]" />
               </.link>
             </li>
             <li></li>

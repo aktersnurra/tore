@@ -39,61 +39,77 @@ defmodule ToreWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user} current_path="/today">
-      <%!-- Tonight card --%>
-      <section class="mb-6">
-        <h2 class="text-xs font-semibold uppercase tracking-wider text-[color:var(--muted)] mb-3">
-          {gettext("Tonight")}
-        </h2>
+      <%!-- Tonight: the one large thing in the app --%>
+      <.page max_width={:md}>
+        <section class="pt-6 md:pt-12">
+          <p class="section-label">{gettext("Tonight")}</p>
 
-        <div
-          :if={@tonight_recipe}
-          id="tonight-card"
-          phx-hook="LongPress"
-          data-long-press-event="open_tonight_sheet"
-          class="rounded-2xl bg-[var(--surface)] border border-[color:var(--border)] overflow-hidden"
-        >
-          <div class="w-full h-48 bg-[var(--border)] flex items-center justify-center text-[color:var(--muted)] text-sm">
-            {gettext("No photo")}
-          </div>
-          <div class="p-4">
-            <p class="text-xl font-semibold text-[color:var(--text)]">{@tonight_recipe.title}</p>
-            <div class="mt-4 flex gap-3">
+          <div
+            :if={@tonight_recipe}
+            id="tonight-card"
+            phx-hook="LongPress"
+            data-long-press-event="open_tonight_sheet"
+          >
+            <h1
+              class="mt-2 font-bold text-[color:var(--text)]"
+              style="font-size: clamp(34px, 9vw, 52px); line-height: 1.05; letter-spacing: -0.03em;"
+            >
+              {@tonight_recipe.title}
+            </h1>
+            <p
+              :if={minutes(@tonight_recipe)}
+              class="num mt-3 text-[color:var(--muted)]"
+              style="font-size: var(--t-meta);"
+            >
+              {gettext("%{minutes} min", minutes: minutes(@tonight_recipe))}
+            </p>
+            <img
+              :if={@tonight_recipe.image_path}
+              src={~p"/images/recipes/#{@tonight_recipe.id}"}
+              alt=""
+              class="mt-6 aspect-[4/3] w-full rounded-[var(--r-lg)] object-cover"
+            />
+            <div class="mt-8 flex gap-3">
               <.link
                 navigate={~p"/recipes"}
-                class="flex-1 rounded-xl bg-[color:var(--accent)] text-white text-center py-3 text-sm font-semibold"
+                class="flex h-12 flex-1 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
               >
                 {gettext("Start cooking")}
               </.link>
               <button
+                type="button"
                 phx-click="something_else"
-                class="flex-1 rounded-xl border border-[color:var(--border)] text-[color:var(--text)] py-3 text-sm font-semibold"
+                class="h-12 flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] font-semibold text-[color:var(--text)] transition-colors hover:bg-[var(--sunken)]"
               >
                 {gettext("Something else")}
               </button>
             </div>
           </div>
-        </div>
 
-        <div
-          :if={!@tonight_recipe}
-          class="rounded-2xl bg-[var(--surface)] border border-[color:var(--border)] p-6 text-center text-[color:var(--muted)] text-sm"
-        >
-          {if @eating_out_tonight,
-            do: gettext("Eating out tonight"),
-            else: gettext("Nothing planned for tonight")}
-          <div class="mt-4">
-            <.link navigate={~p"/plan"} class="text-[color:var(--accent)] font-semibold text-sm">
+          <div :if={!@tonight_recipe}>
+            <h1
+              class="mt-2 font-bold text-[color:var(--text)]"
+              style="font-size: clamp(30px, 8vw, 44px); line-height: 1.1; letter-spacing: -0.03em;"
+            >
+              {if @eating_out_tonight,
+                do: gettext("Eating out tonight"),
+                else: gettext("Nothing planned for tonight")}
+            </h1>
+            <.link
+              navigate={~p"/plan"}
+              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-5 font-semibold text-[color:var(--text)] transition-colors hover:bg-[var(--sunken)]"
+            >
               {gettext("Open planner")}
             </.link>
           </div>
-        </div>
-      </section>
+        </section>
+      </.page>
 
       <%!-- Tonight object sheet (long-press) --%>
       <div
         :if={@tonight_sheet && @tonight_recipe}
         id="tonight-sheet"
-        class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-2xl bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
+        class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-[var(--r-xl)] bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
         phx-window-keydown="close_tonight_sheet"
         phx-key="Escape"
       >
@@ -119,7 +135,7 @@ defmodule ToreWeb.HomeLive do
               name="command"
               autocomplete="off"
               placeholder={gettext("Anything about tonight…")}
-              class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+              class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
             />
           </form>
         </div>
@@ -211,6 +227,13 @@ defmodule ToreWeb.HomeLive do
       end)
 
     {:noreply, socket}
+  end
+
+  defp minutes(recipe) do
+    case (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0) do
+      0 -> nil
+      total -> total
+    end
   end
 
   defp today_slot_key(today) do

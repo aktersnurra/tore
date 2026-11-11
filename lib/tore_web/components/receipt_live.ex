@@ -18,8 +18,8 @@ defmodule ToreWeb.Components.ReceiptLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="rounded-2xl border border-[color:var(--hairline)] bg-[var(--surface)] p-4">
-      <p class="text-[10px] font-semibold text-[color:var(--accent)] uppercase tracking-widest mb-1">
+    <div class="rounded-[var(--r-lg)] border border-[color:var(--hairline)] bg-[var(--surface)] p-4">
+      <p class="section-label mb-1">
         {@header_text}
       </p>
       <div class="text-sm text-[color:var(--text)]">

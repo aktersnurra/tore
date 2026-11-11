@@ -190,8 +190,8 @@ Use:
 
 ```md
 Large calm surfaces
-Warm near-neutral backgrounds
-Soft depth
+A cool porcelain background with white cards
+Hairlines, not shadows
 Precise typography
 Sparse accent color
 Generous spacing
@@ -215,63 +215,42 @@ AI sparkle icons everywhere
 ## 4.2 Theme name
 
 ```md
-Theme: Warm Future
+Theme: Porslin
 ```
+
+The colours come from Swedish tableware: porcelain, cobalt, saffron and lingonberry.
 
 ## 4.3 Color tokens
 
-Use a small semantic palette.
+`assets/css/app.css` is the source of truth; this is a copy. Screens use these tokens only, never raw colours.
 
 ```css
---bg:              #F4EFE7;  /* warm oat */
---surface:         #FFFCF6;  /* warm porcelain */
---surface-raised:  #FFFFFF;
---surface-muted:   #ECE3D7;
+--bg:           #F3F4F1;  /* porslin: cool porcelain, the page */
+--surface:      #FFFFFF;  /* cards, sheets, inputs */
+--sunken:       #ECEEEA;  /* wells: empty photos, hovered rows */
 
---ink:             #1F211D;  /* soft black */
---ink-muted:       #6C6A61;
---ink-faint:       #9A9488;
+--text:         #1C2127;  /* spis */
+--muted:        #5C636D;
+--subtle:       #979DA6;
 
---line:            #DED4C6;
---line-strong:     #C8BAA8;
+--border:       #DFE2DC;
+--hairline:     #EBEDE8;
 
---accent:          #556B5F;  /* muted sage */
---accent-ink:      #F8F4EA;
---accent-soft:     #DDE7DF;
+--accent:       #27407A;  /* kobolt */
+--accent-hover: #1E3263;
+--accent-soft:  #E4E9F5;
+--accent-ink:   #223A70;
 
---attention:       #A56A43;  /* warm copper */
---attention-soft:  #EFE0D3;
+--warn:         #8F6212;  /* saffran, dark enough for text */
+--warn-soft:    #F8EDD3;
 
---danger:          #9B3E35;
---danger-soft:     #F1DAD6;
-
---success:         #536F4E;
---success-soft:    #DDE8DA;
-
---focus:           #1F211D;
+--danger:       #A3312B;  /* lingon */
+--danger-soft:  #F7E6E4;
 ```
 
-Dark mode later:
+There is no dark mode yet.
 
-```css
---bg:              #171814;
---surface:         #20211C;
---surface-raised:  #292A24;
---surface-muted:   #2F3029;
-
---ink:             #F6F0E6;
---ink-muted:       #B8B0A4;
---ink-faint:       #827B71;
-
---line:            #3C3A33;
---line-strong:     #565247;
-
---accent:          #B9C8B7;
---accent-ink:      #171814;
---accent-soft:     #303A32;
-```
-
-Color must communicate hierarchy and state, not decoration. Material Design’s current system guidance emphasizes design tokens and accessible color schemes that communicate hierarchy, state, and brand. ([Material Design][3])
+Color must communicate hierarchy and state, not decoration.
 
 ## 4.4 Contrast and accessibility
 
@@ -289,77 +268,43 @@ WCAG 2.2 requires at least 4.5:1 contrast for normal text, 3:1 for large text, a
 
 ## 4.5 Typography
 
-Use one excellent sans-serif, no more.
-
-Recommended:
-
-```md
-Primary: Inter, Geist, SF Pro, or system-ui
-Numbers: tabular figures enabled
-```
-
-Type scale:
+The device's own sans-serif (`system-ui`), nothing downloaded.
 
 ```css
---text-xs:   12px;
---text-sm:   14px;
---text-md:   16px;
---text-lg:   18px;
---text-xl:   22px;
---text-2xl:  28px;
---text-3xl:  36px;
---text-hero: 52px;
+--t-display: 34px;
+--t-h1:      26px;   /* page titles, bold */
+--t-h2:      17px;
+--t-body:    16px;
+--t-meta:    14px;
+--t-micro:   12px;
 ```
 
 Rules:
 
 ```md
-Use large type for decisions.
-Use small type only for metadata.
-Never use low-contrast tiny labels for important information.
-One screen should have one typographic hero.
-Use tabular numbers for servings, times, quantities, prices.
+One screen has one typographic hero: tonight's dinner on Today is the largest type in the app.
+Every page title is the same size and weight, and sits on the page, not inside a card.
+Section labels are sentence case (`.section-label`), never tracked capitals.
+Links say what they do, with no arrow.
+Use tabular figures (`.num`) for servings, times, quantities and prices.
 ```
 
 ## 4.6 Shape
 
+Corners follow hierarchy.
+
 ```css
---radius-sm:  10px;
---radius-md:  16px;
---radius-lg:  24px;
---radius-xl:  32px;
---radius-pill: 999px;
+--r-sm:   8px;
+--r-md:   10px;   /* buttons, inputs, thumbnails */
+--r-lg:   14px;   /* cards */
+--r-xl:   20px;   /* sheets and dialogs */
+--r-pill: 9999px; /* chips, the chat box */
 ```
-
-Rules:
-
-```md
-Primary cards:      24–32px radius
-Buttons:            pill or 16px radius
-Inputs:             pill for command/capture; 16px for forms
-Images:             20–28px radius
-Bottom sheets:      28px top radius
-```
-
-The style should be soft and physical, but not childish.
 
 ## 4.7 Elevation
 
-Use almost no shadow.
-
-```css
---shadow-soft: 0 12px 40px rgba(31, 33, 29, 0.08);
---shadow-float: 0 20px 80px rgba(31, 33, 29, 0.14);
-```
-
-Default cards should use border + background. Shadows are reserved for:
-
-```md
-Floating command bar
-Bottom sheets
-Run receipt drawer
-Active dragged meal
-```
+Cards use a border and a background. Only things that float get a shadow (`--shadow-pop`): the menu,
+sheets, dialogs and flashes.
 
 ## 4.8 Motion
 

@@ -444,47 +444,56 @@ defmodule ToreWeb.PlannerLive do
       current_path={assigns[:current_path] || "/"}
     >
       <.page max_width={:md}>
-        <header class="flex items-center justify-between gap-4 mb-5">
-          <button
-            type="button"
-            phx-click="prev_week"
-            class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
-            aria-label={gettext("Previous week")}
-          >
-            <.icon name="hero-chevron-left" class="size-5" />
-          </button>
-
-          <div class="text-center">
-            <h1 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
+        <header class="mb-5 flex items-end justify-between gap-4 pt-2">
+          <div class="min-w-0">
+            <h1
+              class="font-bold text-[var(--text)]"
+              style="font-size: var(--t-h1); line-height: 1.15;"
+            >
               {gettext("This week")}
             </h1>
-            <p class="text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            <p class="num mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
               {plan_subtitle(@plan_state, @week_start, @week_end)}
             </p>
           </div>
-
-          <button
-            type="button"
-            phx-click="next_week"
-            class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
-            aria-label={gettext("Next week")}
-          >
-            <.icon name="hero-chevron-right" class="size-5" />
-          </button>
+          <div class="flex shrink-0 items-center rounded-[var(--r-pill)] border border-[color:var(--border)] bg-[var(--surface)]">
+            <button
+              type="button"
+              phx-click="prev_week"
+              class="inline-flex size-10 items-center justify-center rounded-l-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[var(--text)]"
+              aria-label={gettext("Previous week")}
+            >
+              <.icon name="hero-chevron-left" class="size-5" />
+            </button>
+            <button
+              type="button"
+              phx-click="next_week"
+              class="inline-flex size-10 items-center justify-center rounded-r-[var(--r-pill)] border-l border-[color:var(--border)] text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[var(--text)]"
+              aria-label={gettext("Next week")}
+            >
+              <.icon name="hero-chevron-right" class="size-5" />
+            </button>
+          </div>
         </header>
 
         <div class="mb-4">
-          <form phx-submit="quick_command" class="flex gap-2">
+          <form
+            phx-submit="quick_command"
+            class="flex items-center gap-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] pl-3.5 pr-1 focus-within:border-[color:var(--accent)]"
+          >
             <input
               type="text"
               name="command"
+              autocomplete="off"
               placeholder={gettext("Ask about tonight's plan...")}
-              class="flex-1 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+              aria-label={gettext("Ask about tonight's plan...")}
+              class="h-11 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
+              style="font-size: var(--t-meta);"
               disabled={@quick_loading}
             />
             <button
               type="submit"
-              class="rounded-lg bg-[color:var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--accent-hover)] disabled:opacity-50"
+              class="h-9 shrink-0 rounded-[var(--r-sm)] px-3 text-[13px] font-semibold text-[color:var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-50"
               disabled={@quick_loading}
             >
               {if @quick_loading, do: gettext("..."), else: gettext("Ask")}
@@ -500,46 +509,41 @@ defmodule ToreWeb.PlannerLive do
           <% end %>
         </div>
 
-        <%!-- Plan health badge (placeholder until Task 3 wires real data) --%>
-        <div class={[
-          "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full mb-4",
-          elem(@plan_health, 0) == :ready &&
-            "bg-[var(--accent-soft)] text-[color:var(--accent-ink)]",
-          elem(@plan_health, 0) == :flexible &&
-            "bg-[var(--warn-soft)] text-[color:var(--text)]",
-          elem(@plan_health, 0) == :fragile &&
-            "bg-[var(--warn-soft)] text-[color:var(--warn)]",
-          elem(@plan_health, 0) == :unplanned &&
-            "bg-[var(--surface)] text-[color:var(--muted)]"
-        ]}>
-          <span
-            class="size-1.5 rounded-full inline-block"
-            style={health_dot_color(elem(@plan_health, 0))}
-          />
-          {health_message(@plan_health)}
-        </div>
-        <div class="mt-2">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div class={[
+            "inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-3 py-1.5 text-[13px] font-semibold",
+            elem(@plan_health, 0) == :ready &&
+              "bg-[var(--accent-soft)] text-[color:var(--accent-ink)]",
+            elem(@plan_health, 0) in [:flexible, :fragile] &&
+              "bg-[var(--warn-soft)] text-[color:var(--warn)]",
+            elem(@plan_health, 0) == :unplanned &&
+              "bg-[var(--sunken)] text-[color:var(--muted)]"
+          ]}>
+            {health_message(@plan_health)}
+          </div>
           <.link
             navigate={~p"/prep"}
             data-role="prep-link"
-            class="text-xs font-semibold text-[color:var(--accent)] hover:underline"
+            class="text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
           >
-            {gettext("Prep this week")} →
+            {gettext("Prep this week")}
           </.link>
         </div>
 
-        <%!-- Week mode selector (placeholder — modes are normal only until Task 4 builds WeekMode) --%>
-        <div class="flex flex-wrap gap-2 mb-4">
+        <%!-- How this week should be planned --%>
+        <div class="scroll-quiet -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1">
           <%= for {mode, label} <- [{"normal", gettext("Normal")}, {"low_effort", gettext("Low effort")}, {"budget_week", gettext("Budget")}, {"use_pantry", gettext("Use pantry")}, {"more_leftovers", gettext("More leftovers")}] do %>
             <button
+              type="button"
               phx-click="set_week_mode"
               phx-value-mode={mode}
+              aria-pressed={to_string(@current_week_mode == mode)}
               class={[
-                "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                "shrink-0 rounded-[var(--r-pill)] border px-3 py-1.5 text-[13px] font-medium transition-colors",
                 @current_week_mode == mode &&
-                  "bg-[color:var(--accent)] text-white border-[color:var(--accent)]",
+                  "bg-[color:var(--text)] text-white border-[color:var(--text)]",
                 @current_week_mode != mode &&
-                  "bg-transparent text-[color:var(--muted)] border-[color:var(--hairline)]"
+                  "bg-[var(--surface)] text-[color:var(--muted)] border-[color:var(--border)] hover:text-[var(--text)]"
               ]}
             >
               {label}
@@ -603,21 +607,21 @@ defmodule ToreWeb.PlannerLive do
       class={[
         "transition-colors",
         @slot && @slot.skipped && !State.eating_out?(@slot) && "opacity-50",
-        @focused && "ring-2 ring-[color:var(--accent)] rounded-xl"
+        @focused && "ring-2 ring-[color:var(--accent)] rounded-[var(--r-md)]"
       ]}
     >
       <div
         phx-click="open_slot"
         phx-value-slot_key={@slot_key}
-        class="grid grid-cols-[56px_80px_1fr_auto] items-center gap-4 px-5 py-3 cursor-pointer hover:bg-[color:var(--accent-soft)]/20"
+        class="flex min-h-[72px] cursor-pointer items-center gap-4 px-4 py-3 hover:bg-[var(--sunken)]"
         role="button"
         tabindex="0"
         aria-label={gettext("Edit %{label}", label: slot_label(@slot_key))}
       >
-        <div class="flex flex-col items-center">
+        <div class="flex w-11 shrink-0 flex-col items-center">
           <div
             class={[
-              "uppercase tracking-wide font-medium leading-none",
+              "font-semibold leading-none",
               !@is_today && "text-[color:var(--subtle)]",
               @is_today && "text-[color:var(--accent)]"
             ]}
@@ -652,35 +656,21 @@ defmodule ToreWeb.PlannerLive do
           </span>
         </div>
 
-        <div class={[
-          "h-[60px] w-20 rounded-[var(--r-lg)] overflow-hidden flex items-center justify-center text-[color:var(--subtle)]",
-          @recipe && "bg-[color:var(--hairline)]",
-          !@recipe && "bg-transparent border border-dashed border-[color:var(--border)]"
-        ]}>
-          <img
-            :if={@recipe && @recipe.image_path}
-            src={~p"/images/recipes/#{@recipe.id}"}
-            alt=""
-            class="h-full w-full object-cover"
-          />
-          <.icon :if={@recipe && !@recipe.image_path} name="hero-photo" class="size-6" />
-          <.icon :if={!@recipe} name="hero-plus" class="size-5" />
-        </div>
-
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <%= cond do %>
             <% @recipe -> %>
-              <p class="font-semibold text-[var(--text)] truncate" style="font-size: var(--t-body);">
+              <p
+                class="line-clamp-2 font-semibold text-[var(--text)]"
+                style="font-size: var(--t-body); line-height: 1.3;"
+              >
                 {@recipe.title}
               </p>
               <div
-                class="mt-1 flex items-center gap-3 text-[color:var(--muted)]"
+                class="num mt-0.5 flex items-center gap-3 text-[color:var(--muted)]"
                 style="font-size: var(--t-meta);"
               >
-                <span :if={@slot.servings} class="inline-flex items-center gap-1">
-                  <.icon name="hero-user-group" class="size-3.5" /> {gettext("%{n} servings",
-                    n: @slot.servings
-                  )}
+                <span :if={@slot.servings}>
+                  {gettext("%{n} servings", n: @slot.servings)}
                 </span>
                 <span :if={@slot.leftover} class="inline-flex items-center gap-1">
                   <.icon name="hero-arrow-uturn-right" class="size-3.5" /> {gettext("Uses leftovers")}
@@ -700,18 +690,24 @@ defmodule ToreWeb.PlannerLive do
               </p>
             <% true -> %>
               <p class="text-[color:var(--subtle)]" style="font-size: var(--t-body);">
-                {gettext("— add a meal")}
+                {gettext("Add a meal")}
               </p>
           <% end %>
         </div>
 
+        <img
+          :if={@recipe && @recipe.image_path}
+          src={~p"/images/recipes/#{@recipe.id}"}
+          alt=""
+          class="size-14 shrink-0 rounded-[var(--r-md)] object-cover"
+        />
         <.chip :if={leftover_target(@plan_state, @days, @date) != nil} tone={:accent}>
           {gettext("Leftovers for %{day}", day: leftover_target(@plan_state, @days, @date))}
         </.chip>
         <.icon
           :if={leftover_target(@plan_state, @days, @date) == nil}
           name="hero-chevron-right"
-          class="size-5 text-[color:var(--subtle)]"
+          class="size-5 shrink-0 text-[color:var(--subtle)]"
         />
       </div>
     </li>
@@ -773,7 +769,7 @@ defmodule ToreWeb.PlannerLive do
         phx-key="Escape"
       >
         <div class={[
-          "slot-panel-wrap bg-[var(--surface)] rounded-[var(--r-xl)] shadow-[0_8px_32px_rgba(17,24,39,0.16)]",
+          "slot-panel-wrap bg-[var(--surface)] rounded-[var(--r-xl)] shadow-[var(--shadow-pop)]",
           @slot_action.flipped && "is-flipped"
         ]}>
           <%!-- FRONT PANEL --%>
@@ -993,7 +989,7 @@ defmodule ToreWeb.PlannerLive do
                 name="command"
                 autocomplete="off"
                 placeholder={gettext("Anything about this day…")}
-                class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
               />
             </form>
           </div>
@@ -1037,10 +1033,7 @@ defmodule ToreWeb.PlannerLive do
               <%= if @slot_action.search == "" do %>
                 <section>
                   <div class="flex items-center justify-between mb-2">
-                    <h3
-                      class="uppercase tracking-wider text-[color:var(--subtle)]"
-                      style="font-size: var(--t-micro); font-weight: 600;"
-                    >
+                    <h3 class="section-label">
                       {gettext("Suggested")}
                     </h3>
                     <button
@@ -1072,10 +1065,7 @@ defmodule ToreWeb.PlannerLive do
               <% end %>
 
               <section>
-                <h3
-                  class="uppercase tracking-wider text-[color:var(--subtle)] mb-2"
-                  style="font-size: var(--t-micro); font-weight: 600;"
-                >
+                <h3 class="section-label mb-2">
                   {if @slot_action.search == "", do: gettext("All recipes"), else: gettext("Results")}
                 </h3>
                 <ul class="space-y-2">
@@ -1263,17 +1253,12 @@ defmodule ToreWeb.PlannerLive do
   defp plan_id(scope, week_start), do: Tore.Streams.plan(scope, week_start)
   defp shop_id(scope, week_start), do: Tore.Streams.shop_list(scope, week_start)
 
-  defp health_dot_color(:ready), do: "background:#16a34a"
-  defp health_dot_color(:flexible), do: "background:#ca8a04"
-  defp health_dot_color(:fragile), do: "background:#ea580c"
-  defp health_dot_color(:unplanned), do: "background:var(--muted)"
-
-  defp health_message({:unplanned, _}), do: gettext("No plan for this week yet.")
-  defp health_message({:ready, _}), do: gettext("Plan looks good for the week.")
+  defp health_message({:unplanned, _}), do: gettext("No plan for this week yet")
+  defp health_message({:ready, _}), do: gettext("The week is planned")
 
   defp health_message({:flexible, n}),
-    do: gettext("%{count} slot(s) unplanned.", count: n)
+    do: ngettext("%{count} dinner unplanned", "%{count} dinners unplanned", n, count: n)
 
   defp health_message({:fragile, n}),
-    do: gettext("%{count} dinner(s) skipped this week.", count: n)
+    do: ngettext("%{count} dinner skipped", "%{count} dinners skipped", n, count: n)
 end

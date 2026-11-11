@@ -89,26 +89,19 @@ defmodule ToreWeb.PrepLive do
       current_path={assigns[:current_path] || "/prep"}
     >
       <.page max_width={:md}>
-        <.card padded={false}>
-          <header class="flex items-center justify-between px-6 pt-6 pb-3">
-            <h1 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h1);">
-              {gettext("Prep Guide")}
-            </h1>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="h-9 px-3 inline-flex items-center gap-1.5 rounded-[var(--r-lg)] border border-[color:var(--border)] text-[color:var(--muted)] hover:border-[color:var(--subtle)]"
-                style="font-size: var(--t-meta);"
-              >
-                {Calendar.strftime(@week_start, "%b %-d")} – {Calendar.strftime(
-                  Date.add(@week_start, 6),
-                  "%b %-d"
-                )}
-                <.icon name="hero-chevron-down" class="size-3.5" />
-              </button>
-            </div>
-          </header>
+        <header class="flex items-end justify-between gap-4 mb-5 pt-2">
+          <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
+            {gettext("Prep Guide")}
+          </h1>
+          <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            {Calendar.strftime(@week_start, "%-d/%-m")} – {Calendar.strftime(
+              Date.add(@week_start, 6),
+              "%-d/%-m"
+            )}
+          </p>
+        </header>
 
+        <.card padded={false}>
           <%= cond do %>
             <% @generating -> %>
               <div class="px-6 py-14 flex flex-col items-center text-center border-t border-[color:var(--hairline)]">
@@ -172,10 +165,7 @@ defmodule ToreWeb.PrepLive do
                           }
                           :if={@guide.prep_session[key] not in [nil, []]}
                         >
-                          <h3
-                            class="uppercase tracking-wider text-[color:var(--subtle)] mb-2"
-                            style="font-size: var(--t-micro); font-weight: 600;"
-                          >
+                          <h3 class="section-label mb-2">
                             {label}
                           </h3>
                           <ul class="space-y-2">

@@ -181,7 +181,7 @@ defmodule ToreWeb.CaptureLive do
            "translate-y-0"}
         )
       }
-      class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-2xl bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
+      class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-[var(--r-xl)] bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
       phx-window-keydown="close_tray"
       phx-key="Escape"
     >
@@ -203,6 +203,22 @@ defmodule ToreWeb.CaptureLive do
 
       <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <div
+          :if={@messages == [] and not @loading}
+          class="flex h-full flex-col items-start justify-end pb-4"
+        >
+          <p
+            class="font-bold text-[color:var(--text)]"
+            style="font-size: var(--t-h1); line-height: 1.15; letter-spacing: -0.02em;"
+          >
+            {gettext("What do you need?")}
+          </p>
+          <p class="mt-2 max-w-[32ch] text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            {gettext(
+              "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
+            )}
+          </p>
+        </div>
+        <div
           :for={msg <- @messages}
           class={[
             "flex",
@@ -212,7 +228,7 @@ defmodule ToreWeb.CaptureLive do
         >
           <div
             :if={Map.get(msg, :review_link)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-2xl px-4 py-3 max-w-[80%]"
+            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%]"
           >
             <p class="text-sm text-[color:var(--text)] mb-2">{msg.text}</p>
             <.link
@@ -223,12 +239,12 @@ defmodule ToreWeb.CaptureLive do
               }
               class="text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
             >
-              {gettext("Review")} →
+              {gettext("Review")}
             </.link>
           </div>
           <div
             :if={Map.get(msg, :pantry_suggestions)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-2xl px-4 py-3 max-w-[80%] space-y-2"
+            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%] space-y-2"
           >
             <p class="text-sm text-[color:var(--text)]">{msg.text}</p>
             <ul class="space-y-1.5">
@@ -237,7 +253,7 @@ defmodule ToreWeb.CaptureLive do
                   navigate={~p"/recipes"}
                   class="block text-sm text-[color:var(--accent)] font-semibold"
                 >
-                  {s.title} →
+                  {s.title}
                 </.link>
                 <p
                   :if={s.reasons != []}
@@ -250,7 +266,7 @@ defmodule ToreWeb.CaptureLive do
           </div>
           <div
             :if={Map.get(msg, :shop_link)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-2xl px-4 py-3 max-w-[80%] space-y-2"
+            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%] space-y-2"
           >
             <p class="text-sm text-[color:var(--text)]">{msg.text}</p>
             <ul :if={Map.get(msg, :shopping_items, []) != []} class="space-y-0.5">
@@ -269,7 +285,7 @@ defmodule ToreWeb.CaptureLive do
               navigate={~p"/shop"}
               class="text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
             >
-              {gettext("Open shopping list")} →
+              {gettext("Open shopping list")}
             </.link>
             <.undo msg={msg} />
           </div>
@@ -279,7 +295,7 @@ defmodule ToreWeb.CaptureLive do
                 !Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link)
             }
             class={[
-              "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed flex flex-col gap-1",
+              "max-w-[80%] rounded-[var(--r-lg)] px-4 py-2.5 text-sm leading-relaxed flex flex-col gap-1",
               msg.role == :user && "bg-[color:var(--accent)] text-white",
               msg.role == :assistant && "bg-[var(--surface)] border border-[color:var(--border)]",
               msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
@@ -292,13 +308,13 @@ defmodule ToreWeb.CaptureLive do
               navigate={~p"/cooking"}
               class="self-start text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
             >
-              {gettext("Open the kitchen page")} →
+              {gettext("Open the kitchen page")}
             </.link>
             <.undo msg={msg} />
           </div>
         </div>
         <div :if={@loading} class="flex justify-start">
-          <div class="bg-[var(--surface)] border border-[color:var(--border)] rounded-2xl px-4 py-2.5">
+          <div class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-2.5">
             <span class="text-[color:var(--muted)] text-sm">{gettext("Thinking…")}</span>
           </div>
         </div>

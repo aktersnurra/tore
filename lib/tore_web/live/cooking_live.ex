@@ -73,18 +73,18 @@ defmodule ToreWeb.CookingLive do
       current_path={assigns[:current_path] || "/cooking"}
     >
       <.page max_width={:md}>
-        <.card padded={false}>
-          <header class="px-6 pt-6 pb-4">
-            <h1 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h1);">
-              {gettext("Household kitchen")}
-            </h1>
-            <p class="text-[color:var(--muted)] mt-1" style="font-size: var(--t-meta);">
-              {gettext("Tore checks every plan against these.")}
-            </p>
-          </header>
+        <header class="mb-5 pt-2">
+          <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
+            {gettext("Household kitchen")}
+          </h1>
+          <p class="text-[color:var(--muted)] mt-1" style="font-size: var(--t-meta);">
+            {gettext("Tore checks every plan against these.")}
+          </p>
+        </header>
 
+        <.card padded={false}>
           <%!-- We eat --%>
-          <section class="grid grid-cols-[1fr_2fr] gap-x-6 px-6 py-5 border-t border-[color:var(--hairline)]">
+          <section class="grid gap-x-6 gap-y-3 sm:grid-cols-[1fr_2fr] px-6 py-5 border-t first:border-t-0 border-[color:var(--hairline)]">
             <div>
               <p class="font-medium text-[var(--text)]" style="font-size: var(--t-body);">
                 {gettext("We eat")}
@@ -104,7 +104,7 @@ defmodule ToreWeb.CookingLive do
                   active_chip?(@prefs.dietary_restrictions, r) &&
                     "bg-[color:var(--accent)] border-[color:var(--accent)] text-white",
                   !active_chip?(@prefs.dietary_restrictions, r) &&
-                    "bg-[color:var(--surface)] border-[color:var(--hairline)] text-[color:var(--muted)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+                    "bg-[color:var(--surface)] border-[color:var(--border)] text-[color:var(--muted)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
                 ]}
               >
                 {label_for(r)}
@@ -113,7 +113,7 @@ defmodule ToreWeb.CookingLive do
           </section>
 
           <%!-- Never include --%>
-          <section class="grid grid-cols-[1fr_2fr] gap-x-6 px-6 py-5 border-t border-[color:var(--hairline)]">
+          <section class="grid gap-x-6 gap-y-3 sm:grid-cols-[1fr_2fr] px-6 py-5 border-t first:border-t-0 border-[color:var(--hairline)]">
             <div>
               <p class="font-medium text-[var(--text)]" style="font-size: var(--t-body);">
                 {gettext("Never include")}

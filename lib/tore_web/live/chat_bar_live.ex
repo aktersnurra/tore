@@ -108,7 +108,11 @@ defmodule ToreWeb.ChatBarLive do
       {~p"/recipes", gettext("Recipes")},
       {~p"/prep", gettext("Prep")},
       {~p"/cooking", gettext("Household kitchen")},
-      {~p"/review", ngettext("Review (%{count})", "Review (%{count})", reviews, count: reviews)},
+      {~p"/review",
+       if(reviews == 0,
+         do: gettext("Review"),
+         else: ngettext("Review (%{count})", "Review (%{count})", reviews, count: reviews)
+       )},
       {~p"/settings/costs", gettext("Costs")},
       {~p"/settings/pantry", gettext("Pantry")},
       {~p"/settings", gettext("Settings")}
@@ -163,7 +167,11 @@ defmodule ToreWeb.ChatBarLive do
         class="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[var(--bg)]/95 backdrop-blur"
       >
         <div class="mx-auto max-w-2xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-          <div :if={@shown != []} data-role="swaps" class="flex gap-2 overflow-x-auto pb-2">
+          <div
+            :if={@shown != []}
+            data-role="swaps"
+            class="scroll-quiet flex gap-2 overflow-x-auto pb-2"
+          >
             <button
               :for={{swap, index} <- Enum.with_index(@shown)}
               type="button"

@@ -191,28 +191,31 @@ defmodule ToreWeb.ShopLive do
       current_path={assigns[:current_path] || "/shop"}
     >
       <.page max_width={:md}>
-        <.card padded={false}>
-          <header class="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
-            <div>
-              <h1 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h1);">
-                {gettext("Shop")}
-              </h1>
-              <p class="mt-0.5 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-                {gettext("%{n} unchecked · Week %{week}", n: @unchecked_count, week: @week_number)}
-              </p>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                phx-click="export_list"
-                aria-label={gettext("More")}
-                class="size-9 inline-flex items-center justify-center rounded-[var(--r-lg)] border border-[color:var(--border)] text-[color:var(--muted)] hover:border-[color:var(--subtle)]"
-              >
-                <.icon name="hero-ellipsis-horizontal" class="size-4" />
-              </button>
-            </div>
-          </header>
+        <header class="flex items-start justify-between gap-4 mb-5 pt-2">
+          <div>
+            <h1
+              class="font-bold text-[var(--text)]"
+              style="font-size: var(--t-h1); line-height: 1.15;"
+            >
+              {gettext("Shop")}
+            </h1>
+            <p class="mt-0.5 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {gettext("%{n} unchecked · Week %{week}", n: @unchecked_count, week: @week_number)}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              phx-click="export_list"
+              aria-label={gettext("More")}
+              class="size-9 inline-flex items-center justify-center rounded-[var(--r-lg)] border border-[color:var(--border)] text-[color:var(--muted)] hover:border-[color:var(--subtle)]"
+            >
+              <.icon name="hero-ellipsis-horizontal" class="size-4" />
+            </button>
+          </div>
+        </header>
 
+        <.card padded={false}>
           <div
             :if={@export_text}
             class="mx-6 mb-4 border border-[color:var(--border)] rounded-[var(--r-lg)] p-3"
@@ -234,15 +237,12 @@ defmodule ToreWeb.ShopLive do
             ><%= @export_text %></textarea>
           </div>
 
-          <div class="px-6 pb-3">
+          <div class="px-5 pt-5 pb-3">
             <%= if @total == 0 do %>
               <.empty message={gettext("No items yet")} />
             <% else %>
               <%= for {section, section_items} <- @groups do %>
-                <h2
-                  class="uppercase tracking-wider text-[color:var(--subtle)] mt-5 mb-1 first:mt-0"
-                  style="font-size: var(--t-micro); font-weight: 600;"
-                >
+                <h2 class="section-label mt-5 mb-1 first:mt-0">
                   {section_label(section)}
                 </h2>
                 <ul class="divide-y divide-[color:var(--hairline)]">
@@ -251,10 +251,7 @@ defmodule ToreWeb.ShopLive do
               <% end %>
 
               <%= if @checked != [] do %>
-                <h2
-                  class="uppercase tracking-wider text-[color:var(--subtle)] mt-6 mb-1"
-                  style="font-size: var(--t-micro); font-weight: 600;"
-                >
+                <h2 class="section-label mt-6 mb-1">
                   {gettext("Done · %{n}", n: length(@checked))}
                 </h2>
                 <ul class="divide-y divide-[color:var(--hairline)]">
@@ -300,7 +297,7 @@ defmodule ToreWeb.ShopLive do
       <div
         :if={@item_sheet}
         id="item-sheet"
-        class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-2xl bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
+        class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-[var(--r-xl)] bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
         phx-window-keydown="close_item_sheet"
         phx-key="Escape"
       >
@@ -329,7 +326,7 @@ defmodule ToreWeb.ShopLive do
               name="command"
               autocomplete="off"
               placeholder={gettext("Anything about this item…")}
-              class="w-full rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+              class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
             />
           </form>
         </div>
