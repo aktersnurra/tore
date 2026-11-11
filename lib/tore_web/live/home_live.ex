@@ -65,8 +65,8 @@ defmodule ToreWeb.HomeLive do
                   {ToreWeb.Dates.long(@today)}
                 </p>
                 <h1
-                  class="mt-1.5 font-extrabold text-[color:var(--text)]"
-                  style="font-size: clamp(34px, 10vw, 56px); line-height: 1.02; letter-spacing: -0.035em;"
+                  class="mt-1.5 font-bold text-[color:var(--text)]"
+                  style="font-size: 30px; line-height: 1.15; letter-spacing: -0.02em;"
                 >
                   {@tonight_recipe.title}
                 </h1>
@@ -85,8 +85,8 @@ defmodule ToreWeb.HomeLive do
               {ToreWeb.Dates.long(@today)}
             </p>
             <h1
-              class="mt-3 font-extrabold text-[color:var(--text)]"
-              style="font-size: clamp(40px, 12vw, 64px); line-height: 1; letter-spacing: -0.04em;"
+              class="mt-3 font-bold text-[color:var(--text)]"
+              style="font-size: 30px; line-height: 1.15; letter-spacing: -0.02em;"
             >
               {@tonight_recipe.title}
             </h1>
@@ -99,8 +99,8 @@ defmodule ToreWeb.HomeLive do
               {ToreWeb.Dates.long(@today)}
             </p>
             <h1
-              class="mt-3 font-extrabold text-[color:var(--text)]"
-              style="font-size: clamp(36px, 10vw, 56px); line-height: 1.02; letter-spacing: -0.04em;"
+              class="mt-3 font-bold text-[color:var(--text)]"
+              style="font-size: 30px; line-height: 1.15; letter-spacing: -0.02em;"
             >
               {if @eating_out_tonight,
                 do: gettext("Eating out tonight"),

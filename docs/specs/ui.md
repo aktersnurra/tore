@@ -210,6 +210,8 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **No label that isn't information.** Today's top line is the date, not "Tonight".
 - **Tuning stays quiet.** The week's mode sits behind "Planning for: …" below the week.
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
+- **Soft, not editorial.** Headlines are 26–30px bold, never poster-sized or tightly tracked.
+  Lists sit on one rounded surface (`.menu-lines`), not as ruled lines on the page.
 - **A large photograph melts into the page.** Its foot blurs and fades to the page colour
   (`.photo-blur` under `.photo-fade`), and the dish's name stands on the fade in the page's
   own type colour. Small picture cards keep a dark foot and white type (`.photo-shade`).
@@ -243,7 +245,7 @@ Theme: Glöd (light) and Natt (dark)
 ```
 
 Warm and quiet, so the photographs carry the colour: paper white with an ember accent in
-light, near-black with saffron in dark. The phone's setting picks; `data-theme` overrides.
+light, soft charcoal with apricot in dark. The phone's setting picks; `data-theme` overrides.
 
 ## 4.3 Color tokens
 
@@ -251,22 +253,22 @@ light, near-black with saffron in dark. The phone's setting picks; `data-theme` 
 
 ```css
 /* light                     dark */
---bg:           #FAF8F4;  /* #0E0D0C */
---surface:      #FFFFFF;  /* #191816 */
---sunken:       #F0ECE5;  /* #23211E */
+--bg:           #F7F4EF;  /* #171614 */
+--surface:      #FFFFFF;  /* #211F1D */
+--sunken:       #F0ECE5;  /* #2A2826 */
 
---text:         #1A1816;  /* #F5F2EC */
---muted:        #6B655D;  /* #A8A29A */
+--text:         #2B2825;  /* #EAE6DF */
+--muted:        #756F67;  /* #A8A29A */
 --subtle:       #A39C92;  /* #6F6A63 */
 
---border:       #E4DFD6;  /* #2E2B27 */
---hairline:     #EEEAE2;  /* #23211E */
+--border:       #E9E4DB;  /* #33302C */
+--hairline:     #EEEAE2;  /* #2A2826 */
 
---accent:       #C2410C;  /* #F5B869 */
---accent-hover: #A8370A;  /* #F8C784 */
---accent-soft:  #FBE9DF;  /* #2E2416 */
---accent-ink:   #9A3412;  /* #F8CD93 */
---on-accent:    #FFFFFF;  /* #1B1306: type set on the accent */
+--accent:       #C8562A;  /* #EDBE8C */
+--accent-hover: #B24A22;  /* #F2CBA1 */
+--accent-soft:  #FBE9DF;  /* #33291D */
+--accent-ink:   #9A3412;  /* #EFCBA4 */
+--on-accent:    #FFFFFF;  /* #2A1D10: type set on the accent */
 
 --warn:         #8F6212;  /* #E0B15A */
 --warn-soft:    #F8EDD3;  /* #33290F */

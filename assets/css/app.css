@@ -32,16 +32,16 @@
 
 :root {
   /* Colour */
-  --bg: #FAF8F4;            /* a warm paper white, the page */
+  --bg: #F7F4EF;            /* a warm paper white, the page */
   --surface: #FFFFFF;       /* cards, sheets, inputs */
   --sunken: #F0ECE5;        /* wells: empty photos, quiet buttons */
-  --text: #1A1816;
-  --muted: #6B655D;
+  --text: #2B2825;
+  --muted: #756F67;
   --subtle: #A39C92;
-  --border: #E4DFD6;
+  --border: #E9E4DB;
   --hairline: #EEEAE2;
-  --accent: #C2410C;        /* glöd: ember */
-  --accent-hover: #A8370A;
+  --accent: #C8562A;        /* glöd: ember */
+  --accent-hover: #B24A22;
   --accent-soft: #FBE9DF;
   --accent-ink: #9A3412;
   --on-accent: #FFFFFF;     /* type set on the accent */
@@ -52,9 +52,9 @@
 
   /* Radius follows hierarchy: sheets, cards, controls, chips */
   --r-sm: 8px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --r-xl: 20px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
   --r-pill: 9999px;
 
   /* Shadow: cards sit on hairlines, only things that float get a shadow */
@@ -76,19 +76,19 @@
 /* Dark, for a phone set to dark: the photographs carry the colour. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0E0D0C;            /* natt: the kitchen with the lights down */
-    --surface: #191816;
-    --sunken: #23211E;
-    --text: #F5F2EC;
+    --bg: #171614;            /* natt: the kitchen with the lights down */
+    --surface: #211F1D;
+    --sunken: #2A2826;
+    --text: #EAE6DF;
     --muted: #A8A29A;
     --subtle: #6F6A63;
-    --border: #2E2B27;
-    --hairline: #23211E;
-    --accent: #F5B869;        /* saffran: warm against the black */
-    --accent-hover: #F8C784;
-    --accent-soft: #2E2416;
-    --accent-ink: #F8CD93;
-    --on-accent: #1B1306;
+    --border: #33302C;
+    --hairline: #2A2826;
+    --accent: #EDBE8C;        /* saffran: warm against the black */
+    --accent-hover: #F2CBA1;
+    --accent-soft: #33291D;
+    --accent-ink: #EFCBA4;
+    --on-accent: #2A1D10;
     --warn: #E0B15A;
     --warn-soft: #33290F;
     --danger: #F0877F;
@@ -99,19 +99,19 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0E0D0C;            /* natt: the kitchen with the lights down */
-  --surface: #191816;
-  --sunken: #23211E;
-  --text: #F5F2EC;
+  --bg: #171614;            /* natt: the kitchen with the lights down */
+  --surface: #211F1D;
+  --sunken: #2A2826;
+  --text: #EAE6DF;
   --muted: #A8A29A;
   --subtle: #6F6A63;
-  --border: #2E2B27;
-  --hairline: #23211E;
-  --accent: #F5B869;        /* saffran: warm against the black */
-  --accent-hover: #F8C784;
-  --accent-soft: #2E2416;
-  --accent-ink: #F8CD93;
-  --on-accent: #1B1306;
+  --border: #33302C;
+  --hairline: #2A2826;
+  --accent: #EDBE8C;        /* saffran: warm against the black */
+  --accent-hover: #F2CBA1;
+  --accent-soft: #33291D;
+  --accent-ink: #EFCBA4;
+  --on-accent: #2A1D10;
   --warn: #E0B15A;
   --warn-soft: #33290F;
   --danger: #F0877F;
@@ -130,7 +130,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-h1, h2, h3 { letter-spacing: -0.015em; text-wrap: balance; }
+h1, h2, h3 { letter-spacing: -0.01em; text-wrap: balance; }
 
 ::selection { background: var(--accent-soft); }
 
@@ -148,8 +148,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--border);
 }
 
-/* A list set like a menu: lines on the page, separated by hairlines */
-.menu-lines > * + * { border-top: 1px solid var(--border); }
+/* A list: rows gathered on one soft, rounded surface */
+.menu-lines {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding-inline: 16px;
+}
+.menu-lines > * + * { border-top: 1px solid var(--hairline); }
 
 /* Section label: sentence case, quiet. Replaces tracked capitals. */
 .section-label {

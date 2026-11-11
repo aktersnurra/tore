@@ -78,8 +78,8 @@ defmodule ToreWeb.StepCards do
           {@card.label}
         </span>
         <span
-          class="mt-3 block font-extrabold text-[color:var(--text)]"
-          style="font-size: clamp(28px, 8.2vw, 44px); line-height: 1.1; letter-spacing: -0.03em;"
+          class="mt-3 block font-semibold text-[color:var(--text)]"
+          style="font-size: 26px; line-height: 1.25; letter-spacing: -0.015em;"
         >
           {@card.text}
         </span>

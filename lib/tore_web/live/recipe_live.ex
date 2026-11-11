@@ -503,8 +503,8 @@ defmodule ToreWeb.RecipeLive do
         </div>
         <h2
           :if={@selected.image_path}
-          class="absolute inset-x-0 bottom-0 px-5 pb-1 font-extrabold text-[color:var(--text)]"
-          style="font-size: clamp(28px, 8vw, 40px); line-height: 1.05; letter-spacing: -0.03em;"
+          class="absolute inset-x-0 bottom-0 px-5 pb-1 font-bold text-[color:var(--text)]"
+          style="font-size: 26px; line-height: 1.2; letter-spacing: -0.015em;"
         >
           {@selected.title}
         </h2>
@@ -574,8 +574,8 @@ defmodule ToreWeb.RecipeLive do
         <div>
           <h2
             :if={!@selected.image_path}
-            class="mb-4 font-extrabold text-[var(--text)]"
-            style="font-size: clamp(28px, 8vw, 40px); line-height: 1.05; letter-spacing: -0.03em;"
+            class="mb-4 font-bold text-[var(--text)]"
+            style="font-size: 26px; line-height: 1.2; letter-spacing: -0.015em;"
           >
             {@selected.title}
           </h2>

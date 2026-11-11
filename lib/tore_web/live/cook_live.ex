@@ -133,8 +133,8 @@ defmodule ToreWeb.CookLive do
         <div class="mx-auto w-full max-w-2xl">
           <p class="text-[13px] font-semibold text-[color:var(--muted)]">{@recipe.title}</p>
           <p
-            class="mt-3 font-extrabold text-[color:var(--text)]"
-            style="font-size: clamp(28px, 8.2vw, 44px); line-height: 1.1; letter-spacing: -0.03em;"
+            class="mt-3 font-bold text-[color:var(--text)]"
+            style="font-size: 26px; line-height: 1.25; letter-spacing: -0.015em;"
             role="status"
           >
             {if @failed,
