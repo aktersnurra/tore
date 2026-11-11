@@ -54,14 +54,25 @@ defmodule Tore.Capture.Uploads do
       {:ok, _row} ->
         {:ok, stream_id}
 
-      {:error, %Ecto.Changeset{errors: errors}} ->
-        if Keyword.has_key?(errors, :household_id) or duplicate_error?(errors) do
+      {:error, %Ecto.Changeset{errors: errors} = changeset} ->
+        if duplicate_error?(errors) do
           {:ok, existing} = already_uploaded?(scope, content_hash)
           {:duplicate, existing}
         else
-          {:ok, stream_id}
+          raise Ecto.InvalidChangesetError, action: :insert, changeset: changeset
         end
     end
+  end
+
+  @doc "Forgets an upload whose reading failed, so the same photo can be sent again."
+  @spec forget(Scope.t(), String.t()) :: :ok
+  def forget(%Scope{} = scope, content_hash) do
+    Repo.delete_all(
+      from(u in UploadedImage, where: u.content_hash == ^content_hash),
+      Scope.repo_opts(scope)
+    )
+
+    :ok
   end
 
   defp duplicate_error?(errors) do

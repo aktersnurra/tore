@@ -182,7 +182,7 @@ defmodule Tore.Capture.Router do
 
       {:ok, {:tool_calls, calls}, _usage} ->
         results = dispatch_calls_with_results(calls, images, ctx)
-        new_bubbles = Enum.map(results, & &1.bubble)
+        new_bubbles = Enum.flat_map(results, & &1.bubbles)
 
         if iter == @max_tool_loop_iterations do
           {:ok, bubbles_acc ++ new_bubbles}
@@ -216,24 +216,22 @@ defmodule Tore.Capture.Router do
 
     Enum.map(calls, fn call ->
       case run_call(call, images, image_count, ctx) do
-        {:ok, more_bubbles} ->
-          %{tool_call: call, status: :ok, bubble: List.first(more_bubbles) || empty_bubble()}
-
-        {:error, reason} ->
+        # One call can cover several photos: the household sees every reply, the model
+        # is told about the first.
+        {:ok, bubbles} ->
           %{
             tool_call: call,
-            status: :error,
-            reason: reason,
-            bubble: error_bubble_from_reason(reason)
+            status: :ok,
+            bubble: List.first(bubbles) || %{role: :assistant, text: ""},
+            bubbles: bubbles
           }
+
+        # A failed call is the model's to recover from: it gets the reason and tries
+        # something else or says so. The household isn't shown the machinery.
+        {:error, reason} ->
+          %{tool_call: call, status: :error, reason: reason, bubbles: []}
       end
     end)
-  end
-
-  defp empty_bubble, do: %{role: :assistant, text: ""}
-
-  defp error_bubble_from_reason(reason) do
-    %{role: :assistant, text: "Tool failed: #{inspect(reason)}"}
   end
 
   defp run_call(%{name: "ingest_receipt", args: args}, images, image_count, ctx) do
@@ -936,6 +934,6 @@ defmodule Tore.Capture.Router do
   end
 
   defp fallback_text do
-    gettext("Sorry, I couldn't process that. Please try again.")
+    gettext("Tore couldn't finish that. Try again in a moment.")
   end
 end

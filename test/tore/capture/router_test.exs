@@ -6,6 +6,28 @@ defmodule Tore.Capture.RouterTest do
   alias Tore.Capture.Router
   alias Tore.Harness.{KitchenRun, Runs}
 
+  describe "route/4 with several photos in one call" do
+    test "replies about each photo, and hides a failed call" do
+      stub(Tore.MockLLM, :vision, fn _images, _system, _user, _opts -> {:error, :timeout} end)
+
+      receipts = %{id: "c1", name: "ingest_receipt", args: %{"image_indices" => [1, 2]}}
+      broken = %{id: "c2", name: "ingest_receipt", args: %{"image_indices" => [9]}}
+
+      expect(Tore.MockLLM, :chat_with_tools, 2, fn _sys, msgs, _tools, _opts ->
+        if Enum.any?(msgs, &(&1[:role] == "tool")),
+          do: {:ok, {:message, "Done."}, %{}},
+          else: {:ok, {:tool_calls, [receipts, broken]}, %{}}
+      end)
+
+      ctx = %{household_id: home_scope().household_id, user_id: nil, locale: "en"}
+      assert {:ok, bubbles} = Router.route("receipts", [<<1, 1>>, <<2, 2>>], ctx)
+
+      # Two photos, two replies, then the model's own words. Nothing for the bad index.
+      assert [_first, _second, %{text: "Done."}] = bubbles
+      refute Enum.any?(bubbles, &(&1.text =~ "image_index"))
+    end
+  end
+
   describe "route/4 with set_plan_slot" do
     test "sets the slot through a run the reply can undo" do
       {:ok, recipe} =

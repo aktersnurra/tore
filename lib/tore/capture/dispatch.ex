@@ -40,18 +40,18 @@ defmodule Tore.Capture.Dispatch do
 
       case Runs.start(scope(ctx), Kinds.Receipt, %{image_binary: image, image_path: image_path}) do
         {:ok, %KitchenRun{status: :needs_user, id: id}} ->
-          review_bubble(:receipt, id)
+          {:ok, review_bubble(:receipt, id)}
 
         {:ok, %KitchenRun{status: :applied} = run} ->
-          receipt_bubble(run)
+          {:ok, receipt_bubble(run)}
 
         {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
           if image_path, do: RunPhotos.delete_async(image_path)
-          error_bubble(:receipt, code)
+          {:failed, error_bubble(:receipt, code)}
 
         {:error, reason} ->
           if image_path, do: RunPhotos.delete_async(image_path)
-          error_bubble(:receipt, reason)
+          {:failed, error_bubble(:receipt, reason)}
       end
     end)
   end
@@ -78,13 +78,13 @@ defmodule Tore.Capture.Dispatch do
              image_binary: image
            }) do
         {:ok, %KitchenRun{status: :applied} = run} ->
-          shelf_bubble(run)
+          {:ok, shelf_bubble(run)}
 
         {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
-          error_bubble(:pantry, code)
+          {:failed, error_bubble(:pantry, code)}
 
         {:error, reason} ->
-          error_bubble(:pantry, reason)
+          {:failed, error_bubble(:pantry, reason)}
       end
     end)
   end
@@ -829,25 +829,27 @@ defmodule Tore.Capture.Dispatch do
 
   defp scope(ctx), do: %Tore.Scope{household_id: ctx.household_id, user_id: ctx[:user_id]}
 
-  # Race-safe: reserve an upload id, then try to record the hash. If the
-  # unique index trips, another upload already claimed these bytes, so no
-  # duplicate run starts. The id also names the stashed photo.
+  # The hash is recorded before the photo is read, so two uploads of the same bytes at once
+  # can't both start a run. A photo whose reading failed is forgotten again, so it can be
+  # retried. The upload id also names the stashed photo.
   defp with_dedup(image, ctx, kind, run_fn) do
     hash = Uploads.content_hash(image)
     upload_id = KitchenRun.new_id()
 
     case Uploads.record(scope(ctx), hash, upload_id, kind) do
-      {:ok, ^upload_id} -> run_fn.(upload_id)
-      {:duplicate, existing_stream_id} -> duplicate_bubble(kind, existing_stream_id)
-    end
-  end
+      {:ok, ^upload_id} ->
+        case run_fn.(upload_id) do
+          {:ok, bubble} ->
+            bubble
 
-  defp duplicate_bubble(_kind, _stream_id) do
-    %{
-      role: :assistant,
-      review_link: true,
-      text: gettext("You've already uploaded this photo.")
-    }
+          {:failed, bubble} ->
+            Uploads.forget(scope(ctx), hash)
+            bubble
+        end
+
+      {:duplicate, _upload_id} ->
+        %{role: :assistant, text: gettext("You've already uploaded this photo.")}
+    end
   end
 
   defp stash_photo(scope, stream_id, image) do
