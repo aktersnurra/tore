@@ -33,7 +33,11 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
 
   defp check_pins(events, plan_state) do
     pinned = Map.keys(plan_state.pins)
-    touched = events |> Enum.map(& &1.slot_key) |> Enum.filter(&(&1 in pinned))
+    # A swap rewrites the slot it takes the recipe from as well as the one it lands on.
+    touched =
+      events
+      |> Enum.flat_map(&[&1.slot_key, &1.payload["from_slot_key"]])
+      |> Enum.filter(&(&1 in pinned))
     fail_if(touched, :slot_pinned)
   end
 

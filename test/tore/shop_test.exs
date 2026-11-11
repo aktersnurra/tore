@@ -11,7 +11,7 @@ defmodule Tore.ShopTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
     Phoenix.PubSub.subscribe(Tore.PubSub, Shop.topic(home_scope()))
 
-    # Shop.add_item/build_list/check_item call Tore.LLM.text/3 to classify
+    # Shop.add_item/check_item call Tore.LLM.text/3 to classify
     # items, filter the pantry, and canonicalise pantry beliefs. Stub a
     # response shape that satisfies all three: section for classify,
     # items: [] for filter, and an empty items list for the canonicaliser
@@ -81,20 +81,6 @@ defmodule Tore.ShopTest do
     Shop.check_item(home_scope(), list_id(), item_id, 1)
     pantry = Tore.Pantry.list_inventory(home_scope())
     assert Enum.any?(pantry, &(&1.name == "pasta"))
-  end
-
-  test "build_list aggregates recipe ingredients and broadcasts" do
-    {:ok, recipe} =
-      Recipes.create(home_scope(), %{
-        title: "Test Recipe",
-        ingredients: [%{name: "onion", quantity: Decimal.new("2"), unit: "pcs"}]
-      })
-
-    assert {:ok, _} = Shop.build_list(home_scope(), list_id(), week_start(), [recipe.id])
-    {:ok, state} = Shop.load_list(home_scope(), list_id())
-    item = state.items |> Map.values() |> Enum.find(&(&1.name == "onion"))
-    assert item
-    assert_receive {:events, [%Tore.Shop.Events.ListBuilt{}]}
   end
 
   test "annotate_with_pantry_belief/1 tags items whose name matches a non-missing pantry row" do
@@ -195,7 +181,7 @@ defmodule Tore.ShopTest do
     assert annotated.pantry_belief == nil
   end
 
-  test "build_list filters only against pantry items still within their date" do
+  test "items_for filters only against pantry items still within their date" do
     {:ok, _} =
       Tore.Pantry.add_item(home_scope(), %{name: "färsk ost", expires_at: Tore.Clock.today()})
 
@@ -212,12 +198,7 @@ defmodule Tore.ShopTest do
       {:ok, %{"items" => []}, %{}}
     end)
 
-    Shop.build_list(
-      home_scope(),
-      Tore.Streams.shop_list(home_scope(), ~D[2026-11-02]),
-      ~D[2026-11-02],
-      []
-    )
+    Shop.items_for(home_scope(), [])
 
     assert_received {:filter_prompt, prompt}
     assert prompt =~ "färsk ost"

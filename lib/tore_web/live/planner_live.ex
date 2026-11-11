@@ -6,7 +6,7 @@ defmodule ToreWeb.PlannerLive do
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds.PlannerCommand
 
-  alias Tore.{Recipes, Planning, Shop, PlanHealth}
+  alias Tore.{Recipes, Planning, PlanHealth}
   alias Tore.Planning.State
   alias Phoenix.PubSub
 
@@ -321,8 +321,6 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_info({:events, _events}, socket) do
     {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, socket.assigns.plan_id)
-    old_ids = assigned_recipe_ids(socket.assigns.plan_state)
-    new_ids = assigned_recipe_ids(plan_state)
 
     socket =
       assign(socket,
@@ -330,7 +328,6 @@ defmodule ToreWeb.PlannerLive do
         plan_health: PlanHealth.compute(plan_state)
       )
 
-    if old_ids != new_ids, do: rebuild_grocery_list(socket)
     {:noreply, socket}
   end
 
@@ -405,26 +402,6 @@ defmodule ToreWeb.PlannerLive do
         end
 
         socket
-    end
-  end
-
-  defp assigned_recipe_ids(plan_state) do
-    plan_state.slots
-    |> Map.values()
-    |> Enum.reject(&(&1.skipped || &1.leftover))
-    |> Enum.map(& &1.recipe_id)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.sort()
-  end
-
-  defp rebuild_grocery_list(socket) do
-    %{week_start: week_start, current_scope: scope} = socket.assigns
-    recipe_ids = assigned_recipe_ids(socket.assigns.plan_state)
-
-    if recipe_ids != [] do
-      Task.start(fn ->
-        Shop.build_list(scope, shop_id(scope, week_start), week_start, recipe_ids)
-      end)
     end
   end
 
@@ -1251,7 +1228,6 @@ defmodule ToreWeb.PlannerLive do
   end
 
   defp plan_id(scope, week_start), do: Tore.Streams.plan(scope, week_start)
-  defp shop_id(scope, week_start), do: Tore.Streams.shop_list(scope, week_start)
 
   defp health_message({:unplanned, _}), do: gettext("No plan for this week yet")
   defp health_message({:ready, _}), do: gettext("The week is planned")

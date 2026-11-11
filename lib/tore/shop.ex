@@ -12,12 +12,6 @@ defmodule Tore.Shop do
     EventStore.load(scope, list_id, Decider)
   end
 
-  def build_list(%Scope{} = scope, list_id, week_start, recipe_ids) do
-    items = items_for(scope, recipe_ids)
-    EventStore.reset(scope, list_id)
-    run(scope, list_id, %Commands.BuildList{week_start: week_start, items: items})
-  end
-
   @doc """
   The list for `recipe_ids`' ingredients, without what the pantry already holds. Asks the model
   to match against the pantry, and keeps every ingredient if it can't.

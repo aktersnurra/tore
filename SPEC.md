@@ -906,9 +906,10 @@ person clearly named, asking when more than one matches.
 
 ### Shop (`/shop`)
 
-The reliability anchor. Manual add always works. Plan changes broadcast to
-update the list automatically, but the list survives a missing plan, a
-missing pantry, and a missing connection to the LLM. Checking an item
+The reliability anchor. Manual add always works. The list is built from the week's plan when
+someone asks (the "Make the list" swap, or Capture), never behind their back: building replaces
+the list, so a plan change must not wipe hand-added items and check-offs. The list survives a
+missing plan, a missing pantry, and a missing connection to the LLM. Checking an item
 dispatches a `:pantry_belief_update_run` (see §4).
 
 ### Settings (`/settings`)

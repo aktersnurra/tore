@@ -32,6 +32,21 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
     assert {:fail, :slot_pinned, {:edit_plan, ["mon_dinner"]}} = PlanVerifier.verify(d, ctx(plan))
   end
 
+  test "fails when a swap takes the recipe out of a pinned slot" do
+    plan = %State{pins: %{"mon_dinner" => true}}
+
+    d =
+      diff([
+        ev("tue_dinner", "RecipeSwapped", %{
+          "from_slot_key" => "mon_dinner",
+          "to_slot_key" => "tue_dinner",
+          "recipe_id" => nil
+        })
+      ])
+
+    assert {:fail, :slot_pinned, {:edit_plan, ["mon_dinner"]}} = PlanVerifier.verify(d, ctx(plan))
+  end
+
   test "fails when an assigned recipe has no servings" do
     d = diff([ev("mon_dinner", "RecipeAssigned", %{"recipe_id" => 1, "servings" => nil})])
 
