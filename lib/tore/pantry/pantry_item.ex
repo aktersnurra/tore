@@ -22,8 +22,6 @@ defmodule Tore.Pantry.PantryItem do
 
   def category_values, do: Enum.map(@categories, &Atom.to_string/1)
 
-  def provenances, do: @provenances
-
   def beliefs, do: @beliefs
 
   @doc """

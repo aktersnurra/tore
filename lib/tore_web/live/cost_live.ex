@@ -112,8 +112,6 @@ defmodule ToreWeb.CostLive do
       socket={@socket}
       current_user={@current_user}
       flash={@flash}
-      current_scope={assigns[:current_scope]}
-      current_path={assigns[:current_path] || "/settings/costs"}
     >
       <.page max_width={:md}>
         <header class="mb-5 pt-2">

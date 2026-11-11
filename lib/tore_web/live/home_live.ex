@@ -3,14 +3,12 @@ defmodule ToreWeb.HomeLive do
 
   alias Tore.{Recipes, Planning}
 
-  @days ~w[mon tue wed thu fri sat sun]
-
   def mount(_params, _session, socket) do
     today = Tore.Clock.today()
-    week_start = week_start(today)
+    week_start = Tore.Streams.monday(today)
     scope = socket.assigns.current_scope
     plan_id = Tore.Streams.plan(scope, week_start)
-    today_key = today_slot_key(today)
+    today_key = Tore.Streams.slot_key(today)
 
     {:ok, plan_state} = Planning.load_plan(scope, plan_id)
 
@@ -38,7 +36,7 @@ defmodule ToreWeb.HomeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} socket={@socket} current_user={@current_user} current_path="/today">
+    <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <%!-- Tonight: the one large thing in the app --%>
       <.page max_width={:md}>
         <section class="pt-6 md:pt-12">
@@ -230,16 +228,5 @@ defmodule ToreWeb.HomeLive do
       0 -> nil
       total -> total
     end
-  end
-
-  defp today_slot_key(today) do
-    dow = Date.day_of_week(today)
-    day = Enum.at(@days, dow - 1)
-    "#{day}_dinner"
-  end
-
-  defp week_start(date) do
-    dow = Date.day_of_week(date)
-    Date.add(date, -(dow - 1))
   end
 end

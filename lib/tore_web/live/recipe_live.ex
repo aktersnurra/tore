@@ -19,7 +19,6 @@ defmodule ToreWeb.RecipeLive do
        filter_type: :all,
        filter_max_min: :any,
        sort: :recently_added,
-       extracted_attrs: nil,
        selected: nil,
        form: nil,
        error: nil,
@@ -76,7 +75,6 @@ defmodule ToreWeb.RecipeLive do
     {:noreply,
      assign(socket,
        form: blank_form(),
-       extracted_attrs: nil,
        selected: nil,
        error: nil,
        ingredient_rows: []
@@ -84,24 +82,14 @@ defmodule ToreWeb.RecipeLive do
   end
 
   def handle_event("save_recipe", %{"recipe" => params} = payload, socket) do
-    form_attrs =
-      parse_recipe_params(Map.put(params, "ingredients", payload["ingredients"] || %{}))
-
     attrs =
-      case socket.assigns.extracted_attrs do
-        nil ->
-          form_attrs
-
-        extracted ->
-          Map.merge(extracted, form_attrs)
-      end
+      parse_recipe_params(Map.put(params, "ingredients", payload["ingredients"] || %{}))
 
     case socket.assigns.selected do
       nil ->
         case Recipes.create(socket.assigns.current_scope, attrs) do
           {:ok, _recipe} ->
-            {:noreply,
-             socket |> assign(form: nil, extracted_attrs: nil, error: nil) |> reload_recipes()}
+            {:noreply, socket |> assign(form: nil, error: nil) |> reload_recipes()}
 
           {:error, changeset} ->
             {:noreply, assign(socket, error: error_message(changeset))}
@@ -112,7 +100,7 @@ defmodule ToreWeb.RecipeLive do
           {:ok, _recipe} ->
             {:noreply,
              socket
-             |> assign(form: nil, extracted_attrs: nil, selected: nil, error: nil)
+             |> assign(form: nil, selected: nil, error: nil)
              |> reload_recipes()}
 
           {:error, changeset} ->
@@ -175,7 +163,6 @@ defmodule ToreWeb.RecipeLive do
      assign(socket,
        selected: nil,
        form: nil,
-       extracted_attrs: nil,
        error: nil,
        show_recipe_menu: false,
        cook_mode: false,
@@ -296,7 +283,6 @@ defmodule ToreWeb.RecipeLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={assigns[:current_path] || "/recipes"}
     >
       <.page max_width={:md}>
         <div class="mb-6">

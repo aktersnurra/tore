@@ -34,24 +34,6 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
   def kind, do: "PantryBeliefUpdate"
 
   @impl true
-  def summary(%__MODULE__{items: items}) do
-    counts = Enum.frequencies_by(items, & &1.change)
-
-    %{
-      counts: counts,
-      text_fallback: Enum.map_join(counts, ", ", fn {k, v} -> "#{v} #{k}" end)
-    }
-  end
-
-  @impl true
-  def is_rationale_complete(%__MODULE__{items: items}) do
-    Enum.all?(items, fn it ->
-      is_binary(it.name) and it.name != "" and is_binary(it.provenance) and
-        not is_nil(it.last_seen_at)
-    end)
-  end
-
-  @impl true
   def to_json(%__MODULE__{items: items}) do
     %{"items" => Enum.map(items, &item_to_json/1)}
   end

@@ -19,13 +19,6 @@ defmodule Tore.Harness.Artifact.HomePick do
   def kind, do: "HomePick"
 
   @impl true
-  def summary(%__MODULE__{screen: screen, swaps: swaps}),
-    do: %{counts: %{swaps: length(swaps)}, text_fallback: "Opens #{screen}"}
-
-  @impl true
-  def is_rationale_complete(%__MODULE__{}), do: true
-
-  @impl true
   def to_json(%__MODULE__{} = pick) do
     %{
       "screen" => Atom.to_string(pick.screen),

@@ -1,9 +1,10 @@
 defmodule Tore.Harness.ReceiptIngestion do
   @moduledoc """
-  Pure helpers for `:receipt_ingestion_run` (SPEC §5).
+  The receipt work behind `:receipt_ingestion_run` (SPEC §5).
 
   `Tore.Harness.Kinds.Receipt` drives the run; this module owns parsing the
-  receipt image, shaping the `CostEntry` artifact, and logging it on commit.
+  receipt image (an LLM call), shaping the `CostEntry` artifact, and logging
+  it on commit (a database write).
   Receipts only record cost. They never touch the pantry or the shopping list:
   a misread line would drop an item off the list.
   """

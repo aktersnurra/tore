@@ -5,6 +5,8 @@ defmodule Tore.StreamsTest do
 
   @scope Scope.for_household(42)
 
+  doctest Tore.Streams
+
   test "a plan id names the household and the Monday of the week" do
     assert Streams.plan(@scope, ~D[2026-11-04]) == "plan:42:2026-11-02"
     assert Streams.plan(@scope, ~D[2026-11-02]) == "plan:42:2026-11-02"

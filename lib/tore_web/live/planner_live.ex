@@ -14,7 +14,7 @@ defmodule ToreWeb.PlannerLive do
 
   def mount(_params, _session, socket) do
     today = Tore.Clock.today()
-    week_start = week_start(today)
+    week_start = Tore.Streams.monday(today)
     scope = socket.assigns.current_scope
     plan_id = plan_id(scope, week_start)
 
@@ -416,7 +416,7 @@ defmodule ToreWeb.PlannerLive do
       assign(assigns,
         days: @days,
         week_end: Date.add(assigns.week_start, 6),
-        week_number: week_number(assigns.week_start)
+        week_number: Tore.Streams.week_number(assigns.week_start)
       )
 
     ~H"""
@@ -424,7 +424,6 @@ defmodule ToreWeb.PlannerLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={assigns[:current_path] || "/"}
     >
       <.page max_width={:md}>
         <header class="mb-5 flex items-end justify-between gap-4 pt-2">
@@ -1208,16 +1207,6 @@ defmodule ToreWeb.PlannerLive do
   defp filter_recipes(recipes, q) do
     q = String.downcase(q)
     Enum.filter(recipes, &String.contains?(String.downcase(&1.title), q))
-  end
-
-  defp week_start(date) do
-    dow = Date.day_of_week(date)
-    Date.add(date, -(dow - 1))
-  end
-
-  defp week_number(date) do
-    {_y, w} = :calendar.iso_week_number({date.year, date.month, date.day})
-    w
   end
 
   defp plan_subtitle(plan_state, week_start, week_end) do

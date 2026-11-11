@@ -7,7 +7,7 @@ defmodule ToreWeb.ShopLive do
   alias Phoenix.PubSub
 
   def mount(_params, session, socket) do
-    week_start = week_start(Tore.Clock.today())
+    week_start = Tore.Streams.monday(Tore.Clock.today())
     scope = socket.assigns.current_scope
     list_id = Tore.Streams.shop_list(scope, week_start)
 
@@ -21,7 +21,7 @@ defmodule ToreWeb.ShopLive do
     {:ok,
      assign(socket,
        week_start: week_start,
-       week_number: week_number(week_start),
+       week_number: Tore.Streams.week_number(week_start),
        list_id: list_id,
        grocery_state: grocery_state,
        user_id: user_id,
@@ -183,7 +183,6 @@ defmodule ToreWeb.ShopLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={assigns[:current_path] || "/shop"}
     >
       <.page max_width={:md}>
         <header class="flex items-start justify-between gap-4 mb-5 pt-2">
@@ -451,16 +450,6 @@ defmodule ToreWeb.ShopLive do
       {d, _} -> d
       :error -> nil
     end
-  end
-
-  defp week_start(date) do
-    dow = Date.day_of_week(date)
-    Date.add(date, -(dow - 1))
-  end
-
-  defp week_number(date) do
-    {_y, w} = :calendar.iso_week_number({date.year, date.month, date.day})
-    w
   end
 
   defp pantry_belief_hint(:confirmed, last_seen),

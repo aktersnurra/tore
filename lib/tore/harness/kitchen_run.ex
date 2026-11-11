@@ -53,9 +53,6 @@ defmodule Tore.Harness.KitchenRun do
     field :closed_at, :utc_datetime_usec
   end
 
-  @spec failure_codes() :: [atom()]
-  def failure_codes, do: @failure_codes
-
   @spec new_id() :: String.t()
   def new_id, do: "run-" <> (:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false))
 

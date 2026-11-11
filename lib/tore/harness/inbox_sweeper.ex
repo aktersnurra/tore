@@ -1,12 +1,13 @@
 defmodule Tore.Harness.InboxSweeper do
   @moduledoc """
-  Weekly housekeeping for the inbox surface.
+  Weekly housekeeping for runs that wait on the person.
 
   Two responsibilities, both safe to run repeatedly:
 
-    1. **TTL expiry** — `:needs_user` runs older than `@ttl_days` get an
-       explicit `RunDiscarded{reason: :ttl_expired}` event. The user
-       didn't act in 14 days; we drop the inbox entry (audit row stays).
+    1. **TTL expiry** — `:needs_user` runs opened more than `@ttl_days` ago
+       are discarded through `Runs.discard/3` with reason `:ttl_expired`.
+       Nobody answered in 14 days and nothing was applied; the run row
+       stays, as `:discarded`.
 
     2. **Orphan photo reap** — every key in the `tore-runs` bucket that no
        running or waiting run points at gets deleted. The post-commit

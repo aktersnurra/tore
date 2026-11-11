@@ -215,15 +215,11 @@ defmodule Tore.PlanningTest do
        %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
     end)
 
-    today = Tore.Clock.today()
-    days_ahead = rem(8 - Date.day_of_week(today), 7)
-    days_ahead = if days_ahead == 0, do: 7, else: days_ahead
-    expected_week_start = Date.add(today, days_ahead)
-    expected_stream = Tore.Streams.plan(home_scope(), expected_week_start)
+    expected_stream = Tore.Streams.plan(home_scope(), ~D[2026-06-15])
 
     assert {:ok,
             %Tore.Harness.KitchenRun{status: :applied, kind: "weekly_planning_run", input: input}} =
-             Planning.plan_upcoming_week(home_scope())
+             Planning.plan_upcoming_week(home_scope(), ~D[2026-06-10])
 
     assert input["plan_stream_id"] == expected_stream
     assert {:ok, _plan} = Planning.load_plan(home_scope(), expected_stream)
@@ -284,52 +280,6 @@ defmodule Tore.PlanningTest do
       assert :ok = Planning.apply_events(home_scope(), "plan:empty-apply", [])
       {:ok, state} = Planning.load_plan(home_scope(), "plan:empty-apply")
       assert state.slots == %{}
-    end
-  end
-
-  describe "swap_slots/3" do
-    test "swaps two occupied slots, preserving both recipes and their servings" do
-      plan = "plan:swap-1"
-      Planning.assign_recipe(home_scope(), plan, "fri_dinner", recipe(101), 4)
-      Planning.assign_recipe(home_scope(), plan, "sun_dinner", recipe(202), 2)
-
-      assert {:ok, _events} = Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
-
-      {:ok, state} = Planning.load_plan(home_scope(), plan)
-      assert state.slots["fri_dinner"].recipe_id == recipe(202)
-      assert state.slots["fri_dinner"].servings == 2
-      assert state.slots["sun_dinner"].recipe_id == recipe(101)
-      assert state.slots["sun_dinner"].servings == 4
-    end
-
-    test "one slot empty: moves the recipe and clears the source" do
-      plan = "plan:swap-2"
-      Planning.assign_recipe(home_scope(), plan, "fri_dinner", recipe(101), 4)
-
-      assert {:ok, _events} = Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
-
-      {:ok, state} = Planning.load_plan(home_scope(), plan)
-      assert state.slots["sun_dinner"].recipe_id == recipe(101)
-      assert state.slots["sun_dinner"].servings == 4
-      refute Map.has_key?(state.slots, "fri_dinner")
-    end
-
-    test "empty source, occupied target: moves target into source, clears target" do
-      plan = "plan:swap-2b"
-      Planning.assign_recipe(home_scope(), plan, "sun_dinner", recipe(202), 2)
-
-      assert {:ok, _events} = Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
-
-      {:ok, state} = Planning.load_plan(home_scope(), plan)
-      assert state.slots["fri_dinner"].recipe_id == recipe(202)
-      refute Map.has_key?(state.slots, "sun_dinner")
-    end
-
-    test "both slots empty returns {:error, :nothing_to_swap}" do
-      plan = "plan:swap-3"
-
-      assert {:error, :nothing_to_swap} =
-               Planning.swap_slots(home_scope(), plan, "fri_dinner", "sun_dinner")
     end
   end
 

@@ -258,10 +258,7 @@ defmodule Tore.Harness.Kinds.Planner do
   end
 
   defp week_mode_line(scope) do
-    case Tore.WeekMode.mode_prompt_fragment(Tore.WeekMode.get_current_mode(scope)) do
-      nil -> nil
-      fragment -> "Current week mode: #{fragment}"
-    end
+    Tore.WeekMode.mode_prompt_fragment(Tore.WeekMode.get_current_mode(scope))
   end
 
   defp preamble do

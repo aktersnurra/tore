@@ -35,21 +35,6 @@ defmodule Tore.Harness.Artifact.CostEntry do
   def kind, do: "CostEntry"
 
   @impl true
-  def summary(%__MODULE__{line_items: items, total: total}) do
-    counts = %{added: length(items)}
-
-    %{
-      counts: counts,
-      text_fallback: "#{length(items)} items, total #{format_total(total)}"
-    }
-  end
-
-  @impl true
-  def is_rationale_complete(%__MODULE__{store_name: s, date: d, total: t, line_items: items}) do
-    is_binary(s) and s != "" and not is_nil(d) and not is_nil(t) and is_list(items)
-  end
-
-  @impl true
   def to_json(%__MODULE__{} = c) do
     %{
       "store_name" => c.store_name,
@@ -108,7 +93,4 @@ defmodule Tore.Harness.Artifact.CostEntry do
   defp decimal_to_string(nil), do: nil
   defp decimal_to_string(%Decimal{} = d), do: Decimal.to_string(d)
   defp decimal_to_string(n) when is_number(n), do: to_string(n)
-
-  defp format_total(%Decimal{} = d), do: Decimal.to_string(d, :normal)
-  defp format_total(n), do: to_string(n)
 end

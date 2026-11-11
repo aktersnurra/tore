@@ -49,8 +49,17 @@ defmodule Tore.Costs do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
+  # The month turns at local midnight on the 1st (`Tore.Clock`), while `inserted_at` is UTC. The
+  # app has no time zone database, so the offset is the server's local time minus UTC, as it is
+  # now, to the minute.
   defp month_start do
-    Date.utc_today() |> Date.beginning_of_month() |> NaiveDateTime.new!(~T[00:00:00])
+    offset_minutes =
+      round(NaiveDateTime.diff(NaiveDateTime.local_now(), NaiveDateTime.utc_now()) / 60)
+
+    Tore.Clock.today()
+    |> Date.beginning_of_month()
+    |> NaiveDateTime.new!(~T[00:00:00])
+    |> NaiveDateTime.add(-offset_minutes, :minute)
   end
 
   @spec recent_receipts(Scope.t(), integer()) :: [Receipt.t()]

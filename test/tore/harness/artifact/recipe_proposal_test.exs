@@ -57,31 +57,6 @@ defmodule Tore.Harness.Artifact.RecipeProposalTest do
     assert RecipeProposal.from_json(RecipeProposal.to_json(original)) == original
   end
 
-  test "summary/1 counts ingredients and falls back to the title" do
-    summary = Artifact.summary(proposal())
-
-    assert summary.counts == %{ingredients: 2}
-    assert summary.text_fallback == "Miso Ramen"
-  end
-
-  test "is_rationale_complete?/1 is true for a generated proposal with an instruction" do
-    assert RecipeProposal.is_rationale_complete(proposal())
-  end
-
-  test "is_rationale_complete?/1 is false for a generated proposal with no instruction" do
-    refute RecipeProposal.is_rationale_complete(proposal(%{instruction: nil}))
-  end
-
-  test "is_rationale_complete?/1 is true for a web import with a source url" do
-    assert RecipeProposal.is_rationale_complete(
-             proposal(%{
-               source: :web_import,
-               source_url: "https://example.com/x",
-               instruction: nil
-             })
-           )
-  end
-
   test "Artifact.to_json/1 stamps __kind__" do
     assert %{"__kind__" => "RecipeProposal"} = Artifact.to_json(proposal())
   end

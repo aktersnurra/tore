@@ -175,11 +175,24 @@ defmodule ToreWeb.SettingsLive do
   defp memory_part_label("profile"), do: gettext("Your household")
   defp memory_part_label("notes"), do: gettext("Notes")
 
-  defp feature_label("generate_plan"), do: gettext("Plan generation")
-  defp feature_label("prep_guide"), do: gettext("Prep guide")
-  defp feature_label("parse_receipt"), do: gettext("Receipt parsing")
+  defp feature_label("canonicalise_pantry"), do: gettext("Pantry item matching")
+  defp feature_label("capture"), do: gettext("Chat")
+  defp feature_label("check_recipe_html"), do: gettext("Recipe page check")
+  defp feature_label("classify_item"), do: gettext("Shopping list sorting")
+  defp feature_label("cook_mode"), do: gettext("Cook mode")
   defp feature_label("extract_recipe"), do: gettext("Recipe import")
+  defp feature_label("filter_pantry"), do: gettext("Pantry check for the shopping list")
+  defp feature_label("generate_prep_guide"), do: gettext("Prep guide")
+  defp feature_label("home_pick"), do: gettext("Home screen pick")
+  defp feature_label("image_prompt"), do: gettext("Recipe pictures")
+  defp feature_label("memory_review"), do: gettext("Memory review")
+  defp feature_label("parse_receipt"), do: gettext("Receipt parsing")
+  defp feature_label("parse_shelf_photo"), do: gettext("Shelf photos")
+  defp feature_label("planner"), do: gettext("Planning")
+  defp feature_label("recipe_variant"), do: gettext("Recipe variants")
+  defp feature_label("recipe_web_search"), do: gettext("Recipe search on the web")
   defp feature_label("suggest_recipe"), do: gettext("Recipe suggestions")
+  defp feature_label("suggest_substitution"), do: gettext("Substitution suggestions")
   defp feature_label(f), do: f
 
   def render(assigns) do
@@ -188,7 +201,6 @@ defmodule ToreWeb.SettingsLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={assigns[:current_path] || "/settings"}
     >
       <.page max_width={:md}>
         <header class="mb-5 pt-2">

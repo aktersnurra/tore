@@ -405,14 +405,6 @@ defmodule ToreWeb.CoreComponents do
     """
   end
 
-  def icon(%{name: "nav-" <> icon_name} = assigns) do
-    assigns = assign(assigns, :src, "/images/nav_#{icon_name}.svg")
-
-    ~H"""
-    <img src={@src} class={["nav-icon", @class]} aria-hidden="true" />
-    """
-  end
-
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do
@@ -457,13 +449,6 @@ defmodule ToreWeb.CoreComponents do
     end
   end
 
-  @doc """
-  Translates the errors for a field from a keyword list of errors.
-  """
-  def translate_errors(errors, field) when is_list(errors) do
-    for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
-  end
-
   # ----------------------------------------------------------------------
   # Design system primitives — see SPEC_FEAT_ui-redesign.md
   # ----------------------------------------------------------------------
@@ -471,7 +456,7 @@ defmodule ToreWeb.CoreComponents do
   @doc ~S"""
   Page container.
 
-      <.page><.page_header title="Week" /></.page>
+      <.page>...</.page>
   """
   attr :max_width, :atom, values: [:sm, :md, :lg, :xl], default: :lg
   slot :inner_block, required: true
@@ -488,43 +473,6 @@ defmodule ToreWeb.CoreComponents do
   defp page_max_class(:md), do: "max-w-2xl"
   defp page_max_class(:lg), do: "max-w-4xl"
   defp page_max_class(:xl), do: "max-w-6xl"
-
-  @doc ~S"""
-  Page header with display title, optional subtitle, and right-aligned actions slot.
-
-      <.page_header title="Week" subtitle="Apr 27 — May 3, 2026">
-        <:actions><.button>Generate plan</.button></:actions>
-      </.page_header>
-  """
-  attr :title, :string, required: true
-  attr :subtitle, :string, default: nil
-  attr :centered, :boolean, default: false
-  slot :actions
-
-  def page_header(assigns) do
-    ~H"""
-    <div class={[
-      "flex items-center gap-4 mb-6",
-      @centered && "justify-center text-center",
-      !@centered && "justify-between"
-    ]}>
-      <div>
-        <h1
-          class="font-semibold tracking-tight text-[var(--text)]"
-          style="font-size: var(--t-h1); line-height: 1.2;"
-        >
-          {@title}
-        </h1>
-        <p :if={@subtitle} class="mt-0.5 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-          {@subtitle}
-        </p>
-      </div>
-      <div :if={@actions != []} class="flex items-center gap-2 shrink-0">
-        {render_slot(@actions)}
-      </div>
-    </div>
-    """
-  end
 
   @doc ~S"""
   Card surface: white on the porcelain page, held by a hairline border.

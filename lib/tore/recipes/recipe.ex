@@ -50,8 +50,6 @@ defmodule Tore.Recipes.Recipe do
   def decode_steps(%__MODULE__{steps: nil}), do: []
   def decode_steps(%__MODULE__{steps: json}), do: Jason.decode!(json)
 
-  def encode_steps(steps) when is_list(steps), do: Jason.encode!(steps)
-
   def tag_changeset(recipe, tags) do
     recipe
     |> change()

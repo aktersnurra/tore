@@ -45,9 +45,9 @@ defmodule Tore.DataCase do
   @doc """
   A helper that transforms changeset errors into a map of messages.
 
-      assert {:error, changeset} = Accounts.update_preferences(user, %{preferences: nil})
-      assert "can't be blank" in errors_on(changeset).preferences
-      assert %{preferences: ["can't be blank"]} = errors_on(changeset)
+      assert {:error, changeset} = Recipes.create(scope, %{})
+      assert "can't be blank" in errors_on(changeset).title
+      assert %{title: ["can't be blank"]} = errors_on(changeset)
 
   """
   def errors_on(changeset) do

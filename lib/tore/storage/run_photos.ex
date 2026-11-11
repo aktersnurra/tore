@@ -31,12 +31,6 @@ defmodule Tore.Storage.RunPhotos do
     end
   end
 
-  @doc "Public URL for a previously-stored run photo key."
-  @spec url(String.t()) :: String.t()
-  def url(key) when is_binary(key) do
-    storage().get_object_url(Buckets.runs(), key)
-  end
-
   @doc """
   Fire-and-forget delete. Spawned under `Tore.TaskSupervisor` so an S3 hiccup
   doesn't block the caller; the weekly orphan-sweep is the safety net.

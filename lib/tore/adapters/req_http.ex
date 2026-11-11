@@ -9,7 +9,4 @@ defmodule Tore.Adapters.ReqHTTP do
       {:error, reason} -> {:error, {:req_error, reason}}
     end
   end
-
-  @impl Tore.HTTP
-  def post(url, opts), do: Req.post(url, opts)
 end

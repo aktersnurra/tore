@@ -149,13 +149,10 @@ defmodule Tore.Recipes do
     :ok
   end
 
-  @spec scrape_from_url(Scope.t(), String.t()) :: {:ok, Recipe.t()} | {:error, term()}
-  def scrape_from_url(%Scope{} = scope, url), do: scrape_and_create(scope, url)
-
   @doc """
   Fetch and parse a recipe URL **without** writing it to the catalog. Used by
   the planner's proposal path, where the user confirms before anything is
-  saved. `scrape_from_url/2` is the eager version.
+  saved.
   """
   @spec scrape_attrs_from_url(Scope.t(), String.t(), String.t() | nil) ::
           {:ok, map()} | {:error, term()}
@@ -389,14 +386,6 @@ defmodule Tore.Recipes do
       Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
         generate_image(scope, loaded, image_url)
       end)
-    end
-  end
-
-  @spec scrape_and_create(Scope.t(), String.t(), String.t() | nil) ::
-          {:ok, Recipe.t()} | {:error, term()}
-  def scrape_and_create(%Scope{} = scope, url, locale \\ nil) do
-    with {:ok, attrs} <- scrape_attrs_from_url(scope, url, locale) do
-      create(scope, attrs)
     end
   end
 

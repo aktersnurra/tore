@@ -50,13 +50,6 @@ defmodule Tore.Harness.Artifact.ShopChange do
   def kind, do: "ShopChange"
 
   @impl true
-  def summary(%__MODULE__{change: change, items: items}),
-    do: %{counts: %{change => length(items)}, text_fallback: "#{change} #{length(items)}"}
-
-  @impl true
-  def is_rationale_complete(_change), do: true
-
-  @impl true
   def to_json(%__MODULE__{} = c) do
     %{
       "list_id" => c.list_id,

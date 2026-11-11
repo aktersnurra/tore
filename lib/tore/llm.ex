@@ -66,9 +66,6 @@ defmodule Tore.LLM do
   def vision(%Scope{} = scope, blobs, system, user, opts \\ []),
     do: call(scope, opts, &spec().vision(blobs, system, user, &1))
 
-  def chat(%Scope{} = scope, system, messages, opts \\ []),
-    do: call(scope, opts, &spec().chat(system, messages, &1))
-
   def chat_with_tools(%Scope{} = scope, system, messages, tools, opts),
     do: call(scope, opts, &spec().chat_with_tools(system, messages, tools, &1))
 

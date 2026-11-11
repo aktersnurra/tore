@@ -49,17 +49,6 @@ defmodule Tore.Harness.Artifact.PlanDiff do
   end
 
   @impl true
-  def summary(%__MODULE__{} = diff) do
-    rollup = summarise(diff)
-    counts = Enum.frequencies_by(rollup, & &1.change)
-    %{counts: counts, text_fallback: text_from_counts(counts)}
-  end
-
-  @impl true
-  def is_rationale_complete(%__MODULE__{events: events}),
-    do: Enum.all?(events, fn e -> e.rationale != [] end)
-
-  @impl true
   def to_json(%__MODULE__{plan_stream_id: psid, week_start: ws, events: events} = diff) do
     %{
       "plan_stream_id" => psid,
@@ -111,19 +100,4 @@ defmodule Tore.Harness.Artifact.PlanDiff do
 
     %{slot_key: slot_key, change: change, label: label, rationale: rationale}
   end
-
-  defp text_from_counts(counts) do
-    counts
-    |> Enum.map(fn {change, n} -> "#{n} #{change_label(change)}" end)
-    |> Enum.join(", ")
-  end
-
-  defp change_label(:added), do: "added"
-  defp change_label(:swapped), do: "swapped"
-  defp change_label(:skipped), do: "skipped"
-  defp change_label(:leftover), do: "leftovers"
-  defp change_label(:removed), do: "removed"
-  defp change_label(:servings), do: "servings adjusted"
-  defp change_label(:eating_out), do: "eating out"
-  defp change_label(other), do: to_string(other)
 end

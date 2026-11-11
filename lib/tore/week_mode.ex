@@ -2,7 +2,7 @@ defmodule Tore.WeekMode do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
-  alias Tore.{Repo, Scope}
+  alias Tore.{Repo, Scope, Streams}
 
   @valid_modes ~w(normal low_effort budget_week use_pantry more_leftovers
                   high_protein freezer_week guest_week)
@@ -23,7 +23,7 @@ defmodule Tore.WeekMode do
   end
 
   def get_current_mode(%Scope{} = scope) do
-    week_start = current_week_start()
+    week_start = Streams.monday(Tore.Clock.today())
 
     case Repo.one(
            from(wm in __MODULE__, where: wm.week_start == ^week_start),
@@ -35,7 +35,7 @@ defmodule Tore.WeekMode do
   end
 
   def set_mode(%Scope{} = scope, mode) do
-    week_start = current_week_start()
+    week_start = Streams.monday(Tore.Clock.today())
     attrs = %{mode: mode, week_start: week_start}
 
     existing =
@@ -86,9 +86,4 @@ defmodule Tore.WeekMode do
   end
 
   def mode_prompt_fragment(_), do: nil
-
-  defp current_week_start do
-    today = Tore.Clock.today()
-    Date.add(today, -(Date.day_of_week(today) - 1))
-  end
 end

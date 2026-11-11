@@ -1,6 +1,6 @@
 defmodule Tore.Deals do
   require Logger
-  alias Tore.{Alerts, Household, Repo, Scope}
+  alias Tore.{Alerts, Household, Repo, Scope, Streams}
   alias Tore.Deals.{Deal, HouseholdStore, Parsers, Store}
   import Ecto.Query
 
@@ -49,7 +49,7 @@ defmodule Tore.Deals do
   @spec clear_expired() :: :ok
   def clear_expired do
     today = Tore.Clock.today()
-    week_start_dt = today |> Date.beginning_of_week() |> NaiveDateTime.new!(~T[00:00:00])
+    week_start_dt = today |> Streams.monday() |> NaiveDateTime.new!(~T[00:00:00])
 
     Repo.delete_all(
       from d in Deal,

@@ -61,43 +61,6 @@ defmodule Tore.Harness.Artifact.PlanDiffTest do
     assert entry.change == :removed
   end
 
-  test "summary/1: counts and text fallback" do
-    diff = %PlanDiff{
-      plan_stream_id: "plan-1",
-      week_start: ~D[2026-06-01],
-      events: [
-        ev("mon", "MealSkipped"),
-        ev("tue", "RecipeAssigned", %{"label" => "x"}),
-        ev("wed", "RecipeAssigned", %{"label" => "y"})
-      ]
-    }
-
-    s = PlanDiff.summary(diff)
-    assert s.counts == %{skipped: 1, added: 2}
-    assert s.text_fallback =~ "skipped"
-    assert s.text_fallback =~ "added"
-  end
-
-  test "is_rationale_complete/1: false when any event has empty rationale" do
-    diff = %PlanDiff{
-      plan_stream_id: "plan-1",
-      week_start: ~D[2026-06-01],
-      events: [ev("mon", "MealSkipped", %{}, [])]
-    }
-
-    refute PlanDiff.is_rationale_complete(diff)
-  end
-
-  test "is_rationale_complete/1: true when all events have rationale" do
-    diff = %PlanDiff{
-      plan_stream_id: "plan-1",
-      week_start: ~D[2026-06-01],
-      events: [ev("mon", "MealSkipped", %{}, ["why"])]
-    }
-
-    assert PlanDiff.is_rationale_complete(diff)
-  end
-
   test "to_json/1 and from_json/1 round-trip" do
     diff = %PlanDiff{
       plan_stream_id: "plan-1",

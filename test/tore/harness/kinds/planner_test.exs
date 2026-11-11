@@ -82,6 +82,22 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       assert Enum.all?(rows, &(&1.run_stream_id == run.id))
     end
 
+    test "the prompt names the week's mode once", %{plan: plan} do
+      {:ok, _} = Tore.WeekMode.set_mode(home_scope(), "low_effort")
+      test_pid = self()
+
+      expect(Tore.MockLLM, :chat_with_tools, fn system, _, _, _ ->
+        send(test_pid, {:system, system})
+        {:ok, {:message, "Done."}, @usage}
+      end)
+
+      {:ok, _run} = Runs.start(home_scope(), PlannerCommand, command(plan, "hello"))
+
+      assert_received {:system, system}
+      assert [_before, _after] = String.split(system, "Current week mode: ")
+      assert system =~ "Current week mode: Low effort."
+    end
+
     test "a question waits for the person", %{plan: plan} do
       tool_call("ask_user", %{"question" => "which Monday?"})
 

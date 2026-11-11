@@ -22,13 +22,10 @@ defmodule Tore.Planning do
 
   @doc """
   Plan the upcoming week (next Monday-Sunday) for the household through a
-  `Kinds.WeeklyPlanning` run.
+  `Kinds.WeeklyPlanning` run. `today` is the day the week is counted from.
   """
-  def plan_upcoming_week(%Scope{} = scope) do
-    today = Tore.Clock.today()
-    days_ahead = rem(8 - Date.day_of_week(today), 7)
-    days_ahead = if days_ahead == 0, do: 7, else: days_ahead
-    week_start = Date.add(today, days_ahead)
+  def plan_upcoming_week(%Scope{} = scope, %Date{} = today \\ Tore.Clock.today()) do
+    week_start = today |> Streams.monday() |> Date.add(7)
 
     Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.WeeklyPlanning, %{
       plan_stream_id: Streams.plan(scope, week_start),
@@ -126,25 +123,6 @@ defmodule Tore.Planning do
           end)
 
         {:ok, events, final}
-    end
-  end
-
-  @doc """
-  Atomically swaps the recipes (and their servings) between two slots in one
-  append. If one slot is empty, the occupied recipe moves to the empty slot and
-  the source is cleared. If both are empty, returns {:error, :nothing_to_swap}.
-  """
-  def swap_slots(%Scope{} = scope, plan_id, slot_a, slot_b) do
-    with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
-      case swap_events(state, slot_a, slot_b) do
-        {:error, :nothing_to_swap} = err ->
-          err
-
-        {:ok, events, _final} ->
-          with :ok <- apply_events(scope, plan_id, events) do
-            {:ok, events}
-          end
-      end
     end
   end
 
@@ -307,10 +285,6 @@ defmodule Tore.Planning do
     run(scope, plan_id, %Commands.RemoveRecipe{slot_key: slot_key})
   end
 
-  def set_servings(%Scope{} = scope, plan_id, slot_key, servings) do
-    run(scope, plan_id, %Commands.SetServings{slot_key: slot_key, servings: servings})
-  end
-
   def pin_slot(%Scope{} = scope, plan_id, slot_key, pin) do
     run(scope, plan_id, %Commands.PinSlot{slot_key: slot_key, pin: pin})
   end
@@ -369,10 +343,6 @@ defmodule Tore.Planning do
     [day, _meal] = String.split(slot_key, "_", parts: 2)
     days = ~w[mon tue wed thu fri sat sun]
     plan_id |> Streams.week_start() |> Date.add(Enum.find_index(days, &(&1 == day)))
-  end
-
-  def mark_leftover(%Scope{} = scope, plan_id, slot_key) do
-    run(scope, plan_id, %Commands.MarkLeftover{slot_key: slot_key})
   end
 
   defp run(scope, plan_id, command) do

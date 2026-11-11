@@ -156,11 +156,4 @@ defmodule Tore.AccountsTest do
     assert Enum.map(Accounts.list_members(home_scope()), & &1.username) |> Enum.sort() ==
              Enum.sort(["home-sponsor", mine.username])
   end
-
-  test "update_preferences/2 stores preferences" do
-    assert {:ok, updated} =
-             Accounts.update_preferences(user_fixture(), %{preferences: %{dietary: "vegan"}})
-
-    assert updated.preferences == %{dietary: "vegan"}
-  end
 end

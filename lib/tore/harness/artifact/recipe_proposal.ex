@@ -106,22 +106,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   def kind, do: "RecipeProposal"
 
   @impl true
-  def summary(%__MODULE__{title: title, ingredients: ingredients}) do
-    %{counts: %{ingredients: length(ingredients)}, text_fallback: title}
-  end
-
-  # A generated recipe must say what it was generated from; an imported one
-  # must say which page it came from. Otherwise the card cannot explain itself.
-  @impl true
-  def is_rationale_complete(%__MODULE__{source: :generation, instruction: i}),
-    do: is_binary(i) and i != ""
-
-  def is_rationale_complete(%__MODULE__{source: :web_import, source_url: u}),
-    do: is_binary(u) and u != ""
-
-  def is_rationale_complete(%__MODULE__{source: :photo}), do: true
-
-  @impl true
   def to_json(%__MODULE__{} = proposal) do
     %{
       "title" => proposal.title,

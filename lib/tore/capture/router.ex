@@ -8,9 +8,9 @@ defmodule Tore.Capture.Router do
   optionally a plain reply). Each tool maps 1:1 to a handler in
   `Tore.Capture.Dispatch`.
 
-  Self-heal: if a handler fails or the model emits no tool calls but has
-  images to act on, the failed/empty result is fed back as a tool message
-  and the model gets one more shot. Capped at @max_tool_loop_iterations.
+  Self-heal: every tool result, a handler's failure included, is fed back as
+  a tool message and the model gets another turn. A plain reply ends the
+  loop. Capped at @max_tool_loop_iterations.
   """
 
   use Gettext, backend: ToreWeb.Gettext
@@ -162,11 +162,6 @@ defmodule Tore.Capture.Router do
   # `bubbles_acc` accumulates user-facing bubbles across iterations so that
   # when the model finally replies in plain text we can show the full
   # tool-call trail (e.g. "I found X" + "Added X to Friday" + final reply).
-
-  defp loop(_system, _messages, bubbles_acc, _images, _ctx, _cid, iter)
-       when iter > @max_tool_loop_iterations do
-    {:ok, bubbles_acc ++ [%{role: :assistant, text: fallback_text()}]}
-  end
 
   defp loop(system, messages, bubbles_acc, images, ctx, correlation_id, iter) do
     # tool_choice is "auto" after the first turn: once the model has tool
@@ -443,7 +438,7 @@ defmodule Tore.Capture.Router do
     [
       tool(
         "ingest_receipt",
-        "Parse a store receipt and surface an editable card in the inbox.",
+        "Parse a store receipt and surface an editable card for review.",
         image_indices_schema()
       ),
       tool(

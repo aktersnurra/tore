@@ -4,9 +4,6 @@ defmodule Tore.Capture.Dispatch do
 
   Each function corresponds 1:1 to a tool in the catalogue and produces a
   rendered assistant bubble (a plain map the LiveView already renders).
-
-  These are the bodies that used to live inside `Tore.PhotoPipeline.route_group/3`,
-  one per channel, lifted out so the router can call them directly.
   """
 
   use Gettext, backend: ToreWeb.Gettext
@@ -621,7 +618,7 @@ defmodule Tore.Capture.Dispatch do
   # One day's change through a plan edit run, so a pinned day holds and the reply can undo it.
   defp edit_plan(ctx, date, command, applied_text) do
     plan_id = plan_stream_id_for(ctx, date)
-    command = command.(slot_key_for(date))
+    command = command.(Streams.slot_key(date))
 
     with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(scope(ctx), plan_id, command),
          {:ok, %KitchenRun{} = run} <- Runs.submit(scope(ctx), Kinds.PlanEdit, diff, run_ctx) do
@@ -885,11 +882,6 @@ defmodule Tore.Capture.Dispatch do
 
   defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(scope(ctx), date)
 
-  defp slot_key_for(%Date{} = date) do
-    day_abbrev = Enum.at(@days, Date.day_of_week(date) - 1)
-    "#{day_abbrev}_dinner"
-  end
-
   defp long_day_for(%Date{} = date) do
     case Date.day_of_week(date) do
       1 -> pgettext("in a sentence", "Monday")
@@ -917,10 +909,10 @@ defmodule Tore.Capture.Dispatch do
             %{recipe_id: nil} -> slot_key
             _ -> nil
           end
-        end) || "#{Enum.at(@days, today_idx)}_dinner"
+        end) || Streams.slot_key(today)
 
       _ ->
-        "#{Enum.at(@days, Date.day_of_week(today) - 1)}_dinner"
+        Streams.slot_key(today)
     end
   end
 

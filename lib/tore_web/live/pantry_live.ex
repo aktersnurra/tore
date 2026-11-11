@@ -45,8 +45,6 @@ defmodule ToreWeb.PantryLive do
       socket={@socket}
       current_user={@current_user}
       flash={@flash}
-      current_scope={assigns[:current_scope]}
-      current_path={assigns[:current_path] || "/settings/pantry"}
     >
       <div class="max-w-2xl mx-auto">
         <header class="mb-5 pt-2">

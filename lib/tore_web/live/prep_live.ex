@@ -4,7 +4,7 @@ defmodule ToreWeb.PrepLive do
   alias Tore.Prep
 
   def mount(_params, _session, socket) do
-    week_start = week_start(Tore.Clock.today())
+    week_start = Tore.Streams.monday(Tore.Clock.today())
     plan_id = Tore.Streams.plan(socket.assigns.current_scope, week_start)
     guide = Prep.get_guide_for_week(socket.assigns.current_scope, week_start)
 
@@ -77,7 +77,6 @@ defmodule ToreWeb.PrepLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={assigns[:current_path] || "/prep"}
     >
       <.page max_width={:md}>
         <header class="flex items-end justify-between gap-4 mb-5 pt-2">
@@ -279,9 +278,4 @@ defmodule ToreWeb.PrepLive do
   end
 
   defp format_duration(min), do: "#{min}m"
-
-  defp week_start(date) do
-    dow = Date.day_of_week(date)
-    Date.add(date, -(dow - 1))
-  end
 end

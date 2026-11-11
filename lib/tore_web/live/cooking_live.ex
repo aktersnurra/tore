@@ -70,7 +70,6 @@ defmodule ToreWeb.CookingLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={assigns[:current_path] || "/cooking"}
     >
       <.page max_width={:md}>
         <header class="mb-5 pt-2">

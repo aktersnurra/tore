@@ -15,7 +15,7 @@ defmodule Tore.RecipesScrapeTest do
 
   @plain_html "<html><body><h1>A recipe page</h1></body></html>"
 
-  describe "scrape_and_create/1" do
+  describe "scrape_attrs_from_url/2" do
     test "Parser result still passes through LLM normaliser for reformatting + translation" do
       Tore.MockHTTP
       |> expect(:fetch, fn "https://example.com/recipe" -> {:ok, @ld_json_html} end)
@@ -26,9 +26,11 @@ defmodule Tore.RecipesScrapeTest do
          %{}}
       end)
 
-      assert {:ok, recipe} = Recipes.scrape_and_create(home_scope(), "https://example.com/recipe")
-      assert recipe.title == "Skrapad Pasta"
-      assert recipe.source_url == "https://example.com/recipe"
+      assert {:ok, attrs} =
+               Recipes.scrape_attrs_from_url(home_scope(), "https://example.com/recipe")
+
+      assert attrs.title == "Skrapad Pasta"
+      assert attrs.source_url == "https://example.com/recipe"
     end
 
     test "falls back to LLM when Parser returns not_found" do
@@ -43,8 +45,10 @@ defmodule Tore.RecipesScrapeTest do
         {:ok, %{"title" => "LLM Recipe", "ingredients" => [], "steps" => []}, %{}}
       end)
 
-      assert {:ok, recipe} = Recipes.scrape_and_create(home_scope(), "https://example.com/plain")
-      assert recipe.title == "LLM Recipe"
+      assert {:ok, attrs} =
+               Recipes.scrape_attrs_from_url(home_scope(), "https://example.com/plain")
+
+      assert attrs.title == "LLM Recipe"
     end
 
     test "propagates HTTP error" do
@@ -52,7 +56,7 @@ defmodule Tore.RecipesScrapeTest do
       |> expect(:fetch, fn _ -> {:error, :timeout} end)
 
       assert {:error, :timeout} =
-               Recipes.scrape_and_create(home_scope(), "https://example.com/bad")
+               Recipes.scrape_attrs_from_url(home_scope(), "https://example.com/bad")
     end
   end
 end

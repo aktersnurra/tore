@@ -23,7 +23,7 @@ defmodule ToreWeb.WelcomeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_path="/welcome">
+    <Layouts.app flash={@flash}>
       <.page max_width={:md}>
         <.card>
           <h1 class="font-semibold text-[var(--text)] mb-2" style="font-size: var(--t-h1);">

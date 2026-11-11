@@ -11,10 +11,6 @@ defmodule ToreWeb.Router do
     plug ToreWeb.Plugs.Locale
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
-
   pipeline :require_auth do
     plug ToreWeb.Plugs.Auth
   end

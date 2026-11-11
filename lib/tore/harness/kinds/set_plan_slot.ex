@@ -11,8 +11,6 @@ defmodule Tore.Harness.Kinds.SetPlanSlot do
   alias Tore.Harness.Kinds.Planner
   alias Tore.Planning.Events.RecipeAssigned
 
-  @days ~w(mon tue wed thu fri sat sun)
-
   @doc "The proposal for putting `recipe_id` on `date`'s dinner, and the ctx to submit it with."
   @spec proposal(Scope.t(), Date.t(), integer(), integer()) ::
           {:ok, PlanDiff.t(), map()} | {:error, :recipe_not_found}
@@ -23,8 +21,8 @@ defmodule Tore.Harness.Kinds.SetPlanSlot do
 
       recipe ->
         plan_id = Streams.plan(scope, date)
-        slot_key = "#{Enum.at(@days, Date.day_of_week(date) - 1)}_dinner"
-        week_start = Date.beginning_of_week(date)
+        slot_key = Streams.slot_key(date)
+        week_start = Streams.monday(date)
 
         diff = %PlanDiff{
           plan_stream_id: plan_id,

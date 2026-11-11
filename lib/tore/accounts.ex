@@ -83,13 +83,6 @@ defmodule Tore.Accounts do
 
   def sign_in(_claims), do: {:error, :username_missing}
 
-  @spec update_preferences(User.t(), map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
-  def update_preferences(user, attrs) do
-    user
-    |> User.preferences_changeset(attrs)
-    |> Repo.update()
-  end
-
   # A member of every household that added them, active in the first, in its language.
   defp join_pending(attrs, [first | _] = pending) do
     locale = Repo.get!(HouseholdSchema, first.household_id).locale

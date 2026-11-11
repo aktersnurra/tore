@@ -16,19 +16,6 @@ defmodule Tore.Harness.Artifact.MemoryBatch do
   def kind, do: "MemoryBatch"
 
   @impl true
-  def summary(%__MODULE__{changes: changes}) do
-    counts = changes |> Enum.frequencies_by(&change_count_key/1)
-    %{counts: counts, text_fallback: "#{length(changes)} memory changes"}
-  end
-
-  defp change_count_key(%{"kind" => "noted"}), do: :added
-  defp change_count_key(%{"kind" => "updated"}), do: :changed
-  defp change_count_key(%{"kind" => "forgot"}), do: :removed
-
-  @impl true
-  def is_rationale_complete(_batch), do: true
-
-  @impl true
   def to_json(%__MODULE__{} = batch),
     do: %{"target" => batch.target, "operations" => batch.operations, "changes" => batch.changes}
 

@@ -7,8 +7,6 @@ defmodule ToreWeb.Layouts do
   embed_templates "layouts/*"
 
   attr :flash, :map, required: true
-  attr :current_scope, :map, default: nil
-  attr :current_path, :string, default: "/"
 
   attr :socket, :any,
     default: nil,

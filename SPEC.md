@@ -233,8 +233,7 @@ stores it until it is confirmed.
 **Rendering.** The UI reads artifacts and status, never a run's internals. Capture
 shows each run as one short line built from its artifact, with Undo. The run review
 page shows a waiting proposal (a `CostEntry` or a `RecipeProposal`) as a card the person
-can edit. The `Artifact` behaviour still declares `summary/1` and
-`is_rationale_complete/1`, which nothing has called since `RunSummary` went.
+can edit.
 
 **No chat transcripts in artifacts.** The LLM's prose is recorded in `ai_operations` for
 the audit log, never as an artifact.
@@ -536,7 +535,7 @@ affordance.
 - Rationales are short and concrete — not paragraphs, not LLM prose. The verifier owning the artifact checks rationale presence as part of artifact validity.
 - A run that produces an artifact with empty rationales fails its verifier. There is no "the model didn't explain" fallback.
 
-**Known gap (2026-11-10).** The verifiers don't check rationale presence: `is_rationale_complete/1` has had no caller since run core.
+**Known gap (2026-11-10).** The verifiers don't check rationale presence: `is_rationale_complete/1` had no caller after run core and was removed.
 
 ### A.8 — Model routing
 
@@ -971,12 +970,13 @@ lib/tore/
   accounts/                  # user, membership, pending_member
   auth/
     oidc.ex                  # Pocket ID: authorization code flow with PKCE, over oidcc
-  recipes.ex                 # catalog; owns scrape_and_create/generate_image (folded)
+  recipes.ex                 # catalog; owns scrape_attrs_from_url/generate_image (folded)
   recipes/                   # schemas, parser, variant.ex (an adapted recipe as a proposal)
   deals.ex                   # owns add_store/scrape_all/scrape_url
   deals/
     deal.ex
-    store_config.ex
+    store.ex
+    household_store.ex
     parsers.ex               # picks a parser from the link's host
     parsers/                 # parser.ex (behaviour), ica.ex
   pantry.ex                  # inference-shaped: list, upsert_belief, remove_item, set_expiry, belief decay
@@ -1020,7 +1020,7 @@ lib/tore/
     resolvers.ex             # resolve_recipe, resolve_slot; grocery item and pantry item PLANNED
     handles.ex
     skills.ex                # PLANNED: V1 Kitchen Skills catalog
-  llm.ex                     # the gate and facade, scope first: text/4, web_search/4, vision/5, chat/4, chat_with_tools/5, decide/4
+  llm.ex                     # the gate and facade, scope first: text/4, web_search/4, vision/5, chat_with_tools/5, decide/4
   llm/
     spec.ex                  # wire-spec behaviour: provider body shape behind the facade
     openai.ex                # OpenAI-compatible Spec implementation

@@ -204,7 +204,6 @@ defmodule ToreWeb.RunReviewLive do
       flash={@flash}
       socket={@socket}
       current_user={@current_user}
-      current_path={~p"/runs/#{@stream_id}"}
     >
       <div class="max-w-2xl mx-auto px-4 py-6">
         <.link
