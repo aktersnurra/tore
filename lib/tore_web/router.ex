@@ -53,6 +53,7 @@ defmodule ToreWeb.Router do
       live "/today", HomeLive
       live "/plan", PlannerLive
       live "/recipes", RecipeLive
+      live "/recipes/:id/cook", CookLive
       live "/shop", ShopLive
       live "/prep", PrepLive
       live "/cooking", CookingLive

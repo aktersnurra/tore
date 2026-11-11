@@ -542,7 +542,7 @@ call isn't recorded; `llm_usage` holds each call's tokens and cost under its fea
 
 | Tier | Use cases | Default model class |
 |---|---|---|
-| **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `cook_mode_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
+| **Cheap structured** | Pattern A callbacks that parse or summarise: `parse_receipt`, `parse_pantry_image`, `cook_steps`, capsule `to_prompt/1` token reductions | A fast small model with reliable strict-JSON support |
 | **Strong tool-capable** | Pattern B `chat_with_tools/4` for `:planner_command_run`, `:weekly_planning_run`, Capture's router, and any future skill-driven run that calls multiple tools across multiple turns | A frontier tool-calling model |
 | **Vision** | Any callback whose primary input is an image or PDF: `parse_receipt`, `parse_recipe_images`, `parse_pantry_image` | A vision-capable model; may overlap with "cheap structured" when the structured-output is small |
 | **Decision** | Pattern C `decide/3`, for a call that only chooses among options Tore wrote: the home pick (`:home_pick_run`) | A decision model that returns typed answers with probabilities and no text: TypeSafe's Jev (`typesafe/jev-1.14`) through OpenRouter's Decisions API |
@@ -1102,7 +1102,7 @@ Three patterns, used deliberately:
 
 Used by every operation whose job is *"turn this input into a fixed-shape result"*:
 `parse_receipt`, `parse_recipe_images`, `parse_pantry_image`,
-`memory_review`, `suggest_slot_recipe`, `prep_guide`, `cook_mode_steps`. All go through `text/3` or `vision/4`.
+`memory_review`, `suggest_slot_recipe`, `prep_guide`, `cook_steps`. All go through `text/3` or `vision/4`.
 
 - Implementation: OpenAI-compatible `response_format: %{type: "json_schema", json_schema: %{name:, strict: true, schema:}}`.
 - Schemas live in `Tore.LLM.Prompts` next to the prompt EEx files.

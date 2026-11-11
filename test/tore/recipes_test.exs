@@ -290,6 +290,64 @@ defmodule Tore.RecipesTest do
     end
   end
 
+  describe "cook_steps/2" do
+    test "are the recipe's own steps, in order, without asking the model" do
+      steps = [
+        %{"phase" => "COOKING", "order" => 2, "action" => "Fry", "ingredients" => []},
+        %{"phase" => "MISE EN PLACE", "order" => 1, "action" => "Chop", "ingredients" => []}
+      ]
+
+      {:ok, recipe} =
+        Recipes.create(home_scope(), Map.put(recipe_attrs(), :steps, Jason.encode!(steps)))
+
+      assert {:ok, [%{"action" => "Chop"}, %{"action" => "Fry"}]} =
+               Recipes.cook_steps(home_scope(), recipe)
+    end
+
+    test "are written once for a recipe that only has running text, then kept" do
+      {:ok, recipe} =
+        Recipes.create(home_scope(), Map.put(recipe_attrs(), :instructions, "Chop. Then fry."))
+
+      expect(Tore.MockLLM, :text, 1, fn _system, user, _opts ->
+        assert user =~ "Chop. Then fry."
+
+        {:ok,
+         %{
+           "steps" => [
+             %{
+               "phase" => "MISE EN PLACE",
+               "order" => 1,
+               "action" => "Chop",
+               "ingredients" => [],
+               "duration_minutes" => nil
+             },
+             %{
+               "phase" => "COOKING",
+               "order" => 2,
+               "action" => "Fry",
+               "ingredients" => [],
+               "duration_minutes" => 5
+             }
+           ]
+         }, %{}}
+      end)
+
+      assert {:ok, [%{"action" => "Chop"}, %{"action" => "Fry"}]} =
+               Recipes.cook_steps(home_scope(), recipe)
+
+      # The second time they come from the recipe.
+      assert {:ok, [_, _]} =
+               Recipes.cook_steps(home_scope(), Recipes.get!(home_scope(), recipe.id))
+    end
+
+    test "say so when the model can't be reached" do
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
+      expect(Tore.MockLLM, :text, fn _system, _user, _opts -> {:error, :timeout} end)
+
+      assert {:error, :timeout} = Recipes.cook_steps(home_scope(), recipe)
+    end
+  end
+
   describe "record_used/1" do
     test "sets last_used_at" do
       {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())

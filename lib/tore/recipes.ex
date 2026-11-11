@@ -1,4 +1,5 @@
 defmodule Tore.Recipes do
+  require Logger
   import Ecto.Query
   alias Tore.{Repo, Scope}
   alias Tore.Recipes.{Recipe, Ingredient, RecipeIngredient, Tag}
@@ -204,26 +205,49 @@ defmodule Tore.Recipes do
     end
   end
 
-  @spec cook_mode_steps(Scope.t(), map()) ::
-          {:ok, %{do_first: [String.t()], while_cooking: [String.t()], finish: [String.t()]}}
-          | {:error, term()}
-  def cook_mode_steps(%Scope{} = scope, recipe) do
-    system = """
-    You are a cooking assistant. Compress recipe steps into a 3-phase action list.
-    Phase 1 "do_first": things to start before anything else (pre-heat, prep, start slow things).
-    Phase 2 "while_cooking": things to do while the main component cooks.
-    Phase 3 "finish": final assembly and plating.
-    Each phase is a list of short action phrases (5-10 words each). Max 4 items per phase.
-    Return JSON only: {"do_first": [...], "while_cooking": [...], "finish": [...]}
-    """
+  @doc """
+  The steps cook mode walks through, in order: maps with `"phase"`, `"order"`, `"action"`,
+  `"ingredients"` (names) and `"duration_minutes"`.
 
-    title = recipe["title"] || recipe[:title] || "Unknown"
-    instructions = recipe["instructions"] || recipe[:instructions] || "No instructions"
-    user = "Recipe: #{title}\nSteps: #{instructions}"
+  An imported recipe already has them. One that only has running text gets them written by the
+  model the first time it's cooked, and they're kept on the recipe from then on.
+  """
+  @spec cook_steps(Scope.t(), Recipe.t()) :: {:ok, [map()]} | {:error, term()}
+  def cook_steps(%Scope{} = scope, %Recipe{} = recipe) do
+    case Recipe.decode_steps(recipe) do
+      [] -> write_cook_steps(scope, recipe)
+      steps -> {:ok, Enum.sort_by(steps, & &1["order"])}
+    end
+  end
 
-    case Tore.LLM.text(scope, system, user, feature: :cook_mode) do
-      {:ok, %{"do_first" => df, "while_cooking" => wc, "finish" => fin}, _usage} ->
-        {:ok, %{do_first: df, while_cooking: wc, finish: fin}}
+  defp write_cook_steps(scope, recipe) do
+    recipe = Repo.preload(recipe, recipe_ingredients: :ingredient)
+
+    payload = %{
+      title: recipe.title,
+      instructions: recipe.instructions,
+      ingredients:
+        Enum.map(recipe.recipe_ingredients, fn ri ->
+          %{item: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}
+        end)
+    }
+
+    {system, user} = Tore.LLM.Prompts.cook_steps(payload, Tore.Household.locale(scope))
+
+    case Tore.LLM.text(scope, system, user,
+           response_format: Tore.LLM.Prompts.cook_steps_schema(),
+           feature: :cook_mode
+         ) do
+      {:ok, %{"steps" => [_ | _] = steps}, _usage} ->
+        steps = Enum.sort_by(steps, & &1["order"])
+
+        Repo.update_all(
+          from(r in Recipe, where: r.id == ^recipe.id),
+          [set: [steps: Jason.encode!(steps)]],
+          Scope.repo_opts(scope)
+        )
+
+        {:ok, steps}
 
       {:ok, _, _} ->
         {:error, :invalid_response}
@@ -384,7 +408,9 @@ defmodule Tore.Recipes do
       loaded = Repo.preload(recipe, recipe_ingredients: :ingredient)
 
       Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-        generate_image(scope, loaded, image_url)
+        with {:error, reason} <- generate_image(scope, loaded, image_url) do
+          Logger.warning("no picture for recipe #{recipe.id}: #{inspect(reason)}")
+        end
       end)
     end
   end

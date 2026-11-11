@@ -29,6 +29,7 @@ defmodule ToreWeb.HomeLive do
        week_start: week_start,
        today_key: today_key,
        tonight_recipe: tonight_recipe,
+       tonight_servings: tonight_slot && tonight_slot[:servings],
        eating_out_tonight: Tore.Planning.State.eating_out?(tonight_slot),
        recipes_by_id: recipes_by_id,
        tonight_sheet: false
@@ -40,7 +41,15 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <%!-- Tonight: the one large thing in the app --%>
       <.page max_width={:md}>
-        <section class="pt-6 md:pt-12">
+        <section class={[!(@tonight_recipe && @tonight_recipe.image_path) && "pt-6 md:pt-12"]}>
+          <%!-- The dish itself, edge to edge, when there's a picture of it --%>
+          <img
+            :if={@tonight_recipe && @tonight_recipe.image_path}
+            src={~p"/images/recipes/#{@tonight_recipe.id}"}
+            alt=""
+            class="-mx-4 -mt-4 mb-6 block aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover md:mx-0 md:mt-0 md:w-full md:rounded-[var(--r-xl)]"
+          />
+
           <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
             {ToreWeb.Dates.long(@today)}
           </p>
@@ -58,30 +67,20 @@ defmodule ToreWeb.HomeLive do
               {@tonight_recipe.title}
             </h1>
             <div class="rim mt-6" aria-hidden="true"></div>
-            <p
-              :if={minutes(@tonight_recipe)}
-              class="num mt-3 text-[color:var(--muted)]"
-              style="font-size: var(--t-meta);"
-            >
-              {gettext("%{minutes} min", minutes: minutes(@tonight_recipe))}
+            <p class="num mt-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {tonight_meta(@tonight_recipe, @tonight_servings)}
             </p>
-            <img
-              :if={@tonight_recipe.image_path}
-              src={~p"/images/recipes/#{@tonight_recipe.id}"}
-              alt=""
-              class="mt-6 aspect-[4/3] w-full rounded-[var(--r-lg)] object-cover"
-            />
             <div class="mt-8 flex items-center gap-6">
               <.link
-                navigate={~p"/recipes"}
-                class="flex h-12 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] px-7 font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
+                navigate={~p"/recipes/#{@tonight_recipe.id}/cook?from=/today"}
+                class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] px-7 text-[17px] font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
               >
                 {gettext("Start cooking")}
               </.link>
               <button
                 type="button"
                 phx-click="something_else"
-                class="h-12 font-semibold text-[color:var(--muted)] underline-offset-4 hover:text-[color:var(--text)] hover:underline"
+                class="h-14 shrink-0 font-semibold text-[color:var(--muted)] underline-offset-4 hover:text-[color:var(--text)] hover:underline"
               >
                 {gettext("Something else")}
               </button>
@@ -228,10 +227,16 @@ defmodule ToreWeb.HomeLive do
     {:noreply, socket}
   end
 
-  defp minutes(recipe) do
-    case (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0) do
-      0 -> nil
-      total -> total
-    end
+  # "20 min, 4 portioner": whichever of the two is known.
+  defp tonight_meta(recipe, servings) do
+    time =
+      case (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0) do
+        0 -> nil
+        total -> gettext("%{minutes} min", minutes: total)
+      end
+
+    portions = servings && ngettext("%{count} serving", "%{count} servings", servings)
+
+    [time, portions] |> Enum.reject(&is_nil/1) |> Enum.join(", ")
   end
 end

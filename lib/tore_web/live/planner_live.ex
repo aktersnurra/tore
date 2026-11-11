@@ -622,7 +622,8 @@ defmodule ToreWeb.PlannerLive do
           :if={@recipe && @recipe.image_path}
           src={~p"/images/recipes/#{@recipe.id}"}
           alt=""
-          class="size-14 shrink-0 rounded-[var(--r-md)] object-cover"
+          loading="lazy"
+          class="size-[72px] shrink-0 rounded-[var(--r-md)] object-cover"
         />
         <.chip :if={leftover_target(@plan_state, @days, @date) != nil} tone={:accent}>
           {gettext("Leftovers for %{day}", day: leftover_target(@plan_state, @days, @date))}

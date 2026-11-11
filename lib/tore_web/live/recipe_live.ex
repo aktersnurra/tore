@@ -30,10 +30,7 @@ defmodule ToreWeb.RecipeLive do
        show_recipe_menu: false,
        show_substitution: false,
        substitution: nil,
-       substitution_loading: false,
-       cook_mode: false,
-       cook_mode_steps: nil,
-       cook_mode_loading: false
+       substitution_loading: false
      )}
   end
 
@@ -118,9 +115,6 @@ defmodule ToreWeb.RecipeLive do
        form: nil,
        error: nil,
        show_recipe_menu: false,
-       cook_mode: false,
-       cook_mode_steps: nil,
-       cook_mode_loading: false,
        show_substitution: false,
        substitution: nil,
        substitution_loading: false
@@ -165,9 +159,6 @@ defmodule ToreWeb.RecipeLive do
        form: nil,
        error: nil,
        show_recipe_menu: false,
-       cook_mode: false,
-       cook_mode_steps: nil,
-       cook_mode_loading: false,
        show_substitution: false,
        substitution: nil,
        substitution_loading: false
@@ -176,6 +167,16 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_event("toggle_recipe_menu", _, socket) do
     {:noreply, assign(socket, show_recipe_menu: !socket.assigns.show_recipe_menu)}
+  end
+
+  # The picture arrives on its own when it's made (`{:recipe_image, id, key}`).
+  def handle_event("make_image", _params, socket) do
+    Recipes.start_image(socket.assigns.current_scope, socket.assigns.selected.id)
+
+    {:noreply,
+     socket
+     |> assign(show_recipe_menu: false)
+     |> put_flash(:info, gettext("Making a picture. It shows up here when it's ready."))}
   end
 
   def handle_event("toggle_substitution", _params, socket) do
@@ -197,22 +198,6 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_event("get_substitution", %{"missing" => ""}, socket) do
     {:noreply, socket}
-  end
-
-  def handle_event("enter_cook_mode", _params, socket) do
-    recipe = socket.assigns.selected
-    scope = socket.assigns.current_scope
-
-    ToreWeb.Background.run(
-      fn -> Recipes.cook_mode_steps(scope, Map.from_struct(recipe)) end,
-      &{:cook_mode_steps, &1}
-    )
-
-    {:noreply, assign(socket, cook_mode: true, cook_mode_loading: true, cook_mode_steps: nil)}
-  end
-
-  def handle_event("exit_cook_mode", _params, socket) do
-    {:noreply, assign(socket, cook_mode: false, cook_mode_steps: nil)}
   end
 
   def handle_event("validate", _params, socket), do: {:noreply, socket}
@@ -254,8 +239,7 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, recipes: recipes, selected: selected)}
   end
 
-  # Both answers come from the model, so they're asked for off the screen's own process:
-  # the screen stays responsive while it waits.
+  # The answer comes from the model, so it's asked for off the screen's own process.
   def handle_info({:substitution, result}, socket) do
     substitution =
       case result do
@@ -270,23 +254,6 @@ defmodule ToreWeb.RecipeLive do
       end
 
     {:noreply, assign(socket, substitution: substitution, substitution_loading: false)}
-  end
-
-  def handle_info({:cook_mode_steps, result}, socket) do
-    steps =
-      case result do
-        {:ok, steps} ->
-          steps
-
-        {:error, _} ->
-          %{
-            do_first: [gettext("Follow the recipe steps")],
-            while_cooking: [],
-            finish: [gettext("Plate and serve")]
-          }
-      end
-
-    {:noreply, assign(socket, cook_mode_steps: steps, cook_mode_loading: false)}
   end
 
   # ── Render ─────────────────────────────────────────────────────────────────
@@ -441,35 +408,42 @@ defmodule ToreWeb.RecipeLive do
           </p>
         </div>
 
-        <ul :if={@recipes != []} class="menu-lines border-t border-[color:var(--border)]">
+        <%!-- A cookbook's contents page: the picture is the entry --%>
+        <ul :if={@recipes != []} class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
           <li :for={recipe <- @recipes}>
             <button
               type="button"
               phx-click="select_recipe"
               phx-value-id={recipe.id}
-              class="-mx-2 flex min-h-[68px] w-[calc(100%+1rem)] items-center gap-4 rounded-[var(--r-md)] px-2 py-3 text-left hover:bg-[var(--sunken)]"
+              class="group block w-full text-left"
             >
-              <span class="min-w-0 flex-1">
-                <span
-                  class="line-clamp-2 font-semibold text-[var(--text)]"
-                  style="font-size: 18px; line-height: 1.25; letter-spacing: -0.01em;"
-                >
-                  {recipe.title}
-                </span>
-                <span
-                  :if={recipe_meta(recipe) != ""}
-                  class="num mt-0.5 block truncate text-[color:var(--muted)]"
-                  style="font-size: var(--t-meta);"
-                >
-                  {recipe_meta(recipe)}
-                </span>
-              </span>
               <img
                 :if={recipe.image_path}
                 src={~p"/images/recipes/#{recipe.id}"}
                 alt=""
-                class="size-14 shrink-0 rounded-[var(--r-md)] object-cover"
+                loading="lazy"
+                class="aspect-[4/5] w-full rounded-[var(--r-lg)] object-cover transition-opacity group-hover:opacity-90"
               />
+              <span
+                :if={!recipe.image_path}
+                aria-hidden="true"
+                class="flex aspect-[4/5] w-full items-end rounded-[var(--r-lg)] bg-[var(--sunken)] p-3 text-[40px] font-extrabold leading-none tracking-[-0.04em] text-[color:var(--border)]"
+              >
+                {String.first(recipe.title)}
+              </span>
+              <span
+                class="mt-2.5 line-clamp-2 block font-semibold text-[var(--text)]"
+                style="font-size: var(--t-body); line-height: 1.25; letter-spacing: -0.01em;"
+              >
+                {recipe.title}
+              </span>
+              <span
+                :if={recipe_meta(recipe) != ""}
+                class="num mt-0.5 block truncate text-[color:var(--muted)]"
+                style="font-size: var(--t-meta);"
+              >
+                {recipe_meta(recipe)}
+              </span>
             </button>
           </li>
         </ul>
@@ -543,7 +517,7 @@ defmodule ToreWeb.RecipeLive do
             </button>
             <div
               :if={@show_recipe_menu}
-              class="absolute right-0 top-10 w-36 bg-[var(--surface)] rounded-[var(--r-lg)] shadow-[var(--shadow-pop)] border border-[color:var(--border)] overflow-hidden z-10"
+              class="absolute right-0 top-10 w-40 bg-[var(--surface)] rounded-[var(--r-lg)] shadow-[var(--shadow-pop)] border border-[color:var(--border)] overflow-hidden z-10"
             >
               <button
                 type="button"
@@ -552,6 +526,14 @@ defmodule ToreWeb.RecipeLive do
                 style="font-size: var(--t-meta);"
               >
                 {gettext("Edit")}
+              </button>
+              <button
+                type="button"
+                phx-click="make_image"
+                class="w-full text-left px-4 py-2.5 text-[var(--text)] hover:bg-[color:var(--hairline)]"
+                style="font-size: var(--t-meta);"
+              >
+                {gettext("New picture")}
               </button>
               <button
                 type="button"
@@ -715,82 +697,13 @@ defmodule ToreWeb.RecipeLive do
           <% end %>
         </div>
 
-        <%!-- Cook mode --%>
-        <div class="mt-4">
-          <%= if !@cook_mode do %>
-            <button
-              phx-click="enter_cook_mode"
-              class="w-full py-3 rounded-[var(--r-lg)] bg-[color:var(--accent)] text-white text-sm font-semibold flex items-center justify-center gap-2"
-            >
-              <.icon name="hero-fire" class="size-4" />
-              {gettext("Start cooking")}
-            </button>
-          <% else %>
-            <div class="rounded-[var(--r-lg)] bg-[var(--surface)] p-4">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-[var(--text)]">{gettext("Cook mode")}</h3>
-                <button phx-click="exit_cook_mode" class="text-[color:var(--muted)] text-sm">
-                  {gettext("Exit")}
-                </button>
-              </div>
-
-              <%= if @cook_mode_loading do %>
-                <p class="text-sm text-[color:var(--muted)]">{gettext("Preparing steps…")}</p>
-              <% end %>
-
-              <%= if @cook_mode_steps do %>
-                <div class="space-y-4">
-                  <div>
-                    <p class="section-label mb-2">
-                      {gettext("Do first")}
-                    </p>
-                    <ul class="space-y-1">
-                      <li
-                        :for={step <- @cook_mode_steps.do_first}
-                        class="text-sm text-[var(--text)] flex gap-2"
-                      >
-                        <span class="text-[color:var(--accent)] mt-0.5">→</span>
-                        <span>{step}</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <%= if @cook_mode_steps.while_cooking != [] do %>
-                    <div>
-                      <p class="section-label mb-2">
-                        {gettext("While it cooks")}
-                      </p>
-                      <ul class="space-y-1">
-                        <li
-                          :for={step <- @cook_mode_steps.while_cooking}
-                          class="text-sm text-[var(--text)] flex gap-2"
-                        >
-                          <span class="text-[color:var(--muted)] mt-0.5">→</span>
-                          <span>{step}</span>
-                        </li>
-                      </ul>
-                    </div>
-                  <% end %>
-
-                  <div>
-                    <p class="section-label mb-2">
-                      {gettext("Finish")}
-                    </p>
-                    <ul class="space-y-1">
-                      <li
-                        :for={step <- @cook_mode_steps.finish}
-                        class="text-sm text-[var(--text)] flex gap-2"
-                      >
-                        <span class="text-[color:var(--muted)] mt-0.5">→</span>
-                        <span>{step}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              <% end %>
-            </div>
-          <% end %>
-        </div>
+        <.link
+          navigate={~p"/recipes/#{@selected.id}/cook"}
+          data-role="start-cooking"
+          class="flex h-12 w-full items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+        >
+          {gettext("Start cooking")}
+        </.link>
       </div>
     </div>
     """

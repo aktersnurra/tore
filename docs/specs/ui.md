@@ -211,6 +211,11 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **No label that isn't information.** Today's top line is the date, not "Tonight".
 - **Tuning stays quiet.** The week's mode sits behind "Planning for: …" below the week.
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
+- **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
+  Recipes is a picture grid. A recipe without a picture shows a quiet block, never a stock image.
+- **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card
+  per step, a tap for the next, and "All steps" to peek ahead. Cook mode and the week's prep
+  use it.
 - **The menu leads with Today, Plan and Shop** in large type; the other places are quieter.
 
 Avoid:

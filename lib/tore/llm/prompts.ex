@@ -160,6 +160,49 @@ defmodule Tore.LLM.Prompts do
   - Respond with a JSON object only. No prose.
   """
 
+  @doc "Turns a recipe written as running text into the steps cook mode walks through."
+  def cook_steps(recipe, locale \\ nil) do
+    system = """
+    You turn a recipe into the steps a cook follows at the stove, one card per step.
+    Return a JSON object: {"steps": [...]}, each step shaped like this:
+      {
+        "phase": "cooking phase name in ALL CAPS (e.g. MISE EN PLACE, SAUCE, COOKING, SERVING)",
+        "order": 1,
+        "action": "one clear, atomic cooking action",
+        "ingredients": ["ingredient names used in this step"],
+        "duration_minutes": null
+      }
+    Rules:
+    - The steps array is sorted in the exact order a cook performs them, start to finish.
+    - "order" is one global counter starting at 1.
+    - Preparation (MISE EN PLACE) comes before any cooking phase.
+    - Each step is one atomic action, written as a short instruction. Never combine actions.
+    - Do not skip anything the recipe says, and do not invent steps it doesn't imply.
+    - A step's "ingredients" are the names it uses, exactly as in the ingredient list.
+    - "duration_minutes" only when the step has an explicit wait or cooking time.
+    #{translation_instruction(locale)}
+    Respond with a JSON object only. No prose.
+    """
+
+    {system, Jason.encode!(recipe)}
+  end
+
+  def cook_steps_schema do
+    %{
+      type: "json_schema",
+      json_schema: %{
+        name: "cook_steps",
+        strict: true,
+        schema: %{
+          type: "object",
+          required: ["steps"],
+          additionalProperties: false,
+          properties: %{steps: @recipe_json_schema.properties.steps}
+        }
+      }
+    }
+  end
+
   def extract_recipe(html, locale \\ nil) do
     system = """
     You are a recipe extractor. Given raw HTML from a recipe webpage, extract the recipe.

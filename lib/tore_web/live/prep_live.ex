@@ -2,6 +2,7 @@ defmodule ToreWeb.PrepLive do
   use ToreWeb, :live_view
 
   alias Tore.Prep
+  alias ToreWeb.StepCards
 
   def mount(_params, _session, socket) do
     week_start = Tore.Streams.monday(Tore.Clock.today())
@@ -14,11 +15,27 @@ defmodule ToreWeb.PrepLive do
        plan_id: plan_id,
        guide: guide,
        generating: false,
-       tab: "timeline"
+       tab: "timeline",
+       # nil, or the card the household is on while following the timeline
+       step: nil,
+       overview: false
      )}
   end
 
   def handle_event("set_tab", %{"tab" => tab}, socket), do: {:noreply, assign(socket, tab: tab)}
+
+  def handle_event("start", _params, socket), do: {:noreply, assign(socket, step: 0)}
+
+  def handle_event("step", %{"to" => to}, socket),
+    do: {:noreply, assign(socket, step: String.to_integer(to), overview: false)}
+
+  def handle_event("step_key", %{"key" => key}, socket) do
+    %{step: step, guide: guide} = socket.assigns
+    {:noreply, assign(socket, step: StepCards.key_target(key, step, length(guide.timeline)))}
+  end
+
+  def handle_event("toggle_overview", _params, socket),
+    do: {:noreply, update(socket, :overview, &(not &1))}
 
   def handle_event("generate_guide", _params, socket) do
     %{plan_id: plan_id, week_start: week_start, current_scope: scope} = socket.assigns
@@ -89,6 +106,16 @@ defmodule ToreWeb.PrepLive do
         </header>
         <div class="rim mt-4 mb-5" aria-hidden="true"></div>
 
+        <StepCards.deck
+          :if={@step}
+          id="prep-steps"
+          title={gettext("Prep Guide")}
+          cards={timeline_cards(@guide)}
+          index={@step}
+          overview={@overview}
+          close_to={~p"/prep"}
+        />
+
         <.card padded={false}>
           <%= cond do %>
             <% @generating -> %>
@@ -129,6 +156,16 @@ defmodule ToreWeb.PrepLive do
                 <p class="mt-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
                   {gettext("Batch prep to make the week easier. Most components keep 3–4 days.")}
                 </p>
+
+                <button
+                  :if={@guide.timeline not in [nil, []]}
+                  type="button"
+                  phx-click="start"
+                  data-role="start-prep"
+                  class="mt-4 flex h-12 w-full items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+                >
+                  {gettext("Start prepping")}
+                </button>
 
                 <div class="mt-4">
                   <.tabs items={@tabs} active={@tab} />
@@ -222,6 +259,16 @@ defmodule ToreWeb.PrepLive do
       </.page>
     </Layouts.app>
     """
+  end
+
+  defp timeline_cards(guide) do
+    Enum.map(guide.timeline, fn step ->
+      %{
+        text: step["task"] || step["uppgift"],
+        needs: List.wrap(step["detail"] || step["komponent"]),
+        minutes: step["duration_min"]
+      }
+    end)
   end
 
   defp timeline_render(assigns) do

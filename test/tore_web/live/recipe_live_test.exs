@@ -62,6 +62,19 @@ defmodule ToreWeb.RecipeLiveTest do
     end
   end
 
+  describe "the recipe's menu" do
+    test "can ask for a new picture", %{conn: conn, user: user, recipe: recipe} do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      render_click(lv, "select_recipe", %{"id" => to_string(recipe.id)})
+      render_click(lv, "toggle_recipe_menu")
+
+      html = lv |> element(~s(button[phx-click="make_image"])) |> render_click()
+
+      assert html =~ "Gör en bild"
+      refute has_element?(lv, ~s(button[phx-click="make_image"]))
+    end
+  end
+
   describe "filter_type" do
     test "filters recipes by type", %{conn: conn, user: user} do
       {:ok, _} = Recipes.create(home_scope(), %{title: "Salsa verde", recipe_type: :component})
