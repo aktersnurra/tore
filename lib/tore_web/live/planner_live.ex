@@ -70,7 +70,7 @@ defmodule ToreWeb.PlannerLive do
     existing_leftover_days =
       if slot && slot.recipe_id do
         socket.assigns.plan_state.slots
-        |> Enum.filter(fn {_k, s} -> s.leftover && s.recipe_id == slot.recipe_id end)
+        |> Enum.filter(fn {k, s} -> k != sk && s.leftover && s.recipe_id == slot.recipe_id end)
         |> Enum.map(fn {k, _} -> k end)
         |> MapSet.new()
       else
@@ -112,7 +112,7 @@ defmodule ToreWeb.PlannerLive do
       end
     )
 
-    {:noreply, assign(socket, slot_action: initial)}
+    {:noreply, assign(socket, slot_action: Map.put(initial, :saved, slot_choice(initial)))}
   end
 
   def handle_event("flip_slot", _, socket) do
@@ -371,34 +371,38 @@ defmodule ToreWeb.PlannerLive do
     end
   end
 
+  # What the sheet would write to the plan. The sheet saves on every change and on close;
+  # comparing with what was last saved keeps an untouched sheet from writing the day again.
+  defp slot_choice(s), do: {s.skipped, s.selected_recipe_id, s.servings, s.leftover_days}
+
   defp auto_save_slot(socket) do
-    case socket.assigns.slot_action do
-      nil ->
-        socket
+    s = socket.assigns.slot_action
 
-      s ->
-        %{plan_id: plan_id, current_scope: scope} = socket.assigns
+    if s == nil or s.saved == slot_choice(s) do
+      socket
+    else
+      %{plan_id: plan_id, current_scope: scope} = socket.assigns
 
-        cond do
-          s.skipped ->
-            slot = Map.get(socket.assigns.plan_state.slots, s.slot_key)
-            if slot, do: Planning.skip_meal(scope, plan_id, s.slot_key)
+      cond do
+        s.skipped ->
+          slot = Map.get(socket.assigns.plan_state.slots, s.slot_key)
+          if slot, do: Planning.skip_meal(scope, plan_id, s.slot_key)
 
-          s.selected_recipe_id ->
-            Planning.assign_with_leftovers(
-              scope,
-              plan_id,
-              s.slot_key,
-              s.selected_recipe_id,
-              s.servings,
-              MapSet.to_list(s.leftover_days)
-            )
+        s.selected_recipe_id ->
+          Planning.assign_with_leftovers(
+            scope,
+            plan_id,
+            s.slot_key,
+            s.selected_recipe_id,
+            s.servings,
+            MapSet.to_list(s.leftover_days)
+          )
 
-          true ->
-            :noop
-        end
+        true ->
+          :noop
+      end
 
-        socket
+      update_slot(socket, &%{&1 | saved: slot_choice(&1)})
     end
   end
 

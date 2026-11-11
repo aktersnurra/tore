@@ -233,6 +233,51 @@ defmodule ToreWeb.PlannerLiveTest do
     end
   end
 
+  describe "opening a day and closing it again" do
+    setup %{conn: conn, user: user, recipe: recipe} do
+      Planning.assign_with_leftovers(home_scope(), this_plan_id(), "mon_dinner", recipe.id, 4, [
+        "tue_dinner"
+      ])
+
+      %{conn: authed(conn, user)}
+    end
+
+    defp event_count do
+      Tore.Repo.aggregate(Tore.EventStore.Event, :count, Tore.Scope.repo_opts(home_scope()))
+    end
+
+    test "writes nothing to the plan", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, "/plan")
+      before = event_count()
+
+      render_click(lv, "open_slot", %{"slot_key" => "mon_dinner"})
+      render_click(lv, "close_slot", %{})
+
+      assert event_count() == before
+    end
+
+    test "leaves a leftover day's portions alone", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, "/plan")
+
+      render_click(lv, "open_slot", %{"slot_key" => "tue_dinner"})
+      render_click(lv, "close_slot", %{})
+
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
+      assert %{servings: 2, leftover: true} = state.slots["tue_dinner"]
+    end
+
+    test "a leftover day with changed portions keeps them", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, "/plan")
+
+      render_click(lv, "open_slot", %{"slot_key" => "tue_dinner"})
+      render_click(lv, "inc_servings", %{})
+      render_click(lv, "close_slot", %{})
+
+      {:ok, state} = Planning.load_plan(home_scope(), this_plan_id())
+      assert state.slots["tue_dinner"].servings == 3
+    end
+  end
+
   describe "a request from a day's sheet" do
     setup %{conn: conn, user: user} do
       %{conn: authed(conn, user)}
