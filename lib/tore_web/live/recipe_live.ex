@@ -316,7 +316,7 @@ defmodule ToreWeb.RecipeLive do
                   class={[
                     "px-3 h-8 rounded-[var(--r-pill)] border transition-colors",
                     @filter_type == type &&
-                      "bg-[color:var(--text)] text-white border-[color:var(--text)]",
+                      "bg-[color:var(--text)] text-[color:var(--bg)] border-[color:var(--text)]",
                     @filter_type != type &&
                       "bg-[var(--surface)] text-[color:var(--muted)] border-[color:var(--border)] hover:text-[var(--text)]"
                   ]}
@@ -408,41 +408,49 @@ defmodule ToreWeb.RecipeLive do
           </p>
         </div>
 
-        <%!-- A cookbook's contents page: the picture is the entry --%>
-        <ul :if={@recipes != []} class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
+        <%!-- A cookbook's contents page: the picture is the entry, with its name on it --%>
+        <ul :if={@recipes != []} class="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <li :for={recipe <- @recipes}>
             <button
               type="button"
               phx-click="select_recipe"
               phx-value-id={recipe.id}
-              class="group block w-full text-left"
+              class={[
+                "group relative block aspect-[3/4] w-full overflow-hidden rounded-[var(--r-xl)] text-left",
+                !recipe.image_path && "bg-[var(--sunken)]"
+              ]}
             >
               <img
                 :if={recipe.image_path}
                 src={~p"/images/recipes/#{recipe.id}"}
                 alt=""
                 loading="lazy"
-                class="aspect-[4/5] w-full rounded-[var(--r-lg)] object-cover transition-opacity group-hover:opacity-90"
+                class="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
               />
-              <span
-                :if={!recipe.image_path}
-                aria-hidden="true"
-                class="flex aspect-[4/5] w-full items-end rounded-[var(--r-lg)] bg-[var(--sunken)] p-3 text-[40px] font-extrabold leading-none tracking-[-0.04em] text-[color:var(--border)]"
-              >
-                {String.first(recipe.title)}
+              <span :if={recipe.image_path} class="photo-shade absolute inset-0" aria-hidden="true">
               </span>
-              <span
-                class="mt-2.5 line-clamp-2 block font-semibold text-[var(--text)]"
-                style="font-size: var(--t-body); line-height: 1.25; letter-spacing: -0.01em;"
-              >
-                {recipe.title}
-              </span>
-              <span
-                :if={recipe_meta(recipe) != ""}
-                class="num mt-0.5 block truncate text-[color:var(--muted)]"
-                style="font-size: var(--t-meta);"
-              >
-                {recipe_meta(recipe)}
+              <span class="absolute inset-x-0 bottom-0 p-3.5">
+                <span
+                  class={[
+                    "line-clamp-3 block font-bold",
+                    recipe.image_path && "text-white",
+                    !recipe.image_path && "text-[color:var(--text)]"
+                  ]}
+                  style="font-size: 17px; line-height: 1.15; letter-spacing: -0.015em;"
+                >
+                  {recipe.title}
+                </span>
+                <span
+                  :if={recipe_meta(recipe) != ""}
+                  class={[
+                    "num mt-1 block truncate",
+                    recipe.image_path && "text-white/75",
+                    !recipe.image_path && "text-[color:var(--muted)]"
+                  ]}
+                  style="font-size: var(--t-micro);"
+                >
+                  {recipe_meta(recipe)}
+                </span>
               </span>
             </button>
           </li>
@@ -450,15 +458,12 @@ defmodule ToreWeb.RecipeLive do
 
         <div
           :if={@selected != nil or @form != nil}
-          class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
+          class="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
           phx-window-keydown="close"
           phx-key="Escape"
         >
           <div class="absolute inset-0 bg-black/30" phx-click="close"></div>
-          <div
-            class="relative w-full md:max-w-lg bg-[var(--surface)] rounded-[var(--r-xl)] shadow-[var(--shadow-pop)] overflow-y-auto"
-            style="max-height: 90vh;"
-          >
+          <div class="relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[var(--r-xl)] md:shadow-[var(--shadow-pop)]">
             <%= cond do %>
               <% @form -> %>
                 <div class="p-6">{render_form(assigns)}</div>
@@ -476,17 +481,22 @@ defmodule ToreWeb.RecipeLive do
   defp render_detail(assigns) do
     ~H"""
     <div>
-      <%!-- Hero image --%>
-      <div class={[
-        "w-full bg-[color:var(--hairline)] relative",
-        @selected.image_path && "aspect-[4/3]"
-      ]}>
+      <%!-- The dish, with its name on the photograph --%>
+      <div class={["relative w-full", @selected.image_path && "aspect-[4/5] max-h-[62vh]"]}>
         <img
           :if={@selected.image_path}
           src={~p"/images/recipes/#{@selected.id}"}
           alt=""
-          class="h-full w-full object-cover"
+          class="size-full object-cover"
         />
+        <div :if={@selected.image_path} class="photo-shade absolute inset-0" aria-hidden="true"></div>
+        <h2
+          :if={@selected.image_path}
+          class="absolute inset-x-0 bottom-0 p-5 font-extrabold text-white"
+          style="font-size: clamp(28px, 8vw, 40px); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          {@selected.title}
+        </h2>
         <%!-- Top bar: close left, actions right --%>
         <div class={[
           "flex items-center justify-between p-3",
@@ -496,7 +506,7 @@ defmodule ToreWeb.RecipeLive do
             type="button"
             phx-click="close"
             class={[
-              "size-9 inline-flex items-center justify-center rounded-[var(--r-md)]",
+              "size-10 inline-flex items-center justify-center rounded-[var(--r-pill)]",
               @selected.image_path && "bg-black/40 text-white hover:bg-black/60",
               !@selected.image_path && "text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
             ]}
@@ -508,7 +518,7 @@ defmodule ToreWeb.RecipeLive do
               type="button"
               phx-click="toggle_recipe_menu"
               class={[
-                "size-9 inline-flex items-center justify-center rounded-[var(--r-md)]",
+                "size-10 inline-flex items-center justify-center rounded-[var(--r-pill)]",
                 @selected.image_path && "bg-black/40 text-white hover:bg-black/60",
                 !@selected.image_path && "text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
               ]}
@@ -517,7 +527,7 @@ defmodule ToreWeb.RecipeLive do
             </button>
             <div
               :if={@show_recipe_menu}
-              class="absolute right-0 top-10 w-40 bg-[var(--surface)] rounded-[var(--r-lg)] shadow-[var(--shadow-pop)] border border-[color:var(--border)] overflow-hidden z-10"
+              class="absolute right-0 top-12 w-40 bg-[var(--surface)] rounded-[var(--r-lg)] shadow-[var(--shadow-pop)] border border-[color:var(--border)] overflow-hidden z-10"
             >
               <button
                 type="button"
@@ -549,60 +559,120 @@ defmodule ToreWeb.RecipeLive do
       </div>
 
       <%!-- Content --%>
-      <div class="p-6 space-y-6">
-        <%!-- Title + meta --%>
+      <div class="space-y-7 px-5 pt-5 pb-10">
         <div>
           <h2
-            class="font-semibold tracking-tight text-[var(--text)] mb-3"
-            style="font-size: var(--t-h1); line-height: 1.2;"
+            :if={!@selected.image_path}
+            class="mb-4 font-extrabold text-[var(--text)]"
+            style="font-size: clamp(28px, 8vw, 40px); line-height: 1.05; letter-spacing: -0.03em;"
           >
             {@selected.title}
           </h2>
-          <div
-            class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[color:var(--muted)]"
-            style="font-size: var(--t-meta);"
-          >
-            <span :if={total_time(@selected) != "—"} class="inline-flex items-center gap-1.5">
-              <.icon name="hero-clock" class="size-4" /> {total_time(@selected)}
-            </span>
-            <span :if={@selected.base_servings} class="inline-flex items-center gap-1.5">
-              <.icon name="hero-user-group" class="size-4" /> {gettext("%{n} servings",
-                n: @selected.base_servings
-              )}
-            </span>
+
+          <%!-- What you can do with it, before anything to read --%>
+          <div class="scroll-quiet -mx-5 flex gap-2 overflow-x-auto px-5">
+            <.link
+              navigate={~p"/recipes/#{@selected.id}/cook"}
+              data-role="start-cooking"
+              class="inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-5 font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+            >
+              <.icon name="hero-fire" class="size-[18px]" />
+              {gettext("Start cooking")}
+            </.link>
+            <button
+              type="button"
+              phx-click="toggle_substitution"
+              class="inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--r-pill)] bg-[var(--sunken)] px-5 font-semibold text-[color:var(--text)]"
+            >
+              {gettext("Missing something?")}
+            </button>
+            <a
+              :if={@selected.source_url}
+              href={@selected.source_url}
+              target="_blank"
+              class="inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--r-pill)] bg-[var(--sunken)] px-5 font-semibold text-[color:var(--text)]"
+            >
+              {gettext("Original recipe")}
+            </a>
           </div>
-          <div :if={@selected.tags != []} class="flex flex-wrap gap-1.5 mt-3">
+
+          <%= if @show_substitution do %>
+            <form phx-submit="get_substitution" class="mt-3 flex gap-2">
+              <input
+                type="text"
+                name="missing"
+                placeholder={gettext("e.g. crème fraîche")}
+                autocomplete="off"
+                class="h-11 min-w-0 flex-1 rounded-[var(--r-pill)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+              />
+              <button
+                type="submit"
+                class="h-11 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-5 font-semibold text-white"
+              >
+                {gettext("Ask")}
+              </button>
+            </form>
+            <p :if={@substitution_loading} class="mt-3 text-sm text-[color:var(--muted)]">
+              {gettext("Thinking…")}
+            </p>
+            <div :if={@substitution} class="mt-3 rounded-[var(--r-lg)] bg-[var(--sunken)] p-4">
+              <p class="text-[var(--text)]" style="font-size: var(--t-meta); line-height: 1.5;">
+                {@substitution.suggestion}
+              </p>
+              <p
+                :if={@substitution.updated_steps}
+                class="mt-2 text-[color:var(--muted)]"
+                style="font-size: var(--t-meta); line-height: 1.5;"
+              >
+                {@substitution.updated_steps}
+              </p>
+            </div>
+          <% end %>
+
+          <dl
+            :if={total_time(@selected) != "—" or @selected.base_servings}
+            class="mt-6 flex gap-8 border-y border-[color:var(--border)] py-3.5"
+          >
+            <div :if={total_time(@selected) != "—"}>
+              <dt class="text-[color:var(--muted)]" style="font-size: var(--t-micro);">
+                {gettext("Time")}
+              </dt>
+              <dd class="num font-bold text-[color:var(--text)]">{total_time(@selected)}</dd>
+            </div>
+            <div :if={@selected.base_servings}>
+              <dt class="text-[color:var(--muted)]" style="font-size: var(--t-micro);">
+                {gettext("Servings")}
+              </dt>
+              <dd class="num font-bold text-[color:var(--text)]">{@selected.base_servings}</dd>
+            </div>
+          </dl>
+          <div :if={@selected.tags != []} class="mt-4 flex flex-wrap gap-1.5">
             <.chip :for={tag <- @selected.tags} tone={:accent}>{tag.name}</.chip>
           </div>
         </div>
 
-        <%!-- Ingredients --%>
+        <%!-- Ingredients: amounts in their own column, so the eye runs down either --%>
         <div :if={@selected.recipe_ingredients != []}>
-          <h3 class="font-semibold text-[var(--text)] mb-3" style="font-size: var(--t-h2);">
+          <h3 class="mb-2 font-bold text-[var(--text)]" style="font-size: var(--t-h2);">
             {gettext("Ingredients")}
           </h3>
-          <ul class="space-y-2">
+          <ul class="menu-lines">
             <li
               :for={ri <- @selected.recipe_ingredients}
-              class="flex items-baseline gap-3"
+              class="flex items-baseline gap-4 py-2.5"
               style="font-size: var(--t-body);"
             >
-              <span class="size-1.5 rounded-full bg-[color:var(--accent)] shrink-0 mt-2"></span>
-              <span class="flex-1 text-[var(--text)]">{ri.ingredient.name}</span>
-              <span
-                :if={ri.quantity}
-                class="shrink-0 text-[color:var(--muted)] tabular-nums"
-                style="font-size: var(--t-meta);"
-              >
+              <span class="num w-20 shrink-0 font-semibold text-[color:var(--text)]">
                 {ri.quantity}{if ri.unit && ri.unit != "", do: " #{ri.unit}"}
               </span>
+              <span class="flex-1 text-[var(--text)]">{ri.ingredient.name}</span>
             </li>
           </ul>
         </div>
 
         <%!-- Instructions --%>
         <div :if={@selected.steps || @selected.instructions}>
-          <h3 class="font-semibold text-[var(--text)] mb-3" style="font-size: var(--t-h2);">
+          <h3 class="mb-3 font-bold text-[var(--text)]" style="font-size: var(--t-h2);">
             {gettext("Instructions")}
           </h3>
           <%= if grouped_steps(@selected) != [] do %>
@@ -640,70 +710,6 @@ defmodule ToreWeb.RecipeLive do
             </div>
           <% end %>
         </div>
-
-        <%!-- Source --%>
-        <div :if={@selected.source_url}>
-          <a
-            href={@selected.source_url}
-            target="_blank"
-            class="inline-flex items-center gap-1.5 text-[color:var(--muted)] hover:text-[var(--text)]"
-            style="font-size: var(--t-meta);"
-          >
-            <.icon name="hero-link" class="size-4" /> {gettext("Original recipe")}
-          </a>
-        </div>
-
-        <%!-- Cooking substitution --%>
-        <div class="pt-4 border-t border-[color:var(--hairline)]">
-          <button
-            phx-click="toggle_substitution"
-            class="flex items-center gap-2 text-sm text-[color:var(--muted)] hover:text-[var(--text)] transition-colors"
-          >
-            <.icon name="hero-question-mark-circle" class="size-4" />
-            {gettext("Missing something?")}
-          </button>
-
-          <%= if @show_substitution do %>
-            <form phx-submit="get_substitution" class="mt-3 flex gap-2">
-              <input
-                type="text"
-                name="missing"
-                placeholder={gettext("e.g. crème fraîche")}
-                autocomplete="off"
-                class="flex-1 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-              />
-              <button
-                type="submit"
-                class="bg-[color:var(--accent)] text-white rounded-[var(--r-md)] px-4 py-2.5 text-sm font-semibold"
-              >
-                {gettext("Ask")}
-              </button>
-            </form>
-
-            <%= if @substitution_loading do %>
-              <p class="mt-3 text-sm text-[color:var(--muted)]">{gettext("Thinking…")}</p>
-            <% end %>
-
-            <%= if @substitution do %>
-              <div class="mt-3 rounded-[var(--r-lg)] bg-[var(--surface)] p-4">
-                <p class="text-sm text-[var(--text)] leading-relaxed">{@substitution.suggestion}</p>
-                <%= if @substitution.updated_steps do %>
-                  <p class="mt-2 text-sm text-[color:var(--muted)] leading-relaxed">
-                    {@substitution.updated_steps}
-                  </p>
-                <% end %>
-              </div>
-            <% end %>
-          <% end %>
-        </div>
-
-        <.link
-          navigate={~p"/recipes/#{@selected.id}/cook"}
-          data-role="start-cooking"
-          class="flex h-12 w-full items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
-        >
-          {gettext("Start cooking")}
-        </.link>
       </div>
     </div>
     """

@@ -211,6 +211,11 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **No label that isn't information.** Today's top line is the date, not "Tonight".
 - **Tuning stays quiet.** The week's mode sits behind "Planning for: …" below the week.
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
+- **Words go on the photograph.** A dish's name is set in white on the foot of its picture
+  (`.photo-shade` darkens it). Without a picture the name is set on the page as before.
+- **Two palettes, one set of tokens.** Porslin in light, natt in dark (follows the phone, or
+  `data-theme`). Nothing on a token background may use `text-white`; only type on the accent
+  or on a photograph does.
 - **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
   Recipes is a picture grid. A recipe without a picture shows a quiet block, never a stock image.
 - **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card

@@ -515,7 +515,7 @@ defmodule ToreWeb.PlannerLive do
               class={[
                 "rounded-[var(--r-pill)] border px-3 py-1.5 text-[13px] font-medium transition-colors",
                 @current_week_mode == mode &&
-                  "bg-[color:var(--text)] text-white border-[color:var(--text)]",
+                  "bg-[color:var(--text)] text-[color:var(--bg)] border-[color:var(--text)]",
                 @current_week_mode != mode &&
                   "bg-[var(--surface)] text-[color:var(--muted)] border-[color:var(--border)] hover:text-[var(--text)]"
               ]}

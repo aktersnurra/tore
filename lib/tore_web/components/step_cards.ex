@@ -108,14 +108,14 @@ defmodule ToreWeb.StepCards do
           phx-value-to={max(@index - 1, 0)}
           disabled={@index == 0}
           aria-label={gettext("Previous step")}
-          class="inline-flex size-14 shrink-0 items-center justify-center rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] disabled:opacity-30"
+          class="inline-flex size-14 shrink-0 items-center justify-center rounded-[var(--r-pill)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] disabled:opacity-30"
         >
           <.icon name="hero-chevron-left" class="size-6" />
         </button>
         <button
           type="button"
           phx-click="toggle_overview"
-          class="h-14 shrink-0 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-4 text-[15px] font-semibold text-[color:var(--text)]"
+          class="h-14 shrink-0 rounded-[var(--r-pill)] border border-[color:var(--border)] bg-[var(--surface)] px-4 text-[15px] font-semibold text-[color:var(--text)]"
         >
           {gettext("All steps")}
         </button>
@@ -124,14 +124,14 @@ defmodule ToreWeb.StepCards do
           type="button"
           phx-click="step"
           phx-value-to={@index + 1}
-          class="h-14 flex-1 rounded-[var(--r-md)] bg-[color:var(--accent)] text-[17px] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+          class="h-14 flex-1 rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
         >
           {gettext("Next")}
         </button>
         <.link
           :if={@index == @last}
           navigate={@close_to}
-          class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] text-[17px] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+          class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
         >
           {gettext("Done")}
         </.link>

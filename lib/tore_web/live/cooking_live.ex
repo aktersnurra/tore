@@ -131,7 +131,7 @@ defmodule ToreWeb.CookingLive do
                 class={[
                   "px-3 py-1.5 rounded-full border text-sm font-medium transition-colors",
                   active_chip?(@prefs.allergies, a) &&
-                    "bg-[color:var(--warn)] border-[color:var(--warn)] text-white",
+                    "bg-[color:var(--warn)] border-[color:var(--warn)] text-[color:var(--bg)]",
                   !active_chip?(@prefs.allergies, a) &&
                     "bg-[color:var(--surface)] border-[color:var(--hairline)] text-[color:var(--muted)] hover:border-[color:var(--warn)] hover:text-[color:var(--warn)]"
                 ]}

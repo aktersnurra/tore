@@ -181,7 +181,7 @@ defmodule ToreWeb.CostLive do
     ~H"""
     <section id={@id} class="px-6 pb-7 md:px-8">
       <h2 class="mb-4 font-medium text-[color:var(--text)]" style="font-size: 15px;">{@title}</h2>
-      <div class="overflow-hidden rounded-[var(--r-lg)] border border-[color:var(--border)] bg-white/35">
+      <div class="overflow-hidden rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)]">
         {render_slot(@inner_block)}
       </div>
     </section>

@@ -41,25 +41,45 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <%!-- Tonight: the one large thing in the app --%>
       <.page max_width={:md}>
-        <section class={[!(@tonight_recipe && @tonight_recipe.image_path) && "pt-6 md:pt-12"]}>
-          <%!-- The dish itself, edge to edge, when there's a picture of it --%>
-          <img
-            :if={@tonight_recipe && @tonight_recipe.image_path}
-            src={~p"/images/recipes/#{@tonight_recipe.id}"}
-            alt=""
-            class="-mx-4 -mt-4 mb-6 block aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover md:mx-0 md:mt-0 md:w-full md:rounded-[var(--r-xl)]"
-          />
-
-          <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-            {ToreWeb.Dates.long(@today)}
-          </p>
-
+        <section class={[!photo?(@tonight_recipe) && "pt-6 md:pt-12"]}>
+          <%!-- With a picture, the dish is the screen: the name sits on the photograph --%>
           <div
-            :if={@tonight_recipe}
+            :if={photo?(@tonight_recipe)}
             id="tonight-card"
             phx-hook="LongPress"
             data-long-press-event="open_tonight_sheet"
           >
+            <div class="relative -mx-4 -mt-4 overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)]">
+              <img
+                src={~p"/images/recipes/#{@tonight_recipe.id}"}
+                alt=""
+                class="block aspect-[4/5] max-h-[68vh] w-full object-cover"
+              />
+              <div class="photo-shade absolute inset-0" aria-hidden="true"></div>
+              <div class="absolute inset-x-0 bottom-0 p-5">
+                <p class="num font-semibold text-white/80" style="font-size: var(--t-meta);">
+                  {ToreWeb.Dates.long(@today)}
+                </p>
+                <h1
+                  class="mt-1.5 font-extrabold text-white"
+                  style="font-size: clamp(34px, 10vw, 56px); line-height: 1.02; letter-spacing: -0.035em;"
+                >
+                  {@tonight_recipe.title}
+                </h1>
+              </div>
+            </div>
+            <.tonight_actions recipe={@tonight_recipe} servings={@tonight_servings} />
+          </div>
+
+          <div
+            :if={@tonight_recipe && !photo?(@tonight_recipe)}
+            id="tonight-card"
+            phx-hook="LongPress"
+            data-long-press-event="open_tonight_sheet"
+          >
+            <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {ToreWeb.Dates.long(@today)}
+            </p>
             <h1
               class="mt-3 font-extrabold text-[color:var(--text)]"
               style="font-size: clamp(40px, 12vw, 64px); line-height: 1; letter-spacing: -0.04em;"
@@ -67,27 +87,13 @@ defmodule ToreWeb.HomeLive do
               {@tonight_recipe.title}
             </h1>
             <div class="rim mt-6" aria-hidden="true"></div>
-            <p class="num mt-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-              {tonight_meta(@tonight_recipe, @tonight_servings)}
-            </p>
-            <div class="mt-8 flex items-center gap-6">
-              <.link
-                navigate={~p"/recipes/#{@tonight_recipe.id}/cook?from=/today"}
-                class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] px-7 text-[17px] font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
-              >
-                {gettext("Start cooking")}
-              </.link>
-              <button
-                type="button"
-                phx-click="something_else"
-                class="h-14 shrink-0 font-semibold text-[color:var(--muted)] underline-offset-4 hover:text-[color:var(--text)] hover:underline"
-              >
-                {gettext("Something else")}
-              </button>
-            </div>
+            <.tonight_actions recipe={@tonight_recipe} servings={@tonight_servings} />
           </div>
 
           <div :if={!@tonight_recipe}>
+            <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {ToreWeb.Dates.long(@today)}
+            </p>
             <h1
               class="mt-3 font-extrabold text-[color:var(--text)]"
               style="font-size: clamp(36px, 10vw, 56px); line-height: 1.02; letter-spacing: -0.04em;"
@@ -99,7 +105,7 @@ defmodule ToreWeb.HomeLive do
             <div class="rim mt-6" aria-hidden="true"></div>
             <.link
               navigate={~p"/plan"}
-              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-md)] bg-[color:var(--accent)] px-7 font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
+              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
             >
               {gettext("Plan the week")}
             </.link>
@@ -145,6 +151,40 @@ defmodule ToreWeb.HomeLive do
     </Layouts.app>
     """
   end
+
+  attr :recipe, :map, required: true
+  attr :servings, :integer, default: nil
+
+  defp tonight_actions(assigns) do
+    ~H"""
+    <dl :if={tonight_facts(@recipe, @servings) != []} class="mt-5 flex gap-8">
+      <div :for={{label, value} <- tonight_facts(@recipe, @servings)}>
+        <dt class="text-[color:var(--muted)]" style="font-size: var(--t-micro);">{label}</dt>
+        <dd class="num font-bold text-[color:var(--text)]" style="font-size: var(--t-body);">
+          {value}
+        </dd>
+      </div>
+    </dl>
+    <div class="mt-6 flex items-center gap-5">
+      <.link
+        navigate={~p"/recipes/#{@recipe.id}/cook?from=/today"}
+        class="flex h-14 flex-1 items-center justify-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 text-[17px] font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
+      >
+        <.icon name="hero-fire" class="size-5" />
+        {gettext("Start cooking")}
+      </.link>
+      <button
+        type="button"
+        phx-click="something_else"
+        class="h-14 shrink-0 font-semibold text-[color:var(--muted)] underline-offset-4 hover:text-[color:var(--text)] hover:underline"
+      >
+        {gettext("Something else")}
+      </button>
+    </div>
+    """
+  end
+
+  defp photo?(recipe), do: recipe != nil and recipe.image_path != nil
 
   def handle_event("something_else", _params, socket) do
     %{plan_id: plan_id, today_key: today_key, recipes_by_id: recipes_by_id} = socket.assigns
@@ -227,16 +267,18 @@ defmodule ToreWeb.HomeLive do
     {:noreply, socket}
   end
 
-  # "20 min, 4 portioner": whichever of the two is known.
-  defp tonight_meta(recipe, servings) do
-    time =
-      case (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0) do
-        0 -> nil
-        total -> gettext("%{minutes} min", minutes: total)
-      end
+  # The few facts worth a glance before starting: how long, for how many, when it's on the table.
+  defp tonight_facts(recipe, servings) do
+    minutes = (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
 
-    portions = servings && ngettext("%{count} serving", "%{count} servings", servings)
-
-    [time, portions] |> Enum.reject(&is_nil/1) |> Enum.join(", ")
+    [
+      minutes > 0 && {gettext("Time"), gettext("%{minutes} min", minutes: minutes)},
+      servings && {gettext("Servings"), to_string(servings)},
+      minutes > 0 && {gettext("Ready by"), ready_by(minutes)}
+    ]
+    |> Enum.filter(& &1)
   end
+
+  defp ready_by(minutes),
+    do: Tore.Clock.now() |> NaiveDateTime.add(minutes, :minute) |> Calendar.strftime("%H:%M")
 end
