@@ -489,10 +489,21 @@ defmodule ToreWeb.RecipeLive do
           alt=""
           class="size-full object-cover"
         />
-        <div :if={@selected.image_path} class="photo-shade absolute inset-0" aria-hidden="true"></div>
+        <div
+          :if={@selected.image_path}
+          class="photo-blur absolute inset-x-0 bottom-0 h-2/5"
+          aria-hidden="true"
+        >
+        </div>
+        <div
+          :if={@selected.image_path}
+          class="photo-fade absolute inset-x-0 bottom-0 h-3/4"
+          aria-hidden="true"
+        >
+        </div>
         <h2
           :if={@selected.image_path}
-          class="absolute inset-x-0 bottom-0 p-5 font-extrabold text-white"
+          class="absolute inset-x-0 bottom-0 px-5 pb-1 font-extrabold text-[color:var(--text)]"
           style="font-size: clamp(28px, 8vw, 40px); line-height: 1.05; letter-spacing: -0.03em;"
         >
           {@selected.title}
@@ -574,7 +585,7 @@ defmodule ToreWeb.RecipeLive do
             <.link
               navigate={~p"/recipes/#{@selected.id}/cook"}
               data-role="start-cooking"
-              class="inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-5 font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+              class="inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-5 font-semibold text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
             >
               <.icon name="hero-fire" class="size-[18px]" />
               {gettext("Start cooking")}
@@ -607,7 +618,7 @@ defmodule ToreWeb.RecipeLive do
               />
               <button
                 type="submit"
-                class="h-11 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-5 font-semibold text-white"
+                class="h-11 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-5 font-semibold text-[color:var(--on-accent)]"
               >
                 {gettext("Ask")}
               </button>

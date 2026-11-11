@@ -28,6 +28,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Recipe pictures are generated with `bytedance-seed/seedream-5-0-pro` by default. Google's image endpoints keep prompts for abuse monitoring, so an OpenRouter account with a zero-data-retention guardrail rejects them.
 - The dish's name sits on its photograph: on Today, on each card in Recipes, and at the top of a recipe, which now fills the phone screen. A recipe leads with what you can do (Start cooking, Missing something?, the original) as pills, then time and servings, then ingredients with amounts in their own column. Today also says when dinner would be on the table.
 - A dark look ("natt") for phones set to dark; the light porcelain look is unchanged in colour. Buttons are pills.
+- New colours: warm paper white with an ember accent in light, near-black with saffron in dark. Large photographs blur and fade into the page at the foot, and the dish's name stands on that fade. The double rim line is now one quiet hairline.
 - Every screen draws its colours from the design tokens: no raw Tailwind greys, blue, red, amber or `dark:` classes are left, and the undefined `--surface-raised` and `--ink` are gone. A `--danger-soft` token backs error notices.
 - Shop no longer scrolls sideways on a phone: the add-item field can shrink.
 - With AI off, checking off a shopping item adds it to the pantry again, keeping its name as written.

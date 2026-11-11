@@ -206,7 +206,7 @@ defmodule ToreWeb.ChatBarLive do
             <button
               type="submit"
               aria-label={gettext("Send")}
-              class="flex size-[var(--tap-min)] shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+              class="flex size-[var(--tap-min)] shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[color:var(--on-accent)]"
             >
               <.icon name="hero-arrow-up" class="size-5" />
             </button>

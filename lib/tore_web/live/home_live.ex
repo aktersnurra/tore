@@ -49,19 +49,23 @@ defmodule ToreWeb.HomeLive do
             phx-hook="LongPress"
             data-long-press-event="open_tonight_sheet"
           >
-            <div class="relative -mx-4 -mt-4 overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)]">
+            <div class="relative -mx-4 -mt-4 overflow-hidden md:mx-0 md:mt-0">
               <img
                 src={~p"/images/recipes/#{@tonight_recipe.id}"}
                 alt=""
-                class="block aspect-[4/5] max-h-[68vh] w-full object-cover"
+                class="block aspect-[4/5] max-h-[66vh] w-full object-cover"
               />
-              <div class="photo-shade absolute inset-0" aria-hidden="true"></div>
-              <div class="absolute inset-x-0 bottom-0 p-5">
-                <p class="num font-semibold text-white/80" style="font-size: var(--t-meta);">
+              <div class="photo-blur absolute inset-x-0 bottom-0 h-2/5" aria-hidden="true"></div>
+              <div class="photo-fade absolute inset-x-0 bottom-0 h-3/4" aria-hidden="true"></div>
+              <div class="absolute inset-x-0 bottom-0 px-4 pb-1 md:px-5">
+                <p
+                  class="num font-semibold text-[color:var(--accent)]"
+                  style="font-size: var(--t-meta);"
+                >
                   {ToreWeb.Dates.long(@today)}
                 </p>
                 <h1
-                  class="mt-1.5 font-extrabold text-white"
+                  class="mt-1.5 font-extrabold text-[color:var(--text)]"
                   style="font-size: clamp(34px, 10vw, 56px); line-height: 1.02; letter-spacing: -0.035em;"
                 >
                   {@tonight_recipe.title}
@@ -105,7 +109,7 @@ defmodule ToreWeb.HomeLive do
             <div class="rim mt-6" aria-hidden="true"></div>
             <.link
               navigate={~p"/plan"}
-              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
+              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 font-semibold text-[color:var(--on-accent)] transition-colors hover:bg-[color:var(--accent-hover)]"
             >
               {gettext("Plan the week")}
             </.link>
@@ -168,7 +172,7 @@ defmodule ToreWeb.HomeLive do
     <div class="mt-6 flex items-center gap-5">
       <.link
         navigate={~p"/recipes/#{@recipe.id}/cook?from=/today"}
-        class="flex h-14 flex-1 items-center justify-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 text-[17px] font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
+        class="flex h-14 flex-1 items-center justify-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 text-[17px] font-semibold text-[color:var(--on-accent)] transition-colors hover:bg-[color:var(--accent-hover)]"
       >
         <.icon name="hero-fire" class="size-5" />
         {gettext("Start cooking")}

@@ -32,22 +32,23 @@
 
 :root {
   /* Colour */
-  --bg: #F3F4F1;            /* porslin: cool porcelain, the page */
+  --bg: #FAF8F4;            /* a warm paper white, the page */
   --surface: #FFFFFF;       /* cards, sheets, inputs */
-  --sunken: #ECEEEA;        /* wells: empty photos, pressed rows */
-  --text: #1C2127;          /* spis */
-  --muted: #5C636D;
-  --subtle: #979DA6;
-  --border: #DFE2DC;
-  --hairline: #EBEDE8;
-  --accent: #27407A;        /* kobolt */
-  --accent-hover: #1E3263;
-  --accent-soft: #E4E9F5;
-  --accent-ink: #223A70;
-  --warn: #8F6212;          /* saffran, dark enough for text */
+  --sunken: #F0ECE5;        /* wells: empty photos, quiet buttons */
+  --text: #1A1816;
+  --muted: #6B655D;
+  --subtle: #A39C92;
+  --border: #E4DFD6;
+  --hairline: #EEEAE2;
+  --accent: #C2410C;        /* glöd: ember */
+  --accent-hover: #A8370A;
+  --accent-soft: #FBE9DF;
+  --accent-ink: #9A3412;
+  --on-accent: #FFFFFF;     /* type set on the accent */
+  --warn: #8F6212;
   --warn-soft: #F8EDD3;
-  --danger: #A3312B;        /* lingon */
-  --danger-soft: #F7E6E4;
+  --danger: #B3261E;
+  --danger-soft: #F9E4E2;
 
   /* Radius follows hierarchy: sheets, cards, controls, chips */
   --r-sm: 8px;
@@ -75,21 +76,22 @@
 /* Dark, for a phone set to dark: the photographs carry the colour. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0C0D0F;            /* natt: the kitchen with the lights down */
-    --surface: #17191C;
-    --sunken: #1F2226;
-    --text: #F2F3F1;
-    --muted: #A3A8AF;
-    --subtle: #6E747C;
-    --border: #2A2D32;
-    --hairline: #1F2226;
-    --accent: #4F70CC;
-    --accent-hover: #6282DA;
-    --accent-soft: #1B2540;
-    --accent-ink: #C5D3F5;
+    --bg: #0E0D0C;            /* natt: the kitchen with the lights down */
+    --surface: #191816;
+    --sunken: #23211E;
+    --text: #F5F2EC;
+    --muted: #A8A29A;
+    --subtle: #6F6A63;
+    --border: #2E2B27;
+    --hairline: #23211E;
+    --accent: #F5B869;        /* saffran: warm against the black */
+    --accent-hover: #F8C784;
+    --accent-soft: #2E2416;
+    --accent-ink: #F8CD93;
+    --on-accent: #1B1306;
     --warn: #E0B15A;
     --warn-soft: #33290F;
-    --danger: #E8847D;
+    --danger: #F0877F;
     --danger-soft: #3A1C1A;
     --shadow-card: none;
     --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
@@ -97,21 +99,22 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0C0D0F;            /* natt: the kitchen with the lights down */
-  --surface: #17191C;
-  --sunken: #1F2226;
-  --text: #F2F3F1;
-  --muted: #A3A8AF;
-  --subtle: #6E747C;
-  --border: #2A2D32;
-  --hairline: #1F2226;
-  --accent: #4F70CC;
-  --accent-hover: #6282DA;
-  --accent-soft: #1B2540;
-  --accent-ink: #C5D3F5;
+  --bg: #0E0D0C;            /* natt: the kitchen with the lights down */
+  --surface: #191816;
+  --sunken: #23211E;
+  --text: #F5F2EC;
+  --muted: #A8A29A;
+  --subtle: #6F6A63;
+  --border: #2E2B27;
+  --hairline: #23211E;
+  --accent: #F5B869;        /* saffran: warm against the black */
+  --accent-hover: #F8C784;
+  --accent-soft: #2E2416;
+  --accent-ink: #F8CD93;
+  --on-accent: #1B1306;
   --warn: #E0B15A;
   --warn-soft: #33290F;
-  --danger: #E8847D;
+  --danger: #F0877F;
   --danger-soft: #3A1C1A;
   --shadow-card: none;
   --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
@@ -141,9 +144,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* The rim line: thick over thin, like the painted band on the edge of a plate.
    Once per screen, under the title. Nowhere else. */
 .rim {
-  height: 7px;
-  border-top: 3px solid var(--accent);
-  border-bottom: 1px solid var(--accent);
+  height: 1px;
+  background: var(--border);
 }
 
 /* A list set like a menu: lines on the page, separated by hairlines */
@@ -155,6 +157,24 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   font-weight: 600;
   line-height: 1.3;
   color: var(--muted);
+}
+
+/* A large photograph melts into the page: its foot fades to the page colour, and blurs as it
+   goes, so the dish's name can stand on it in the page's own type colour. */
+.photo-fade {
+  background: linear-gradient(
+    to top,
+    var(--bg) 0%,
+    color-mix(in srgb, var(--bg) 92%, transparent) 22%,
+    color-mix(in srgb, var(--bg) 62%, transparent) 52%,
+    transparent 100%
+  );
+}
+.photo-blur {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  mask-image: linear-gradient(to top, #000 25%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 25%, transparent 100%);
 }
 
 /* A photograph with words on it: darkens the foot of the picture so white type reads. */

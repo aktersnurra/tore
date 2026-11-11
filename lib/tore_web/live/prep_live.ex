@@ -162,7 +162,7 @@ defmodule ToreWeb.PrepLive do
                   type="button"
                   phx-click="start"
                   data-role="start-prep"
-                  class="mt-4 flex h-12 w-full items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+                  class="mt-4 flex h-12 w-full items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
                 >
                   {gettext("Start prepping")}
                 </button>

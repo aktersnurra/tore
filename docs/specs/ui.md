@@ -201,8 +201,7 @@ Subtle motion
 
 The week of dinners is a *matsedel*, the typed weekly menu, and the screens are set like one:
 
-- **The rim line.** A double cobalt rule, thick over thin, like the painted band on the edge
-  of a plate (`.rim`). Once per screen, under the title, and nowhere else.
+- **The rim line.** One hairline under the screen's title (`.rim`), and nowhere else.
 - **Lists are menu lines.** Days, recipes and shopping items sit on the page, separated by
   hairlines (`.menu-lines`). Cards are for things that are objects: a receipt, a form, a sheet.
 - **Weekdays and months are written out** ("Onsdag 11 november"), through `ToreWeb.Dates`.
@@ -211,11 +210,12 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **No label that isn't information.** Today's top line is the date, not "Tonight".
 - **Tuning stays quiet.** The week's mode sits behind "Planning for: …" below the week.
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
-- **Words go on the photograph.** A dish's name is set in white on the foot of its picture
-  (`.photo-shade` darkens it). Without a picture the name is set on the page as before.
-- **Two palettes, one set of tokens.** Porslin in light, natt in dark (follows the phone, or
-  `data-theme`). Nothing on a token background may use `text-white`; only type on the accent
-  or on a photograph does.
+- **A large photograph melts into the page.** Its foot blurs and fades to the page colour
+  (`.photo-blur` under `.photo-fade`), and the dish's name stands on the fade in the page's
+  own type colour. Small picture cards keep a dark foot and white type (`.photo-shade`).
+- **Two palettes, one set of tokens.** Warm paper and ember in light, near-black and saffron
+  in dark (follows the phone, or `data-theme`). Type on the accent uses `--on-accent`, never
+  `text-white`: the dark accent is a light colour.
 - **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
   Recipes is a picture grid. A recipe without a picture shows a quiet block, never a stock image.
 - **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card
@@ -239,40 +239,41 @@ AI sparkle icons everywhere
 ## 4.2 Theme name
 
 ```md
-Theme: Porslin
+Theme: Glöd (light) and Natt (dark)
 ```
 
-The colours come from Swedish tableware: porcelain, cobalt, saffron and lingonberry.
+Warm and quiet, so the photographs carry the colour: paper white with an ember accent in
+light, near-black with saffron in dark. The phone's setting picks; `data-theme` overrides.
 
 ## 4.3 Color tokens
 
 `assets/css/app.css` is the source of truth; this is a copy. Screens use these tokens only, never raw colours.
 
 ```css
---bg:           #F3F4F1;  /* porslin: cool porcelain, the page */
---surface:      #FFFFFF;  /* cards, sheets, inputs */
---sunken:       #ECEEEA;  /* wells: empty photos, hovered rows */
+/* light                     dark */
+--bg:           #FAF8F4;  /* #0E0D0C */
+--surface:      #FFFFFF;  /* #191816 */
+--sunken:       #F0ECE5;  /* #23211E */
 
---text:         #1C2127;  /* spis */
---muted:        #5C636D;
---subtle:       #979DA6;
+--text:         #1A1816;  /* #F5F2EC */
+--muted:        #6B655D;  /* #A8A29A */
+--subtle:       #A39C92;  /* #6F6A63 */
 
---border:       #DFE2DC;
---hairline:     #EBEDE8;
+--border:       #E4DFD6;  /* #2E2B27 */
+--hairline:     #EEEAE2;  /* #23211E */
 
---accent:       #27407A;  /* kobolt */
---accent-hover: #1E3263;
---accent-soft:  #E4E9F5;
---accent-ink:   #223A70;
+--accent:       #C2410C;  /* #F5B869 */
+--accent-hover: #A8370A;  /* #F8C784 */
+--accent-soft:  #FBE9DF;  /* #2E2416 */
+--accent-ink:   #9A3412;  /* #F8CD93 */
+--on-accent:    #FFFFFF;  /* #1B1306: type set on the accent */
 
---warn:         #8F6212;  /* saffran, dark enough for text */
---warn-soft:    #F8EDD3;
+--warn:         #8F6212;  /* #E0B15A */
+--warn-soft:    #F8EDD3;  /* #33290F */
 
---danger:       #A3312B;  /* lingon */
---danger-soft:  #F7E6E4;
+--danger:       #B3261E;  /* #F0877F */
+--danger-soft:  #F9E4E2;  /* #3A1C1A */
 ```
-
-There is no dark mode yet.
 
 Color must communicate hierarchy and state, not decoration.
 

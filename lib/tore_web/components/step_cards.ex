@@ -124,14 +124,14 @@ defmodule ToreWeb.StepCards do
           type="button"
           phx-click="step"
           phx-value-to={@index + 1}
-          class="h-14 flex-1 rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+          class="h-14 flex-1 rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
         >
           {gettext("Next")}
         </button>
         <.link
           :if={@index == @last}
           navigate={@close_to}
-          class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-white hover:bg-[color:var(--accent-hover)]"
+          class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
         >
           {gettext("Done")}
         </.link>

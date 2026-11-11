@@ -596,7 +596,8 @@ defmodule ToreWeb.CoreComponents do
   defp button_size_class(:xl), do: "h-14 px-7 text-[length:var(--t-h2)]"
 
   defp button_variant_class(:primary),
-    do: "bg-[color:var(--accent)] text-white hover:bg-[color:var(--accent-hover)]"
+    do:
+      "bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
 
   defp button_variant_class(:secondary),
     do:
@@ -698,7 +699,8 @@ defmodule ToreWeb.CoreComponents do
       aria-checked={to_string(@checked)}
       class={[
         "inline-flex items-center justify-center size-6 rounded-[var(--r-pill)] border-[1.5px] transition-colors",
-        @checked && "bg-[color:var(--accent)] border-[color:var(--accent)] text-white",
+        @checked &&
+          "bg-[color:var(--accent)] border-[color:var(--accent)] text-[color:var(--on-accent)]",
         !@checked && "bg-transparent border-[color:var(--subtle)] hover:border-[color:var(--accent)]"
       ]}
       {@rest}

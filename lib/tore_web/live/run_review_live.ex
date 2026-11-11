@@ -229,7 +229,7 @@ defmodule ToreWeb.RunReviewLive do
         <button
           type="submit"
           phx-click="save_recipe"
-          class="flex-1 rounded-[var(--r-md)] bg-[color:var(--accent)] text-white py-3 font-semibold"
+          class="flex-1 rounded-[var(--r-md)] bg-[color:var(--accent)] text-[color:var(--on-accent)] py-3 font-semibold"
         >
           {gettext("Save recipe")}
         </button>

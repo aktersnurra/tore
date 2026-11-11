@@ -288,7 +288,7 @@ defmodule ToreWeb.CaptureLive do
             }
             class={[
               "max-w-[80%] rounded-[var(--r-lg)] px-4 py-2.5 text-sm leading-relaxed flex flex-col gap-1",
-              msg.role == :user && "bg-[color:var(--accent)] text-white",
+              msg.role == :user && "bg-[color:var(--accent)] text-[color:var(--on-accent)]",
               msg.role == :assistant && "bg-[var(--surface)] border border-[color:var(--border)]",
               msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
               Map.get(msg, :quiet) && "text-[color:var(--muted)] whitespace-pre-line"
@@ -328,7 +328,7 @@ defmodule ToreWeb.CaptureLive do
               disabled={@loading}
               class="flex-shrink-0 w-10 h-10 rounded-full bg-[color:var(--accent)] flex items-center justify-center disabled:opacity-40"
             >
-              <.icon name="hero-paper-airplane" class="size-4 text-white" />
+              <.icon name="hero-paper-airplane" class="size-4 text-[color:var(--on-accent)]" />
             </button>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
