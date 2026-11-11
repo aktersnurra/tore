@@ -203,11 +203,12 @@ defmodule ToreWeb.SettingsLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="mb-5 pt-2">
+        <header class="pt-2">
           <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
             {gettext("Settings")}
           </h1>
         </header>
+        <div class="rim mt-4 mb-5" aria-hidden="true"></div>
 
         <.card padded={false}>
           <%!-- Members --%>
@@ -276,9 +277,7 @@ defmodule ToreWeb.SettingsLive do
                 class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
                 style="font-size: var(--t-body);"
               />
-              <.button type="submit" variant={:primary}>
-                <.icon name="hero-plus" class="size-4" />{gettext("Add")}
-              </.button>
+              <.button type="submit" variant={:secondary}>{gettext("Add")}</.button>
             </form>
             <p
               :if={@member_notice}
@@ -358,7 +357,12 @@ defmodule ToreWeb.SettingsLive do
                 class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
                 style="font-size: var(--t-body);"
               />
-              <.button type="submit" variant={:secondary}>{gettext("Rename")}</.button>
+              <button
+                type="submit"
+                class="h-11 shrink-0 px-2 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
+              >
+                {gettext("Rename")}
+              </button>
             </form>
             <div class="flex items-center justify-between gap-3">
               <div class="flex-1 min-w-0">
@@ -402,7 +406,7 @@ defmodule ToreWeb.SettingsLive do
                     <button
                       phx-click="forget_memory"
                       phx-value-id={entry.id}
-                      class="text-xs text-[color:var(--danger)] hover:underline shrink-0 mt-0.5"
+                      class="shrink-0 text-[13px] font-medium text-[color:var(--muted)] hover:text-[color:var(--danger)] hover:underline"
                     >
                       {gettext("Forget")}
                     </button>
@@ -464,9 +468,7 @@ defmodule ToreWeb.SettingsLive do
                 class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
                 style="font-size: var(--t-body);"
               />
-              <.button type="submit" variant={:primary}>
-                <.icon name="hero-plus" class="size-4" />{gettext("Add")}
-              </.button>
+              <.button type="submit" variant={:secondary}>{gettext("Add")}</.button>
             </form>
             <p
               :if={@store_error}

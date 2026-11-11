@@ -92,6 +92,17 @@ h1, h2, h3 { letter-spacing: -0.015em; text-wrap: balance; }
 }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset: 0; }
 
+/* The rim line: thick over thin, like the painted band on the edge of a plate.
+   Once per screen, under the title. Nowhere else. */
+.rim {
+  height: 7px;
+  border-top: 3px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+}
+
+/* A list set like a menu: lines on the page, separated by hairlines */
+.menu-lines > * + * { border-top: 1px solid var(--border); }
+
 /* Section label: sentence case, quiet. Replaces tracked capitals. */
 .section-label {
   font-size: 13px;

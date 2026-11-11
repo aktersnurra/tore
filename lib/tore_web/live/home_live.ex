@@ -24,6 +24,7 @@ defmodule ToreWeb.HomeLive do
 
     {:ok,
      assign(socket,
+       today: today,
        plan_id: plan_id,
        week_start: week_start,
        today_key: today_key,
@@ -40,7 +41,9 @@ defmodule ToreWeb.HomeLive do
       <%!-- Tonight: the one large thing in the app --%>
       <.page max_width={:md}>
         <section class="pt-6 md:pt-12">
-          <p class="section-label">{gettext("Tonight")}</p>
+          <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            {ToreWeb.Dates.long(@today)}
+          </p>
 
           <div
             :if={@tonight_recipe}
@@ -49,11 +52,12 @@ defmodule ToreWeb.HomeLive do
             data-long-press-event="open_tonight_sheet"
           >
             <h1
-              class="mt-2 font-bold text-[color:var(--text)]"
-              style="font-size: clamp(34px, 9vw, 52px); line-height: 1.05; letter-spacing: -0.03em;"
+              class="mt-3 font-extrabold text-[color:var(--text)]"
+              style="font-size: clamp(40px, 12vw, 64px); line-height: 1; letter-spacing: -0.04em;"
             >
               {@tonight_recipe.title}
             </h1>
+            <div class="rim mt-6" aria-hidden="true"></div>
             <p
               :if={minutes(@tonight_recipe)}
               class="num mt-3 text-[color:var(--muted)]"
@@ -67,17 +71,17 @@ defmodule ToreWeb.HomeLive do
               alt=""
               class="mt-6 aspect-[4/3] w-full rounded-[var(--r-lg)] object-cover"
             />
-            <div class="mt-8 flex gap-3">
+            <div class="mt-8 flex items-center gap-6">
               <.link
                 navigate={~p"/recipes"}
-                class="flex h-12 flex-1 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
+                class="flex h-12 items-center justify-center rounded-[var(--r-md)] bg-[color:var(--accent)] px-7 font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
               >
                 {gettext("Start cooking")}
               </.link>
               <button
                 type="button"
                 phx-click="something_else"
-                class="h-12 flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] font-semibold text-[color:var(--text)] transition-colors hover:bg-[var(--sunken)]"
+                class="h-12 font-semibold text-[color:var(--muted)] underline-offset-4 hover:text-[color:var(--text)] hover:underline"
               >
                 {gettext("Something else")}
               </button>
@@ -86,18 +90,19 @@ defmodule ToreWeb.HomeLive do
 
           <div :if={!@tonight_recipe}>
             <h1
-              class="mt-2 font-bold text-[color:var(--text)]"
-              style="font-size: clamp(30px, 8vw, 44px); line-height: 1.1; letter-spacing: -0.03em;"
+              class="mt-3 font-extrabold text-[color:var(--text)]"
+              style="font-size: clamp(36px, 10vw, 56px); line-height: 1.02; letter-spacing: -0.04em;"
             >
               {if @eating_out_tonight,
                 do: gettext("Eating out tonight"),
-                else: gettext("Nothing planned for tonight")}
+                else: gettext("Tonight is open")}
             </h1>
+            <div class="rim mt-6" aria-hidden="true"></div>
             <.link
               navigate={~p"/plan"}
-              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-5 font-semibold text-[color:var(--text)] transition-colors hover:bg-[var(--sunken)]"
+              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-md)] bg-[color:var(--accent)] px-7 font-semibold text-white transition-colors hover:bg-[color:var(--accent-hover)]"
             >
-              {gettext("Open planner")}
+              {gettext("Plan the week")}
             </.link>
           </div>
         </section>

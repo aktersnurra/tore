@@ -37,14 +37,14 @@ defmodule ToreWeb.HomeLiveTest do
     end
   end
 
-  test "mounts without crash and shows tonight section", %{conn: conn} do
+  test "opens with today's date", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/today")
-    assert html =~ "Ikväll"
+    assert html =~ ToreWeb.Dates.long(Tore.Clock.today())
   end
 
   test "shows nothing planned when no recipe assigned", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/today")
-    assert html =~ "Inget planerat ikväll"
+    assert html =~ "Ikväll är öppen"
   end
 
   test "today does not render the week strip", %{conn: conn} do
@@ -151,6 +151,6 @@ defmodule ToreWeb.HomeLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/today")
     assert html =~ "Äter ute ikväll"
-    refute html =~ "Inget planerat"
+    refute html =~ "Ikväll är öppen"
   end
 end

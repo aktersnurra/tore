@@ -79,17 +79,15 @@ defmodule ToreWeb.PrepLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="flex items-end justify-between gap-4 mb-5 pt-2">
+        <header class="flex items-end justify-between gap-4 pt-2">
           <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
             {gettext("Prep Guide")}
           </h1>
           <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-            {Calendar.strftime(@week_start, "%-d/%-m")} – {Calendar.strftime(
-              Date.add(@week_start, 6),
-              "%-d/%-m"
-            )}
+            {ToreWeb.Dates.range(@week_start, Date.add(@week_start, 6))}
           </p>
         </header>
+        <div class="rim mt-4 mb-5" aria-hidden="true"></div>
 
         <.card padded={false}>
           <%= cond do %>

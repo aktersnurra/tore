@@ -47,7 +47,7 @@ defmodule ToreWeb.PantryLive do
       flash={@flash}
     >
       <div class="max-w-2xl mx-auto">
-        <header class="mb-5 pt-2">
+        <header class="pt-2">
           <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
             {gettext("Approximate inventory")}
           </h1>
@@ -55,6 +55,7 @@ defmodule ToreWeb.PantryLive do
             {gettext("What Tore thinks you have. Remove anything that's wrong.")}
           </p>
         </header>
+        <div class="rim mt-4 mb-5" aria-hidden="true"></div>
 
         <div :for={{belief, items} <- @groups} class="mb-6">
           <h2 class="section-label mb-2">

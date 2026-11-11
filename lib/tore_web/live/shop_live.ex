@@ -61,7 +61,7 @@ defmodule ToreWeb.ShopLive do
       socket.assigns.user_id
     )
 
-    {:noreply, socket}
+    {:noreply, assign(socket, item_sheet: nil)}
   end
 
   def handle_event("export_list", _params, socket) do
@@ -185,106 +185,109 @@ defmodule ToreWeb.ShopLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="flex items-start justify-between gap-4 mb-5 pt-2">
-          <div>
+        <header class="flex items-end justify-between gap-4 pt-2">
+          <div class="min-w-0">
             <h1
               class="font-bold text-[var(--text)]"
               style="font-size: var(--t-h1); line-height: 1.15;"
             >
               {gettext("Shop")}
             </h1>
-            <p class="mt-0.5 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-              {gettext("%{n} unchecked · Week %{week}", n: @unchecked_count, week: @week_number)}
+            <p class="num mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {ngettext(
+                "%{count} item left, week %{week}",
+                "%{count} items left, week %{week}",
+                @unchecked_count,
+                week: @week_number
+              )}
             </p>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              phx-click="export_list"
-              aria-label={gettext("More")}
-              class="size-9 inline-flex items-center justify-center rounded-[var(--r-lg)] border border-[color:var(--border)] text-[color:var(--muted)] hover:border-[color:var(--subtle)]"
-            >
-              <.icon name="hero-ellipsis-horizontal" class="size-4" />
-            </button>
-          </div>
-        </header>
-
-        <.card padded={false}>
-          <div
-            :if={@export_text}
-            class="mx-6 mb-4 border border-[color:var(--border)] rounded-[var(--r-lg)] p-3"
+          <button
+            :if={@total > 0}
+            type="button"
+            phx-click="export_list"
+            class="h-11 shrink-0 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
           >
-            <div class="flex items-center justify-between mb-2">
-              <span
-                class="text-[color:var(--muted)]"
-                style="font-size: var(--t-meta); font-weight: 500;"
-              >
-                {gettext("Export")}
-              </span>
-              <.icon_button icon="hero-x-mark" label="Close" phx-click="clear_export" />
-            </div>
-            <textarea
-              readonly
-              class="w-full bg-transparent text-[var(--text)] font-mono resize-none focus:outline-none"
-              style="font-size: var(--t-meta);"
-              rows="6"
-            ><%= @export_text %></textarea>
+            {gettext("Show as text")}
+          </button>
+        </header>
+        <div class="rim mt-4" aria-hidden="true"></div>
+
+        <div
+          :if={@export_text}
+          class="mt-4 rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)] p-4"
+        >
+          <div class="mb-2 flex items-center justify-between">
+            <span class="section-label">{gettext("The list as text")}</span>
+            <.icon_button icon="hero-x-mark" label={gettext("Close")} phx-click="clear_export" />
           </div>
+          <textarea
+            readonly
+            aria-label={gettext("The list as text")}
+            class="w-full resize-none bg-transparent text-[var(--text)] focus:outline-none"
+            style="font-size: var(--t-meta);"
+            rows="6"
+          ><%= @export_text %></textarea>
+        </div>
 
-          <div class="px-5 pt-5 pb-3">
-            <%= if @total == 0 do %>
-              <.empty message={gettext("No items yet")} />
-            <% else %>
-              <%= for {section, section_items} <- @groups do %>
-                <h2 class="section-label mt-5 mb-1 first:mt-0">
-                  {section_label(section)}
-                </h2>
-                <ul class="divide-y divide-[color:var(--hairline)]">
-                  <.item_row :for={item <- section_items} item={item} />
-                </ul>
-              <% end %>
+        <div :if={@total == 0} class="pt-8 pb-2">
+          <p class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
+            {gettext("Nothing to buy")}
+          </p>
+          <p class="mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            {gettext("Add an item here, or ask Tore to make the list from the plan.")}
+          </p>
+        </div>
 
-              <%= if @checked != [] do %>
-                <h2 class="section-label mt-6 mb-1">
-                  {gettext("Done · %{n}", n: length(@checked))}
-                </h2>
-                <ul class="divide-y divide-[color:var(--hairline)]">
-                  <.item_row :for={item <- @checked} item={item} />
-                </ul>
-              <% end %>
-            <% end %>
+        <%= for {section, section_items} <- @groups do %>
+          <h2 class="section-label mt-6 mb-1">
+            {section_label(section)}
+          </h2>
+          <ul class="menu-lines">
+            <.item_row :for={item <- section_items} item={item} />
+          </ul>
+        <% end %>
 
-            <form
-              phx-submit="add_item"
-              class="mt-2 pt-3 border-t border-[color:var(--hairline)] flex items-center gap-3"
-            >
-              <.icon name="hero-plus" class="size-5 text-[color:var(--accent)] shrink-0" />
-              <input
-                type="text"
-                name="name"
-                placeholder={gettext("Add item…")}
-                required
-                class="flex-1 min-w-0 h-10 bg-transparent border-0 text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
-                style="font-size: var(--t-body);"
-              />
-              <input
-                type="text"
-                name="quantity"
-                placeholder={gettext("Qty")}
-                inputmode="decimal"
-                class="w-16 h-10 bg-transparent border-0 text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] tabular-nums text-right focus:outline-none"
-                style="font-size: var(--t-meta);"
-              />
-              <input
-                type="text"
-                name="unit"
-                placeholder={gettext("Unit")}
-                class="w-12 h-10 bg-transparent border-0 text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] focus:outline-none"
-                style="font-size: var(--t-meta);"
-              />
-            </form>
-          </div>
-        </.card>
+        <%= if @checked != [] do %>
+          <h2 class="section-label mt-6 mb-1">
+            {gettext("In the basket, %{n}", n: length(@checked))}
+          </h2>
+          <ul class="menu-lines">
+            <.item_row :for={item <- @checked} item={item} />
+          </ul>
+        <% end %>
+
+        <form
+          phx-submit="add_item"
+          class="mt-6 flex items-center gap-2 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] pl-3.5 pr-2 focus-within:border-[color:var(--accent)]"
+        >
+          <input
+            type="text"
+            name="name"
+            placeholder={gettext("Add item…")}
+            aria-label={gettext("Add item…")}
+            required
+            class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
+            style="font-size: var(--t-body);"
+          />
+          <input
+            type="text"
+            name="quantity"
+            placeholder={gettext("Qty")}
+            aria-label={gettext("Qty")}
+            inputmode="decimal"
+            class="num h-12 w-14 border-0 bg-transparent text-right text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] focus:outline-none"
+            style="font-size: var(--t-meta);"
+          />
+          <input
+            type="text"
+            name="unit"
+            placeholder={gettext("Unit")}
+            aria-label={gettext("Unit")}
+            class="h-12 w-12 border-0 bg-transparent text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] focus:outline-none"
+            style="font-size: var(--t-meta);"
+          />
+        </form>
       </.page>
 
       <%!-- Grocery item object sheet (long-press) --%>
@@ -323,6 +326,14 @@ defmodule ToreWeb.ShopLive do
               class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
             />
           </form>
+          <button
+            type="button"
+            phx-click="remove_item"
+            phx-value-item_id={@item_sheet.id}
+            class="mt-6 h-11 text-[13px] font-semibold text-[color:var(--danger)] hover:underline"
+          >
+            {gettext("Remove from the list")}
+          </button>
         </div>
       </div>
     </Layouts.app>
@@ -340,7 +351,7 @@ defmodule ToreWeb.ShopLive do
       data-item-id={@item.id}
       data-item-name={@item.name}
       class={[
-        "flex items-center gap-4 py-3 transition-opacity",
+        "flex min-h-[52px] items-center gap-4 py-2.5 transition-opacity",
         @item.checked && "opacity-50"
       ]}
     >
@@ -375,15 +386,6 @@ defmodule ToreWeb.ShopLive do
       >
         {qty_label(@item)}
       </span>
-      <button
-        type="button"
-        phx-click="remove_item"
-        phx-value-item_id={@item.id}
-        aria-label={gettext("Remove")}
-        class="size-9 inline-flex items-center justify-center text-[color:var(--subtle)] hover:text-[color:var(--danger)]"
-      >
-        <.icon name="hero-x-mark" class="size-4" />
-      </button>
     </li>
     """
   end

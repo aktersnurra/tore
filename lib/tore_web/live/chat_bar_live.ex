@@ -140,12 +140,13 @@ defmodule ToreWeb.ChatBarLive do
           class="mx-auto w-full max-w-2xl rounded-t-[var(--r-xl)] bg-[var(--surface)] px-2 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[var(--shadow-pop)]"
           aria-label={gettext("Menu")}
         >
-          <%= for {path, label} <- @items do %>
+          <%= for {{path, label}, i} <- Enum.with_index(@items) do %>
+            <hr :if={i == 3} class="mx-4 my-2 border-[color:var(--border)]" />
             <a
               :if={path == ~p"/review"}
               href={path}
               data-role="menu-item"
-              class={item_class(path, @path)}
+              class={item_class(path, @path, i < 3)}
             >
               {label}
             </a>
@@ -154,7 +155,7 @@ defmodule ToreWeb.ChatBarLive do
               navigate={path}
               data-role="menu-item"
               aria-current={if path == @path, do: "page"}
-              class={item_class(path, @path)}
+              class={item_class(path, @path, i < 3)}
             >
               {label}
             </.link>
@@ -229,13 +230,17 @@ defmodule ToreWeb.ChatBarLive do
     """
   end
 
-  defp item_class(path, current) do
+  # The three places a day in the kitchen passes through are set larger; the rest are quieter.
+  defp item_class(path, current, main?) do
     [
-      "block rounded-[var(--r-md)] px-4 py-3 text-base",
-      if(path == current,
-        do: "bg-[var(--bg)] font-semibold text-[color:var(--text)]",
-        else: "text-[color:var(--text)]"
-      )
+      "block rounded-[var(--r-md)] px-4",
+      if(main?,
+        do: "py-2.5 text-[22px] font-bold tracking-[-0.02em]",
+        else: "py-2.5 text-base"
+      ),
+      path == current && "text-[color:var(--accent)]",
+      path != current && main? && "text-[color:var(--text)]",
+      path != current && !main? && "text-[color:var(--muted)] hover:text-[color:var(--text)]"
     ]
   end
 end

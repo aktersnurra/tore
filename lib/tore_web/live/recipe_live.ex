@@ -286,7 +286,7 @@ defmodule ToreWeb.RecipeLive do
     >
       <.page max_width={:md}>
         <div class="mb-6">
-          <header class="mb-5 flex items-end justify-between gap-4 pt-2">
+          <header class="flex items-end justify-between gap-4 pt-2">
             <div>
               <h1
                 class="font-bold text-[var(--text)]"
@@ -298,10 +298,15 @@ defmodule ToreWeb.RecipeLive do
                 {recipe_count_label(@recipes)}
               </p>
             </div>
-            <.button variant={:secondary} phx-click="new_recipe">
-              <.icon name="hero-plus" class="size-4" /> {gettext("New recipe")}
-            </.button>
+            <button
+              type="button"
+              phx-click="new_recipe"
+              class="h-11 shrink-0 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
+            >
+              {gettext("New recipe")}
+            </button>
           </header>
+          <div class="rim mt-4 mb-5" aria-hidden="true"></div>
 
           <div class="space-y-4">
             <%!-- Search --%>
@@ -413,51 +418,47 @@ defmodule ToreWeb.RecipeLive do
           {@error}
         </p>
 
-        <%= if @recipes == [] do %>
-          <.card><.empty message={gettext("No recipes — add one or import from a URL")} /></.card>
-        <% else %>
-          <.card padded={false}>
-            <ul class="divide-y divide-[color:var(--hairline)]">
-              <li :for={recipe <- @recipes}>
-                <button
-                  type="button"
-                  phx-click="select_recipe"
-                  phx-value-id={recipe.id}
-                  class="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-[var(--sunken)]"
+        <div :if={@recipes == []} class="pt-4">
+          <p class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
+            {gettext("No recipes here")}
+          </p>
+          <p class="mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            {gettext("Send Tore a link or a photo of a recipe, or write one yourself.")}
+          </p>
+        </div>
+
+        <ul :if={@recipes != []} class="menu-lines border-t border-[color:var(--border)]">
+          <li :for={recipe <- @recipes}>
+            <button
+              type="button"
+              phx-click="select_recipe"
+              phx-value-id={recipe.id}
+              class="-mx-2 flex min-h-[68px] w-[calc(100%+1rem)] items-center gap-4 rounded-[var(--r-md)] px-2 py-3 text-left hover:bg-[var(--sunken)]"
+            >
+              <span class="min-w-0 flex-1">
+                <span
+                  class="line-clamp-2 font-semibold text-[var(--text)]"
+                  style="font-size: 18px; line-height: 1.25; letter-spacing: -0.01em;"
                 >
-                  <img
-                    :if={recipe.image_path}
-                    src={~p"/images/recipes/#{recipe.id}"}
-                    alt=""
-                    class="size-16 shrink-0 rounded-[var(--r-md)] object-cover"
-                  />
-                  <span
-                    :if={!recipe.image_path}
-                    aria-hidden="true"
-                    class="flex size-16 shrink-0 items-center justify-center rounded-[var(--r-md)] bg-[var(--sunken)] text-xl font-bold text-[color:var(--subtle)]"
-                  >
-                    {String.first(recipe.title)}
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span
-                      class="line-clamp-2 font-semibold text-[var(--text)]"
-                      style="font-size: var(--t-body); line-height: 1.3;"
-                    >
-                      {recipe.title}
-                    </span>
-                    <span
-                      class="num mt-0.5 block truncate text-[color:var(--muted)]"
-                      style="font-size: var(--t-meta);"
-                    >
-                      {recipe_meta(recipe)}
-                    </span>
-                  </span>
-                  <.icon name="hero-chevron-right" class="size-5 shrink-0 text-[color:var(--subtle)]" />
-                </button>
-              </li>
-            </ul>
-          </.card>
-        <% end %>
+                  {recipe.title}
+                </span>
+                <span
+                  :if={recipe_meta(recipe) != ""}
+                  class="num mt-0.5 block truncate text-[color:var(--muted)]"
+                  style="font-size: var(--t-meta);"
+                >
+                  {recipe_meta(recipe)}
+                </span>
+              </span>
+              <img
+                :if={recipe.image_path}
+                src={~p"/images/recipes/#{recipe.id}"}
+                alt=""
+                class="size-14 shrink-0 rounded-[var(--r-md)] object-cover"
+              />
+            </button>
+          </li>
+        </ul>
 
         <div
           :if={@selected != nil or @form != nil}

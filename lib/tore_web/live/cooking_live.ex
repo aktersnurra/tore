@@ -72,7 +72,7 @@ defmodule ToreWeb.CookingLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="mb-5 pt-2">
+        <header class="pt-2">
           <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
             {gettext("Household kitchen")}
           </h1>
@@ -80,6 +80,7 @@ defmodule ToreWeb.CookingLive do
             {gettext("Tore checks every plan against these.")}
           </p>
         </header>
+        <div class="rim mt-4 mb-5" aria-hidden="true"></div>
 
         <.card padded={false}>
           <%!-- We eat --%>

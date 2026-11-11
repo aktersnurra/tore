@@ -199,6 +199,20 @@ Contextual cards
 Subtle motion
 ```
 
+The week of dinners is a *matsedel*, the typed weekly menu, and the screens are set like one:
+
+- **The rim line.** A double cobalt rule, thick over thin, like the painted band on the edge
+  of a plate (`.rim`). Once per screen, under the title, and nowhere else.
+- **Lists are menu lines.** Days, recipes and shopping items sit on the page, separated by
+  hairlines (`.menu-lines`). Cards are for things that are objects: a receipt, a form, a sheet.
+- **Weekdays and months are written out** ("Onsdag 11 november"), through `ToreWeb.Dates`.
+- **Today holds the largest type in the app**, under the date. One filled button per screen;
+  the alternative is a text link.
+- **No label that isn't information.** Today's top line is the date, not "Tonight".
+- **Tuning stays quiet.** The week's mode sits behind "Planning for: …" below the week.
+- **Removing is one step away.** A shopping item is removed from its long-press sheet.
+- **The menu leads with Today, Plan and Shop** in large type; the other places are quieter.
+
 Avoid:
 
 ```md

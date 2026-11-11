@@ -155,7 +155,7 @@ defmodule ToreWeb.CaptureLive do
   def handle_info({:route_complete, {:error, _reason}}, socket) do
     bubble = %{
       role: :assistant,
-      text: gettext("Sorry, I couldn't process that. Please try again.")
+      text: gettext("Tore couldn't finish that. Try again in a moment.")
     }
 
     {:noreply,
@@ -310,7 +310,7 @@ defmodule ToreWeb.CaptureLive do
         </div>
         <div :if={@loading} class="flex justify-start">
           <div class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-2.5">
-            <span class="text-[color:var(--muted)] text-sm">{gettext("Thinking…")}</span>
+            <span class="text-[color:var(--muted)] text-sm">{gettext("Working on it…")}</span>
           </div>
         </div>
       </div>

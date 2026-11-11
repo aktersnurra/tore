@@ -233,26 +233,22 @@ defmodule ToreWeb.PlannerLiveTest do
     end
   end
 
-  describe "command bar" do
+  describe "a request from a day's sheet" do
     setup %{conn: conn, user: user} do
       %{conn: authed(conn, user)}
     end
 
-    test "quick command renders a final message", %{conn: conn} do
-      Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, _msgs, _tools, _opts ->
-        {:ok, {:message, "Done — skipped Monday dinner."}, %{}}
-      end)
-
-      {:ok, view, _} = live(conn, "/plan")
+    defp ask_about_monday(view, command) do
+      view
+      |> element(~s([phx-click="open_slot"][phx-value-slot_key="mon_dinner"]))
+      |> render_click()
 
       view
-      |> form("form[phx-submit=quick_command]", %{command: "skip mon dinner"})
+      |> form(~s(form[phx-submit="slot_command"]), %{command: command})
       |> render_submit()
-
-      assert eventually_renders(view, "Tore justerade planen")
     end
 
-    test "quick command renders an ask_user question", %{conn: conn} do
+    test "shows the question when Tore needs to ask", %{conn: conn} do
       Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, _msgs, _tools, _opts ->
         {:ok,
          {:tool_calls,
@@ -260,24 +256,18 @@ defmodule ToreWeb.PlannerLiveTest do
       end)
 
       {:ok, view, _} = live(conn, "/plan")
-
-      view
-      |> form("form[phx-submit=quick_command]", %{command: "move the salmon"})
-      |> render_submit()
+      ask_about_monday(view, "move the salmon")
 
       assert eventually_renders(view, "Which salmon recipe?")
     end
 
-    test "quick command surfaces a flash when dispatch raises", %{conn: conn} do
+    test "says so when the request fails", %{conn: conn} do
       Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, _msgs, _tools, _opts ->
         raise "boom"
       end)
 
       {:ok, view, _} = live(conn, "/plan")
-
-      view
-      |> form("form[phx-submit=quick_command]", %{command: "skip mon dinner"})
-      |> render_submit()
+      ask_about_monday(view, "skip it")
 
       assert eventually_renders(view, "Tore kunde inte slutföra det")
     end
