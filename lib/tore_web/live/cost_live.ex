@@ -70,14 +70,10 @@ defmodule ToreWeb.CostLive do
         user_id: socket.assigns.current_user.id
       }
 
-      pid = self()
-      locale = Gettext.get_locale(ToreWeb.Gettext)
-
-      Task.start(fn ->
-        # Gettext's locale is per process, so the replies need it set here too.
-        Gettext.put_locale(ToreWeb.Gettext, locale)
-        send(pid, {:receipt_read, Dispatch.ingest_receipt(image, ctx)})
-      end)
+      ToreWeb.Background.run(
+        fn -> Dispatch.ingest_receipt(image, ctx) end,
+        &{:receipt_read, &1}
+      )
 
       {:noreply, assign(socket, scanning: true)}
     else
@@ -98,6 +94,13 @@ defmodule ToreWeb.CostLive do
   # A duplicate photo or a failure: the reply says which.
   def handle_info({:receipt_read, %{text: text}}, socket) do
     {:noreply, socket |> assign(scanning: false) |> put_flash(:error, text)}
+  end
+
+  def handle_info({:receipt_read, {:error, :crashed}}, socket) do
+    {:noreply,
+     socket
+     |> assign(scanning: false)
+     |> put_flash(:error, gettext("Tore couldn't finish that. Try again in a moment."))}
   end
 
   @impl true

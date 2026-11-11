@@ -110,7 +110,6 @@ defmodule ToreWeb.ShopLive do
 
   def handle_event("item_command", %{"command" => command}, socket) when command != "" do
     item = socket.assigns.item_sheet
-    pid = self()
 
     ctx = %{
       household_id: socket.assigns.current_scope.household_id,
@@ -122,14 +121,10 @@ defmodule ToreWeb.ShopLive do
       "[The user is referring to the grocery item \"#{item.name}\" on the shopping list.] " <>
         command
 
-    locale = Gettext.get_locale(ToreWeb.Gettext)
-
-    Task.start(fn ->
-      # Gettext's locale is per process, so the replies need it set here too.
-      Gettext.put_locale(ToreWeb.Gettext, locale)
-      result = Tore.Capture.Router.route(prefixed, [], ctx, [])
-      send(pid, {:item_command_complete, result})
-    end)
+    ToreWeb.Background.run(
+      fn -> Tore.Capture.Router.route(prefixed, [], ctx, []) end,
+      &{:item_command_complete, &1}
+    )
 
     {:noreply, assign(socket, item_sheet: nil, item_command_loading: true)}
   end

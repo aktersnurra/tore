@@ -95,15 +95,10 @@ defmodule ToreWeb.CaptureLive do
         user_id: socket.assigns.current_user && socket.assigns.current_user.id
       }
 
-      pid = self()
-      locale = Gettext.get_locale(ToreWeb.Gettext)
-
-      Task.start(fn ->
-        # Gettext's locale is per process, so the replies need it set here too.
-        Gettext.put_locale(ToreWeb.Gettext, locale)
-        result = Router.route(text, images, ctx, history)
-        send(pid, {:route_complete, result})
-      end)
+      ToreWeb.Background.run(
+        fn -> Router.route(text, images, ctx, history) end,
+        &{:route_complete, &1}
+      )
 
       {:noreply, assign(socket, messages: messages, input: "", loading: true)}
     end

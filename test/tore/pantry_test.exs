@@ -327,7 +327,7 @@ defmodule Tore.PantryTest do
     test "a new guess doesn't overwrite the shelf life we have" do
       attrs = %{catalogue_name: "Mjölk", provenance: "grocery_checkoff"}
 
-      {:ok, item, :added, _} =
+      {:ok, _item, :added, _} =
         Pantry.upsert_belief(home_scope(), Map.put(attrs, :shelf_life_days, 7))
 
       {:ok, item, :bumped, _} =

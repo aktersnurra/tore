@@ -380,12 +380,16 @@ defmodule Tore.Recipes do
     :ok
   end
 
+  # Off in tests (`config :tore, :recipe_images_in_background, false`), where the task would outlive
+  # the test that owns its database connection and mocks. `generate_image/3` is tested directly.
   defp maybe_generate_image(scope, recipe, image_url) do
-    loaded = Repo.preload(recipe, recipe_ingredients: :ingredient)
+    if Application.get_env(:tore, :recipe_images_in_background, true) do
+      loaded = Repo.preload(recipe, recipe_ingredients: :ingredient)
 
-    Task.start(fn ->
-      generate_image(scope, loaded, image_url)
-    end)
+      Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
+        generate_image(scope, loaded, image_url)
+      end)
+    end
   end
 
   @spec scrape_and_create(Scope.t(), String.t(), String.t() | nil) ::

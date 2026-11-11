@@ -94,21 +94,23 @@ defmodule ToreWeb.PlannerLive do
       pinned: Map.has_key?(socket.assigns.plan_state.pins, sk)
     }
 
-    parent = self()
     %{plan_id: plan_id, current_scope: scope} = socket.assigns
 
     dietary_guidance =
       Tore.Household.get_preferences(scope) |> Tore.Household.prefs_to_dietary_guidance()
 
-    Task.start(fn ->
-      case Planning.suggest_recipes_for_slot(scope, plan_id, sk,
-             limit: 5,
-             dietary_guidance: dietary_guidance
-           ) do
-        {:ok, suggestions} -> send(parent, {:suggestions_loaded, sk, suggestions})
-        _ -> send(parent, {:suggestions_loaded, sk, []})
+    ToreWeb.Background.run(
+      fn ->
+        Planning.suggest_recipes_for_slot(scope, plan_id, sk,
+          limit: 5,
+          dietary_guidance: dietary_guidance
+        )
+      end,
+      fn
+        {:ok, suggestions} -> {:suggestions_loaded, sk, suggestions}
+        _ -> {:suggestions_loaded, sk, []}
       end
-    end)
+    )
 
     {:noreply, assign(socket, slot_action: initial)}
   end
@@ -216,22 +218,24 @@ defmodule ToreWeb.PlannerLive do
   def handle_event("regenerate_suggestion", _, socket) do
     s = socket.assigns.slot_action
     %{plan_id: plan_id, current_scope: scope} = socket.assigns
-    parent = self()
     sk = s.slot_key
 
     dietary_guidance =
       Tore.Household.get_preferences(scope) |> Tore.Household.prefs_to_dietary_guidance()
 
-    Task.start(fn ->
-      case Planning.suggest_recipes_for_slot(scope, plan_id, sk,
-             limit: 5,
-             include_llm: true,
-             dietary_guidance: dietary_guidance
-           ) do
-        {:ok, suggestions} -> send(parent, {:suggestions_loaded, sk, suggestions})
-        {:error, reason} -> send(parent, {:suggestion_error, sk, reason})
+    ToreWeb.Background.run(
+      fn ->
+        Planning.suggest_recipes_for_slot(scope, plan_id, sk,
+          limit: 5,
+          include_llm: true,
+          dietary_guidance: dietary_guidance
+        )
+      end,
+      fn
+        {:ok, suggestions} -> {:suggestions_loaded, sk, suggestions}
+        {:error, reason} -> {:suggestion_error, sk, reason}
       end
-    end)
+    )
 
     {:noreply, update_slot(socket, fn s -> %{s | loading_suggestions: true} end)}
   end
@@ -280,7 +284,6 @@ defmodule ToreWeb.PlannerLive do
 
   # The run's own process ends it failed if it crashes, so the reply always comes.
   defp start_command(socket, command, scoped_slot) do
-    pid = self()
     scope = socket.assigns.current_scope
 
     ctx = %{
@@ -290,7 +293,10 @@ defmodule ToreWeb.PlannerLive do
       scoped_slot: scoped_slot
     }
 
-    Task.start(fn -> send(pid, {:run_dispatched, Runs.start(scope, PlannerCommand, ctx)}) end)
+    ToreWeb.Background.run(
+      fn -> Runs.start(scope, PlannerCommand, ctx) end,
+      &{:run_dispatched, &1}
+    )
   end
 
   def handle_info({:run_dispatched, {:ok, state}}, socket) do

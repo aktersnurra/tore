@@ -22,20 +22,11 @@ defmodule ToreWeb.PrepLive do
 
   def handle_event("generate_guide", _params, socket) do
     %{plan_id: plan_id, week_start: week_start, current_scope: scope} = socket.assigns
-    lv = self()
 
-    Task.start(fn ->
-      result =
-        try do
-          Prep.generate_guide(scope, plan_id, week_start)
-        rescue
-          e -> {:error, e}
-        catch
-          :exit, reason -> {:error, {:exit, reason}}
-        end
-
-      send(lv, {:guide_ready, result})
-    end)
+    ToreWeb.Background.run(
+      fn -> Prep.generate_guide(scope, plan_id, week_start) end,
+      &{:guide_ready, &1}
+    )
 
     {:noreply, assign(socket, generating: true)}
   end

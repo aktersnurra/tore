@@ -74,6 +74,9 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
   end
 
   test "a linked recipe keeps the page's picture", %{ctx: ctx} do
+    Application.put_env(:tore, :recipe_images_in_background, true)
+    on_exit(fn -> Application.put_env(:tore, :recipe_images_in_background, false) end)
+
     Tore.Storage.Mock.reset()
 
     page = """

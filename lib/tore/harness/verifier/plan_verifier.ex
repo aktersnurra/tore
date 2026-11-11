@@ -38,6 +38,7 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
       events
       |> Enum.flat_map(&[&1.slot_key, &1.payload["from_slot_key"]])
       |> Enum.filter(&(&1 in pinned))
+
     fail_if(touched, :slot_pinned)
   end
 

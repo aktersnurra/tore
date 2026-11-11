@@ -175,7 +175,6 @@ defmodule ToreWeb.HomeLive do
   end
 
   def handle_event("tonight_command", %{"command" => command}, socket) when command != "" do
-    pid = self()
     scope = socket.assigns.current_scope
 
     ctx = %{
@@ -185,13 +184,10 @@ defmodule ToreWeb.HomeLive do
       scoped_slot: socket.assigns.today_key
     }
 
-    # A crash in the run ends it failed and still replies.
-    Task.start(fn ->
-      send(
-        pid,
-        {:run_dispatched, Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PlannerCommand, ctx)}
-      )
-    end)
+    ToreWeb.Background.run(
+      fn -> Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PlannerCommand, ctx) end,
+      &{:run_dispatched, &1}
+    )
 
     {:noreply, assign(socket, tonight_sheet: false)}
   end

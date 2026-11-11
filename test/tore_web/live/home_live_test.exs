@@ -3,8 +3,6 @@ defmodule ToreWeb.HomeLiveTest do
   import Phoenix.LiveViewTest
   import Mox
 
-  import Tore.RunFixtures
-
   setup :verify_on_exit!
   setup :set_mox_from_context
 

@@ -5,7 +5,7 @@ defmodule Tore.ShopTest do
 
   import Mox
 
-  alias Tore.{Shop, Recipes}
+  alias Tore.Shop
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
@@ -24,7 +24,6 @@ defmodule Tore.ShopTest do
   end
 
   defp list_id, do: Tore.Streams.shop_list(home_scope(), ~D[2026-04-27])
-  defp week_start, do: ~D[2026-04-27]
 
   test "load_list returns initial state for new list" do
     assert {:ok, state} = Shop.load_list(home_scope(), list_id())
