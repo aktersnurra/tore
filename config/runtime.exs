@@ -47,7 +47,7 @@ if config_env() == :prod do
 
   config :tore,
          :openrouter_image_model,
-         System.get_env("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image")
+         System.get_env("OPENROUTER_IMAGE_MODEL", "bytedance-seed/seedream-5-0-pro")
 
   # The decision tier: models that only choose among fixed options (SPEC.md §A.8).
   config :tore, :decisions_model, System.get_env("DECISIONS_MODEL", "typesafe/jev-1.14")

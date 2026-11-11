@@ -25,6 +25,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Cook mode: a recipe opens as cards to step through at the stove (`/recipes/:id/cook`). The first card is what to take out; each step shows what it uses, with amounts, and how long it takes. "All steps" shows the whole recipe to peek ahead, and tapping a step goes there. The screen stays on, and a reload lands on the same card. An imported recipe uses the steps it was saved with; one written as running text gets its steps from the model once, and they're kept. This replaces the three-phase summary box that asked the model every time.
 - The week's prep can be followed as the same cards ("Start prepping").
 - Photos lead: Today opens with the dish's picture edge to edge, Recipes is a two-column picture grid, and Plan's pictures are larger. A recipe's menu has "New picture", and a picture that couldn't be made is logged with the reason instead of failing silently.
+- Recipe pictures are generated with `bytedance-seed/seedream-5-0-pro` by default. Google's image endpoints keep prompts for abuse monitoring, so an OpenRouter account with a zero-data-retention guardrail rejects them.
 - Every screen draws its colours from the design tokens: no raw Tailwind greys, blue, red, amber or `dark:` classes are left, and the undefined `--surface-raised` and `--ink` are gone. A `--danger-soft` token backs error notices.
 - Shop no longer scrolls sideways on a phone: the add-item field can shrink.
 - With AI off, checking off a shopping item adds it to the pantry again, keeping its name as written.

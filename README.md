@@ -96,7 +96,7 @@ Set `OPENROUTER_API_KEY` in your environment (or `.env`). Without it Tore still 
 ```sh
 OPENROUTER_MODEL=openai/gpt-4o-mini
 OPENROUTER_VISION_MODEL=google/gemini-2.5-flash-lite
-OPENROUTER_IMAGE_MODEL=google/gemini-3.1-flash-image
+OPENROUTER_IMAGE_MODEL=bytedance-seed/seedream-5-0-pro
 OPENROUTER_CHECK_MODEL=openai/gpt-oss-120b:free
 DECISIONS_MODEL=typesafe/jev-1.14
 ```
