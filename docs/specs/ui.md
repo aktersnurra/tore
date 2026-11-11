@@ -540,7 +540,7 @@ Capture is for photos and messy input.
 After upload, Tore routes the content:
 
 ```md
-Receipt → Review receipt
+Receipt → Logged as a cost, with Undo
 Recipe photo/text → Save recipe
 Fridge photo → Suggestions
 Pantry shelf → Pantry belief preview

@@ -122,26 +122,4 @@ defmodule Tore.Harness.KitchenRun.Types do
 
     def load(json) when is_binary(json), do: {:ok, json |> Jason.decode!() |> U.decode()}
   end
-
-  defmodule Usd do
-    @moduledoc """
-    A Decimal kept in plain notation. SQLite stores decimals as plain text, so `1E+2` would
-    otherwise come back as `100` and differ from the run that was written.
-    """
-    use Ecto.Type
-
-    def type, do: :string
-
-    def cast(value) do
-      case Ecto.Type.cast(:decimal, value) do
-        {:ok, d} -> {:ok, d |> Decimal.to_string(:normal) |> Decimal.new()}
-        :error -> :error
-      end
-    end
-
-    def dump(%Decimal{} = d), do: {:ok, Decimal.to_string(d, :normal)}
-    def dump(_), do: :error
-
-    def load(s) when is_binary(s), do: {:ok, Decimal.new(s)}
-  end
 end

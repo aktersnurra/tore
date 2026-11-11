@@ -22,7 +22,7 @@ defmodule Tore.LLM.PlannerToolsTest do
       ctx: %{
         plan_id: "plan:test",
         week_start: @week_start,
-        household_id: home_scope().household_id
+        scope: home_scope()
       }
     }
   end

@@ -1,6 +1,6 @@
 defmodule Tore.Harness.Artifact.CostEntry do
   @moduledoc """
-  Parsed receipt: store, date, total, line items, optional image path.
+  Parsed receipt: store, date, total, line items.
   Output of `:receipt_ingestion_run`.
   """
 
@@ -16,19 +16,13 @@ defmodule Tore.Harness.Artifact.CostEntry do
 
   @derive Jason.Encoder
   @enforce_keys [:store_name, :date, :total, :line_items]
-  defstruct [:store_name, :date, :total, :line_items, :image_path, date_inferred?: false]
+  defstruct [:store_name, :date, :total, :line_items]
 
   @type t :: %__MODULE__{
           store_name: String.t(),
           date: Date.t(),
           total: Decimal.t(),
-          line_items: [line_item()],
-          image_path: String.t() | nil,
-          # True when the parser couldn't read a date from the receipt and
-          # ReceiptIngestion filled in today's date as a fallback. The
-          # review card uses this to flag "we couldn't read the date" so
-          # the user knows to verify it before committing.
-          date_inferred?: boolean()
+          line_items: [line_item()]
         }
 
   @impl true
@@ -40,21 +34,17 @@ defmodule Tore.Harness.Artifact.CostEntry do
       "store_name" => c.store_name,
       "date" => Date.to_iso8601(c.date),
       "total" => decimal_to_string(c.total),
-      "line_items" => Enum.map(c.line_items, &line_item_to_json/1),
-      "image_path" => c.image_path,
-      "date_inferred" => c.date_inferred?
+      "line_items" => Enum.map(c.line_items, &line_item_to_json/1)
     }
   end
 
   @impl true
-  def from_json(%{"store_name" => s, "date" => d, "total" => t, "line_items" => items} = m) do
+  def from_json(%{"store_name" => s, "date" => d, "total" => t, "line_items" => items}) do
     %__MODULE__{
       store_name: s,
       date: Date.from_iso8601!(d),
-      total: to_decimal(t),
-      line_items: Enum.map(items, &line_item_from_json/1),
-      image_path: Map.get(m, "image_path"),
-      date_inferred?: m["date_inferred"] == true
+      total: Tore.Types.decimal(t),
+      line_items: Enum.map(items, &line_item_from_json/1)
     }
   end
 
@@ -71,23 +61,11 @@ defmodule Tore.Harness.Artifact.CostEntry do
   defp line_item_from_json(m) do
     %{
       name: m["name"],
-      quantity: to_decimal(m["quantity"]),
+      quantity: Tore.Types.decimal(m["quantity"]),
       unit: m["unit"],
-      total_price: to_decimal(m["total_price"]),
+      total_price: Tore.Types.decimal(m["total_price"]),
       category: m["category"]
     }
-  end
-
-  defp to_decimal(nil), do: nil
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
-
-  defp to_decimal(s) when is_binary(s) do
-    case Decimal.parse(s) do
-      {d, _} -> d
-      :error -> nil
-    end
   end
 
   defp decimal_to_string(nil), do: nil

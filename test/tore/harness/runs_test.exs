@@ -25,12 +25,11 @@ defmodule Tore.Harness.RunsTest do
   defp receipts, do: Costs.recent_receipts(scope(), 10)
 
   describe "start" do
-    test "applies a verified proposal, records usage, and the run reads back the same" do
+    test "applies a verified proposal, and the run reads back the same" do
       assert {:ok, %KitchenRun{status: :applied} = run} = start(%{entry: @entry})
 
       assert run == Runs.get(scope(), run.id)
       assert run.actor == :user and run.surface == :shop
-      assert run.prompt_tokens == 3 and Decimal.equal?(run.cost_usd, "0.25")
       assert [%CostEntry{store_name: "ICA"}] = run.artifacts
       assert [%{store_name: "ICA"}] = receipts()
       assert_receive {:run_changed, %KitchenRun{id: id, status: :applied}}
@@ -112,7 +111,7 @@ defmodule Tore.Harness.RunsTest do
   end
 
   test "submit applies a proposal without proposing" do
-    assert {:ok, %KitchenRun{status: :applied, prompt_tokens: 0}} =
+    assert {:ok, %KitchenRun{status: :applied}} =
              Runs.submit(scope(), TestKind, @entry, %{})
 
     assert [_] = receipts()

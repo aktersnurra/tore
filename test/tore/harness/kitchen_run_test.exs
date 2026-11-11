@@ -50,29 +50,13 @@ defmodule Tore.Harness.KitchenRunTest do
 
     run =
       run
-      |> KitchenRun.change(%{
-        artifacts: artifacts,
-        prompt_tokens: 10,
-        completion_tokens: 5,
-        cost_usd: Decimal.new("0.0125")
-      })
+      |> KitchenRun.change(%{artifacts: artifacts})
       |> Repo.update!()
 
     applied = move!(run, {:apply, {:steps, [{:delete_receipt, 3}]}})
 
     assert applied == get!(run.id)
     assert applied.input == %{"command" => "plan tuesday"}
-  end
-
-  test "values SQLite would hand back differently are normalised when set" do
-    run =
-      home_scope()
-      |> KitchenRun.open(%{kind: "test_run", actor: :user, input: %{}}, ~U[2026-11-10 12:00:00Z])
-      |> Repo.insert!()
-      |> KitchenRun.change(%{cost_usd: Decimal.new("1E+2")})
-      |> Repo.update!()
-
-    assert run == get!(run.id)
   end
 
   test "input JSON can't hold is refused" do

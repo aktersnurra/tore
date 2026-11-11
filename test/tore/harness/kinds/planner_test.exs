@@ -68,18 +68,9 @@ defmodule Tore.Harness.Kinds.PlannerTest do
                run.artifacts
 
       assert {%{"mon_dinner" => %{skipped: true}}, _} = slots(plan)
-      assert run.prompt_tokens == 2
 
       assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(home_scope(), run.id)
       assert slots(plan) == before
-    end
-
-    test "logs each agent step under the run", %{plan: plan} do
-      done()
-      {:ok, run} = Runs.start(home_scope(), PlannerCommand, command(plan, "hello"))
-
-      assert [_ | _] = rows = Tore.AiOperations.list_for_run(home_scope(), run.id)
-      assert Enum.all?(rows, &(&1.run_stream_id == run.id))
     end
 
     test "the prompt names the week's mode once", %{plan: plan} do

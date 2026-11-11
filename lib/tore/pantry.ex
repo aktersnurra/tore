@@ -210,7 +210,7 @@ defmodule Tore.Pantry do
   # quantity & unit; the *signal* (we saw this thing again) still updates
   # last_seen_at / provenance / belief upstream.
   defp merge_quantity(existing_qty, existing_unit, incoming_qty, incoming_unit) do
-    case {to_decimal(existing_qty), to_decimal(incoming_qty)} do
+    case {Tore.Types.decimal(existing_qty), Tore.Types.decimal(incoming_qty)} do
       {nil, q} ->
         {q, existing_unit || incoming_unit}
 
@@ -238,18 +238,6 @@ defmodule Tore.Pantry do
   end
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
-
-  defp to_decimal(nil), do: nil
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
-
-  defp to_decimal(s) when is_binary(s) do
-    case Decimal.parse(s) do
-      {d, _} -> d
-      :error -> nil
-    end
-  end
 
   @spec add_item(Scope.t(), map()) :: {:ok, PantryItem.t()} | {:error, Ecto.Changeset.t()}
   def add_item(%Scope{} = scope, attrs) do

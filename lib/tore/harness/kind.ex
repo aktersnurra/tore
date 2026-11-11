@@ -9,7 +9,7 @@ defmodule Tore.Harness.Kind do
   | `resolve`        | LLM, reads                          | write domain state |
   | `verify`         | nothing: a pure check               | any effect         |
   | `apply_proposal` | database writes, in the run's transaction | LLM, HTTP, storage |
-  | `after_commit`   | best-effort effects, such as deleting a photo | |
+  | `after_commit`   | best-effort effects, such as making a recipe's picture | |
 
   A proposal is a registered artifact or a list of them (`Tore.Harness.Artifact.Registry`),
   because a proposal that waits for review is stored on the run until it is confirmed.
@@ -23,18 +23,13 @@ defmodule Tore.Harness.Kind do
 
   @type proposal :: struct() | [struct()]
   @type ctx :: %{required(:scope) => Tore.Scope.t(), optional(atom()) => term()}
-  @type usage :: %{
-          prompt_tokens: integer(),
-          completion_tokens: integer(),
-          cost_usd: number() | Decimal.t()
-        }
 
   @callback kind() :: String.t()
   @callback surface() :: :today | :plan | :shop | nil
   @callback open(ctx()) :: %{input: map(), actor: :user | :system | :mcp}
 
   @callback propose(KitchenRun.t(), ctx()) ::
-              {:ok, proposal(), usage()} | {:ask, question :: String.t()} | {:error, term()}
+              {:ok, proposal()} | {:ask, question :: String.t()} | {:error, term()}
   @callback resolve(proposal(), ctx()) :: {:ok, proposal()} | {:error, term()}
   @callback verify(proposal(), ctx()) :: :ok | {:fail, code :: atom(), repair :: term()}
 

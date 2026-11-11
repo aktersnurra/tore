@@ -11,10 +11,7 @@ defmodule Tore.Harness.Capsules.MemoryCapsule do
   @type t :: %__MODULE__{snapshot: String.t() | nil}
 
   @impl true
-  def build(ctx),
-    do: %__MODULE__{
-      snapshot: Tore.Household.Memory.snapshot(Tore.Scope.for_household(ctx.household_id))
-    }
+  def build(ctx), do: %__MODULE__{snapshot: Tore.Household.Memory.snapshot(ctx.scope)}
 
   @impl true
   def to_prompt(%__MODULE__{snapshot: snapshot}), do: snapshot

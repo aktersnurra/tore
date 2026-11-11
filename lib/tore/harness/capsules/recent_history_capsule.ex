@@ -47,7 +47,7 @@ defmodule Tore.Harness.Capsules.RecentHistoryCapsule do
         where: e.stream_type == "planning" and e.inserted_at >= ^cutoff,
         order_by: [asc: e.id]
       )
-      |> Repo.all(Tore.Scope.repo_opts(Tore.Scope.for_household(ctx.household_id)))
+      |> Repo.all(Tore.Scope.repo_opts(ctx.scope))
 
     counts = Enum.frequencies_by(events, & &1.event_type)
     assigned = Map.get(counts, "RecipeAssigned", 0)

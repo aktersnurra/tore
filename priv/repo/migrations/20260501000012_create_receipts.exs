@@ -7,7 +7,6 @@ defmodule Tore.Repo.Migrations.CreateReceipts do
       add :date, :date, null: false
       add :store_name, :string
       add :total_amount, :decimal
-      add :image_path, :string
       add :user_id, references(:users, on_delete: :nothing), null: false
       timestamps()
     end

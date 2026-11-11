@@ -1,4 +1,4 @@
-defmodule Tore.Repo.Migrations.CreateAiOperations do
+defmodule Tore.Repo.Migrations.CreateRuns do
   use Ecto.Migration
 
   def change do
@@ -22,9 +22,6 @@ defmodule Tore.Repo.Migrations.CreateAiOperations do
         repair_action     TEXT,
         discard_reason    TEXT,
         undo              TEXT,
-        prompt_tokens     INTEGER NOT NULL DEFAULT 0,
-        completion_tokens INTEGER NOT NULL DEFAULT 0,
-        cost_usd          TEXT NOT NULL DEFAULT '0',
         opened_at         TEXT NOT NULL,
         applied_at        TEXT,
         reverted_at       TEXT,
@@ -42,18 +39,5 @@ defmodule Tore.Repo.Migrations.CreateAiOperations do
 
     create index(:runs, [:household_id, :status, :opened_at])
     create index(:runs, [:household_id, :surface, :opened_at])
-
-    create table(:ai_operations) do
-      add :household_id, references(:households, on_delete: :delete_all), null: false
-      add :run_stream_id, :string, null: false
-      add :step_index, :integer, null: false, default: 0
-      add :kind, :string, null: false
-      add :payload, :text
-      add :result, :text
-      add :undo_op_id, :integer
-      add :inserted_at, :utc_datetime, null: false, default: fragment("CURRENT_TIMESTAMP")
-    end
-
-    create unique_index(:ai_operations, [:run_stream_id, :step_index])
   end
 end

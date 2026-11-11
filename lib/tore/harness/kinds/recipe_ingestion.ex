@@ -14,8 +14,6 @@ defmodule Tore.Harness.Kinds.RecipeIngestion do
   alias Tore.Harness.Artifact.RecipeProposal
   alias Tore.Harness.Kinds.Planner
 
-  @no_usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
-
   @impl true
   def kind, do: "recipe_ingestion_run"
 
@@ -32,12 +30,12 @@ defmodule Tore.Harness.Kinds.RecipeIngestion do
   @impl true
   def propose(_run, %{scope: scope, images: images}) do
     with {:ok, attrs} <- Recipes.extract_from_images(scope, images),
-         do: {:ok, RecipeProposal.from_attrs(attrs, :photo, nil), @no_usage}
+         do: {:ok, RecipeProposal.from_attrs(attrs, :photo, nil)}
   end
 
   def propose(_run, %{scope: scope, url: url}) do
     with {:ok, attrs} <- Recipes.scrape_attrs_from_url(scope, url),
-         do: {:ok, RecipeProposal.from_attrs(attrs, :web_import, url), @no_usage}
+         do: {:ok, RecipeProposal.from_attrs(attrs, :web_import, url)}
   end
 
   @impl true

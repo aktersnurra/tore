@@ -16,9 +16,6 @@ defmodule Tore.Harness.Runs do
   A kind that fails its verifier ends `failed` and returns `{:ok, run}`. A step that errors ends
   `failed` too and returns `{:error, {:step_failed, reason}}`, so screens can say why through
   `Tore.LLM.refusal_text/1`; a crash, exit or throw returns `{:error, {:run_crashed, reason}}`.
-
-  A run's token and cost columns count the usage `propose` returns with a proposal. A call that
-  ends in a question or an error is in `llm_usage` only.
   """
 
   require Logger
@@ -43,7 +40,7 @@ defmodule Tore.Harness.Runs do
       run = phase!(run, :proposing)
 
       case kind.propose(run, ctx) do
-        {:ok, proposal, usage} -> run |> add_usage!(usage) |> settle(kind, proposal, ctx)
+        {:ok, proposal} -> settle(run, kind, proposal, ctx)
         {:ask, question} -> finish!(run, kind, {:ask, question}, %{})
         {:error, reason} -> step_failed(run, kind, reason)
       end
@@ -335,17 +332,6 @@ defmodule Tore.Harness.Runs do
     run
   end
 
-  defp add_usage!(run, usage) do
-    {:ok, run} =
-      move(run, %{
-        prompt_tokens: run.prompt_tokens + (usage[:prompt_tokens] || 0),
-        completion_tokens: run.completion_tokens + (usage[:completion_tokens] || 0),
-        cost_usd: Decimal.add(run.cost_usd, decimal(usage[:cost_usd]))
-      })
-
-    run
-  end
-
   # Writes the changes only if the row still has the status the caller read, and returns the
   # row as stored.
   defp move(run, changes) do
@@ -392,11 +378,6 @@ defmodule Tore.Harness.Runs do
       {:run_changed, run}
     )
   end
-
-  defp decimal(nil), do: Decimal.new(0)
-  defp decimal(%Decimal{} = d), do: d
-  defp decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp decimal(n) when is_float(n), do: Decimal.from_float(n)
 
   defp now, do: DateTime.utc_now()
 

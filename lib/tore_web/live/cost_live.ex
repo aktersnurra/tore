@@ -78,12 +78,8 @@ defmodule ToreWeb.CostLive do
     end
   end
 
-  @impl true
-  def handle_info({:receipt_read, {:review, run_id}}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/runs/#{run_id}?from=/settings/costs")}
-  end
-
   # Saved straight away: show it, with the rest of the month.
+  @impl true
   def handle_info({:receipt_read, {:saved, _run_id, text}}, socket) do
     {:noreply, socket |> load_costs() |> assign(scanning: false) |> put_flash(:info, text)}
   end

@@ -10,12 +10,6 @@ defmodule Tore.LLM.PlannerAgent do
   @default_max_round_trips 6
   @default_max_action_calls 12
 
-  @type usage :: %{
-          prompt_tokens: non_neg_integer(),
-          completion_tokens: non_neg_integer(),
-          cost_usd: Decimal.t()
-        }
-
   @type trace_step :: %{
           step_index: non_neg_integer(),
           step_kind: :tool_calls | :tool_result | :message,
@@ -31,7 +25,6 @@ defmodule Tore.LLM.PlannerAgent do
   @type loop_outcome :: %{
           result: result(),
           tool_trace: [trace_step()],
-          usage_per_step: [usage()],
           working_plan: term(),
           plan_events: [struct()]
         }
@@ -50,7 +43,6 @@ defmodule Tore.LLM.PlannerAgent do
       tools_json: tools_json,
       messages: [%{role: "user", content: user_text}],
       tool_trace: [],
-      usage_per_step: [],
       step_index: 0,
       action_calls: 0,
       round_trips: 0,
@@ -66,16 +58,14 @@ defmodule Tore.LLM.PlannerAgent do
 
   # ---------- Loop ----------
 
-  defp scope(state), do: Tore.Scope.for_household(state.ctx.household_id)
-
   defp loop(system, %{round_trips: rt, max_round_trips: max} = state) when rt >= max do
-    case Tore.LLM.chat_with_tools(scope(state), system, state.messages, [], feature: :planner) do
-      {:ok, {:message, text}, usage} ->
-        finish(record_step(state, :message, %{text: text}, usage), {:capped, text})
+    case Tore.LLM.chat_with_tools(state.ctx.scope, system, state.messages, [], feature: :planner) do
+      {:ok, {:message, text}, _usage} ->
+        finish(record_trace(state, :message, %{text: text}), {:capped, text})
 
-      {:ok, _other, usage} ->
+      {:ok, _other, _usage} ->
         finish(
-          record_step(state, :message, %{text: ""}, usage),
+          record_trace(state, :message, %{text: ""}),
           {:capped, "Stopped — too many steps."}
         )
 
@@ -85,16 +75,16 @@ defmodule Tore.LLM.PlannerAgent do
   end
 
   defp loop(system, state) do
-    case Tore.LLM.chat_with_tools(scope(state), system, state.messages, state.tools_json,
+    case Tore.LLM.chat_with_tools(state.ctx.scope, system, state.messages, state.tools_json,
            feature: :planner
          ) do
-      {:ok, {:message, text}, usage} ->
-        finish(record_step(state, :message, %{text: text}, usage), {:message, text})
+      {:ok, {:message, text}, _usage} ->
+        finish(record_trace(state, :message, %{text: text}), {:message, text})
 
-      {:ok, {:tool_calls, calls}, usage} ->
+      {:ok, {:tool_calls, calls}, _usage} ->
         state =
           state
-          |> record_step(:tool_calls, %{calls: encode_calls(calls)}, usage)
+          |> record_trace(:tool_calls, %{calls: encode_calls(calls)})
           |> Map.update!(:round_trips, &(&1 + 1))
           |> append_assistant_tool_calls(calls)
 
@@ -279,16 +269,9 @@ defmodule Tore.LLM.PlannerAgent do
      %{
        result: result,
        tool_trace: Enum.reverse(state.tool_trace),
-       usage_per_step: Enum.reverse(state.usage_per_step),
        working_plan: state.working_plan,
        plan_events: state.plan_events
      }}
-  end
-
-  defp record_step(state, step_kind, payload, usage) do
-    state
-    |> record_trace(step_kind, payload)
-    |> Map.update!(:usage_per_step, &[usage_struct(usage) | &1])
   end
 
   defp record_trace(state, step_kind, payload) do
@@ -298,18 +281,6 @@ defmodule Tore.LLM.PlannerAgent do
     |> Map.update!(:tool_trace, &[entry | &1])
     |> Map.update!(:step_index, &(&1 + 1))
   end
-
-  defp usage_struct(usage) when is_map(usage) do
-    %{
-      prompt_tokens: Map.get(usage, :prompt_tokens, 0),
-      completion_tokens: Map.get(usage, :completion_tokens, 0),
-      cost_usd: to_decimal(Map.get(usage, :cost_usd, 0))
-    }
-  end
-
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
-  defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
 
   defp encode_calls(calls), do: Jason.encode!(calls)
 end

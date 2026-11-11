@@ -8,7 +8,7 @@ set -eu
 GARAGE="docker compose exec -T garage /garage"
 KEY_NAME="tore-dev"
 # Buckets the dev environment serves. Keep in sync with Tore.Storage.Buckets.
-BUCKETS="tore-recipes tore-runs"
+BUCKETS="tore-recipes"
 
 : "${GARAGE_ACCESS_KEY_ID:?set GARAGE_ACCESS_KEY_ID in .env}"
 : "${GARAGE_SECRET_ACCESS_KEY:?set GARAGE_SECRET_ACCESS_KEY in .env}"

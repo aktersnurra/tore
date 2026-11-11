@@ -38,7 +38,6 @@ defmodule ToreWeb.Router do
     pipe_through [:browser, :require_auth]
 
     get "/images/recipes/:id", RecipeImageController, :show
-    get "/images/runs/:stream_id", RunPhotoController, :show
     get "/", HomeController, :show
     get "/review", ReviewController, :next
 

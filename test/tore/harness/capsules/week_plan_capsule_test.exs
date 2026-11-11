@@ -6,7 +6,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
 
   defp ctx_for(week_start) do
     %{
-      household_id: 1,
+      scope: home_scope(),
       plan_stream_id: Tore.Streams.plan(home_scope(), week_start),
       week_start: week_start
     }
@@ -74,7 +74,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
   end
 
   test "to_prompt/1 is nil when the plan cannot be loaded" do
-    bad_ctx = %{household_id: 1, plan_stream_id: nil, week_start: ~D[2026-06-08]}
+    bad_ctx = %{scope: home_scope(), plan_stream_id: nil, week_start: ~D[2026-06-08]}
     capsule = Capsule.build(bad_ctx)
     assert capsule.slots == nil
     assert Capsule.to_prompt(capsule) == nil

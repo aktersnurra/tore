@@ -88,7 +88,6 @@ behind a context boundary. LiveViews call context APIs only; the context modules
 | **Costs**     | Receipts, for cost tracking; eating out is read from the plan (§7). Reached from Settings and the menu. |
 | **Runs** (`Tore.Harness.Runs`) | One `runs` row per `KitchenRun`, moved through its steps by pure transitions (§A.2). Replaced an event-sourced run aggregate on 2026-11-10. |
 | **Prep**      | LLM-generated text guides, on demand. Optional. Read-only.        |
-| **AIOperations** | Low-level audit log of every LLM call with correlation IDs, step index, model, and token usage. Each `KitchenRun` owns its rows by correlation ID. |
 
 ---
 
@@ -121,9 +120,7 @@ described as a kind of run.
 
 Every non-trivial AI action in Tore is a `KitchenRun`. A run is the food
 equivalent of an agentic coding session: a bounded operation with a typed
-beginning, a verified middle, and a reversible end. `AIOperations` continues
-to record the low-level LLM-call audit log; a single `KitchenRun` owns one or
-more `AIOperations` rows tied by `correlation_id`.
+beginning, a verified middle, and a reversible end.
 
 `KitchenRun` is both the concept and the code: `Tore.Harness.KitchenRun` is one row
 in the `runs` table, and `Tore.Harness.Runs` moves it through its steps. A kind of run
@@ -144,12 +141,11 @@ is a module implementing the `Tore.Harness.Kind` behaviour.
 - `failure_code`, `repair_action`: why a run failed and what the person can do (§A.5). A `failure_message` column exists, but nothing writes it yet
 - `discard_reason`: `:user_discarded | :ttl_expired`
 - `undo`: set when the run applies, either `{:steps, [step]}` or `{:irreversible, reason}`
-- `prompt_tokens`, `completion_tokens`, `cost_usd`: the usage `propose` returned
 - `opened_at`, `applied_at`, `reverted_at`, `closed_at`
 
 CHECK constraints tie the columns to the status: an applied run has `applied_at` and
-`undo`, a failed one a `failure_code`, a `:needs_user` one a `question`. The LLM calls
-stay in `ai_operations`, keyed by the run's id.
+`undo`, a failed one a `failure_code`, a `:needs_user` one a `question`. A run holds no
+LLM usage: each call's cost is in `llm_usage`, under its feature (§LLM Surface).
 
 **Steps.** A kind says what each step means for it:
 
@@ -159,7 +155,7 @@ stay in `ai_operations`, keyed by the run's id.
 | `resolve` | LLM, reads (for example canonicalising pantry names) | write domain state |
 | `verify` | nothing: a pure check | any effect |
 | `apply_proposal` | database writes, in one transaction with the status change | LLM, HTTP, storage |
-| `after_commit` | best-effort effects, such as broadcasting or deleting a photo | |
+| `after_commit` | best-effort effects, such as broadcasting or making a recipe's picture | |
 
 `Runs.start/3` runs every step. `Runs.submit/4` takes a ready proposal and skips
 `propose`: Capture's typed edits use it, and MCP writes will. A kind's `review_question/1`
@@ -222,7 +218,7 @@ how the other implements its half.
 | `PlanDiff` | `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`, `:plan_edit_run` | Per-slot changes with before-and-after recipe handles, and the planning events to append |
 | `RecipeProposal` | `:planner_command_run`, when the planner imports a recipe from the web or adapts one; `:recipe_ingestion_run`, for a link or photo sent to Capture | A recipe that isn't saved yet, with its source, steps and an optional slot to fill. A person saves, edits or discards it |
 | `PantryBeliefUpdate` | `:pantry_belief_update_run` | Items added or removed, each with `provenance` |
-| `CostEntry` | `:receipt_ingestion_run` | Parsed receipt: store, date, total, line items, optional photo path |
+| `CostEntry` | `:receipt_ingestion_run` | Parsed receipt: store, date, total, line items |
 | `MemoryBatch` | `:memory_review_run`, `:memory_update_run` | Add, patch and remove operations on one part of the household's memory (§1) |
 | `ShopChange` | `:shop_edit_run` | An item added or checked off, or the week's list built |
 | `HomePick` | `:home_pick_run` | The screen the app opens on, the quick swaps, and whether the decision model or the fixed rule picked them |
@@ -232,11 +228,9 @@ stores it until it is confirmed.
 
 **Rendering.** The UI reads artifacts and status, never a run's internals. Capture
 shows each run as one short line built from its artifact, with Undo. The run review
-page shows a waiting proposal (a `CostEntry` or a `RecipeProposal`) as a card the person
-can edit.
+page shows a waiting `RecipeProposal` as a card the person saves or discards.
 
-**No chat transcripts in artifacts.** The LLM's prose is recorded in `ai_operations` for
-the audit log, never as an artifact.
+**No chat transcripts in artifacts.** The LLM's prose is never an artifact.
 
 **Hard rule.** An applied run carries the artifacts of what it changed, and a run that
 changed nothing carries none. A run waiting for review carries its proposal.
@@ -308,7 +302,7 @@ run.
 | `PlanVerifier` | `PlanDiff` | No locked/pinned slot was changed; every assigned recipe has servings; leftover slots point to a valid source meal earlier in the week; skipped slots are explicit, not missing; no banned ingredient or dietary constraint is violated; no recipe appears twice within the household's configured repeat window |
 | `PantryVerifier` | `PantryBeliefUpdate` | Provenance is set on every item write; no negative quantities; `last_seen_at` is monotonic per item |
 | `RecipeProposalVerifier` | `RecipeProposal` | Title, ingredients (≥1), and instructions are present; servings is positive; no near-duplicate of an existing catalog recipe (title + ingredient overlap heuristic); no ingredient name is empty |
-| `CostEntryVerifier` | `CostEntry` | Store, date, total are present; line items sum within tolerance of total; date is not in the future |
+| `CostEntryVerifier` | `CostEntry` | Store, date, total are present; date is not in the future |
 | `Tore.Household.Memory.Ops` | `MemoryBatch` | Each operation fits the current entries (exactly one match for a patch or remove, no duplicate add); the part stays within its size limit; no content that is an instruction, a credential, hidden characters, an internal id or an allergy. A batch applies whole or not at all |
 
 Kinds with no LLM step check less. `:plan_edit_run` refuses a change to a pinned day,
@@ -367,7 +361,7 @@ A kind decides whether to ask for review from its proposal alone, in
 `review_question/1`:
 
 - **Recipes** always wait for review, from a link, a photo or the planner.
-- **Receipts** wait only when the line items don't add up to the total. The parser returns no line prices yet, so in practice every readable receipt applies straight away.
+- **Receipts** never wait. A readable receipt applies straight away with undo, and one without a store, date or total fails.
 
 Shelf photos are Tier 1 and apply straight away, since one misread item is one tap to fix.
 
@@ -542,7 +536,7 @@ affordance.
 The harness routes LLM calls to one of four model tiers based on the
 callback's pattern (§LLM Interface Conventions) and the run kind's risk tier
 (§A.6.1). Routing is per-callback, not per-feature. The model used on each
-call is recorded on `AIOperations.model` for cost telemetry.
+call isn't recorded; `llm_usage` holds each call's tokens and cost under its feature.
 
 **Model tiers (V1):**
 
@@ -575,8 +569,8 @@ bill.
 **Hard rules.**
 
 - Every `Tore.LLM` callback is statically annotated with its model tier. The annotation is read at runtime by the adapter; there is no per-call model override.
-- `AIOperations.model` is set on every row. A run's `prompt_tokens`, `completion_tokens` and `cost_usd` hold the usage its `propose` returned; calls that end in a question or an error are counted in `llm_usage` only.
-- The schema-failure single-retry path is the only place the harness silently uses a different model than the callback declared. The retry is logged distinctly (`AIOperations.kind` ends with `.retry`). The household's monthly limit in `Tore.LLM` remains the runaway-cost guard.
+- Usage is counted in `llm_usage` only, per call and under the call's feature. A run holds none.
+- The schema-failure single-retry path is the only place the harness silently uses a different model than the callback declared. The household's monthly limit in `Tore.LLM` remains the runaway-cost guard.
 
 ### A.9 — Meeting point with docs/specs/ui.md
 
@@ -694,8 +688,7 @@ model decides whether to retry, alter the plan, or call `ask_user`.
 `ResolvedRecipe` handles, never raw IDs. A resolver returning `:ambiguous`
 forces the LLM to call `ask_user` rather than guess.
 
-Every loop iteration is logged to `AIOperations` with the run's
-`correlation_id` and a per-call `step_index`. The required LLM callback
+Every loop iteration is its own call in `llm_usage`. The required LLM callback
 `chat_with_tools/4` is specified in §LLM Interface Conventions.
 
 **Hard rules.**
@@ -776,9 +769,9 @@ off the list.
 
 - **Capsules:** none — the input is the image; no household state required for parsing.
 - **Tools:** vision prompt `parse_receipt`.
-- **Artifact:** `CostEntry` (store, date, total, line items, optional photo path).
+- **Artifact:** `CostEntry` (store, date, total, line items). The photo isn't kept.
 - **Verifier:** `CostEntryVerifier`.
-- **Tier:** 2 — reviewed only when the line items don't add up to the total (§A.6.1), so today every readable receipt applies straight away. Undo deletes it.
+- **Tier:** 2 — a readable receipt applies straight away, with no review (§A.6.1). Undo deletes it.
 - **Model tier:** vision.
 
 The same photo sent twice is caught and says it's already uploaded. Line items carry names, not prices. Capture can
@@ -997,7 +990,6 @@ lib/tore/
   week_mode.ex
   shop.ex                    # imperative shell over the pure Shop aggregate
   shop/                      # Decider aggregate
-  ai_operations.ex           # low-level LLM call audit log; owned by KitchenRun
   capture/                   # Capture surface plumbing: router, uploads, dispatch
   harness/                   # the Agent Harness Layer
     kitchen_run.ex           # the runs row; kitchen_run/transition.ex (pure), kitchen_run/types.ex
@@ -1043,7 +1035,7 @@ lib/tore_web/live/
   chat_bar_live.ex           # sticky: quick swaps, the chat box and the ≡ menu, on every screen
   planner_live.ex            # command bar drives PlannerAgent
   capture_live.ex            # capture → run dispatch → artifact rendering
-  run_review_live.ex         # :needs_user review + receipt detail
+  run_review_live.ex         # :needs_user review of a proposed recipe
   cooking_live.ex
   shop_live.ex               # check → :pantry_belief_update_run
   recipe_live.ex
@@ -1066,8 +1058,7 @@ lib/tore_web/user_session.ex # starts and ends a session
 
 ## LLM Surface
 
-Every LLM call goes through the `Tore.LLM` facade and is logged to `AIOperations`
-with a correlation ID. The facade exposes six transport callbacks, defined by
+Every LLM call goes through the `Tore.LLM` facade. The facade exposes six transport callbacks, defined by
 the `Tore.LLM.Spec` behaviour (a Spec encodes one provider's body shape and
 decodes its responses; transport is the `open_router` library). The arities below are the
 Spec's; each facade function takes the household's `%Scope{}` before them:
@@ -1128,7 +1119,7 @@ router (`Tore.Capture.Router`).
 - Tools are defined declaratively as `%{name, description, parameters_schema, kind: :action | :read, run: (args -> result)}`. The agent runtime, not the adapter, executes them.
 - Tool schemas use JSON Schema and are validated before the tool's `run` function is invoked. Invalid tool calls are reported back to the LLM as a tool error message; the loop continues.
 - The agent runtime enforces: max round-trips, max action calls, sequential execution for actions, parallel allowed for reads.
-- Every round-trip is one `AIOperations` row, sharing a `correlation_id` with `step_index` for the sequence.
+- Every round-trip is one call in `llm_usage`.
 - The model comes from the strong tool-capable tier (§A.8). No per-call or per-feature override.
 
 ### Pattern C — Typed Decision (for choosing among fixed options)
@@ -1154,7 +1145,7 @@ Used when the answer is one of a few options Tore wrote, and code acts on it: th
 
 ### Universal rules
 
-- Every call logs to `AIOperations` with `model`, `prompt_tokens`, `completion_tokens`, `correlation_id`, and `step_index` (always 0 for Pattern A).
+- Every call's `prompt_tokens`, `completion_tokens` and cost are recorded in `llm_usage` under its feature.
 - Every call goes through the `Tore.LLM` gate for its household, except image generation, which runs only after a gated call and isn't recorded yet (§LLM Surface).
 - No LLM-emitted SQL, no LLM-emitted code execution, no LLM-emitted shell. Tool surface is the only side-effect channel.
 - System prompts are assembled from the run's declared context capsules (§A.4). There is no shared prompt builder; a call without a declared capsule list gets no household context at all.
@@ -1249,5 +1240,5 @@ The rewrite is done when:
 7. A fridge photo names what Tore sees and offers suggestions.
 8. A user can skip a meal with one tap and the app says nothing back.
 9. No notifications. No nags. No streaks.
-10. Every state-changing AI action is a `KitchenRun` — visible as a row in the kitchen runs table, owning its `AIOperations` rows, carrying its declared capsules, producing its typed artifacts, gated by its verifier, classified into a risk tier. No code path writes household state on the AI's behalf outside a run, apart from the exceptions §A.2 names.
+10. Every state-changing AI action is a `KitchenRun` — visible as a row in the kitchen runs table, carrying its declared capsules, producing its typed artifacts, gated by its verifier, classified into a risk tier. No code path writes household state on the AI's behalf outside a run, apart from the exceptions §A.2 names.
 11. Every applied run carries the artifacts of what it changed, and every run waiting for review carries its proposal, with rationale-or-provenance fields populated where they surface a decision (§A.7).

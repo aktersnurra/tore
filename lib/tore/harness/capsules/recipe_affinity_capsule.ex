@@ -33,7 +33,7 @@ defmodule Tore.Harness.Capsules.RecipeAffinityCapsule do
 
   @impl true
   def build(ctx) do
-    scope = Tore.Scope.for_household(ctx.household_id)
+    scope = ctx.scope
 
     cutoff =
       DateTime.utc_now()

@@ -86,7 +86,7 @@ defmodule Tore.Household.MemoryTest do
   end
 
   test "the capsule shows both parts with usage, nothing cut at the limit, and nothing when empty" do
-    ctx = %{household_id: home_scope().household_id}
+    ctx = %{scope: home_scope()}
     assert MemoryCapsule.to_prompt(MemoryCapsule.build(ctx)) == nil
 
     long = String.duplicate("a", 1_300)

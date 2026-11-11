@@ -211,7 +211,7 @@ defmodule Tore.LLM.PlannerTools do
         base =
           case args["query"] do
             q when is_binary(q) and byte_size(q) > 0 ->
-              results = Tore.Recipes.search(scope(ctx), q)
+              results = Tore.Recipes.search(ctx.scope, q)
 
               if is_integer(max_minutes) do
                 Enum.filter(results, &recipe_under_minutes?(&1, max_minutes))
@@ -221,7 +221,7 @@ defmodule Tore.LLM.PlannerTools do
 
             _ ->
               opts = if is_integer(max_minutes), do: [max_minutes: max_minutes], else: []
-              Tore.Recipes.list(scope(ctx), opts)
+              Tore.Recipes.list(ctx.scope, opts)
           end
 
         handles =
@@ -252,7 +252,7 @@ defmodule Tore.LLM.PlannerTools do
         required: ["query"]
       },
       run: fn args, ctx, plan ->
-        case Resolvers.resolve_recipe(scope(ctx), args["query"]) do
+        case Resolvers.resolve_recipe(ctx.scope, args["query"]) do
           {:ok, h} ->
             {:ok,
              %{
@@ -325,7 +325,7 @@ defmodule Tore.LLM.PlannerTools do
         now = DateTime.utc_now()
 
         items =
-          Tore.Pantry.list_inventory(scope(ctx))
+          Tore.Pantry.list_inventory(ctx.scope)
           |> Enum.map(fn it ->
             %{
               id: it.id,
@@ -352,7 +352,7 @@ defmodule Tore.LLM.PlannerTools do
       parameters: %{type: "object", properties: %{}, required: []},
       run: fn _args, ctx, plan ->
         deals =
-          Tore.Deals.list_current(scope(ctx))
+          Tore.Deals.list_current(ctx.scope)
           |> Enum.map(fn d ->
             %{
               id: d.id,
@@ -388,7 +388,7 @@ defmodule Tore.LLM.PlannerTools do
         required: ["query"]
       },
       run: fn args, ctx, plan ->
-        case SpendGuard.allow?(scope(ctx), :recipe_web_search) do
+        case SpendGuard.allow?(ctx.scope, :recipe_web_search) do
           :ok -> search_web(ctx, args["query"], plan)
           {:error, _reason} -> {:ok, %{unavailable: true, reason: guard_message()}, [], plan}
         end
@@ -399,7 +399,7 @@ defmodule Tore.LLM.PlannerTools do
   defp search_web(ctx, query, plan) do
     {system, user} = Prompts.find_recipe_web(query, household_locale(ctx))
 
-    case Tore.LLM.web_search(scope(ctx), system, user,
+    case Tore.LLM.web_search(ctx.scope, system, user,
            response_format: Prompts.web_candidates_json_schema(),
            feature: :recipe_web_search
          ) do
@@ -437,7 +437,7 @@ defmodule Tore.LLM.PlannerTools do
         required: ["url"]
       },
       run: fn args, ctx, plan ->
-        case Tore.Recipes.scrape_attrs_from_url(scope(ctx), args["url"], household_locale(ctx)) do
+        case Tore.Recipes.scrape_attrs_from_url(ctx.scope, args["url"], household_locale(ctx)) do
           {:ok, attrs} ->
             {:proposal,
              Tore.Harness.Artifact.RecipeProposal.from_attrs(attrs, :web_import, args["url"]),
@@ -481,10 +481,10 @@ defmodule Tore.LLM.PlannerTools do
         # Read tools do not get the agent's recipe_ref exchange (that runs for
         # action tools only), so resolve the handle here.
         with {:ok, recipe_id} <- fetch_recipe_id(ctx, args["recipe_ref"]),
-             recipe = Tore.Recipes.get!(scope(ctx), recipe_id),
+             recipe = Tore.Recipes.get!(ctx.scope, recipe_id),
              {:ok, proposal, _usage} <-
                Tore.Recipes.Variant.build(
-                 scope(ctx),
+                 ctx.scope,
                  recipe,
                  args["instruction"],
                  household_locale(ctx)
@@ -514,9 +514,7 @@ defmodule Tore.LLM.PlannerTools do
 
   defp guard_message, do: "web search is resting — try again shortly"
 
-  defp scope(ctx), do: Tore.Scope.for_household(ctx.household_id)
-
-  defp household_locale(ctx), do: Tore.Household.locale(scope(ctx))
+  defp household_locale(ctx), do: Tore.Household.locale(ctx.scope)
 
   defp recipe_under_minutes?(%{prep_time_minutes: _, cook_time_minutes: _} = recipe, max) do
     total_minutes(recipe) <= max
@@ -541,7 +539,7 @@ defmodule Tore.LLM.PlannerTools do
   defp recipe_title(_ctx, nil), do: nil
 
   defp recipe_title(ctx, recipe_id) do
-    Tore.Recipes.get!(scope(ctx), recipe_id).title
+    Tore.Recipes.get!(ctx.scope, recipe_id).title
   rescue
     Ecto.NoResultsError -> nil
   end

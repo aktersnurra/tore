@@ -54,7 +54,7 @@ defmodule Tore.Harness.Kinds.MemoryReviewTest do
 
   test "with no planning to read, it makes no call" do
     expect(Tore.MockLLM, :text, 0, reply([]))
-    assert {:ok, %KitchenRun{status: :applied, prompt_tokens: 0}} = review()
+    assert {:ok, %KitchenRun{status: :applied}} = review()
   end
 
   test "a rejected answer is retried once, with the rejection" do
@@ -75,7 +75,7 @@ defmodule Tore.Harness.Kinds.MemoryReviewTest do
        @usage}
     end)
 
-    assert {:ok, %KitchenRun{status: :applied, prompt_tokens: 6}} = review()
+    assert {:ok, %KitchenRun{status: :applied}} = review()
     assert texts() == ["Ärtsoppa on Thursdays"]
   end
 

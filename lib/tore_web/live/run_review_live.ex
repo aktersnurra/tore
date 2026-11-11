@@ -1,13 +1,12 @@
 defmodule ToreWeb.RunReviewLive do
   @moduledoc """
-  A run waiting for review: a receipt whose lines don't add up to its total, or a recipe the
-  planner proposed. A receipt's card corrects the store, total and date (which sets its week);
-  confirming goes through `Runs.confirm/3`, which verifies it again before applying.
+  A run waiting for review: a recipe that was read or proposed. Confirming goes through
+  `Runs.confirm/3`, which verifies it again before applying.
   """
 
   use ToreWeb, :live_view
 
-  alias Tore.Harness.Artifact.{CostEntry, RecipeProposal}
+  alias Tore.Harness.Artifact.RecipeProposal
   alias Tore.Harness.{KitchenRun, Runs}
 
   @impl true
@@ -16,11 +15,15 @@ defmodule ToreWeb.RunReviewLive do
       socket
       |> assign(:return_to, return_to_from_params(params))
       |> assign(:confirming_discard?, false)
-      |> assign(:lightbox?, false)
 
     case Runs.get(socket.assigns.current_scope, stream_id) do
-      %KitchenRun{status: :needs_user, artifacts: [_ | _]} = run ->
-        {:ok, mount_needs_user(socket, stream_id, run)}
+      %KitchenRun{status: :needs_user, artifacts: [%RecipeProposal{} = proposal]} ->
+        {:ok,
+         socket
+         |> assign(:stream_id, stream_id)
+         |> assign(:state, :recipe_proposal)
+         |> assign(:proposal, proposal)
+         |> assign(:error, nil)}
 
       %KitchenRun{status: status, failure_code: code}
       when status in [:applied, :failed, :discarded, :reverted] ->
@@ -34,32 +37,6 @@ defmodule ToreWeb.RunReviewLive do
     end
   end
 
-  # A recipe proposal carries no CostEntry, so it cannot go through the
-  # receipt path — form_data_from/1 builds itself from the cost artifact.
-  defp mount_needs_user(socket, stream_id, %KitchenRun{artifacts: [proposal]} = run) do
-    case proposal do
-      %RecipeProposal{} = proposal ->
-        socket
-        |> assign(:stream_id, stream_id)
-        |> assign(:state, :recipe_proposal)
-        |> assign(:has_photo?, false)
-        |> assign(:proposal, proposal)
-        |> assign(:error, nil)
-
-      %CostEntry{} = cost ->
-        socket
-        |> assign(:stream_id, stream_id)
-        |> assign(:state, :needs_user)
-        |> assign(:has_photo?, has_image_path?(run.input))
-        |> assign(:cost, cost)
-        |> assign(:form_data, form_data_from(cost))
-        |> assign(:error, nil)
-    end
-  end
-
-  defp has_image_path?(%{"image_path" => p}) when is_binary(p) and p != "", do: true
-  defp has_image_path?(_), do: false
-
   # Only allow same-origin paths in ?from= — never honour an absolute URL or
   # anything that could push the user off-site. Defaults to Home, whose pill
   # shows any reviews still waiting.
@@ -68,16 +45,6 @@ defmodule ToreWeb.RunReviewLive do
   end
 
   @impl true
-  def handle_event("update", %{"receipt" => params}, socket) do
-    {:noreply, assign(socket, :form_data, merge_form(socket.assigns.form_data, params))}
-  end
-
-  def handle_event("open_lightbox", _params, socket),
-    do: {:noreply, assign(socket, :lightbox?, true)}
-
-  def handle_event("close_lightbox", _params, socket),
-    do: {:noreply, assign(socket, :lightbox?, false)}
-
   def handle_event("ask_discard", _params, socket),
     do: {:noreply, assign(socket, :confirming_discard?, true)}
 
@@ -90,11 +57,7 @@ defmodule ToreWeb.RunReviewLive do
 
     # Discard is fast (no LLM), but we still fire-and-forget for symmetry with
     # save — the page navigates instantly, the toast confirms it landed.
-    discarded_msg =
-      case socket.assigns.state do
-        :recipe_proposal -> gettext("Recipe discarded.")
-        _ -> gettext("Receipt discarded.")
-      end
+    discarded_msg = gettext("Recipe discarded.")
 
     scope = socket.assigns.current_scope
 
@@ -111,38 +74,14 @@ defmodule ToreWeb.RunReviewLive do
     {:noreply, push_navigate(socket, to: socket.assigns.return_to)}
   end
 
-  def handle_event("confirm", _params, socket) do
-    cost = build_cost(socket.assigns.cost, socket.assigns.form_data)
-    user_id = socket.assigns.current_user && socket.assigns.current_user.id
-    %{stream_id: stream_id, current_scope: scope} = socket.assigns
-
-    # Fire-and-forget: bounce the user back immediately. The toast on
-    # completion lands wherever they happen to be (PubSub topic
-    # "toasts:user:<id>").
-    in_background(fn ->
-      case Runs.confirm(scope, stream_id, cost) do
-        {:ok, _} ->
-          broadcast_toast(user_id, :info, gettext("Receipt saved."))
-
-        {:error, {:verifier_failed, code, _}} ->
-          broadcast_toast(user_id, :error, receipt_message(code))
-
-        {:error, _reason} ->
-          broadcast_toast(user_id, :error, gettext("Couldn't save the receipt."))
-      end
-    end)
-
-    {:noreply, push_navigate(socket, to: socket.assigns.return_to)}
-  end
-
   def handle_event("save_recipe", _params, socket) do
     proposal = socket.assigns.proposal
     user_id = socket.assigns.current_user && socket.assigns.current_user.id
     %{stream_id: stream_id, current_scope: scope} = socket.assigns
 
-    # Same fire-and-forget shape as the receipt save: the commit re-runs the
-    # verifier and writes the catalog, so bounce the user back now and let the
-    # toast confirm it landed.
+    # Fire-and-forget: the commit re-runs the verifier and writes the catalog,
+    # so bounce the user back now and let the toast confirm it landed. The toast
+    # lands wherever they happen to be (PubSub topic "toasts:user:<id>").
     in_background(fn ->
       case Runs.confirm(scope, stream_id, proposal) do
         {:ok, _} ->
@@ -186,11 +125,6 @@ defmodule ToreWeb.RunReviewLive do
     end)
   end
 
-  defp receipt_message(:missing_store), do: gettext("The receipt needs a store.")
-  defp receipt_message(:missing_total), do: gettext("The receipt needs a total.")
-  defp receipt_message(:date_in_future), do: gettext("The date is in the future.")
-  defp receipt_message(_), do: gettext("Couldn't save the receipt.")
-
   defp broadcast_toast(nil, _kind, _msg), do: :ok
 
   defp broadcast_toast(user_id, kind, message) do
@@ -220,141 +154,6 @@ defmodule ToreWeb.RunReviewLive do
 
   defp back_label("/capture"), do: gettext("Back to chat")
   defp back_label(_), do: gettext("Back")
-
-  defp render_body(%{state: :needs_user} = assigns) do
-    ~H"""
-    <h2 class="text-xl font-semibold text-[color:var(--text)] mb-4">
-      {gettext("Review receipt")}
-    </h2>
-    <p class="text-sm text-[color:var(--muted)] mb-4">
-      {gettext("The lines add up to %{sum}, but the total says %{total}. Check the total, then save.",
-        sum: sum_display(@cost),
-        total: decimal_to_str(@cost.total)
-      )}
-    </p>
-
-    <.error_banner :if={@error} code={@error} />
-
-    <figure :if={@has_photo?} class="mb-5">
-      <button
-        type="button"
-        phx-click="open_lightbox"
-        aria-label={gettext("Open photo")}
-        class="block w-full focus:outline-none"
-      >
-        <img
-          src={~p"/images/runs/#{@stream_id}"}
-          alt={gettext("Original photo")}
-          class="w-full max-h-[60vh] object-contain rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[color:var(--accent-soft)]/30 cursor-zoom-in"
-        />
-      </button>
-      <figcaption class="mt-1 text-xs text-[color:var(--muted)] text-center">
-        {gettext("Tap to enlarge")}
-      </figcaption>
-    </figure>
-
-    <%!-- Fullscreen lightbox. Backdrop click + Esc close. The image is at its
-         natural size with overflow-auto on the container so the browser's
-         own pan/pinch/scroll-zoom take over once it exceeds the viewport. --%>
-    <div
-      :if={@lightbox?}
-      phx-click="close_lightbox"
-      phx-window-keyup="close_lightbox"
-      phx-key="Escape"
-      class="fixed inset-0 z-50 bg-black/90 overflow-auto cursor-zoom-out"
-    >
-      <button
-        type="button"
-        phx-click="close_lightbox"
-        aria-label={gettext("Close")}
-        class="fixed top-4 right-4 z-10 size-10 rounded-full bg-white/10 text-white inline-flex items-center justify-center hover:bg-white/20"
-      >
-        <.icon name="hero-x-mark" class="size-5" />
-      </button>
-
-      <img
-        src={~p"/images/runs/#{@stream_id}"}
-        alt={gettext("Original photo")}
-        class="mx-auto my-8 max-w-none"
-      />
-    </div>
-
-    <form phx-change="update" phx-submit="confirm" class="space-y-4">
-      <div class="grid grid-cols-2 gap-3">
-        <label class="block">
-          <span class="block text-xs text-[color:var(--muted)] mb-1">{gettext("Store")}</span>
-          <input
-            type="text"
-            name="receipt[store_name]"
-            value={@form_data.store_name}
-            class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-          />
-        </label>
-        <label class="block">
-          <span class="block text-xs text-[color:var(--muted)] mb-1">{gettext("Date")}</span>
-          <input
-            type="date"
-            name="receipt[date]"
-            value={@form_data.date}
-            class={[
-              "w-full rounded-[var(--r-md)] border bg-[var(--surface)] px-3 py-2 text-sm",
-              @form_data.date_inferred? && "border-[color:var(--warn)]",
-              !@form_data.date_inferred? && "border-[color:var(--border)]"
-            ]}
-          />
-          <p :if={@form_data.date_inferred?} class="text-xs text-[color:var(--warn)] mt-1">
-            {gettext("Couldn't read the date from the receipt — please verify.")}
-          </p>
-        </label>
-      </div>
-      <label class="block">
-        <span class="block text-xs text-[color:var(--muted)] mb-1">{gettext("Total")}</span>
-        <input
-          type="text"
-          inputmode="decimal"
-          name="receipt[total]"
-          value={@form_data.total}
-          class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-        />
-      </label>
-
-      <%= if @confirming_discard? do %>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            phx-click="cancel_discard"
-            class="flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] py-3 font-semibold"
-          >
-            {gettext("Cancel")}
-          </button>
-          <button
-            type="button"
-            phx-click="confirm_discard"
-            class="flex-1 rounded-[var(--r-md)] bg-[color:var(--danger)] text-white py-3 font-semibold"
-          >
-            {gettext("Discard")}
-          </button>
-        </div>
-      <% else %>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            phx-click="ask_discard"
-            class="shrink-0 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] px-4 py-3 font-semibold"
-          >
-            {gettext("Discard")}
-          </button>
-          <button
-            type="submit"
-            class="flex-1 rounded-[var(--r-md)] bg-[color:var(--accent)] text-white py-3 font-semibold"
-          >
-            {gettext("Save receipt")}
-          </button>
-        </div>
-      <% end %>
-    </form>
-    """
-  end
 
   defp render_body(%{state: :recipe_proposal} = assigns) do
     ~H"""
@@ -486,66 +285,4 @@ defmodule ToreWeb.RunReviewLive do
     </div>
     """
   end
-
-  defp form_data_from(%CostEntry{} = c) do
-    %{
-      store_name: c.store_name || "",
-      date: Date.to_iso8601(c.date),
-      date_inferred?: c.date_inferred? || false,
-      total: decimal_to_str(c.total)
-    }
-  end
-
-  defp merge_form(current, params) do
-    # Once someone touches the date we trust it and drop the warning.
-    new_date = params["date"] || current.date
-
-    %{
-      store_name: params["store_name"] || current.store_name,
-      date: new_date,
-      date_inferred?: current.date_inferred? and new_date == current.date,
-      total: params["total"] || current.total
-    }
-  end
-
-  # The lines stay as read; the card corrects the store, total and date.
-  defp build_cost(%CostEntry{} = c, form) do
-    %CostEntry{
-      c
-      | store_name: String.trim(form.store_name),
-        date: parse_date(form.date, c.date),
-        total: parse_decimal(form.total) || c.total
-    }
-  end
-
-  defp sum_display(%CostEntry{line_items: items}) do
-    items
-    |> Enum.reduce(Decimal.new(0), fn it, acc ->
-      if it[:total_price], do: Decimal.add(acc, it.total_price), else: acc
-    end)
-    |> Decimal.to_string(:normal)
-  end
-
-  defp parse_date(str, fallback) do
-    case Date.from_iso8601(str || "") do
-      {:ok, d} -> d
-      _ -> fallback
-    end
-  end
-
-  defp parse_decimal(nil), do: nil
-  defp parse_decimal(""), do: nil
-  defp parse_decimal(%Decimal{} = d), do: d
-
-  defp parse_decimal(s) when is_binary(s) do
-    case Decimal.parse(String.replace(s, ",", ".")) do
-      {d, _} -> d
-      :error -> nil
-    end
-  end
-
-  defp decimal_to_str(nil), do: ""
-  defp decimal_to_str(%Decimal{} = d), do: Decimal.to_string(d, :normal)
-  defp decimal_to_str(n) when is_number(n), do: to_string(n)
-  defp decimal_to_str(s) when is_binary(s), do: s
 end

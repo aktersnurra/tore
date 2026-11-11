@@ -21,8 +21,6 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   alias Tore.Harness.Verifier.PantryVerifier
   alias Tore.Recipes.Ingredient
 
-  @no_usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
-
   @impl true
   def kind, do: "pantry_belief_update_run"
 
@@ -35,12 +33,12 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   @impl true
   def propose(_run, %{channel: :shelf_photo, scope: scope, image_binary: image}) do
     with {:ok, items} <- Pantry.parse_image(scope, image) do
-      {:ok, artifact(items, :shelf_photo), @no_usage}
+      {:ok, artifact(items, :shelf_photo)}
     end
   end
 
   def propose(_run, %{channel: channel, items: items}) when is_list(items),
-    do: {:ok, artifact(items, channel), @no_usage}
+    do: {:ok, artifact(items, channel)}
 
   @impl true
   def resolve(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do

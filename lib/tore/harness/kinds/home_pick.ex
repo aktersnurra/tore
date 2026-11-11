@@ -15,7 +15,6 @@ defmodule Tore.Harness.Kinds.HomePick do
   alias Tore.Home
   alias Tore.Harness.Artifact.HomePick
 
-  @no_usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
   @refusals [:ai_unavailable, :budget_exceeded]
 
   @impl true
@@ -35,10 +34,10 @@ defmodule Tore.Harness.Kinds.HomePick do
     case Tore.LLM.decide(scope, Home.state(scope, facts), Home.questions(facts),
            feature: :home_pick
          ) do
-      {:ok, answers, usage} ->
+      {:ok, answers, _usage} ->
         pick = Home.pick(answers, facts)
         log(scope, pick, answers)
-        {:ok, pick, usage}
+        {:ok, pick}
 
       {:error, reason} when reason in @refusals ->
         {:error, reason}
@@ -48,7 +47,7 @@ defmodule Tore.Harness.Kinds.HomePick do
           "home_pick_unavailable household_id=#{scope.household_id} reason=#{inspect(reason)}"
         )
 
-        {:ok, Home.fallback_pick(facts), @no_usage}
+        {:ok, Home.fallback_pick(facts)}
     end
   end
 

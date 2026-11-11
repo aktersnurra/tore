@@ -49,7 +49,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
     test "returns a loop-terminating proposal carrying provenance" do
       recipe = source_recipe()
       handle = Handles.recipe(recipe.id, recipe.title, :direct_touch, 1.0)
-      ctx = %{household_id: 1, handles: %{handle.ref => handle}}
+      ctx = %{scope: home_scope(), handles: %{handle.ref => handle}}
 
       expect(Tore.MockLLM, :text, fn _, _, _ ->
         {:ok, variant_payload(), %{prompt_tokens: 10, completion_tokens: 20, cost_usd: 0.001}}
@@ -69,7 +69,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
     test "carries a pending slot assignment when slot_key is given" do
       recipe = source_recipe()
       handle = Handles.recipe(recipe.id, recipe.title, :direct_touch, 1.0)
-      ctx = %{household_id: 1, handles: %{handle.ref => handle}}
+      ctx = %{scope: home_scope(), handles: %{handle.ref => handle}}
 
       expect(Tore.MockLLM, :text, fn _, _, _ ->
         {:ok, variant_payload(), %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
@@ -89,7 +89,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
     end
 
     test "rejects an unknown recipe_ref" do
-      ctx = %{household_id: 1, handles: %{}}
+      ctx = %{scope: home_scope(), handles: %{}}
       args = %{"recipe_ref" => "rcp_nope", "instruction" => "simpler"}
 
       assert {:error, message} = tool("generate_recipe_variant").run.(args, ctx, @plan)
@@ -99,7 +99,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
     test "propagates a generation failure" do
       recipe = source_recipe()
       handle = Handles.recipe(recipe.id, recipe.title, :direct_touch, 1.0)
-      ctx = %{household_id: 1, handles: %{handle.ref => handle}}
+      ctx = %{scope: home_scope(), handles: %{handle.ref => handle}}
 
       expect(Tore.MockLLM, :text, fn _, _, _ -> {:error, :timeout} end)
 
@@ -150,7 +150,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
       args = %{"url" => "https://example.com/ramen"}
 
       assert {:proposal, %RecipeProposal{} = proposal, %{}, @plan} =
-               tool("import_recipe_from_web").run.(args, %{household_id: 1}, @plan)
+               tool("import_recipe_from_web").run.(args, %{scope: home_scope()}, @plan)
 
       assert proposal.source == :web_import
       assert proposal.source_url == "https://example.com/ramen"
@@ -165,7 +165,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
       args = %{"url" => "https://example.com/ramen", "slot_key" => "tue_dinner", "servings" => 2}
 
       assert {:proposal, _proposal, pending, @plan} =
-               tool("import_recipe_from_web").run.(args, %{household_id: 1}, @plan)
+               tool("import_recipe_from_web").run.(args, %{scope: home_scope()}, @plan)
 
       assert pending == %{slot_key: "tue_dinner", servings: 2}
     end
@@ -176,7 +176,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
       args = %{"url" => "https://example.com/down"}
 
       assert {:error, :timeout} =
-               tool("import_recipe_from_web").run.(args, %{household_id: 1}, @plan)
+               tool("import_recipe_from_web").run.(args, %{scope: home_scope()}, @plan)
     end
 
     test "the import writes nothing to the catalog" do
@@ -186,7 +186,7 @@ defmodule Tore.LLM.PlannerToolsProposalTest do
       args = %{"url" => "https://example.com/ramen"}
 
       {:proposal, _proposal, _pending, @plan} =
-        tool("import_recipe_from_web").run.(args, %{household_id: 1}, @plan)
+        tool("import_recipe_from_web").run.(args, %{scope: home_scope()}, @plan)
 
       assert Tore.Recipes.list(home_scope()) == []
     end

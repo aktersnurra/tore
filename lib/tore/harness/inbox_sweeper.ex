@@ -2,19 +2,9 @@ defmodule Tore.Harness.InboxSweeper do
   @moduledoc """
   Weekly housekeeping for runs that wait on the person.
 
-  Two responsibilities, both safe to run repeatedly:
-
-    1. **TTL expiry** — `:needs_user` runs opened more than `@ttl_days` ago
-       are discarded through `Runs.discard/3` with reason `:ttl_expired`.
-       Nobody answered in 14 days and nothing was applied; the run row
-       stays, as `:discarded`.
-
-    2. **Orphan photo reap** — every key in the `tore-runs` bucket that no
-       running or waiting run points at gets deleted. The post-commit
-       `delete_async` is fire-and-forget, so this is the safety net for any
-       S3 hiccup that leaves bytes behind. A photo stashed in the moment
-       before its run opens could go too; at 04:00 on a Sunday that is a
-       chance not worth more code.
+  `:needs_user` runs opened more than `@ttl_days` ago are discarded through
+  `Runs.discard/3` with reason `:ttl_expired`. Nobody answered in 14 days and
+  nothing was applied; the run row stays, as `:discarded`. Safe to run repeatedly.
 
   Wired as a Quantum cron entry (Sundays 04:00) — see `config :tore,
   Tore.Scheduler`. Also callable from IEx for manual sweeps.
@@ -22,12 +12,8 @@ defmodule Tore.Harness.InboxSweeper do
 
   require Logger
 
-  import Ecto.Query
-
-  alias Tore.Harness.{KitchenRun, Runs}
-  alias Tore.{Household, Repo, Scope}
-  alias Tore.Storage
-  alias Tore.Storage.Buckets
+  alias Tore.Harness.Runs
+  alias Tore.{Household, Scope}
 
   @ttl_days 14
 
@@ -43,11 +29,8 @@ defmodule Tore.Harness.InboxSweeper do
     Logger.info("InboxSweeper starting for household #{household_id}")
 
     {expired, _} = expire_stale_pending(household_id)
-    {reaped, kept} = reap_orphan_photos(household_id)
 
-    Logger.info(
-      "InboxSweeper done: ttl_expired=#{expired}, photos_reaped=#{reaped}, photos_kept=#{kept}"
-    )
+    Logger.info("InboxSweeper done: ttl_expired=#{expired}")
 
     :ok
   end
@@ -70,28 +53,5 @@ defmodule Tore.Harness.InboxSweeper do
           {ok_count, err_count + 1}
       end
     end)
-  end
-
-  defp reap_orphan_photos(household_id) do
-    scope = Scope.for_household(household_id)
-
-    case Storage.client().list_object_keys(Buckets.runs(), Tore.Storage.RunPhotos.prefix(scope)) do
-      {:ok, keys} ->
-        in_use = photos_in_use(scope)
-        {reap, keep} = Enum.split_with(keys, &(&1 not in in_use))
-        Enum.each(reap, &Storage.client().delete_object(Buckets.runs(), &1))
-        {length(reap), length(keep)}
-
-      {:error, reason} ->
-        Logger.warning("InboxSweeper could not list tore-runs: #{inspect(reason)}")
-        {0, 0}
-    end
-  end
-
-  defp photos_in_use(scope) do
-    from(r in KitchenRun, where: r.status in [:running, :needs_user], select: r.input)
-    |> Repo.all(Scope.repo_opts(scope))
-    |> Enum.flat_map(fn input -> List.wrap(input["image_path"]) end)
-    |> MapSet.new()
   end
 end

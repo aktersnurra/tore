@@ -8,12 +8,17 @@ defmodule Tore.LLM.PlannerAgentTest do
   alias Tore.Harness.Handles
 
   @system_prompt "system: be brief"
-  @ctx %{plan_id: "plan-1", week_start: ~D[2026-06-01], household_id: 1, working_plan: %State{}}
+  @ctx %{
+    plan_id: "plan-1",
+    week_start: ~D[2026-06-01],
+    scope: Tore.Scope.for_household(1),
+    working_plan: %State{}
+  }
 
   defp ctx_with_plan(plan),
-    do: %{plan_id: "plan-1", week_start: ~D[2026-06-01], household_id: 1, working_plan: plan}
+    do: %{plan_id: "plan-1", week_start: ~D[2026-06-01], scope: home_scope(), working_plan: plan}
 
-  test "run/4 returns {:ok, loop_outcome} with a message result and usage steps" do
+  test "run/4 returns {:ok, loop_outcome} with a message result" do
     expect(Tore.MockLLM, :chat_with_tools, fn _sys, _msgs, _tools, _opts ->
       {:ok, {:message, "Done."},
        %{prompt_tokens: 5, completion_tokens: 2, cost_usd: Decimal.new("0.0001")}}
@@ -22,30 +27,6 @@ defmodule Tore.LLM.PlannerAgentTest do
     assert {:ok, outcome} = PlannerAgent.run(@system_prompt, "skip mon dinner", @ctx, [])
     assert outcome.result == {:message, "Done."}
     assert is_list(outcome.tool_trace)
-    assert is_list(outcome.usage_per_step)
-    assert hd(outcome.usage_per_step).prompt_tokens == 5
-  end
-
-  test "run/4 coerces a float cost_usd from the LLM into a Decimal" do
-    expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
-      {:ok, {:message, "ok"}, %{prompt_tokens: 5, completion_tokens: 2, cost_usd: 5.04e-4}}
-    end)
-
-    {:ok, outcome} = PlannerAgent.run(@system_prompt, "x", @ctx, [])
-    usage = hd(outcome.usage_per_step)
-    assert %Decimal{} = usage.cost_usd
-    assert Decimal.equal?(usage.cost_usd, Decimal.from_float(5.04e-4))
-  end
-
-  test "run/4 does not write to ai_operations" do
-    expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
-      {:ok, {:message, "ok"}, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-    end)
-
-    {:ok, _} = PlannerAgent.run(@system_prompt, "x", @ctx, [])
-
-    # No rows should have been inserted — the plan kinds own persistence.
-    assert Tore.AiOperations.list_for_run(home_scope(), "anything") == []
   end
 
   test "run/4 assigns a unique step_index to every trace entry" do

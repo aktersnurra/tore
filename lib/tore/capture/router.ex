@@ -15,7 +15,6 @@ defmodule Tore.Capture.Router do
 
   use Gettext, backend: ToreWeb.Gettext
 
-  alias Tore.AiOperations
   alias Tore.Capture.Dispatch
   alias Tore.Harness.Capsules
 
@@ -108,18 +107,6 @@ defmodule Tore.Capture.Router do
   @spec route(String.t(), [binary()], ctx(), [map()]) :: {:ok, [reply()]} | {:error, term()}
   def route(text, images, ctx, history \\ [])
       when is_binary(text) and is_list(images) and is_map(ctx) and is_list(history) do
-    correlation_id = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
-
-    AiOperations.log(ctx.scope, %{
-      run_stream_id: correlation_id,
-      kind: "capture_route",
-      payload: %{
-        "text" => text,
-        "image_count" => length(images),
-        "history_turns" => length(history)
-      }
-    })
-
     locale = Tore.Household.locale(ctx.scope)
 
     system =
@@ -135,7 +122,7 @@ defmodule Tore.Capture.Router do
     history_messages = history_to_messages(history)
     user_message = build_multimodal_user(text, images)
 
-    loop(system, history_messages ++ [user_message], [], images, ctx, correlation_id, 0)
+    loop(system, history_messages ++ [user_message], [], images, ctx, 0)
   end
 
   # Convert the LiveView's bubble list into OpenAI-shape chat turns. We
@@ -160,7 +147,7 @@ defmodule Tore.Capture.Router do
   # when the model finally replies in plain text we can show the full
   # tool-call trail (e.g. "I found X" + "Added X to Friday" + final reply).
 
-  defp loop(system, messages, bubbles_acc, images, ctx, correlation_id, iter) do
+  defp loop(system, messages, bubbles_acc, images, ctx, iter) do
     # tool_choice is "auto" after the first turn: once the model has tool
     # results it must be free to reply in plain text, otherwise it would
     # be forced to keep calling tools forever.
@@ -193,7 +180,6 @@ defmodule Tore.Capture.Router do
             bubbles_acc ++ new_bubbles,
             images,
             ctx,
-            correlation_id,
             iter + 1
           )
         end
@@ -433,7 +419,7 @@ defmodule Tore.Capture.Router do
     [
       tool(
         "ingest_receipt",
-        "Parse a store receipt and surface an editable card for review.",
+        "Parse a store receipt and log what was spent.",
         image_indices_schema()
       ),
       tool(
@@ -924,7 +910,7 @@ defmodule Tore.Capture.Router do
     week_start = Tore.Streams.monday(Tore.Clock.today())
 
     %{
-      household_id: ctx.scope.household_id,
+      scope: ctx.scope,
       plan_stream_id: Tore.Streams.plan(ctx.scope, week_start),
       week_start: week_start
     }

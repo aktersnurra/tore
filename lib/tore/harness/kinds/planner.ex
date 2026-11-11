@@ -12,7 +12,7 @@ defmodule Tore.Harness.Kinds.Planner do
 
   use Gettext, backend: ToreWeb.Gettext
 
-  alias Tore.{AiOperations, Household, Planning, Recipes, Scope}
+  alias Tore.{Household, Planning, Recipes, Scope}
   alias Tore.Harness.{Capsules, Handles, PlanDiffBuilder}
   alias Tore.Harness.Artifact.{PlanDiff, RecipeProposal}
 
@@ -39,28 +39,25 @@ defmodule Tore.Harness.Kinds.Planner do
   end
 
   @doc """
-  Runs the agent loop on `user_text`. Each tool step is logged to `ai_operations` under the run.
+  Runs the agent loop on `user_text`.
   `ctx` holds `:plan_stream_id`, `:week_start` and optionally `:scoped_slot` and `:extra_tools`
   (the seam tests drive the loop with).
   """
   @spec propose(Tore.Harness.KitchenRun.t(), map(), String.t(), keyword()) ::
-          {:ok, PlanDiff.t() | RecipeProposal.t(), map()} | {:ask, String.t()} | {:error, term()}
+          {:ok, PlanDiff.t() | RecipeProposal.t()} | {:ask, String.t()} | {:error, term()}
   def propose(run, %{scope: scope} = ctx, user_text, opts \\ []) do
     with {:ok, plan} <- Planning.load_plan(scope, ctx.plan_stream_id),
          {:ok, loop} <-
            PlannerAgent.run(system_prompt(scope, ctx), user_text, agent_ctx(run, ctx, plan), opts) do
-      Enum.each(loop.tool_trace, &log_step(scope, run.id, &1))
-
       case loop.result do
         {:question, question} ->
           {:ask, question}
 
         {:proposal, %RecipeProposal{} = proposal, pending} ->
-          {:ok, %{proposal | pending_assignment: pending(pending)}, usage(loop)}
+          {:ok, %{proposal | pending_assignment: pending(pending)}}
 
         {kind, _} when kind in [:message, :capped] ->
-          diff = %{PlanDiffBuilder.build(loop.tool_trace, ctx) | plan_events: loop.plan_events}
-          {:ok, diff, usage(loop)}
+          {:ok, %{PlanDiffBuilder.build(loop.tool_trace, ctx) | plan_events: loop.plan_events}}
       end
     end
   end
@@ -186,50 +183,13 @@ defmodule Tore.Harness.Kinds.Planner do
   end
 
   defp ingredient_attrs(ing),
-    do: %{name: ing[:name], quantity: decimal(ing[:quantity]), unit: ing[:unit]}
-
-  defp decimal(nil), do: nil
-  defp decimal(%Decimal{} = d), do: d
-  defp decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp decimal(n) when is_float(n), do: Decimal.from_float(n)
-
-  defp decimal(s) when is_binary(s) do
-    case Decimal.parse(s) do
-      {d, _rest} -> d
-      :error -> nil
-    end
-  end
-
-  defp usage(loop) do
-    Enum.reduce(
-      loop.usage_per_step,
-      %{prompt_tokens: 0, completion_tokens: 0, cost_usd: Decimal.new(0)},
-      fn step, acc ->
-        %{
-          prompt_tokens: acc.prompt_tokens + (step.prompt_tokens || 0),
-          completion_tokens: acc.completion_tokens + (step.completion_tokens || 0),
-          cost_usd: Decimal.add(acc.cost_usd, Decimal.new(to_string(step.cost_usd || 0)))
-        }
-      end
-    )
-  end
-
-  defp log_step(scope, run_id, entry) do
-    {:ok, _} =
-      AiOperations.log(scope, %{
-        run_stream_id: run_id,
-        kind: "planner_agent." <> Atom.to_string(entry.step_kind),
-        step_index: entry.step_index,
-        payload: Jason.encode!(entry.payload),
-        result: ""
-      })
-  end
+    do: %{name: ing[:name], quantity: Tore.Types.decimal(ing[:quantity]), unit: ing[:unit]}
 
   defp agent_ctx(run, ctx, plan) do
     %{
       plan_id: ctx.plan_stream_id,
       week_start: ctx.week_start,
-      household_id: ctx.scope.household_id,
+      scope: ctx.scope,
       run_stream_id: run.id,
       working_plan: plan,
       handles: scoped_handles(ctx[:scoped_slot]),
@@ -244,7 +204,7 @@ defmodule Tore.Harness.Kinds.Planner do
 
   defp system_prompt(scope, ctx) do
     capsule_ctx = %{
-      household_id: scope.household_id,
+      scope: scope,
       plan_stream_id: ctx.plan_stream_id,
       week_start: ctx.week_start
     }

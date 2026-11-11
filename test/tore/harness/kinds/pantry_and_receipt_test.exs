@@ -5,7 +5,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
 
   alias Tore.{Costs, Pantry}
   alias Tore.Harness.{KitchenRun, Runs}
-  alias Tore.Harness.Artifact.{CostEntry, PantryBeliefUpdate}
+  alias Tore.Harness.Artifact.PantryBeliefUpdate
   alias Tore.Harness.Kinds.{PantryUpdate, Receipt}
   alias Tore.Recipes.Ingredient
 
@@ -193,7 +193,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, receipt, @usage} end)
     end
 
-    defp start, do: Runs.start(member(), Receipt, %{image_binary: <<1>>, image_path: nil})
+    defp start, do: Runs.start(member(), Receipt, %{image_binary: <<1>>})
 
     test "applies straight away, and undo deletes the receipt" do
       read(%{

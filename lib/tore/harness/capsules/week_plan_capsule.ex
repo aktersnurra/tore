@@ -20,9 +20,9 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
   @type t :: %__MODULE__{week_start: Date.t() | nil, slots: [slot()] | nil}
 
   @impl true
-  def build(ctx) do
-    scope = Tore.Scope.for_household(ctx.household_id)
+  def build(%{plan_stream_id: nil} = ctx), do: %__MODULE__{week_start: ctx.week_start, slots: nil}
 
+  def build(%{scope: scope} = ctx) do
     case Planning.load_plan(scope, ctx.plan_stream_id) do
       {:ok, state} ->
         %__MODULE__{week_start: ctx.week_start, slots: build_slots(scope, state, ctx.week_start)}
@@ -30,8 +30,6 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
       _ ->
         %__MODULE__{week_start: ctx.week_start, slots: nil}
     end
-  rescue
-    _ -> %__MODULE__{week_start: ctx.week_start, slots: nil}
   end
 
   @impl true

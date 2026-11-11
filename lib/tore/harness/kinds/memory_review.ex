@@ -18,7 +18,6 @@ defmodule Tore.Harness.Kinds.MemoryReview do
   alias Tore.Household.Memory.Ops
 
   @history_capsules [RecentHistoryCapsule, RecipeAffinityCapsule]
-  @no_usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
 
   @doc "Cron entry: reviews memory in each household that can make an LLM call."
   @spec review_weekly() :: :ok
@@ -39,8 +38,8 @@ defmodule Tore.Harness.Kinds.MemoryReview do
 
   @impl true
   def propose(_run, %{scope: scope}) do
-    case Capsules.compose(@history_capsules, %{household_id: scope.household_id}) do
-      "" -> {:ok, [], @no_usage}
+    case Capsules.compose(@history_capsules, %{scope: scope}) do
+      "" -> {:ok, []}
       history -> ask(scope, history)
     end
   end
@@ -88,14 +87,10 @@ defmodule Tore.Harness.Kinds.MemoryReview do
     memory = Memory.snapshot(scope)
     locale = Household.locale(scope)
 
-    with {:ok, batches, usage} <- call(scope, memory, history, locale, nil) do
+    with {:ok, batches} <- call(scope, memory, history, locale, nil) do
       case check(scope, batches) do
-        :ok ->
-          {:ok, batches, usage}
-
-        {:error, rejection} ->
-          with {:ok, retried, retry_usage} <- call(scope, memory, history, locale, rejection),
-               do: {:ok, retried, add_usage(usage, retry_usage)}
+        :ok -> {:ok, batches}
+        {:error, rejection} -> call(scope, memory, history, locale, rejection)
       end
     end
   end
@@ -103,10 +98,9 @@ defmodule Tore.Harness.Kinds.MemoryReview do
   defp call(scope, memory, history, locale, rejection) do
     {system, user} = Tore.LLM.Prompts.memory_review(memory, history, locale, rejection)
 
-    with {:ok, %{"batches" => raw}, usage} when is_list(raw) <-
-           Tore.LLM.text(scope, system, user, feature: :memory_review),
-         {:ok, batches} <- to_batches(raw) do
-      {:ok, batches, usage}
+    with {:ok, %{"batches" => raw}, _usage} when is_list(raw) <-
+           Tore.LLM.text(scope, system, user, feature: :memory_review) do
+      to_batches(raw)
     else
       {:ok, _reply, _usage} -> {:error, :invalid_response}
       {:error, _} = error -> error
@@ -150,16 +144,4 @@ defmodule Tore.Harness.Kinds.MemoryReview do
 
   defp entries(scope, target),
     do: scope |> Memory.list(target) |> Enum.map(&Map.take(&1, [:id, :text]))
-
-  defp add_usage(a, b) do
-    %{
-      prompt_tokens: a.prompt_tokens + b.prompt_tokens,
-      completion_tokens: a.completion_tokens + b.completion_tokens,
-      cost_usd: Decimal.add(decimal(a.cost_usd), decimal(b.cost_usd))
-    }
-  end
-
-  defp decimal(%Decimal{} = d), do: d
-  defp decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp decimal(n) when is_float(n), do: Decimal.from_float(n)
 end

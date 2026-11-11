@@ -195,7 +195,7 @@ defmodule Tore.Home do
 
   defp week(scope, monday) do
     ctx = %{
-      household_id: scope.household_id,
+      scope: scope,
       plan_stream_id: Streams.plan(scope, monday),
       week_start: monday
     }
@@ -273,7 +273,7 @@ defmodule Tore.Home do
     plan =
       WeekPlanCapsule.to_prompt(
         WeekPlanCapsule.build(%{
-          household_id: scope.household_id,
+          scope: scope,
           plan_stream_id: Streams.plan(scope, monday),
           week_start: monday
         })

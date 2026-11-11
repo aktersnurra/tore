@@ -26,7 +26,7 @@ defmodule Tore.Harness.TestKind do
   def propose(%{input: %{"mode" => "blank_question"}}, _ctx), do: {:ask, "  "}
 
   def propose(_run, ctx),
-    do: {:ok, ctx.entry, %{prompt_tokens: 3, completion_tokens: 2, cost_usd: 0.25}}
+    do: {:ok, ctx.entry}
 
   # "race_discard": the run is discarded while a confirm resolves, as the TTL sweep might.
   @impl true

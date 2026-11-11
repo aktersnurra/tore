@@ -20,7 +20,6 @@ defmodule Tore.Capture.Dispatch do
   alias Tore.Recipes
   alias Tore.Shop
   alias Tore.Streams
-  alias Tore.Storage.RunPhotos
 
   @days ~w(mon tue wed thu fri sat sun)
   @default_servings 4
@@ -32,8 +31,7 @@ defmodule Tore.Capture.Dispatch do
   # ── receipt ────────────────────────────────────────────────────────────
 
   @type receipt_result ::
-          {:review, run_id :: String.t()}
-          | {:saved, run_id :: String.t(), text :: String.t()}
+          {:saved, run_id :: String.t(), text :: String.t()}
           | {:duplicate, text :: String.t()}
           | {:failed, text :: String.t()}
 
@@ -44,22 +42,15 @@ defmodule Tore.Capture.Dispatch do
   @spec read_receipt(Tore.Scope.t(), binary()) :: receipt_result()
   def read_receipt(%Tore.Scope{} = scope, image) when is_binary(image) do
     result =
-      with_dedup(image, scope, "receipt", fn upload_id ->
-        image_path = stash_photo(scope, upload_id, image)
-
-        case Runs.start(scope, Kinds.Receipt, %{image_binary: image, image_path: image_path}) do
-          {:ok, %KitchenRun{status: :needs_user, id: id}} ->
-            {:ok, {:review, id}}
-
+      with_dedup(image, scope, "receipt", fn ->
+        case Runs.start(scope, Kinds.Receipt, %{image_binary: image}) do
           {:ok, %KitchenRun{status: :applied} = run} ->
             {:ok, {:saved, run.id, receipt_text(run)}}
 
           {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
-            if image_path, do: RunPhotos.delete_async(image_path)
             {:failed, {:failed, error_text(:receipt, code)}}
 
           {:error, reason} ->
-            if image_path, do: RunPhotos.delete_async(image_path)
             {:failed, {:failed, error_text(:receipt, reason)}}
         end
       end)
@@ -70,7 +61,6 @@ defmodule Tore.Capture.Dispatch do
   @spec ingest_receipt(binary(), ctx()) :: bubble()
   def ingest_receipt(image, ctx) when is_binary(image) do
     case read_receipt(ctx.scope, image) do
-      {:review, id} -> review_bubble(:receipt, id)
       {:saved, id, text} -> %{role: :assistant, text: text, run_stream_id: id}
       {:duplicate, text} -> %{role: :assistant, text: text}
       {:failed, text} -> %{role: :assistant, error: true, text: text}
@@ -89,7 +79,7 @@ defmodule Tore.Capture.Dispatch do
   @spec update_pantry_from_shelf(binary(), ctx()) :: bubble()
   def update_pantry_from_shelf(image, ctx) when is_binary(image) do
     result =
-      with_dedup(image, ctx.scope, "shelf", fn _upload_id ->
+      with_dedup(image, ctx.scope, "shelf", fn ->
         case Runs.start(ctx.scope, Kinds.PantryUpdate, %{
                channel: :shelf_photo,
                image_binary: image
@@ -328,7 +318,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec add_to_shopping_list(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_shopping_list(name, quantity, unit, ctx) when is_binary(name) do
-    qty = to_decimal(quantity)
+    qty = Tore.Types.decimal(quantity)
     change = Kinds.ShopEdit.add(ctx.scope, current_shop_list_id(ctx), name, qty, unit)
 
     edit_shop(ctx, change, true, fn ->
@@ -465,7 +455,7 @@ defmodule Tore.Capture.Dispatch do
 
   @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
   def add_to_pantry(name, quantity, unit, ctx) when is_binary(name) do
-    item = %{name: name, quantity: to_decimal(quantity), unit: unit}
+    item = %{name: name, quantity: Tore.Types.decimal(quantity), unit: unit}
 
     case Runs.start(ctx.scope, Kinds.PantryUpdate, %{channel: :manual, items: [item]}) do
       {:ok, %KitchenRun{status: :applied, id: id, undo: {:steps, [step]}}} ->
@@ -848,14 +838,14 @@ defmodule Tore.Capture.Dispatch do
 
   # The hash is recorded before the photo is read, so two uploads of the same bytes at once
   # can't both start a run. A photo whose reading failed is forgotten again, so it can be
-  # retried. The upload id also names the stashed photo.
+  # retried.
   defp with_dedup(image, scope, kind, run_fn) do
     hash = Uploads.content_hash(image)
     upload_id = KitchenRun.new_id()
 
     case Uploads.record(scope, hash, upload_id, kind) do
       {:ok, ^upload_id} ->
-        case run_fn.(upload_id) do
+        case run_fn.() do
           {:ok, result} ->
             result
 
@@ -871,35 +861,7 @@ defmodule Tore.Capture.Dispatch do
 
   defp duplicate_text, do: gettext("You've already uploaded this photo.")
 
-  defp stash_photo(scope, stream_id, image) do
-    case RunPhotos.store(scope, stream_id, image) do
-      {:ok, key} ->
-        key
-
-      {:error, reason} ->
-        require Logger
-        Logger.warning("RunPhotos.store failed: #{inspect(reason)} (run continues)")
-        nil
-    end
-  end
-
-  defp review_bubble(:receipt, sid) do
-    %{role: :assistant, review_link: true, stream_id: sid, text: gettext("I parsed a receipt.")}
-  end
-
   defp current_shop_list_id(ctx), do: Streams.shop_list(ctx.scope, Tore.Clock.today())
-
-  defp to_decimal(nil), do: nil
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
-
-  defp to_decimal(s) when is_binary(s) do
-    case Decimal.parse(s) do
-      {d, _} -> d
-      :error -> nil
-    end
-  end
 
   defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(ctx.scope, date)
 

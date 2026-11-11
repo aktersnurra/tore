@@ -44,9 +44,6 @@ defmodule Tore.Harness.KitchenRun do
     field :repair_action, Types.RepairAction
     field :discard_reason, Ecto.Enum, values: [:user_discarded, :ttl_expired]
     field :undo, Types.Undo
-    field :prompt_tokens, :integer, default: 0
-    field :completion_tokens, :integer, default: 0
-    field :cost_usd, Types.Usd, default: Decimal.new(0)
     field :opened_at, :utc_datetime_usec
     field :applied_at, :utc_datetime_usec
     field :reverted_at, :utc_datetime_usec
@@ -89,9 +86,6 @@ defmodule Tore.Harness.KitchenRun do
       :repair_action,
       :discard_reason,
       :undo,
-      :prompt_tokens,
-      :completion_tokens,
-      :cost_usd,
       :applied_at,
       :reverted_at,
       :closed_at

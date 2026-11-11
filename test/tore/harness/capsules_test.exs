@@ -13,7 +13,7 @@ defmodule Tore.Harness.CapsulesTest do
     scope = home_scope()
 
     %{
-      household_id: scope.household_id,
+      scope: scope,
       plan_stream_id: Tore.Streams.plan(scope, ~D[2026-06-08]),
       week_start: ~D[2026-06-08]
     }

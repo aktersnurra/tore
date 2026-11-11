@@ -23,19 +23,11 @@ defmodule Tore.Harness.ReceiptIngestion do
   def build_cost_entry(parsed, opts \\ []) do
     # Prefer the date the model extracted from the receipt itself. Fall
     # back to the caller-supplied date (tests pin this) and finally today.
-    parsed_date = parsed[:purchase_date]
-    supplied_date = Keyword.get(opts, :date)
-    date = parsed_date || supplied_date || Tore.Clock.today()
-
-    # The review card shows a "we couldn't read the date — please verify"
-    # hint when this is true. Only flag when neither the OCR nor the caller
-    # provided a real date.
-    date_inferred? = is_nil(parsed_date) and is_nil(supplied_date)
+    date = parsed[:purchase_date] || Keyword.get(opts, :date) || Tore.Clock.today()
 
     %CostEntry{
       store_name: parsed.store_name || "",
       date: date,
-      date_inferred?: date_inferred?,
       total: parsed.total || Decimal.new(0),
       line_items:
         Enum.map(parsed.items || [], fn it ->
@@ -46,8 +38,7 @@ defmodule Tore.Harness.ReceiptIngestion do
             total_price: it[:total_price],
             category: it[:category]
           }
-        end),
-      image_path: Keyword.get(opts, :image_path)
+        end)
     }
   end
 
@@ -59,7 +50,6 @@ defmodule Tore.Harness.ReceiptIngestion do
       store_name: cost.store_name,
       total_amount: cost.total,
       user_id: user_id,
-      image_path: cost.image_path,
       line_items: Enum.map(cost.line_items, &to_cost_line_item/1)
     })
   end

@@ -7,7 +7,7 @@ defmodule Tore.LLM.PlannerToolsWebTest do
   alias Tore.Planning.State
 
   @plan %State{}
-  @ctx %{plan_id: "plan-1", week_start: ~D[2026-06-01], household_id: 1}
+  @ctx %{plan_id: "plan-1", week_start: ~D[2026-06-01], scope: Tore.Scope.for_household(1)}
 
   defp tool(name), do: Enum.find(PlannerTools.all(), &(&1.name == name))
 
