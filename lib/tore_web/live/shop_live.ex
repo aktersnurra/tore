@@ -228,15 +228,10 @@ defmodule ToreWeb.ShopLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="flex items-end justify-between gap-4 pt-2">
+        <header class="flex items-start justify-between gap-4 pt-6">
           <div class="min-w-0">
-            <h1
-              class="font-bold text-[var(--text)]"
-              style="font-size: var(--t-h1); line-height: 1.15;"
-            >
-              {gettext("Shop")}
-            </h1>
-            <p class="num mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            <h1 class="t-display">{gettext("Shop")}</h1>
+            <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
               {ngettext(
                 "%{count} item left, week %{week}",
                 "%{count} items left, week %{week}",
@@ -249,16 +244,33 @@ defmodule ToreWeb.ShopLive do
             :if={@total > 0}
             type="button"
             phx-click="export_list"
-            class="h-11 shrink-0 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
+            aria-label={gettext("Show as text")}
+            class="press mt-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
           >
-            {gettext("Show as text")}
+            <.icon name="hero-document-text" class="size-5" />
           </button>
         </header>
-        <div class="rim mt-4" aria-hidden="true"></div>
+
+        <%!-- How far along the shop is: dill fills as things go in the basket --%>
+        <div
+          :if={@total > 0}
+          class="mt-5 h-1.5 overflow-hidden rounded-full bg-[var(--sunken)]"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax={@total}
+          aria-valuenow={@total - @unchecked_count}
+          aria-label={gettext("In the basket")}
+        >
+          <div
+            class="h-full rounded-full bg-[color:var(--done)] transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out)]"
+            style={"width: #{round((@total - @unchecked_count) / @total * 100)}%"}
+          >
+          </div>
+        </div>
 
         <div
           :if={@export_text}
-          class="mt-4 rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)] p-4"
+          class="rise-in mt-4 rounded-[var(--r-xl)] bg-[var(--surface)] p-4"
         >
           <div class="mb-2 flex items-center justify-between">
             <span class="section-label">{gettext("The list as text")}</span>
@@ -274,25 +286,21 @@ defmodule ToreWeb.ShopLive do
         </div>
 
         <div :if={@total == 0} class="pt-8 pb-2">
-          <p class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
-            {gettext("Nothing to buy")}
-          </p>
-          <p class="mt-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+          <p class="t-head">{gettext("Nothing to buy")}</p>
+          <p class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
             {gettext("Add an item here, or ask Tore to make the list from the plan.")}
           </p>
         </div>
 
         <%= for {section, section_items} <- @groups do %>
-          <h2 class="section-label mt-6 mb-1">
-            {section_label(section)}
-          </h2>
+          <h2 class="t-eyebrow mt-7 mb-2">{section_label(section)}</h2>
           <ul class="menu-lines">
             <.item_row :for={item <- section_items} item={item} />
           </ul>
         <% end %>
 
         <%= if @checked != [] do %>
-          <h2 class="section-label mt-6 mb-1">
+          <h2 class="t-eyebrow mt-7 mb-2">
             {gettext("In the basket, %{n}", n: length(@checked))}
           </h2>
           <ul class="menu-lines">
@@ -302,16 +310,17 @@ defmodule ToreWeb.ShopLive do
 
         <form
           phx-submit="add_item"
-          class="mt-6 flex items-center gap-2 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] pl-3.5 pr-2 focus-within:border-[color:var(--accent)]"
+          class="mt-7 flex items-center gap-2 rounded-full bg-[var(--sunken)] pl-4 pr-3 focus-within:outline-2 focus-within:outline-[color:var(--accent)]"
         >
+          <.icon name="hero-plus" class="size-5 shrink-0 text-[color:var(--muted)]" />
           <input
             type="text"
             name="name"
             placeholder={gettext("Add item…")}
             aria-label={gettext("Add item…")}
             required
-            class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none"
-            style="font-size: var(--t-body);"
+            class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+            style="font-size: 16px;"
           />
           <input
             type="text"
@@ -343,46 +352,52 @@ defmodule ToreWeb.ShopLive do
       <div
         :if={@item_sheet}
         id="item-sheet"
-        class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-[var(--r-xl)] bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
+        class="fixed inset-0 z-50 flex items-end justify-center"
         phx-window-keydown="close_item_sheet"
         phx-key="Escape"
       >
-        <div class="flex justify-center py-2">
-          <button
-            type="button"
-            phx-click="close_item_sheet"
-            aria-label={gettext("Close")}
-            data-role="item-sheet-close"
-          >
-            <span class="w-10 h-1.5 rounded-full bg-[color:var(--border)] block"></span>
-          </button>
-        </div>
+        <div class="scrim absolute inset-0 bg-black/50" phx-click="close_item_sheet"></div>
+        <div class="sheet relative flex w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div class="flex justify-center py-2">
+            <button
+              type="button"
+              phx-click="close_item_sheet"
+              aria-label={gettext("Close")}
+              data-role="item-sheet-close"
+            >
+              <span class="w-10 h-1.5 rounded-full bg-[color:var(--border)] block"></span>
+            </button>
+          </div>
 
-        <div class="flex items-baseline gap-2 px-4 py-3 border-b border-[color:var(--border)]">
-          <span class="font-semibold text-[color:var(--text)]">{@item_sheet.name}</span>
-          <span :if={qty_label(@item_sheet) != ""} class="text-[color:var(--muted)] text-sm">
-            {qty_label(@item_sheet)}
-          </span>
-        </div>
+          <div class="flex items-baseline gap-2 px-5 pb-1">
+            <span class="t-head">{@item_sheet.name}</span>
+            <span :if={qty_label(@item_sheet) != ""} class="num text-[15px] text-[color:var(--muted)]">
+              {qty_label(@item_sheet)}
+            </span>
+          </div>
 
-        <div class="flex-1 overflow-y-auto px-4 py-4">
-          <form phx-submit="item_command">
-            <input
-              type="text"
-              name="command"
-              autocomplete="off"
-              placeholder={gettext("Anything about this item…")}
-              class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-            />
-          </form>
-          <button
-            type="button"
-            phx-click="remove_item"
-            phx-value-item_id={@item_sheet.id}
-            class="mt-6 h-11 text-[13px] font-semibold text-[color:var(--danger)] hover:underline"
-          >
-            {gettext("Remove from the list")}
-          </button>
+          <div class="px-5 pt-3">
+            <form phx-submit="item_command">
+              <input
+                type="text"
+                name="command"
+                autocomplete="off"
+                autofocus
+                placeholder={gettext("Anything about this item…")}
+                class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+                style="font-size: 16px;"
+              />
+            </form>
+            <button
+              type="button"
+              phx-click="remove_item"
+              phx-value-item_id={@item_sheet.id}
+              class="press mt-4 flex h-11 items-center gap-2 text-[15px] font-semibold text-[color:var(--danger)]"
+            >
+              <.icon name="hero-trash" class="size-4" />
+              {gettext("Remove from the list")}
+            </button>
+          </div>
         </div>
       </div>
     </Layouts.app>
@@ -400,7 +415,7 @@ defmodule ToreWeb.ShopLive do
       data-item-id={@item.id}
       data-item-name={@item.name}
       class={[
-        "flex min-h-[52px] items-center gap-4 py-2.5 transition-opacity",
+        "flex min-h-[56px] items-center gap-4 py-2.5 transition-opacity duration-[var(--dur-base)]",
         @item.checked && "opacity-50"
       ]}
     >
@@ -409,7 +424,7 @@ defmodule ToreWeb.ShopLive do
         type="button"
         phx-click="toggle_item"
         phx-value-item_id={@item.id}
-        class="flex-1 min-w-0 text-left"
+        class="press press-soft flex-1 min-w-0 text-left"
       >
         <span
           class={[

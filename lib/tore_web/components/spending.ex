@@ -44,15 +44,11 @@ defmodule ToreWeb.Spending do
 
   def spending(assigns) do
     ~H"""
-    <section id="spending" class="mt-10">
-      <div class="flex items-end justify-between gap-4">
-        <div>
-          <h2 class="section-label">{gettext("Spent this month")}</h2>
-          <p
-            id="month-total"
-            class="num mt-1 font-bold tracking-[-0.025em] text-[color:var(--text)]"
-            style="font-size: var(--t-h1); line-height: 1.15;"
-          >
+    <section id="spending" class="mt-12">
+      <div class="flex items-end justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="t-eyebrow">{gettext("Spent this month")}</h2>
+          <p id="month-total" class="t-title num mt-1">
             {money(@spending.month_total)} kr
           </p>
           <p
@@ -65,14 +61,14 @@ defmodule ToreWeb.Spending do
             )}
           </p>
         </div>
-        <form id="receipt-photo-form" phx-change="validate_upload">
+        <form id="receipt-photo-form" phx-change="validate_upload" class="shrink-0">
           <.live_file_input upload={@upload} class="hidden" />
           <label
             :if={!@scanning}
             for={@upload.ref}
-            class="inline-flex h-11 cursor-pointer items-center gap-2 rounded-[var(--r-pill)] bg-[var(--surface)] px-4 text-[14px] font-semibold text-[color:var(--text)] transition-colors hover:bg-[var(--sunken)] active:bg-[var(--sunken)]"
+            class="pill press cursor-pointer"
           >
-            <.icon name="hero-camera" class="size-4" /> {gettext("Scan receipt")}
+            <.icon name="hero-camera" /> {gettext("Scan receipt")}
           </label>
           <span
             :if={@scanning}

@@ -103,7 +103,7 @@ defmodule ToreWeb.CaptureLive do
       type="button"
       phx-click="undo_run"
       phx-value-sid={@msg.run_stream_id}
-      class="self-start block text-xs text-[color:var(--accent)] font-semibold mt-1"
+      class="self-start block text-[13px] font-semibold underline underline-offset-4 decoration-[color:var(--subtle)] mt-1"
     >
       {gettext("Undo")}
     </button>
@@ -150,7 +150,7 @@ defmodule ToreWeb.CaptureLive do
            "translate-y-0"}
         )
       }
-      class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-[var(--r-xl)] bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
+      class="fixed inset-x-0 bottom-0 top-8 z-50 mx-auto flex max-w-2xl flex-col rounded-t-[28px] bg-[var(--surface)] shadow-[var(--shadow-pop)]"
       phx-window-keydown="close_tray"
       phx-key="Escape"
     >
@@ -160,28 +160,27 @@ defmodule ToreWeb.CaptureLive do
         </.link>
       </div>
 
-      <div class="flex items-center gap-3 px-4 py-3 border-b border-[color:var(--border)]">
+      <div class="flex items-center justify-between gap-3 px-4 pb-1">
+        <span class="t-eyebrow pl-1">{gettext("Ask Tore")}</span>
         <.link
           navigate={@return_to}
-          class="text-[color:var(--muted)] hover:text-[color:var(--text)]"
+          aria-label={gettext("Close")}
+          class="press flex size-10 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
         >
-          <.icon name="hero-arrow-left" class="size-5" />
+          <.icon name="hero-x-mark" class="size-5" />
         </.link>
-        <span class="font-semibold text-[color:var(--text)]">{gettext("Ask Tore")}</span>
       </div>
 
-      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div id="chat-messages" class="scroll-quiet flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <div
           :if={@messages == [] and not @loading}
           class="flex h-full flex-col items-start justify-end pb-4"
         >
+          <p class="reveal t-display" style="--i: 0">{gettext("What do you need?")}</p>
           <p
-            class="font-bold text-[color:var(--text)]"
-            style="font-size: var(--t-h1); line-height: 1.15; letter-spacing: -0.02em;"
+            class="reveal mt-3 max-w-[32ch] text-[color:var(--muted)]"
+            style="--i: 1; font-size: 15px; line-height: 1.5;"
           >
-            {gettext("What do you need?")}
-          </p>
-          <p class="mt-2 max-w-[32ch] text-[color:var(--muted)]" style="font-size: var(--t-meta);">
             {gettext(
               "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
             )}
@@ -197,14 +196,14 @@ defmodule ToreWeb.CaptureLive do
         >
           <div
             :if={Map.get(msg, :pantry_suggestions)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%] space-y-2"
+            class="rise-in bg-[var(--sunken)] rounded-[20px] rounded-bl-md px-4 py-3 max-w-[85%] space-y-2"
           >
             <p class="text-sm text-[color:var(--text)]">{msg.text}</p>
             <ul class="space-y-1.5">
               <li :for={s <- msg.suggestions}>
                 <.link
                   navigate={~p"/recipes"}
-                  class="block text-sm text-[color:var(--accent)] font-semibold"
+                  class="block text-[15px] font-semibold text-[color:var(--text)] underline underline-offset-4 decoration-[color:var(--subtle)]"
                 >
                   {s.title}
                 </.link>
@@ -219,7 +218,7 @@ defmodule ToreWeb.CaptureLive do
           </div>
           <div
             :if={Map.get(msg, :shop_link)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%] space-y-2"
+            class="rise-in bg-[var(--sunken)] rounded-[20px] rounded-bl-md px-4 py-3 max-w-[85%] space-y-2"
           >
             <p class="text-sm text-[color:var(--text)]">{msg.text}</p>
             <ul :if={Map.get(msg, :shopping_items, []) != []} class="space-y-0.5">
@@ -236,7 +235,7 @@ defmodule ToreWeb.CaptureLive do
             </ul>
             <.link
               navigate={~p"/shop"}
-              class="text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
+              class="text-[15px] font-semibold text-[color:var(--text)] underline underline-offset-4 decoration-[color:var(--subtle)] whitespace-nowrap"
             >
               {gettext("Open shopping list")}
             </.link>
@@ -245,9 +244,9 @@ defmodule ToreWeb.CaptureLive do
           <div
             :if={!Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link)}
             class={[
-              "max-w-[80%] rounded-[var(--r-lg)] px-4 py-2.5 text-sm leading-relaxed flex flex-col gap-1",
-              msg.role == :user && "bg-[color:var(--accent)] text-[color:var(--on-accent)]",
-              msg.role == :assistant && "bg-[var(--surface)] border border-[color:var(--border)]",
+              "rise-in max-w-[85%] rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed flex flex-col gap-1",
+              msg.role == :user && "rounded-br-md bg-[var(--text)] text-[color:var(--bg)]",
+              msg.role == :assistant && "rounded-bl-md bg-[var(--sunken)]",
               msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
               Map.get(msg, :quiet) && "text-[color:var(--muted)] whitespace-pre-line"
             ]}
@@ -256,7 +255,7 @@ defmodule ToreWeb.CaptureLive do
             <.link
               :if={Map.get(msg, :kitchen_link)}
               navigate={~p"/settings#diet"}
-              class="self-start text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
+              class="self-start text-[15px] font-semibold underline underline-offset-4 decoration-[color:var(--subtle)] whitespace-nowrap"
             >
               {gettext("Open diet and allergies")}
             </.link>
@@ -264,13 +263,20 @@ defmodule ToreWeb.CaptureLive do
           </div>
         </div>
         <div :if={@loading} class="flex justify-start">
-          <div class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-2.5">
-            <span class="text-[color:var(--muted)] text-sm">{gettext("Working on it…")}</span>
+          <div
+            role="status"
+            class="rise-in flex items-center gap-2 rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5"
+          >
+            <.icon
+              name="hero-arrow-path"
+              class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
+            />
+            <span class="text-[15px] text-[color:var(--muted)]">{gettext("Working on it…")}</span>
           </div>
         </div>
       </div>
 
-      <div class="px-4 py-3 border-t border-[color:var(--border)]">
+      <div class="px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
         <div
           :if={@swaps != [] and not @loading}
           data-role="swaps"
@@ -282,41 +288,46 @@ defmodule ToreWeb.CaptureLive do
             phx-click="swap"
             phx-value-index={index}
             data-role="swap"
-            class="shrink-0 rounded-full bg-[var(--sunken)] px-3.5 py-2 text-sm font-medium text-[color:var(--text)] transition-colors active:bg-[var(--border)]"
+            class="pill press"
           >
             {swap.label}
           </button>
         </div>
         <form phx-submit="send_message" phx-change="validate" class="flex flex-col gap-2">
           <div class="flex items-center gap-2">
+            <label
+              for={@uploads.chat_photos.ref}
+              aria-label={gettext("Attach photo")}
+              title={gettext("Attach photo")}
+              class="press flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+            >
+              <.icon name="hero-camera" class="size-5" />
+            </label>
             <input
               type="text"
               name="message"
               value={@input}
               placeholder={gettext("Ask anything about meals, groceries…")}
               autocomplete="off"
-              class="flex-1 rounded-full border border-[color:var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+              class="h-12 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+              style="font-size: 16px;"
             />
             <button
               type="submit"
               disabled={@loading}
-              class="flex-shrink-0 w-10 h-10 rounded-full bg-[color:var(--accent)] flex items-center justify-center disabled:opacity-40"
+              aria-label={gettext("Send")}
+              class="press flex size-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)] disabled:opacity-40"
             >
-              <.icon name="hero-paper-airplane" class="size-4 text-[color:var(--on-accent)]" />
+              <.icon name="hero-arrow-up" class="size-5" />
             </button>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <label
-              for={@uploads.chat_photos.ref}
-              class="text-xs text-[color:var(--muted)] flex items-center gap-1 cursor-pointer w-fit"
-            >
-              <.icon name="hero-camera" class="size-3.5" /> {gettext("Attach photo")}
-            </label>
+          <div :if={@uploads.chat_photos.entries != []} class="flex flex-wrap items-center gap-2">
             <span
               :for={entry <- @uploads.chat_photos.entries}
-              class="text-xs text-[color:var(--accent)]"
+              class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
             >
-              {entry.client_name} ({entry.progress}%)
+              <.icon name="hero-photo" class="size-4 text-[color:var(--muted)]" />
+              {entry.client_name} · {entry.progress}%
             </span>
           </div>
           <.live_file_input upload={@uploads.chat_photos} class="hidden" />

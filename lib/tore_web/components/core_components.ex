@@ -68,7 +68,7 @@ defmodule ToreWeb.CoreComponents do
         <.icon
           :if={@kind == :info}
           name="hero-check-circle-solid"
-          class="pop size-5 shrink-0 mt-px text-[color:var(--done)]"
+          class="pop size-5 shrink-0 mt-px"
         />
         <.icon
           :if={@kind == :error}

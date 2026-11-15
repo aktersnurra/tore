@@ -242,11 +242,10 @@ defmodule ToreWeb.SettingsLive do
         phx-value-item={item}
         aria-pressed={to_string(item in (@chosen || []))}
         class={[
-          "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-          item in (@chosen || []) &&
-            "border-[color:var(--text)] bg-[var(--text)] text-[color:var(--bg)]",
+          "press h-9 rounded-full px-3.5 text-[14px] font-semibold",
+          item in (@chosen || []) && "bg-[var(--text)] text-[color:var(--bg)]",
           item not in (@chosen || []) &&
-            "border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] hover:text-[color:var(--text)]"
+            "bg-[var(--sunken)] text-[color:var(--muted)] hover:text-[color:var(--text)]"
         ]}
       >
         {preference_label(item)}
@@ -265,16 +264,20 @@ defmodule ToreWeb.SettingsLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="pt-2">
-          <h1 class="font-bold text-[var(--text)]" style="font-size: var(--t-h1); line-height: 1.15;">
-            {gettext("Settings")}
-          </h1>
+        <header class="flex items-center gap-3 pt-2">
+          <.link
+            navigate={~p"/today"}
+            aria-label={gettext("Back")}
+            class="press -ml-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+          >
+            <.icon name="hero-chevron-left" class="size-5" />
+          </.link>
         </header>
-        <div class="rim mt-4 mb-5" aria-hidden="true"></div>
+        <h1 class="t-display mt-5 mb-6">{gettext("Settings")}</h1>
 
-        <.card padded={false}>
+        <div class="space-y-3">
           <%!-- Members --%>
-          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
               {gettext("Members")}
             </h2>
@@ -359,9 +362,10 @@ defmodule ToreWeb.SettingsLive do
             <.link
               href={~p"/logout"}
               method="delete"
-              class="mt-4 inline-block text-[color:var(--accent)] hover:underline"
-              style="font-size: var(--t-meta);"
+              class="press mt-4 inline-flex h-10 items-center gap-2 font-semibold text-[color:var(--muted)] hover:text-[color:var(--text)]"
+              style="font-size: 15px;"
             >
+              <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" />
               {gettext("Sign out")}
             </.link>
           </section>
@@ -369,7 +373,7 @@ defmodule ToreWeb.SettingsLive do
           <%!-- Households: a switcher for someone in two or more --%>
           <section
             :if={length(@households) >= 2}
-            class="px-6 pt-5 pb-5 border-t border-[color:var(--hairline)]"
+            class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5"
           >
             <h2 class="section-label mb-3">
               {gettext("Your households")}
@@ -406,7 +410,7 @@ defmodule ToreWeb.SettingsLive do
           <%!-- Diet and allergies: every plan is checked against these --%>
           <section
             id="diet"
-            class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]"
+            class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5"
           >
             <h2 class="section-label mb-1">{gettext("Diet and allergies")}</h2>
             <p class="mb-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
@@ -427,7 +431,7 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- Household --%>
-          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
               {gettext("Household")}
             </h2>
@@ -466,7 +470,7 @@ defmodule ToreWeb.SettingsLive do
 
           <%!-- Device tokens --%>
           <%!-- Kitchen memory --%>
-          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
               {gettext("Things Tore has learned")}
             </h2>
@@ -502,7 +506,7 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- Stores --%>
-          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
               {gettext("Stores")}
             </h2>
@@ -565,7 +569,7 @@ defmodule ToreWeb.SettingsLive do
           </section>
 
           <%!-- AI usage --%>
-          <section class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]">
+          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
               {gettext("AI usage")}
             </h2>
@@ -652,7 +656,7 @@ defmodule ToreWeb.SettingsLive do
               </div>
             </div>
           </section>
-        </.card>
+        </div>
       </.page>
     </Layouts.app>
     """
