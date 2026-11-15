@@ -24,6 +24,7 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/tore"
 import LongPress from "./long_press"
+import Scanner from "./scanner"
 
 import topbar from "../vendor/topbar"
 
@@ -52,7 +53,7 @@ document.addEventListener("click", e => {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {LongPress, AutoDismiss, ...colocatedHooks},
+  hooks: {LongPress, AutoDismiss, Scanner, ...colocatedHooks},
   dom: {
     onDocumentPatch(start) {
       if (!transitionNext || !document.startViewTransition || reducedMotion.matches) return start()

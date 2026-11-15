@@ -281,6 +281,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .sheet { animation: sheet-in var(--dur-slow) var(--ease-out) both; }
 @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
 .scrim { animation: scrim-in var(--dur-base) var(--ease-out) both; }
+
+/* The scanner's frame: quiet until the camera runs, then a saffron ring that pulses once per
+   pack caught */
+.scanner-frame {
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.35);
+  outline: 2px solid rgb(255 255 255 / 0.5);
+  transition: outline-color var(--dur-fast) var(--ease-out);
+}
+.scanner-view[data-state="live"] .scanner-frame { outline-color: var(--accent); }
+@keyframes caught { 0% { transform: translateY(-50%) scale(1); } 40% { transform: translateY(-50%) scale(1.06); outline-width: 4px; } 100% { transform: translateY(-50%) scale(1); } }
+.scanner-view.caught .scanner-frame { animation: caught var(--dur-slow) var(--ease-spring); }
 }
 
 /* ── Page changes: a short cross-fade; a dish's photograph travels with you ── */

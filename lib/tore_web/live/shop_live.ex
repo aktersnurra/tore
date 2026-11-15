@@ -29,7 +29,8 @@ defmodule ToreWeb.ShopLive do
        item_sheet: nil,
        item_command_loading: false,
        spending: ToreWeb.Spending.load(scope),
-       scanning: false
+       scanning: false,
+       scanner: nil
      )
      |> allow_upload(:receipt_photo,
        accept: ~w(.jpg .jpeg .png .webp .heic),
@@ -155,6 +156,42 @@ defmodule ToreWeb.ShopLive do
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
+  # The barcode scanner: a line per pack scanned, newest first, each with Undo.
+  def handle_event("open_scanner", _params, socket),
+    do: {:noreply, assign(socket, scanner: %{lines: [], asking: nil, busy: false, camera: :ok})}
+
+  def handle_event("close_scanner", _params, socket), do: {:noreply, assign(socket, scanner: nil)}
+
+  def handle_event("scanned", _params, %{assigns: %{scanner: %{busy: true}}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("scanned", %{"code" => code}, socket), do: {:noreply, scan(socket, code, [])}
+
+  def handle_event("name_product", %{"name" => name}, socket) do
+    case {socket.assigns.scanner.asking, String.trim(name)} do
+      {nil, _} -> {:noreply, socket}
+      {_code, ""} -> {:noreply, socket}
+      {code, name} -> {:noreply, scan(socket, code, name: name)}
+    end
+  end
+
+  def handle_event("undo_scan", %{"id" => id}, socket) do
+    %{scanner: scanner, current_scope: scope} = socket.assigns
+
+    case Enum.find(scanner.lines, &(&1.id == id)) do
+      %{undone: false} = line ->
+        :ok = undo(scope, socket.assigns, line)
+        lines = Enum.map(scanner.lines, &if(&1.id == id, do: %{&1 | undone: true}, else: &1))
+        {:noreply, assign(socket, scanner: %{scanner | lines: lines})}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("scanner_failed", _params, socket),
+    do: {:noreply, update(socket, :scanner, &(&1 && %{&1 | camera: :failed}))}
+
   def handle_info({:item_command_complete, result}, socket) do
     flash =
       case result do
@@ -201,6 +238,54 @@ defmodule ToreWeb.ShopLive do
      |> put_flash(:error, gettext("Tore couldn't finish that. Try again in a moment."))}
   end
 
+  def handle_info({:scanned, _code, _result}, %{assigns: %{scanner: nil}} = socket),
+    do: {:noreply, socket}
+
+  def handle_info({:scanned, code, result}, socket) do
+    scanner = %{socket.assigns.scanner | busy: false, asking: nil}
+
+    scanner =
+      case result do
+        {:ok, %{change: change, name: name} = done} ->
+          line = %{id: Ecto.UUID.generate(), change: change, name: name, undone: false, ref: done}
+          %{scanner | lines: [line | scanner.lines]}
+
+        {:error, :unknown_product} ->
+          %{scanner | asking: code}
+
+        {:error, :not_a_barcode} ->
+          scanner
+
+        {:error, _} ->
+          line = %{id: Ecto.UUID.generate(), change: :failed, name: nil, undone: false, ref: nil}
+          %{scanner | lines: [line | scanner.lines]}
+      end
+
+    {:noreply, assign(socket, scanner: scanner)}
+  end
+
+  defp scan(socket, code, opts) do
+    %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
+
+    ToreWeb.Background.run(
+      fn -> Tore.Pantry.Scan.scan(scope, list_id, code, [user_id: user_id] ++ opts) end,
+      &{:scanned, code, &1}
+    )
+
+    update(socket, :scanner, &%{&1 | busy: true})
+  end
+
+  # A pack put in the pantry is taken out again; a ticked item is unticked, as on the list.
+  defp undo(scope, _assigns, %{change: :added, ref: %{run_id: run_id}}) do
+    {:ok, _} = Tore.Harness.Runs.revert(scope, run_id)
+    :ok
+  end
+
+  defp undo(scope, assigns, %{change: :ticked, ref: %{item_id: item_id}}) do
+    {:ok, _} = Shop.uncheck_item(scope, assigns.list_id, item_id, assigns.user_id)
+    :ok
+  end
+
   defp reload_spending(socket),
     do: assign(socket, spending: ToreWeb.Spending.load(socket.assigns.current_scope))
 
@@ -240,15 +325,25 @@ defmodule ToreWeb.ShopLive do
               )}
             </p>
           </div>
-          <button
-            :if={@total > 0}
-            type="button"
-            phx-click="export_list"
-            aria-label={gettext("Show as text")}
-            class="press mt-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-          >
-            <.icon name="hero-document-text" class="size-5" />
-          </button>
+          <div class="mt-1 flex shrink-0 gap-2">
+            <button
+              type="button"
+              phx-click="open_scanner"
+              aria-label={gettext("Scan what you bought")}
+              class="press flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+            >
+              <.icon name="hero-viewfinder-circle" class="size-5" />
+            </button>
+            <button
+              :if={@total > 0}
+              type="button"
+              phx-click="export_list"
+              aria-label={gettext("Show as text")}
+              class="press flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+            >
+              <.icon name="hero-document-text" class="size-5" />
+            </button>
+          </div>
         </header>
 
         <%!-- How far along the shop is: dill fills as things go in the basket --%>
@@ -348,6 +443,8 @@ defmodule ToreWeb.ShopLive do
         />
       </.page>
 
+      <.scanner :if={@scanner} scanner={@scanner} />
+
       <%!-- Grocery item object sheet (long-press) --%>
       <div
         :if={@item_sheet}
@@ -403,6 +500,122 @@ defmodule ToreWeb.ShopLive do
     </Layouts.app>
     """
   end
+
+  attr :scanner, :map, required: true
+
+  # The camera fills the top of the sheet; each pack scanned gets a line under it, with Undo.
+  defp scanner(assigns) do
+    ~H"""
+    <div
+      class="fixed inset-0 z-50 flex items-end justify-center"
+      phx-window-keydown="close_scanner"
+      phx-key="Escape"
+    >
+      <div class="scrim absolute inset-0 bg-black/50" phx-click="close_scanner"></div>
+      <div class="sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <div class="flex items-center justify-between px-5 pt-4 pb-3">
+          <h2 class="t-head">{gettext("Scan what you unpack")}</h2>
+          <.icon_button icon="hero-x-mark" label={gettext("Close")} phx-click="close_scanner" />
+        </div>
+
+        <div
+          id="scanner"
+          phx-hook="Scanner"
+          phx-update="ignore"
+          data-state="starting"
+          class="scanner-view relative mx-5 aspect-[4/3] overflow-hidden rounded-[var(--r-xl)] bg-black"
+        >
+          <video class="size-full object-cover" playsinline muted autoplay></video>
+          <div class="scanner-frame pointer-events-none absolute inset-x-[12%] top-1/2 h-[34%] -translate-y-1/2 rounded-[var(--r-lg)]">
+          </div>
+        </div>
+
+        <p
+          class="mx-5 mt-3 min-h-[1.5em] text-[15px] text-[color:var(--muted)]"
+          role="status"
+          aria-live="polite"
+        >
+          <%= cond do %>
+            <% @scanner.camera == :failed -> %>
+              <span class="text-[color:var(--danger)]">
+                {gettext("Tore can't use the camera. Allow it for this site, or add items by name.")}
+              </span>
+            <% @scanner.busy -> %>
+              <span class="inline-flex items-center gap-2">
+                <span class="loading loading-spinner loading-xs"></span>
+                {gettext("Looking it up…")}
+              </span>
+            <% true -> %>
+              {gettext("Hold a barcode in the frame.")}
+          <% end %>
+        </p>
+
+        <form
+          :if={@scanner.asking}
+          id="scanner-name"
+          phx-submit="name_product"
+          class="rise-in mx-5 mt-3"
+        >
+          <label for="scanner-name-input" class="block text-[15px] font-semibold">
+            {gettext("Tore doesn't know this code. What is it?")}
+          </label>
+          <div class="mt-2 flex gap-2">
+            <input
+              id="scanner-name-input"
+              type="text"
+              name="name"
+              autocomplete="off"
+              required
+              placeholder={gettext("Name")}
+              class="h-12 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+              style="font-size: 16px;"
+            />
+            <button type="submit" class="pill pill-lamp press">{gettext("Save")}</button>
+          </div>
+        </form>
+
+        <ul id="scanner-lines" class="menu-lines mx-5 mt-2 overflow-y-auto">
+          <li
+            :for={line <- @scanner.lines}
+            id={"scan-#{line.id}"}
+            class={["rise-in flex min-h-[52px] items-center gap-3 py-2", line.undone && "opacity-50"]}
+          >
+            <.icon
+              name={if line.change == :failed, do: "hero-exclamation-circle", else: "hero-check"}
+              class={[
+                "size-5 shrink-0",
+                if(line.change == :failed,
+                  do: "text-[color:var(--danger)]",
+                  else: "text-[color:var(--done)]"
+                )
+              ]}
+            />
+            <span class="min-w-0 flex-1 text-[15px]">{scan_line(line)}</span>
+            <button
+              :if={line.change != :failed and not line.undone}
+              type="button"
+              phx-click="undo_scan"
+              phx-value-id={line.id}
+              class="press h-11 px-2 text-[15px] font-semibold text-[color:var(--accent-ink)]"
+            >
+              {gettext("Undo")}
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+    """
+  end
+
+  defp scan_line(%{undone: true}), do: gettext("Undone.")
+
+  defp scan_line(%{change: :added, name: name}),
+    do: gettext("%{name} is in the pantry", name: name)
+
+  defp scan_line(%{change: :ticked, name: name}),
+    do: gettext("%{name} ticked off the list", name: name)
+
+  defp scan_line(%{change: :failed}), do: gettext("Couldn't look that code up. Try again.")
 
   attr :item, :map, required: true
 
