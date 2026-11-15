@@ -7,6 +7,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Pantry rules and barcode scanning (2026-11-16)
+
+- Ticking an item, adding one and making the list ask no model. Tore matches a name to its ingredient exactly, by name or by a name it has learned, and learns a new name once, afterwards, in one call: it either joins an ingredient Tore has (*mellanmjölk* is *mjölk*) or gets its own section and shelf life. Until then the item waits in "Other".
+- Making the list leaves out what the pantry holds by ingredient, so a near miss stays on the list.
+- Shop has a scanner: point the phone at what you unpack and each pack goes into the pantry, or is ticked off if it's still on the list, with Undo. A new barcode is looked up once in Open Food Facts and remembered with its pack size; one nobody knows asks for a name once.
+- The `filter_pantry` and `classify_item` prompts are gone.
+
 ### One look across the screens (2026-11-15)
 
 - Today, the recipe page and Cook mode share one layout: the photograph full-bleed and darkening into the page, the name on its foot, a row of pills with one saffron lamp, then the facts.

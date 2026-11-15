@@ -622,15 +622,15 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
-1. Pantry rules.
-2. MCP, so someone can use Tore through their own Claude or ChatGPT. Its writes go through `Runs.submit/4`; the kinds' `open/1` will need to take the actor, since each sets `:user` or `:system` today.
-3. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
-4. Instagram recipes.
-5. A prep upgrade.
+1. MCP, so someone can use Tore through their own Claude or ChatGPT. Its writes go through `Runs.submit/4`; the kinds' `open/1` will need to take the actor, since each sets `:user` or `:system` today.
+2. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
+3. Instagram recipes.
+4. A prep upgrade.
 
 Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
 Run core and household memory landed on 2026-11-10 (§A.2, §1).
 The home pick landed on 2026-11-11 (§Interfaces); its swaps moved from the chat bar into Capture on 2026-11-15.
+Pantry rules and barcode scanning landed on 2026-11-16 (§4).
 
 ### 1. Household Memory → `:memory_review_run`, `:memory_update_run`
 
@@ -719,17 +719,33 @@ or any other interruption.
 
 **Status: built.**
 
-Three channels update the pantry through a `:pantry_belief_update_run`: a grocery item checked off, a shelf photo
-through Capture, and a manual add or removal through Capture. Receipts are not a channel (§5).
+Four channels update the pantry through a `:pantry_belief_update_run`: a grocery item checked off, a barcode
+scanned on Shop, a shelf photo through Capture, and a manual add or removal through Capture. Receipts are not a
+channel (§5).
 
 - **Capsules:** `PantryBeliefsCapsule` (the current state, framed as belief).
-- **Tools:** vision prompt `parse_pantry_image` for photos; the canonicaliser for photographed and checked-off names. A household that can't use the model keeps a checked-off name as written, so it lands on the ingredient with that name or a new one.
-- **Artifact:** `PantryBeliefUpdate` (items added or removed, each with `provenance`: `grocery_checkoff`, `vision` or `manual`). Undo puts each touched row's before-image back.
+- **Tools:** vision prompt `parse_pantry_image` for photos, and the canonicaliser for what a photo shows. Ticks and scans ask no model (below).
+- **Artifact:** `PantryBeliefUpdate` (items added or removed, each with `provenance`: `grocery_checkoff`, `barcode`, `vision` or `manual`). Undo puts each touched row's before-image back.
 - **Verifier:** `PantryVerifier`.
 - **Tier:** 1 — every channel applies straight away with undo. No review card.
 - **Model tier:** vision (photo input only).
 
 **Shelf photos.** A photo shows what's there, so its quantities replace the old ones instead of adding to them.
+
+**The model sees a name once.** `Tore.Pantry.Match` finds an ingredient by its key, then by a learned alias
+(`ingredient_aliases`: another name's key, or `ean:<digits>`), with no substring or fuzzy matching. A tick, an
+add to the list and building the list use only `Match`, so they never wait for the model and work without it.
+A name `Match` doesn't know gets its ingredient as written, and `Tore.Pantry.Learn` asks the model about it
+afterwards, in one batched call: either it means an ingredient Tore has (*mellanmjölk* is *mjölk*), and the two
+are merged with the name kept as an alias, or it fills the new ingredient's section and shelf life. Shop items
+waiting in "other" move to their section when that lands (`ItemSectionSet`). Without the model, the name stays as
+written.
+
+**Barcodes.** The scanner on Shop reads EAN-13, EAN-8 and UPC-A from the phone's camera (`barcode-detector` with
+ZXing's wasm, served by Tore). `Tore.Pantry.Scan`: a learned code lands on its ingredient with its pack size. A new
+code is looked up once in Open Food Facts (only the number leaves the server), its product name goes through
+`Learn` as above, and the code is learned with its pack. A code nobody knows asks for a name once. A pack still
+unticked on the list is ticked instead.
 
 **One row per ingredient.** A unique index on `(household_id, ingredient_id)` holds it. Undoing a removal yields
 to a row added since. Undoing a check-off unchecks the item and leaves the pantry as it is; if that's wrong, Capture
@@ -750,8 +766,7 @@ The date affects three things:
 
 **Demotion:**
 
-- The `/pantry` route is removed from main nav.
-- `pantry_live.ex` is a *"Here's what we think you have"* view reachable from Settings. Two actions: remove an item, and set its date. No add.
+- There is no pantry screen (2026-11-15). Capture shows and corrects it.
 - `PantryBeliefsCapsule` frames inventory as approximate. Items carry `last_seen_at` and `provenance`.
 
 **Hard rule.** Spec or implementation work that adds back a primary
@@ -895,7 +910,11 @@ The reliability anchor. Manual add always works. The list is built from the week
 someone asks (the "Make the list" swap, or Capture), never behind their back: building replaces
 the list, so a plan change must not wipe hand-added items and check-offs. The list survives a
 missing plan, a missing pantry, and a missing connection to the LLM. Checking an item
-dispatches a `:pantry_belief_update_run` (see §4).
+dispatches a `:pantry_belief_update_run` (see §4). Items sit in their ingredient's section, or in "other" until
+Tore has learned the name. Building the list leaves out what the pantry holds, by ingredient.
+
+The scanner button in the header opens a sheet with the camera: each pack scanned while unpacking goes into the
+pantry, or is ticked off if it's still on the list, with a line and Undo per pack (§4).
 
 Under the list, what was spent this month (`ToreWeb.Spending`): the total against last month,
 the five latest receipts, eating out from the plans, and "Scan receipt", which reads a photo

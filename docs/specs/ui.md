@@ -881,6 +881,28 @@ Checked items may update pantry belief silently.
 Do not show pantry as exact truth.
 ```
 
+Sections come from the item's ingredient with no model. A name Tore hasn't learned waits in
+"Other" and moves once it has.
+
+### Scanner (2026-11-16)
+
+A round button beside "Show as text" opens a sheet:
+
+```md
+Scan what you unpack                         ✕
+┌──────────────────────────────┐
+│  camera, with a saffron frame │
+└──────────────────────────────┘
+Hold a barcode in the frame.
+✓ Mjölk is in the pantry              Undo
+✓ Bröd ticked off the list            Undo
+```
+
+- A pack is read once while it stays in view; the frame pulses when one is caught.
+- "Looking it up…" while a new code is looked up; a code nobody knows asks for its name inline.
+- Undo takes the pack out of the pantry, or unticks the item, as tapping it on the list does.
+- If the camera can't be used, the sheet says so and points at adding by name.
+
 This follows your spec’s rule that groceries are the reliability anchor and must survive missing plans, missing pantry data, and LLM failure. 
 
 ### Grocery-row long-press sheet (shipped, 2026-08)
