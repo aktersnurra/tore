@@ -41,6 +41,16 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <%!-- Tonight: the one large thing in the app --%>
       <.page max_width={:md}>
+        <div class="relative z-10 h-0">
+          <.link
+            navigate={~p"/settings"}
+            aria-label={gettext("Settings")}
+            data-role="settings-link"
+            class="absolute top-0 right-0 flex size-10 items-center justify-center rounded-full bg-[var(--bg)]/60 text-[color:var(--text)] backdrop-blur transition-colors active:bg-[var(--surface)]"
+          >
+            <.icon name="hero-cog-6-tooth" class="size-5" />
+          </.link>
+        </div>
         <section class={[!photo?(@tonight_recipe) && "pt-6 md:pt-12"]}>
           <%!-- With a picture, the dish is the screen: the name sits on the photograph --%>
           <div

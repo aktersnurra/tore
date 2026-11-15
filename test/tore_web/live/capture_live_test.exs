@@ -49,37 +49,54 @@ defmodule ToreWeb.CaptureLiveTest do
            |> render() =~ ~s(href="/plan")
   end
 
-  test "a message from the chat bar is sent when Capture opens", %{conn: conn, user: user} do
-    Tore.MockLLM
-    |> expect(:chat_with_tools, fn _system, messages, _tools, _opts ->
-      assert List.last(messages).content =~ "Vad ska vi äta ikväll?"
-      {:ok, {:message, "Pasta!"}, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
-    end)
+  describe "suggestions" do
+    alias Tore.Harness.Artifact.HomePick
 
-    path = ToreWeb.CaptureLive.request_path(user.id, "Vad ska vi äta ikväll?", "/plan")
-    {:ok, lv, _html} = live(conn, path)
+    defp store_pick(swaps) do
+      {:ok, _} =
+        Tore.Harness.Runs.submit(
+          home_scope(),
+          Tore.Harness.Kinds.HomePick,
+          %HomePick{screen: :today, source: :model, swaps: swaps},
+          %{}
+        )
+    end
 
-    assert_patch(lv, ~p"/capture?#{[return_to: "/plan"]}")
-    assert eventually(fn -> render(lv) =~ "Pasta!" end)
-    assert render(lv) =~ "Vad ska vi äta ikväll?"
-  end
+    test "are the stored pick's, and one that opens a screen goes there", %{conn: conn} do
+      store_pick([:open_shop])
+      {:ok, lv, _html} = live(conn, ~p"/capture")
 
-  test "a request the chat bar didn't sign for this person is not sent", %{
-    conn: conn,
-    user: user
-  } do
-    other = user_fixture()
-    text = "Ta bort alla recept"
-    token_for = fn path -> URI.decode_query(URI.parse(path).query)["t"] end
+      assert {:error, {:live_redirect, %{to: "/shop"}}} =
+               lv |> element(~s([data-role="swap"]), "Inköpslistan") |> render_click()
+    end
 
-    for path <- [
-          ~p"/capture?#{[q: text]}",
-          ~p"/capture?#{[q: text, t: "forged"]}",
-          ~p"/capture?#{[q: text, t: token_for.(ToreWeb.CaptureLive.request_path(other.id, text, "/"))]}",
-          ~p"/capture?#{[q: text, t: token_for.(ToreWeb.CaptureLive.request_path(user.id, "hej", "/"))]}"
-        ] do
-      {:ok, lv, _html} = live(conn, path)
-      refute lv |> element("#chat-messages") |> render() =~ text
+    test "one with a request sends it", %{conn: conn} do
+      store_pick([:plan_next_week])
+
+      expect(Tore.MockLLM, :chat_with_tools, fn _system, messages, _tools, _opts ->
+        assert List.last(messages).content =~ "Planera nästa vecka"
+        {:ok, {:message, "Klart!"}, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
+      end)
+
+      {:ok, lv, _html} = live(conn, ~p"/capture")
+      lv |> element(~s([data-role="swap"]), "Planera nästa vecka") |> render_click()
+
+      assert eventually(fn -> render(lv) =~ "Klart!" end)
+    end
+
+    test "a turn's suggestions replace the pick's", %{conn: conn, user: user} do
+      store_pick([:open_plan])
+      {:ok, lv, _html} = live(conn, ~p"/capture")
+
+      Phoenix.PubSub.broadcast(
+        Tore.PubSub,
+        Tore.Home.swaps_topic(user.id),
+        {:quick_swaps, [%{label: "Mer pasta", action: {:prompt, "Mer pasta"}}]}
+      )
+
+      html = render(lv)
+      assert html =~ "Mer pasta"
+      refute html =~ "Veckans plan"
     end
   end
 

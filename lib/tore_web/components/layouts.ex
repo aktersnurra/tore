@@ -1,6 +1,6 @@
 defmodule ToreWeb.Layouts do
   @moduledoc """
-  Application layout: the page, the chat bar with the menu (`ToreWeb.ChatBarLive`), and flashes.
+  Application layout: the page, the tab bar (`ToreWeb.TabBarLive`), and flashes.
   """
   use ToreWeb, :html
 
@@ -10,9 +10,9 @@ defmodule ToreWeb.Layouts do
 
   attr :socket, :any,
     default: nil,
-    doc: "the page's socket, which renders the chat bar; without it the page has no bar"
+    doc: "the page's socket, which renders the tab bar; without it the page has no bar"
 
-  attr :current_user, :map, default: nil, doc: "who the chat bar is for, with `socket`"
+  attr :current_user, :map, default: nil, doc: "who the tab bar is for, with `socket`"
 
   slot :inner_block, required: true
 
@@ -20,14 +20,14 @@ defmodule ToreWeb.Layouts do
     ~H"""
     <main class={[
       "min-h-screen px-4 py-4 md:px-6 md:py-6",
-      @socket && "pb-40 md:pb-40"
+      @socket && "pb-28"
     ]}>
       {render_slot(@inner_block)}
     </main>
 
     {@socket &&
-      live_render(@socket, ToreWeb.ChatBarLive,
-        id: "chat-bar",
+      live_render(@socket, ToreWeb.TabBarLive,
+        id: "tab-bar-live",
         sticky: true,
         session: %{"user_id" => @current_user.id}
       )}

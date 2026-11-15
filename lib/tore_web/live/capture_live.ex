@@ -3,27 +3,7 @@ defmodule ToreWeb.CaptureLive do
 
   alias Tore.Capture.Router
 
-  @request_salt "capture request"
-  @request_max_age 60
-
-  @doc """
-  Capture's path with `text` to send as soon as it opens, for this user only. The request is
-  signed and lasts a minute, so a link from anywhere else can't make Capture act for someone.
-  """
-  @spec request_path(integer(), String.t(), String.t()) :: String.t()
-  def request_path(user_id, text, return_to) do
-    token = Phoenix.Token.sign(ToreWeb.Endpoint, @request_salt, {user_id, text})
-    ~p"/capture?#{[q: text, t: token, return_to: return_to]}"
-  end
-
-  defp signed_request(%{"q" => text, "t" => token}, user_id) when is_binary(text) do
-    case Phoenix.Token.verify(ToreWeb.Endpoint, @request_salt, token, max_age: @request_max_age) do
-      {:ok, {^user_id, ^text}} -> {:ok, text}
-      _invalid -> :none
-    end
-  end
-
-  defp signed_request(_params, _user_id), do: :none
+  alias Tore.Home
 
   @impl true
   def mount(params, _session, socket) do
@@ -39,23 +19,26 @@ defmodule ToreWeb.CaptureLive do
       )
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
-    # The chat bar opens Capture with what was typed in it, or a swap's request (`request_path/3`).
-    with true <- connected?(socket),
-         {:ok, text} <- signed_request(params, socket.assigns.current_user.id),
-         do: send(self(), {:send_message, text})
+    # The suggestions are the stored pick's, until a turn here suggests its own.
+    if connected?(socket),
+      do: Phoenix.PubSub.subscribe(Tore.PubSub, Home.swaps_topic(socket.assigns.current_user.id))
 
-    {:ok, socket}
+    {:ok, assign(socket, swaps: Home.current(socket.assigns.current_scope).swaps)}
   end
-
-  # Only the patch that drops the request from the URL lands here; mount has already read the params.
-  @impl true
-  def handle_params(_params, _url, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("validate", _params, socket), do: {:noreply, socket}
 
   def handle_event("close_tray", _params, socket) do
     {:noreply, push_navigate(socket, to: socket.assigns.return_to)}
+  end
+
+  def handle_event("swap", %{"index" => index}, socket) do
+    case Enum.at(socket.assigns.swaps, String.to_integer(index)) do
+      %{action: {:open, screen}} -> {:noreply, push_navigate(socket, to: Home.path(screen))}
+      %{action: {:prompt, text}} -> handle_event("send_message", %{"message" => text}, socket)
+      nil -> {:noreply, socket}
+    end
   end
 
   def handle_event("undo_run", %{"sid" => sid}, socket) do
@@ -134,13 +117,7 @@ defmodule ToreWeb.CaptureLive do
   defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
 
   @impl true
-  # Sent once: the request leaves the URL, so a reconnect, a reload or Back doesn't send it again.
-  def handle_info({:send_message, text}, socket) do
-    {:noreply, socket} = handle_event("send_message", %{"message" => text}, socket)
-
-    {:noreply,
-     push_patch(socket, to: ~p"/capture?#{[return_to: socket.assigns.return_to]}", replace: true)}
-  end
+  def handle_info({:quick_swaps, swaps}, socket), do: {:noreply, assign(socket, swaps: swaps)}
 
   def handle_info({:route_complete, {:ok, bubbles}}, socket) do
     {:noreply,
@@ -294,6 +271,22 @@ defmodule ToreWeb.CaptureLive do
       </div>
 
       <div class="px-4 py-3 border-t border-[color:var(--border)]">
+        <div
+          :if={@swaps != [] and not @loading}
+          data-role="swaps"
+          class="scroll-quiet -mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
+        >
+          <button
+            :for={{swap, index} <- Enum.with_index(@swaps)}
+            type="button"
+            phx-click="swap"
+            phx-value-index={index}
+            data-role="swap"
+            class="shrink-0 rounded-full bg-[var(--sunken)] px-3.5 py-2 text-sm font-medium text-[color:var(--text)] transition-colors active:bg-[var(--border)]"
+          >
+            {swap.label}
+          </button>
+        </div>
         <form phx-submit="send_message" phx-change="validate" class="flex flex-col gap-2">
           <div class="flex items-center gap-2">
             <input
