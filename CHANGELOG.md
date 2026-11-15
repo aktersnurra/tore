@@ -7,6 +7,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### One look across the screens (2026-11-15)
+
+- Today, the recipe page and Cook mode share one layout: the photograph full-bleed and darkening into the page, the name on its foot, a row of pills with one saffron lamp, then the facts.
+- Tapping a recipe carries its photograph from the grid to its page and back. A recipe opens at its own address (`/recipes?id=`), so Back closes it.
+- Everything tappable answers a press; toasts rise above the tab bar and leave on their own; sheets rise from the bottom; content arrives a few items at a time. Reduced motion turns it all off.
+- Plan reads like a calendar with today lit; Shop has a dill bar that fills as things go in the basket; Capture's own messages are ink so the send button stays the lamp; Settings is a stack of rounded cards.
+
 ### Fewer screens, a tab bar and a locked palette (2026-11-15)
 
 - A tab bar at the bottom of every main screen replaces the chat bar and its ≡ menu: Today, Plan, Tore, Shop and Recipes. Tore, in the middle, opens the chat over the current screen and returns there. The quick swaps moved into the chat, above its input. Settings opens from a button on Today.

@@ -375,15 +375,22 @@ Bouncy delight
 Confetti
 ```
 
-Timing:
+Timing (in `assets/css/app.css` since 2026-11-15):
 
 ```css
---ease-standard: cubic-bezier(.2, .8, .2, 1);
---ease-exit:     cubic-bezier(.4, 0, 1, 1);
---duration-fast: 120ms;
---duration-md:   220ms;
---duration-slow: 360ms;
+--dur-press: 90ms;   /* a press answers at once (.press scales to 0.96) */
+--dur-fast:  150ms;
+--dur-base:  240ms;  /* toasts, sheets' scrim, page cross-fade */
+--dur-slow:  420ms;  /* arrivals (.reveal), sheets, the travelling photo */
+--ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  /* only the toast's check */
 ```
+
+The one signature moment: a dish's photograph travels between screens. A page change
+(navigate or patch) runs inside a View Transition; the photo you tap carries
+`view-transition-name: dish-<id>`, and so does the photo on the page it opens. Only the
+tapped photo is named, so the rest of the grid stays under the page. Reduced motion skips
+the transition entirely.
 
 Material’s interaction guidance emphasizes visible states, consistent state application, and accessible visual indicators. ([Material Design][6])
 
