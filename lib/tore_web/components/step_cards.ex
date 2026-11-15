@@ -41,28 +41,29 @@ defmodule ToreWeb.StepCards do
         <.link
           navigate={@close_to}
           aria-label={gettext("Close")}
-          class="-ml-2 inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[var(--text)]"
+          class="press inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
         >
-          <.icon name="hero-x-mark" class="size-6" />
+          <.icon name="hero-x-mark" class="size-5" />
         </.link>
-        <p class="min-w-0 flex-1 truncate text-[13px] font-semibold text-[color:var(--muted)]">
+        <p class="min-w-0 flex-1 truncate text-[14px] font-semibold text-[color:var(--muted)]">
           {@title}
         </p>
-        <p class="num shrink-0 text-[13px] font-semibold text-[color:var(--muted)]">
+        <p class="num shrink-0 text-[14px] font-semibold text-[color:var(--text)]">
           {gettext("%{step} of %{total}", step: @index + 1, total: @last + 1)}
         </p>
       </header>
 
       <%!-- One segment per card: where you are, at a glance --%>
-      <div class="mx-auto mt-2 flex w-full max-w-2xl gap-1 px-4" aria-hidden="true">
+      <div class="mx-auto mt-3 flex w-full max-w-2xl gap-1 px-4" aria-hidden="true">
         <span
           :for={i <- 0..@last}
-          class={[
-            "h-1 flex-1 rounded-full",
-            i <= @index && "bg-[color:var(--accent)]",
-            i > @index && "bg-[color:var(--border)]"
-          ]}
+          class="h-1 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]"
         >
+          <span
+            class="block h-full origin-left rounded-full bg-[color:var(--text)] transition-transform duration-[var(--dur-base)] ease-[var(--ease-out)]"
+            style={"transform: scaleX(#{if i <= @index, do: 1, else: 0})"}
+          >
+          </span>
         </span>
       </div>
 
@@ -74,29 +75,36 @@ defmodule ToreWeb.StepCards do
         data-role="step-card"
         class="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center overflow-y-auto px-5 py-6 text-left"
       >
-        <span :if={@card[:label]} class="text-[15px] font-semibold text-[color:var(--accent)]">
-          {@card.label}
-        </span>
-        <span
-          class="mt-3 block font-semibold text-[color:var(--text)]"
-          style="font-size: 26px; line-height: 1.25; letter-spacing: -0.015em;"
-        >
-          {@card.text}
-        </span>
-        <span
-          :if={@card[:minutes]}
-          class="num mt-5 inline-flex items-center gap-2 self-start rounded-[var(--r-pill)] bg-[var(--accent-soft)] px-3.5 py-1.5 text-[15px] font-semibold text-[color:var(--accent-ink)]"
-        >
-          <.icon name="hero-clock" class="size-4" />
-          {gettext("%{minutes} min", minutes: @card.minutes)}
-        </span>
-        <span :if={@card[:needs] not in [nil, []]} class="menu-lines mt-6 block">
+        <%!-- Keyed by position, so each new step arrives instead of swapping in place --%>
+        <span id={"#{@id}-card-#{@index}"} class="reveal block">
+          <span :if={@card[:label]} class="t-eyebrow block" style="font-size: 15px;">
+            {@card.label}
+          </span>
           <span
-            :for={need <- @card.needs}
-            class="block py-2.5 text-[color:var(--text)]"
-            style="font-size: 18px; line-height: 1.3;"
+            class="mt-3 block font-bold text-[color:var(--text)]"
+            style="font-size: 30px; line-height: 1.2; letter-spacing: -0.022em; text-wrap: pretty;"
           >
-            {need}
+            {@card.text}
+          </span>
+          <span
+            :if={@card[:minutes]}
+            class="num mt-6 inline-flex h-10 items-center gap-2 rounded-full bg-[var(--sunken)] px-4 text-[16px] font-semibold text-[color:var(--text)]"
+          >
+            <.icon name="hero-clock" class="size-[18px] text-[color:var(--muted)]" />
+            {gettext("%{minutes} min", minutes: @card.minutes)}
+          </span>
+          <span
+            :if={@card[:needs] not in [nil, []]}
+            class="menu-lines mt-7 block"
+            style="padding-block: 4px;"
+          >
+            <span
+              :for={need <- @card.needs}
+              class="block py-3 text-[color:var(--text)]"
+              style="font-size: 19px; line-height: 1.3;"
+            >
+              {need}
+            </span>
           </span>
         </span>
       </button>
@@ -108,31 +116,33 @@ defmodule ToreWeb.StepCards do
           phx-value-to={max(@index - 1, 0)}
           disabled={@index == 0}
           aria-label={gettext("Previous step")}
-          class="inline-flex size-14 shrink-0 items-center justify-center rounded-[var(--r-pill)] border border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--text)] disabled:opacity-30"
+          class="press inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] disabled:opacity-30"
         >
           <.icon name="hero-chevron-left" class="size-6" />
         </button>
         <button
           type="button"
           phx-click="toggle_overview"
-          class="h-14 shrink-0 rounded-[var(--r-pill)] border border-[color:var(--border)] bg-[var(--surface)] px-4 text-[15px] font-semibold text-[color:var(--text)]"
+          aria-label={gettext("All steps")}
+          class="press inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)]"
         >
-          {gettext("All steps")}
+          <.icon name="hero-list-bullet" class="size-6" />
         </button>
         <button
           :if={@index < @last}
           type="button"
           phx-click="step"
           phx-value-to={@index + 1}
-          class="h-14 flex-1 rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
+          class="pill pill-lamp press h-14 flex-1 text-[17px]"
         >
           {gettext("Next")}
         </button>
         <.link
           :if={@index == @last}
           navigate={@close_to}
-          class="flex h-14 flex-1 items-center justify-center rounded-[var(--r-pill)] bg-[color:var(--accent)] text-[17px] font-semibold text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
+          class="pill press h-14 flex-1 bg-[color:var(--done)] text-[17px] text-[color:var(--bg)]"
         >
+          <.icon name="hero-check" class="size-5" />
           {gettext("Done")}
         </.link>
       </footer>
@@ -141,16 +151,14 @@ defmodule ToreWeb.StepCards do
       <div
         :if={@overview}
         id={"#{@id}-overview"}
-        class="fixed inset-0 z-[70] flex flex-col justify-end bg-black/30"
+        class="scrim fixed inset-0 z-[70] flex flex-col justify-end bg-black/50"
       >
         <div
           phx-click-away="toggle_overview"
-          class="mx-auto flex max-h-[88vh] w-full max-w-2xl flex-col rounded-t-[var(--r-xl)] bg-[var(--surface)] shadow-[var(--shadow-pop)]"
+          class="sheet mx-auto flex max-h-[88vh] w-full max-w-2xl flex-col rounded-t-[28px] bg-[var(--surface)] shadow-[var(--shadow-pop)]"
         >
           <div class="flex items-center justify-between px-5 pt-4 pb-2">
-            <h2 class="font-bold text-[var(--text)]" style="font-size: var(--t-h2);">
-              {gettext("All steps")}
-            </h2>
+            <h2 class="t-head">{gettext("All steps")}</h2>
             <button
               type="button"
               phx-click="toggle_overview"
@@ -171,7 +179,7 @@ defmodule ToreWeb.StepCards do
               >
                 <span class={[
                   "num w-6 shrink-0 text-[13px] font-semibold",
-                  i == @index && "text-[color:var(--accent)]",
+                  i == @index && "text-[color:var(--text)]",
                   i != @index && "text-[color:var(--subtle)]"
                 ]}>
                   {i + 1}
@@ -187,7 +195,7 @@ defmodule ToreWeb.StepCards do
                     class={[
                       "block",
                       i < @index && "text-[color:var(--subtle)]",
-                      i == @index && "font-semibold text-[color:var(--accent)]",
+                      i == @index && "font-semibold text-[color:var(--text)]",
                       i > @index && "text-[color:var(--text)]"
                     ]}
                     style="font-size: var(--t-body); line-height: 1.35;"

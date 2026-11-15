@@ -131,12 +131,13 @@ defmodule ToreWeb.CookLive do
         class="fixed inset-0 z-[60] flex flex-col justify-center bg-[var(--bg)] px-5"
       >
         <div class="mx-auto w-full max-w-2xl">
-          <p class="text-[13px] font-semibold text-[color:var(--muted)]">{@recipe.title}</p>
-          <p
-            class="mt-3 font-bold text-[color:var(--text)]"
-            style="font-size: 26px; line-height: 1.25; letter-spacing: -0.015em;"
-            role="status"
-          >
+          <p class="t-eyebrow">{@recipe.title}</p>
+          <p class="t-title mt-3 flex items-center gap-3" role="status">
+            <.icon
+              :if={!@failed}
+              name="hero-arrow-path"
+              class="size-6 shrink-0 text-[color:var(--muted)] motion-safe:animate-spin"
+            />
             {if @failed,
               do: gettext("Couldn't write the steps"),
               else: gettext("Writing the steps…")}
@@ -148,7 +149,7 @@ defmodule ToreWeb.CookLive do
           </p>
           <.link
             navigate={@close_to}
-            class="mt-8 inline-flex h-12 items-center rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-6 font-semibold text-[color:var(--text)]"
+            class="pill pill-lg press mt-8"
           >
             {gettext("Back")}
           </.link>

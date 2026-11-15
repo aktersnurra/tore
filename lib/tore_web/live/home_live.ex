@@ -39,162 +39,153 @@ defmodule ToreWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
-      <%!-- Tonight: the one large thing in the app --%>
-      <.page max_width={:md}>
+      <.page max_width={:sm}>
         <div class="relative z-10 h-0">
           <.link
             navigate={~p"/settings"}
             aria-label={gettext("Settings")}
             data-role="settings-link"
-            class="absolute top-0 right-0 flex size-10 items-center justify-center rounded-full bg-[var(--bg)]/60 text-[color:var(--text)] backdrop-blur transition-colors active:bg-[var(--surface)]"
+            class="on-photo press absolute top-0 right-0"
           >
             <.icon name="hero-cog-6-tooth" class="size-5" />
           </.link>
         </div>
-        <section class={[!photo?(@tonight_recipe) && "pt-6 md:pt-12"]}>
-          <%!-- With a picture, the dish is the screen: the name sits on the photograph --%>
-          <div
-            :if={photo?(@tonight_recipe)}
-            id="tonight-card"
-            phx-hook="LongPress"
-            data-long-press-event="open_tonight_sheet"
-          >
-            <div class="relative -mx-4 -mt-4 overflow-hidden md:mx-0 md:mt-0">
-              <img
-                src={~p"/images/recipes/#{@tonight_recipe.id}"}
-                alt=""
-                class="block aspect-[4/5] max-h-[66vh] w-full object-cover"
-              />
-              <div class="photo-blur absolute inset-x-0 bottom-0 h-2/5" aria-hidden="true"></div>
-              <div class="photo-fade absolute inset-x-0 bottom-0 h-3/4" aria-hidden="true"></div>
-              <div class="absolute inset-x-0 bottom-0 px-4 pb-1 md:px-5">
-                <p
-                  class="num font-semibold text-[color:var(--accent)]"
-                  style="font-size: var(--t-meta);"
-                >
-                  {ToreWeb.Dates.long(@today)}
-                </p>
-                <h1
-                  class="mt-1.5 font-bold text-[color:var(--text)]"
-                  style="font-size: 30px; line-height: 1.15; letter-spacing: -0.02em;"
-                >
-                  {@tonight_recipe.title}
-                </h1>
-              </div>
+
+        <%!-- Tonight: the dish is the screen --%>
+        <section
+          :if={@tonight_recipe}
+          id="tonight-card"
+          phx-hook="LongPress"
+          data-long-press-event="open_tonight_sheet"
+        >
+          <div class="relative -mx-4 -mt-4 h-[64svh] min-h-[400px] max-h-[620px] overflow-hidden bg-[var(--sunken)] md:mx-0 md:mt-0 md:rounded-[28px]">
+            <img
+              :if={photo?(@tonight_recipe)}
+              src={~p"/images/recipes/#{@tonight_recipe.id}"}
+              alt=""
+              class="absolute inset-0 size-full object-cover"
+              style={"view-transition-name: dish-#{@tonight_recipe.id}"}
+            />
+            <div
+              :if={!photo?(@tonight_recipe)}
+              class="absolute inset-0 flex items-center justify-center text-[color:var(--subtle)]"
+            >
+              <.icon name="hero-photo" class="size-10" />
             </div>
-            <.tonight_actions recipe={@tonight_recipe} servings={@tonight_servings} />
+            <div class="photo-foot absolute inset-x-0 bottom-0 h-3/5" aria-hidden="true"></div>
+            <div class="absolute inset-x-0 bottom-0 px-4 pb-1 md:px-5">
+              <p class="reveal t-eyebrow num" style="--i: 0">
+                {gettext("Dinner")} · {ToreWeb.Dates.long(@today)}
+              </p>
+              <h1 class="reveal t-display mt-2" style="--i: 1">{@tonight_recipe.title}</h1>
+            </div>
           </div>
 
           <div
-            :if={@tonight_recipe && !photo?(@tonight_recipe)}
-            id="tonight-card"
-            phx-hook="LongPress"
-            data-long-press-event="open_tonight_sheet"
+            class="reveal scroll-quiet -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0"
+            style="--i: 2"
           >
-            <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-              {ToreWeb.Dates.long(@today)}
-            </p>
-            <h1
-              class="mt-3 font-bold text-[color:var(--text)]"
-              style="font-size: 30px; line-height: 1.15; letter-spacing: -0.02em;"
+            <.link
+              navigate={~p"/recipes/#{@tonight_recipe.id}/cook?from=/today"}
+              class="pill pill-lamp press"
+              data-role="start-cooking"
             >
-              {@tonight_recipe.title}
-            </h1>
-            <div class="rim mt-6" aria-hidden="true"></div>
-            <.tonight_actions recipe={@tonight_recipe} servings={@tonight_servings} />
+              <.icon name="hero-fire-solid" /> {gettext("Cook")}
+            </.link>
+            <.link navigate={~p"/recipes?id=#{@tonight_recipe.id}"} class="pill press">
+              <.icon name="hero-book-open" /> {gettext("Recipe")}
+            </.link>
+            <button type="button" phx-click="something_else" class="pill press">
+              <.icon name="hero-arrow-path" /> {gettext("Something else")}
+            </button>
+            <button type="button" phx-click="open_tonight_sheet" class="pill press">
+              <.icon name="hero-sparkles" /> {gettext("Ask")}
+            </button>
           </div>
 
-          <div :if={!@tonight_recipe}>
-            <p class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-              {ToreWeb.Dates.long(@today)}
-            </p>
-            <h1
-              class="mt-3 font-bold text-[color:var(--text)]"
-              style="font-size: 30px; line-height: 1.15; letter-spacing: -0.02em;"
-            >
-              {if @eating_out_tonight,
-                do: gettext("Eating out tonight"),
-                else: gettext("Tonight is open")}
-            </h1>
-            <div class="rim mt-6" aria-hidden="true"></div>
-            <.link
-              navigate={~p"/plan"}
-              class="mt-8 inline-flex h-12 items-center rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 font-semibold text-[color:var(--on-accent)] transition-colors hover:bg-[color:var(--accent-hover)]"
-            >
-              {gettext("Plan the week")}
+          <p
+            :if={@tonight_recipe.description not in [nil, ""]}
+            class="reveal mt-5 line-clamp-3 text-[color:var(--muted)]"
+            style="--i: 3; font-size: 15px; line-height: 1.5;"
+          >
+            {@tonight_recipe.description}
+          </p>
+
+          <dl
+            :if={tonight_facts(@tonight_recipe, @tonight_servings) != []}
+            class="facts reveal mt-5 border-t border-[color:var(--hairline)] pt-4"
+            style="--i: 4"
+          >
+            <div :for={{label, value} <- tonight_facts(@tonight_recipe, @tonight_servings)}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <%!-- Nothing tonight: say so plainly, and offer the way forward --%>
+        <section :if={!@tonight_recipe} class="pt-20">
+          <p class="reveal t-eyebrow num" style="--i: 0">{ToreWeb.Dates.long(@today)}</p>
+          <h1 class="reveal t-display mt-2" style="--i: 1">
+            {if @eating_out_tonight,
+              do: gettext("Eating out tonight"),
+              else: gettext("Tonight is open")}
+          </h1>
+          <p
+            :if={!@eating_out_tonight}
+            class="reveal mt-3 max-w-[30ch] text-[color:var(--muted)]"
+            style="--i: 2; font-size: 15px; line-height: 1.5;"
+          >
+            {gettext("Plan the week, or ask Tore what to make tonight.")}
+          </p>
+          <div :if={!@eating_out_tonight} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
+            <.link navigate={~p"/plan"} class="pill pill-lamp press">
+              <.icon name="hero-calendar-days" /> {gettext("Plan the week")}
+            </.link>
+            <.link navigate={~p"/capture?#{[return_to: "/today"]}"} class="pill press">
+              <.icon name="hero-sparkles" /> {gettext("Ask Tore")}
             </.link>
           </div>
         </section>
       </.page>
 
-      <%!-- Tonight object sheet (long-press) --%>
+      <%!-- Anything about tonight, asked in words (Ask, or a long press) --%>
       <div
         :if={@tonight_sheet && @tonight_recipe}
         id="tonight-sheet"
-        class="fixed inset-x-0 bottom-0 top-8 z-50 rounded-t-[var(--r-xl)] bg-[var(--surface)] border-t border-[color:var(--border)] flex flex-col"
+        class="fixed inset-0 z-50 flex items-end justify-center"
         phx-window-keydown="close_tonight_sheet"
         phx-key="Escape"
       >
-        <div class="flex justify-center py-2">
-          <button
-            type="button"
-            phx-click="close_tonight_sheet"
-            aria-label={gettext("Close")}
-            data-role="tonight-sheet-close"
-          >
-            <span class="w-10 h-1.5 rounded-full bg-[color:var(--border)] block"></span>
-          </button>
-        </div>
-
-        <div class="flex items-center gap-3 px-4 py-3 border-b border-[color:var(--border)]">
-          <span class="font-semibold text-[color:var(--text)]">{@tonight_recipe.title}</span>
-        </div>
-
-        <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <form phx-submit="tonight_command">
+        <div class="scrim absolute inset-0 bg-black/50" phx-click="close_tonight_sheet"></div>
+        <div class="sheet relative w-full max-w-md rounded-t-[28px] bg-[var(--surface)] px-5 pt-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+          <div class="flex justify-center pb-3">
+            <button
+              type="button"
+              phx-click="close_tonight_sheet"
+              aria-label={gettext("Close")}
+              data-role="tonight-sheet-close"
+              class="p-2"
+            >
+              <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
+            </button>
+          </div>
+          <p class="t-eyebrow">{gettext("Tonight")}</p>
+          <p class="t-head mt-1">{@tonight_recipe.title}</p>
+          <form phx-submit="tonight_command" class="mt-4">
             <input
               type="text"
               name="command"
               autocomplete="off"
+              autofocus
               placeholder={gettext("Anything about tonight…")}
-              class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+              class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+              style="font-size: 16px;"
             />
           </form>
         </div>
       </div>
     </Layouts.app>
-    """
-  end
-
-  attr :recipe, :map, required: true
-  attr :servings, :integer, default: nil
-
-  defp tonight_actions(assigns) do
-    ~H"""
-    <dl :if={tonight_facts(@recipe, @servings) != []} class="mt-5 flex gap-8">
-      <div :for={{label, value} <- tonight_facts(@recipe, @servings)}>
-        <dt class="text-[color:var(--muted)]" style="font-size: var(--t-micro);">{label}</dt>
-        <dd class="num font-bold text-[color:var(--text)]" style="font-size: var(--t-body);">
-          {value}
-        </dd>
-      </div>
-    </dl>
-    <div class="mt-6 flex items-center gap-5">
-      <.link
-        navigate={~p"/recipes/#{@recipe.id}/cook?from=/today"}
-        class="flex h-14 flex-1 items-center justify-center gap-2 rounded-[var(--r-pill)] bg-[color:var(--accent)] px-7 text-[17px] font-semibold text-[color:var(--on-accent)] transition-colors hover:bg-[color:var(--accent-hover)]"
-      >
-        <.icon name="hero-fire" class="size-5" />
-        {gettext("Start cooking")}
-      </.link>
-      <button
-        type="button"
-        phx-click="something_else"
-        class="h-14 shrink-0 font-semibold text-[color:var(--muted)] underline-offset-4 hover:text-[color:var(--text)] hover:underline"
-      >
-        {gettext("Something else")}
-      </button>
-    </div>
     """
   end
 

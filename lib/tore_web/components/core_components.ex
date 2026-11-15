@@ -56,31 +56,31 @@ defmodule ToreWeb.CoreComponents do
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       role="alert"
-      class="fixed top-4 right-4 z-50 w-80 sm:w-96"
+      phx-hook={if @kind == :info, do: "AutoDismiss"}
+      class="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 flex justify-center px-4"
       {@rest}
     >
       <div class={[
-        "flex items-start gap-3 rounded-[var(--r-lg)] border px-4 py-3 shadow-[var(--shadow-pop)]",
-        @kind == :info && "bg-[var(--surface)] border-[color:var(--hairline)] text-[var(--text)]",
-        @kind == :error &&
-          "bg-[var(--danger-soft)] border-[color:var(--danger)] text-[color:var(--text)]"
+        "rise-in flex w-full max-w-md cursor-pointer items-start gap-3 rounded-[var(--r-lg)] px-4 py-3.5 shadow-[var(--shadow-pop)]",
+        @kind == :info && "bg-[var(--text)] text-[color:var(--bg)]",
+        @kind == :error && "bg-[var(--danger-soft)] text-[color:var(--text)]"
       ]}>
         <.icon
           :if={@kind == :info}
-          name="hero-information-circle"
-          class="size-5 shrink-0 mt-0.5 text-[color:var(--accent)]"
+          name="hero-check-circle-solid"
+          class="pop size-5 shrink-0 mt-px text-[color:var(--done)]"
         />
         <.icon
           :if={@kind == :error}
           name="hero-exclamation-circle"
-          class="size-5 shrink-0 mt-0.5 text-[color:var(--danger)]"
+          class="size-5 shrink-0 mt-px text-[color:var(--danger)]"
         />
-        <div class="flex-1 min-w-0" style="font-size: var(--t-meta);">
+        <div class="flex-1 min-w-0 font-medium" style="font-size: 15px; line-height: 1.35;">
           <p :if={@title} class="font-semibold mb-0.5">{@title}</p>
           <p>{msg}</p>
         </div>
         <button type="button" class="group shrink-0 cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark" class="size-4 opacity-40 group-hover:opacity-70" />
+          <.icon name="hero-x-mark" class="size-4 opacity-50 group-hover:opacity-80" />
         </button>
       </div>
     </div>

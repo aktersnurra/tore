@@ -28,14 +28,42 @@ import LongPress from "./long_press"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+// A confirmation says its piece and leaves; an error stays until it's dismissed.
+const AutoDismiss = {
+  mounted() { this.timer = setTimeout(() => this.el.click(), 3500) },
+  destroyed() { clearTimeout(this.timer) },
+}
+
+// A page change (navigate or patch), or a `tore:transition` event, patches the page inside a view
+// transition: a short cross-fade, and a dish's photograph travels to where it lands (its
+// `view-transition-name` is the same on both sides). Other patches apply as they come.
+let transitionNext = false
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
+window.addEventListener("phx:page-loading-start", e => {
+  if (e.detail.kind === "redirect" || e.detail.kind === "patch") transitionNext = true
+})
+window.addEventListener("tore:transition", () => { transitionNext = true })
+// Only the dish you tap travels; naming every photo would lift them all above the page.
+document.addEventListener("click", e => {
+  const card = e.target.closest("[data-dish]")
+  card?.querySelector("img")?.style.setProperty("view-transition-name", `dish-${card.dataset.dish}`)
+}, true)
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {LongPress, ...colocatedHooks},
+  hooks: {LongPress, AutoDismiss, ...colocatedHooks},
+  dom: {
+    onDocumentPatch(start) {
+      if (!transitionNext || !document.startViewTransition || reducedMotion.matches) return start()
+      transitionNext = false
+      document.startViewTransition(start)
+    },
+  },
 })
 
 // Show progress bar on live navigation and form submits
-topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
+topbar.config({barColors: {0: "#FFAE41"}, shadowColor: "rgba(0, 0, 0, 0)", barThickness: 2})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 

@@ -72,6 +72,14 @@
 
   /* Layout */
   --tap-min: 44px;
+
+  /* Motion: press answers within a blink, state changes settle, pages arrive */
+  --dur-press: 90ms;
+  --dur-fast: 150ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Dark, for a phone set to dark: the photographs carry the colour. */
@@ -198,8 +206,91 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .num { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+  .press:active { transform: none; }
 }
+
+@layer components {
+/* ── Type ─────────────────────────────────────────────────────────────────
+   Bold and tight at the top, calm below. Three sizes do most of the work. */
+.t-display { font-size: 34px; line-height: 1.04; font-weight: 750; letter-spacing: -0.032em; text-wrap: balance; }
+.t-title   { font-size: 28px; line-height: 1.1;  font-weight: 700; letter-spacing: -0.026em; text-wrap: balance; }
+.t-head    { font-size: 20px; line-height: 1.2;  font-weight: 650; letter-spacing: -0.015em; }
+.t-eyebrow { font-size: 13px; line-height: 1.3;  font-weight: 600; color: var(--muted); }
+
+/* ── Press: everything you can tap answers at once ────────────────────────── */
+.press {
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+  -webkit-user-select: none; user-select: none;
+}
+.press:active { transform: scale(0.96); transition-duration: 60ms; }
+.press-soft:active { transform: scale(0.985); }
+
+/* ── Pills: the actions under a dish. One lamp per screen. ────────────────── */
+.pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
+  height: 40px; padding-inline: 16px; border-radius: 9999px;
+  background: var(--sunken); color: var(--text);
+  font-size: 15px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap;
+}
+.pill .hero-icon, .pill [class*="hero-"] { width: 17px; height: 17px; }
+.pill-lamp { background: var(--accent); color: var(--on-accent); }
+.pill-lg { height: 52px; padding-inline: 24px; font-size: 17px; }
+@media (hover: hover) {
+  .pill:hover { background: color-mix(in srgb, var(--sunken) 80%, var(--text) 8%); }
+  .pill-lamp:hover { background: var(--accent-hover); }
+}
+.pill.phx-click-loading { opacity: 0.6; pointer-events: none; }
+
+/* Glass buttons sit on photographs */
+.on-photo {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 9999px;
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+  color: var(--text);
+  backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+
+/* Facts in a row: the label quiet, the value read at a glance */
+.facts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; }
+.facts dt { font-size: 12px; font-weight: 500; color: var(--muted); }
+.facts dd { margin-top: 2px; font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* A hero photograph darkens into the page, no blur. The name stands on the dark. */
+.photo-foot {
+  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--bg) 55%, transparent) 48%, var(--bg) 100%);
+}
+
+/* ── Arrival: content rises into place, a few items at a time ────────────── */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.reveal { animation: rise var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 55ms); }
+
+@keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.pop { animation: pop var(--dur-base) var(--ease-spring) both; }
+
+/* Toasts rise above the tab bar and settle */
+@keyframes rise-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+.rise-in { animation: rise-in var(--dur-base) var(--ease-out) both; }
+
+/* Sheets rise from the bottom edge */
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+.sheet { animation: sheet-in var(--dur-slow) var(--ease-out) both; }
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.scrim { animation: scrim-in var(--dur-base) var(--ease-out) both; }
+}
+
+/* ── Page changes: a short cross-fade; a dish's photograph travels with you ── */
+::view-transition-old(root), ::view-transition-new(root) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-group(*) { animation-duration: var(--dur-slow); animation-timing-function: var(--ease-out); }
+::view-transition-image-pair(*) { isolation: auto; }
+#tab-bar { view-transition-name: tab-bar; }
 
 /* ── Slot modal panels ──────────────────────────────────────────────────── */
 /* Two panels: front slides out left, back slides in from right (and vice versa) */
