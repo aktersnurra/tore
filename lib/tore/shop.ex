@@ -53,7 +53,7 @@ defmodule Tore.Shop do
     })
   end
 
-  @valid_sections ~w(produce meat fish dairy deli frozen bread dry_goods canned beverages herbs_spices condiments household other)
+  @valid_sections Tore.Recipes.Ingredient.sections()
 
   defp filter_pantry_items(scope, ingredients, pantry) do
     {system, user} = Tore.LLM.Prompts.filter_pantry_items(ingredients, pantry)

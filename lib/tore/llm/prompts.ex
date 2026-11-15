@@ -399,17 +399,7 @@ defmodule Tore.LLM.Prompts do
             },
             category: %{
               type: "string",
-              enum: [
-                "dairy",
-                "meat",
-                "produce",
-                "frozen",
-                "dry_goods",
-                "canned",
-                "herbs_spices",
-                "condiments",
-                "other"
-              ]
+              enum: Tore.Recipes.Ingredient.sections()
             }
           }
         }
@@ -467,17 +457,7 @@ defmodule Tore.LLM.Prompts do
             # at the changeset, so force the model to pick from this set.
             category: %{
               type: "string",
-              enum: [
-                "dairy",
-                "meat",
-                "produce",
-                "frozen",
-                "dry_goods",
-                "canned",
-                "herbs_spices",
-                "condiments",
-                "other"
-              ]
+              enum: Tore.Recipes.Ingredient.sections()
             }
           }
         }
@@ -569,17 +549,7 @@ defmodule Tore.LLM.Prompts do
             catalogue_name: %{type: "string"},
             category: %{
               type: "string",
-              enum: [
-                "dairy",
-                "meat",
-                "produce",
-                "frozen",
-                "dry_goods",
-                "canned",
-                "herbs_spices",
-                "condiments",
-                "other"
-              ]
+              enum: Tore.Recipes.Ingredient.sections()
             },
             default_unit: %{type: ["string", "null"]},
             matched_key: %{type: ["string", "null"]},
@@ -633,8 +603,8 @@ defmodule Tore.LLM.Prompts do
       percentage, packaging, supplier or organic-certification qualifiers.
       Use the locale's natural orthography (diacritics, capitalisation, word
       boundaries) — the OCR is unreliable, you are not. Be confident.
-    - category: pick the best fit from dairy, meat, produce, frozen, dry_goods,
-      canned, herbs_spices, condiments, other. Use "other" when nothing else
+    - category: pick the best fit from produce, meat, fish, dairy, deli, frozen, bread, dry_goods,
+      canned, beverages, herbs_spices, condiments, household, other. Use "other" when nothing else
       fits — never leave it empty.
     - default_unit: the most natural single-purchase unit for this ingredient
       in the locale's conventions.

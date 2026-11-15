@@ -13,10 +13,18 @@ defmodule Tore.Recipes.Ingredient do
     timestamps()
   end
 
+  # The shop's sections. An ingredient's category is the section it's found in.
+  @sections ~w(produce meat fish dairy deli frozen bread dry_goods canned beverages herbs_spices condiments household other)
+
+  @doc "The sections of a shop, in no order. An ingredient's `category` is one of them."
+  @spec sections() :: [String.t()]
+  def sections, do: @sections
+
   def changeset(ingredient, attrs) do
     ingredient
     |> cast(attrs, [:name, :key, :category, :default_unit, :shelf_life_days])
     |> validate_required([:name])
+    |> validate_inclusion(:category, @sections)
     |> derive_key()
     |> unique_constraint([:household_id, :name])
     |> unique_constraint([:household_id, :key])
