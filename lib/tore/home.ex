@@ -23,7 +23,7 @@ defmodule Tore.Home do
   alias Tore.Harness.Artifact.HomePick
   alias Tore.Harness.Capsules.WeekPlanCapsule
 
-  @screens [:today, :plan, :shop, :costs]
+  @screens [:today, :plan, :shop]
   @swap_keys [
     :open_today,
     :open_plan,
@@ -38,7 +38,7 @@ defmodule Tore.Home do
   @stale_after_seconds 3600
   @refresh_every_seconds 600
 
-  @type screen :: :today | :plan | :shop | :costs
+  @type screen :: :today | :plan | :shop
   @type swap_key ::
           :open_today
           | :open_plan
@@ -76,7 +76,6 @@ defmodule Tore.Home do
   def path(:today), do: "/today"
   def path(:plan), do: "/plan"
   def path(:shop), do: "/shop"
-  def path(:costs), do: "/settings/costs"
 
   # ----- reading the pick ------------------------------------------------------------------
 
@@ -330,9 +329,9 @@ defmodule Tore.Home do
 
   defp screen_criterion(:today), do: "Tonight's dinner, and starting to cook it."
   defp screen_criterion(:plan), do: "This week's or next week's dinners, to plan or change them."
-  defp screen_criterion(:shop), do: "The shopping list, to buy groceries."
 
-  defp screen_criterion(:costs), do: "What the household has spent on food this month."
+  defp screen_criterion(:shop),
+    do: "The shopping list, to buy groceries, and what was spent on food this month."
 
   defp swap_criterion(:open_today), do: "The household wants to see tonight's dinner."
 

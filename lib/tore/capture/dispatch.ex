@@ -37,7 +37,7 @@ defmodule Tore.Capture.Dispatch do
 
   @doc """
   Reads a receipt photo and says what came of it, with the words to show for it. For a caller
-  that is not the chat, such as the costs page; `ingest_receipt/2` is the same as a chat bubble.
+  that is not the chat, such as the shopping list; `ingest_receipt/2` is the same as a chat bubble.
   """
   @spec read_receipt(Tore.Scope.t(), binary()) :: receipt_result()
   def read_receipt(%Tore.Scope{} = scope, image) when is_binary(image) do

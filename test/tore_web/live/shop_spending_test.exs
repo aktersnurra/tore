@@ -1,4 +1,4 @@
-defmodule ToreWeb.CostLiveTest do
+defmodule ToreWeb.ShopSpendingTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
   import Mox
@@ -32,7 +32,7 @@ defmodule ToreWeb.CostLiveTest do
     Date.add(start, day - 1)
   end
 
-  test "shows this month's total against last month", %{conn: conn, user: user} do
+  test "shows this month's total against last month, under the list", %{conn: conn, user: user} do
     {:ok, _} =
       Costs.log_receipt(home_scope(), %{
         date: this_month(1),
@@ -47,65 +47,10 @@ defmodule ToreWeb.CostLiveTest do
         user_id: user.id
       })
 
-    {:ok, lv, html} = live(conn, "/settings/costs")
+    {:ok, lv, html} = live(conn, "/shop")
 
     assert lv |> element("#month-total") |> render() =~ "1 500 kr"
     assert html =~ "+50%"
-  end
-
-  test "survives a run finishing elsewhere while it's open", %{conn: conn} do
-    {:ok, lv, _html} = live(conn, "/settings/costs")
-    run = Tore.RunFixtures.pending_review_fixture(home_scope())
-
-    Phoenix.PubSub.broadcast(
-      Tore.PubSub,
-      Tore.Harness.Runs.topic(home_scope()),
-      {:run_changed, run}
-    )
-
-    assert render(lv) =~ "cost-page"
-  end
-
-  test "has no tabs, charts or breakdowns", %{conn: conn} do
-    {:ok, _lv, html} = live(conn, "/settings/costs")
-
-    refute html =~ "cost-tabs"
-    refute html =~ "conic-gradient"
-    refute html =~ "cost-grocery-art"
-  end
-
-  test "a typed total appears in the receipts and the total", %{conn: conn} do
-    {:ok, lv, _html} = live(conn, "/settings/costs")
-
-    html =
-      lv
-      |> form("#receipt-form", %{
-        date: Date.to_iso8601(Tore.Clock.today()),
-        store_name: "ICA Danvikstull",
-        total_amount: "89.50"
-      })
-      |> render_submit()
-
-    assert html =~ "ICA Danvikstull"
-    assert lv |> element("#month-total") |> render() =~ "90 kr"
-  end
-
-  test "a typed receipt with no total or a bad date isn't saved", %{conn: conn} do
-    {:ok, lv, _html} = live(conn, "/settings/costs")
-
-    render_submit(lv, "save_receipt", %{
-      "date" => "2026-11-06",
-      "store_name" => "",
-      "total_amount" => ""
-    })
-
-    render_submit(lv, "save_receipt", %{
-      "date" => "nope",
-      "store_name" => "",
-      "total_amount" => "5"
-    })
-
-    assert Costs.recent_receipts(home_scope(), 5) == []
   end
 
   test "lists eating out from the plan, with and without an amount", %{conn: conn} do
@@ -118,18 +63,18 @@ defmodule ToreWeb.CostLiveTest do
     {:ok, _} =
       Planning.eat_out(home_scope(), plan_id, key, %{place: "Sushi", amount: "450"})
 
-    {:ok, lv, _html} = live(conn, "/settings/costs")
-    row = lv |> element("#eating-out") |> render()
+    {:ok, lv, _html} = live(conn, "/shop")
+    row = lv |> element("#spending") |> render()
     assert row =~ "Sushi"
     assert row =~ "450 kr"
 
     {:ok, _} =
       Planning.eat_out(home_scope(), plan_id, key, %{place: "", amount: ""})
 
-    {:ok, lv, _html} = live(conn, "/settings/costs")
-    row = lv |> element("#eating-out") |> render()
+    {:ok, lv, _html} = live(conn, "/shop")
+    row = lv |> element("#spending ul") |> render()
     refute row =~ "Sushi"
-    refute row =~ " kr"
+    refute row =~ "450 kr"
   end
 
   describe "a receipt photo" do
@@ -155,10 +100,10 @@ defmodule ToreWeb.CostLiveTest do
          }, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
       end)
 
-      {:ok, lv, _html} = live(conn, "/settings/costs")
+      {:ok, lv, _html} = live(conn, "/shop")
       upload(lv)
 
-      eventually(fn -> render(lv) =~ "ICA" end)
+      eventually(fn -> lv |> element("#spending") |> render() =~ "ICA" end)
       assert [%{store_name: "ICA"}] = Costs.recent_receipts(home_scope(), 5)
     end
 
@@ -172,7 +117,7 @@ defmodule ToreWeb.CostLiveTest do
         "receipt"
       )
 
-      {:ok, lv, _html} = live(conn, "/settings/costs")
+      {:ok, lv, _html} = live(conn, "/shop")
       upload(lv)
 
       assert_eventually(fn -> render(lv) =~ "redan laddat upp" end)

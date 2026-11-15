@@ -121,7 +121,7 @@ defmodule Tore.HomeTest do
       questions = Home.questions(facts([]))
 
       assert %{"type" => "choice", "criteria" => criteria} = questions["screen"]
-      assert Map.keys(criteria) == ~w(costs plan shop today)
+      assert Map.keys(criteria) == ~w(plan shop today)
       assert %{"type" => "noul", "instructions" => _} = questions["swap_open_shop"]
     end
 
@@ -178,9 +178,9 @@ defmodule Tore.HomeTest do
         ~U[2026-01-01 00:00:00Z]
       )
 
-      stored_pick(scope, %HomePick{screen: :costs, source: :model, swaps: [:open_shop]})
+      stored_pick(scope, %HomePick{screen: :shop, source: :model, swaps: [:open_today]})
 
-      assert %{screen: :costs, swaps: [%{key: :open_shop}], stale?: false} =
+      assert %{screen: :shop, swaps: [%{key: :open_today}], stale?: false} =
                Home.current(scope, @tuesday_evening)
     end
 

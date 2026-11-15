@@ -27,9 +27,32 @@ defmodule ToreWeb.ShopLive do
        user_id: user_id,
        export_text: nil,
        item_sheet: nil,
-       item_command_loading: false
+       item_command_loading: false,
+       spending: ToreWeb.Spending.load(scope),
+       scanning: false
+     )
+     |> allow_upload(:receipt_photo,
+       accept: ~w(.jpg .jpeg .png .webp .heic),
+       max_entries: 1,
+       max_file_size: 10_000_000,
+       auto_upload: true,
+       progress: &handle_progress/3
      )}
   end
+
+  def handle_progress(:receipt_photo, %{done?: true} = entry, socket) do
+    image = consume_uploaded_entry(socket, entry, fn %{path: path} -> {:ok, File.read!(path)} end)
+    scope = socket.assigns.current_scope
+
+    ToreWeb.Background.run(
+      fn -> Tore.Capture.Dispatch.read_receipt(scope, image) end,
+      &{:receipt_read, &1}
+    )
+
+    {:noreply, assign(socket, scanning: true)}
+  end
+
+  def handle_progress(:receipt_photo, _entry, socket), do: {:noreply, socket}
 
   def handle_event("toggle_item", %{"item_id" => id}, socket) do
     item = Map.get(socket.assigns.grocery_state.items, id)
@@ -130,6 +153,8 @@ defmodule ToreWeb.ShopLive do
 
   def handle_event("item_command", _params, socket), do: {:noreply, socket}
 
+  def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
+
   def handle_info({:item_command_complete, result}, socket) do
     flash =
       case result do
@@ -158,7 +183,26 @@ defmodule ToreWeb.ShopLive do
   def handle_info({:run_changed, %{status: :reverted, surface: :shop}}, socket),
     do: {:noreply, put_flash(socket, :info, gettext("Undone."))}
 
-  def handle_info({:run_changed, _run}, socket), do: {:noreply, socket}
+  # A receipt saved or undone anywhere changes the month's spending.
+  def handle_info({:run_changed, _run}, socket), do: {:noreply, reload_spending(socket)}
+
+  def handle_info({:receipt_read, {:saved, _run_id, text}}, socket),
+    do:
+      {:noreply, socket |> reload_spending() |> assign(scanning: false) |> put_flash(:info, text)}
+
+  # A duplicate photo or a failure: the reply says which.
+  def handle_info({:receipt_read, {tag, text}}, socket) when tag in [:duplicate, :failed],
+    do: {:noreply, socket |> assign(scanning: false) |> put_flash(:error, text)}
+
+  def handle_info({:receipt_read, {:error, :crashed}}, socket) do
+    {:noreply,
+     socket
+     |> assign(scanning: false)
+     |> put_flash(:error, gettext("Tore couldn't finish that. Try again in a moment."))}
+  end
+
+  defp reload_spending(socket),
+    do: assign(socket, spending: ToreWeb.Spending.load(socket.assigns.current_scope))
 
   def render(assigns) do
     items =
@@ -287,6 +331,12 @@ defmodule ToreWeb.ShopLive do
             style="font-size: var(--t-meta);"
           />
         </form>
+
+        <ToreWeb.Spending.spending
+          spending={@spending}
+          scanning={@scanning}
+          upload={@uploads.receipt_photo}
+        />
       </.page>
 
       <%!-- Grocery item object sheet (long-press) --%>
