@@ -14,7 +14,7 @@ defmodule Tore.Pantry.PantryItem do
     :other
   ]
 
-  @provenances ~w[manual receipt vision belief grocery_checkoff]
+  @provenances ~w[manual receipt vision belief grocery_checkoff barcode]
   @beliefs ~w[confirmed probable uncertain missing]
   @expires_sources ~w[label estimate manual]
 

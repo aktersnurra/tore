@@ -67,6 +67,34 @@ defmodule Tore.Pantry.Learn do
   @spec name(Scope.t(), String.t()) :: :ok
   def name(%Scope{} = scope, name), do: names(scope, [name])
 
+  @doc """
+  The ingredient a product name means (*Arla Mellanmjölk 1,5 %* → *mjölk*), asked once when a
+  barcode is first scanned. A new ingredient gets its section and shelf life from the same answer.
+  Without the model, or when the call fails, the product's name is the ingredient, as written.
+  """
+  @spec product(Scope.t(), String.t()) :: Ingredient.t()
+  def product(%Scope{} = scope, product_name) do
+    with :ok <- Tore.LLM.check(scope),
+         {:ok, [norm | _]} <-
+           Pantry.canonicalise(scope, [%{raw_name: product_name}], Household.locale(scope)) do
+      known(scope, norm.matched_key) || named(scope, norm.catalogue_name || product_name, norm)
+    else
+      _ -> named(scope, product_name, nil)
+    end
+  end
+
+  # The ingredient called `name`, or a new one, filled from `norm` when there is one.
+  defp named(scope, name, norm) do
+    case Match.ingredient(scope, {:name, name}) do
+      {:ok, ingredient} ->
+        ingredient
+
+      :unknown ->
+        [ingredient] = new_ingredient(scope, name)
+        if norm, do: fill(ingredient, norm), else: ingredient
+    end
+  end
+
   defp unlearned(scope, names) do
     names
     |> Enum.uniq_by(&Ingredient.to_key/1)

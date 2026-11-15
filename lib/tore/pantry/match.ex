@@ -30,14 +30,37 @@ defmodule Tore.Pantry.Match do
   def ingredient(%Scope{} = scope, {:barcode, code}) when is_binary(code),
     do: by_alias(scope, barcode_alias(code))
 
-  @doc "Remembers that `ref` means the ingredient. The first answer for a name or barcode stays."
-  @spec learn_alias(Scope.t(), ref(), integer()) :: :ok
-  def learn_alias(%Scope{} = scope, ref, ingredient_id) do
+  @type pack :: %{quantity: Decimal.t() | nil, unit: String.t() | nil}
+
+  @doc "The ingredient a learned barcode means, and what its pack holds."
+  @spec barcode(Scope.t(), String.t()) :: {:ok, Ingredient.t(), pack()} | :unknown
+  def barcode(%Scope{} = scope, code) when is_binary(code) do
+    query =
+      from(a in IngredientAlias,
+        join: i in assoc(a, :ingredient),
+        where: a.alias == ^barcode_alias(code),
+        select: {i, %{quantity: a.quantity, unit: a.unit}}
+      )
+
+    case Repo.one(query, Scope.repo_opts(scope)) do
+      nil -> :unknown
+      {ingredient, pack} -> {:ok, ingredient, pack}
+    end
+  end
+
+  @doc """
+  Remembers that `ref` means the ingredient, with a barcode's `pack`. The first answer for a name
+  or barcode stays.
+  """
+  @spec learn_alias(Scope.t(), ref(), integer(), pack()) :: :ok
+  def learn_alias(%Scope{} = scope, ref, ingredient_id, pack \\ %{quantity: nil, unit: nil}) do
     Repo.insert!(
       %IngredientAlias{
         household_id: scope.household_id,
         alias: alias_for(ref),
-        ingredient_id: ingredient_id
+        ingredient_id: ingredient_id,
+        quantity: pack.quantity,
+        unit: pack.unit
       },
       on_conflict: :nothing,
       conflict_target: [:household_id, :alias]

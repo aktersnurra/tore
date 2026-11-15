@@ -16,10 +16,13 @@ defmodule Tore.Repo.Migrations.CreateIngredients do
     create unique_index(:ingredients, [:household_id, :key])
 
     # Other names and barcodes Tore has learned for an ingredient: a name key, or `ean:<digits>`.
+    # A barcode also keeps its pack, so a scan adds what the pack holds.
     create table(:ingredient_aliases) do
       add :household_id, references(:households, on_delete: :delete_all), null: false
       add :alias, :string, null: false
       add :ingredient_id, references(:ingredients, on_delete: :delete_all), null: false
+      add :quantity, :decimal
+      add :unit, :string
       timestamps()
     end
 

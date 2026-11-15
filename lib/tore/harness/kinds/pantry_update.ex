@@ -1,7 +1,8 @@
 defmodule Tore.Harness.Kinds.PantryUpdate do
   @moduledoc """
-  Items go into the pantry from a shelf photo, a ticked shopping item, or by hand, and come out
-  by hand. `ctx` holds `:channel` (`:shelf_photo`, `:grocery_checkoff` or `:manual`), and
+  Items go into the pantry from a shelf photo, a ticked shopping item, a scanned barcode, or by
+  hand, and come out by hand. `ctx` holds `:channel` (`:shelf_photo`, `:grocery_checkoff`,
+  `:barcode` or `:manual`), and
   `:image_binary` for a photo or `:items` otherwise. An item with an `:item_id` removes that row.
 
   `resolve` sends photographed names through the LLM canonicaliser, since the photo already asked
@@ -163,4 +164,5 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   defp provenance(:grocery_checkoff), do: "grocery_checkoff"
   defp provenance(:manual), do: "manual"
   defp provenance(:shelf_photo), do: "vision"
+  defp provenance(:barcode), do: "barcode"
 end
