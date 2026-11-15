@@ -126,28 +126,27 @@ Chat is for ambiguous input, photos, and complex commands. The main product shou
 
 ## 3. Information architecture
 
-### 3.1 Where the app opens, and the chat bar
+### 3.1 Where the app opens, and the tab bar
 
-There are no navigation bars. Opening the app (`/`) lands on the screen the household
-most likely needs now, picked ahead of time by a decision model and stored
-(`SPEC.md` §Interfaces): tonight at five, the list on Saturday morning, next week's
-plan on Sunday evening, a receipt waiting for review. The pick is never computed
-while someone waits.
+Opening the app (`/`) lands on the screen the household most likely needs now, picked
+ahead of time by a decision model and stored (`SPEC.md` §Interfaces): tonight at five,
+the list on Saturday morning, next week's plan on Sunday evening. The pick is never
+computed while someone waits.
 
-Every screen has the same bar at the bottom:
+Every main screen has the same tab bar at the bottom, icons only:
 
 ```md
-(Inköpslistan) (Planera nästa vecka)     ← quick swaps, up to three
-[≡] [ Fråga Tore…                ] (↑)   ← menu, chat box, send
+ ⌂ Today    ▦ Plan    (✦) Tore    🛒 Shop    📖 Recipes
 ```
 
-- **Quick swaps** open a screen or send a short request to Capture. They come from the
-  stored pick, or from the last Capture turn until the next pick. The swap for the screen
-  already shown is left out. They're plain chips: no AI iconography, no animation.
-- **The chat box** is the way to anything else. Sending opens Capture with the text;
-  Capture's Close returns to the screen you were on.
-- **≡** opens a sheet listing every page, with the number of reviews waiting. It's the
-  escape hatch: fixed, and it works without AI.
+- **Tore**, in the middle, is a filled round button in the text colour, not saffron. It
+  opens the chat as a sheet over the screen you're on, and Close returns there.
+- **Quick swaps** sit in the chat, above its input: up to three chips that open a screen
+  or send a short request. They come from the stored pick, or from the last turn. Plain
+  chips: no AI iconography, no animation.
+- **Settings** is a button on Today, top right. It holds members, diet and allergies,
+  the household, memory, stores and AI.
+- The current tab is in the text colour, the others muted. Prep counts as Plan.
 
 Without AI, a fixed rule picks the screen and the swaps, and nothing else changes.
 
@@ -155,28 +154,23 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 
 ```md
 /              → The stored pick's screen (redirect)
-/today         → Today
-/plan          → Plan
-/shop          → Shop
-/capture       → Capture (routable for deep links; presents as a sheet)
-/cooking       → Household kitchen: diets and allergies (in the menu)
-/settings      → Settings
-/settings/pantry
-/settings/costs
-/review        → Opens the oldest pending review (from the menu, a swap, or the pick)
-/runs/:id      → Run review: a receipt to check, or a recipe proposal to save or discard (deep-linkable)
-/recipes       → Recipe catalog (in the menu)
-/prep          → Prep guide (system resource, via Plan's "Prep this week")
+/today         → Today (tab)
+/plan          → Plan (tab)
+/shop          → Shop, with this month's spending under the list (tab)
+/recipes       → Recipes (tab)
+/capture       → Tore's chat (the centre tab; presents as a sheet)
+/settings      → Settings, from Today
+/prep          → Prep guide, via Plan's "Prep this week"
+/recipes/:id/cook → Cook mode, no tab bar
 ```
 
-Surfaces stay routable so deep links work, but capture and run-review are
-presented as layers, not destinations.
+Removed on 2026-11-15: the review page (recipes save straight away with undo), the pantry
+page (Tore keeps the pantry), the costs page (now under Shop) and `/cooking` (now in Settings).
 
 ### 3.3 Navigation behavior
 
-The same on phone, tablet and desktop: the bar at the bottom, the menu as a sheet that
-rises from it. The bar stays put across navigation, so the swaps and the text being
-typed don't reset between screens.
+The same on phone, tablet and desktop: the tab bar at the bottom, the chat as a sheet that
+rises over the screen. The bar stays put across navigation.
 
 ---
 
@@ -223,7 +217,7 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card
   per step, a tap for the next, and "All steps" to peek ahead. Cook mode and the week's prep
   use it.
-- **The menu leads with Today, Plan and Shop** in large type; the other places are quieter.
+- **Five tabs, Tore in the middle.** Everything else is reached from a tab's screen.
 
 Avoid:
 
@@ -353,7 +347,7 @@ Corners follow hierarchy.
 
 ## 4.7 Elevation
 
-Cards use a border and a background. Only things that float get a shadow (`--shadow-pop`): the menu,
+Cards use a border and a background. Only things that float get a shadow (`--shadow-pop`): the chat sheet,
 sheets, dialogs and flashes.
 
 ## 4.8 Motion
@@ -831,6 +825,7 @@ Main
 
 Bottom
 - Manual add
+- This month's spending (§6.7)
 ```
 
 ### List status card
@@ -1020,14 +1015,16 @@ What does Tore know, and how can I correct it?
 
 ```md
 Members
+Diet and allergies
 Your households
 Household
 Kitchen Memory
 Stores
 AI usage
-Pantry belief
-Spending
 ```
+
+Diet and allergies are two rows of chips, "We eat" and "Never include". Every plan is
+checked against them. A chosen chip is filled in the text colour, not saffron.
 
 Household shows its name, which can be renamed, and the language, picked once and locked afterwards.
 
@@ -1145,38 +1142,26 @@ No AI debug logs for normal users.
 
 Google’s PAIR guidance emphasizes that AI products need clear mental models, staged expectation-setting, and feedback/control mechanisms, especially because AI systems adapt over time. ([Pair][8])
 
-## 6.7 Costs
+## 6.7 Spending (under Shop)
 
-### Job
-
-Answer:
+What did food cost this month? It ends the Shop screen, below the add field.
 
 ```md
-What did food cost this month?
-```
+Spent this month                    [📷 Scan receipt]
+1 610 kr
++12% compared with last month
 
-### Layout
-
-```md
-Header
-- "Food costs"
-
-Main
-- Total this month, with the change from last month
-- Recent receipts (five)
-- Eating out this month
-
-Bottom
-- Scan receipt photo, or enter a total by hand
+ICA Kvantum   8/11             813 kr
+Sushibaren    13/11            450 kr
 ```
 
 Rules:
 
 ```md
-One page, reached from Settings. Not in the nav.
+No page of its own (2026-11-15). Scanning sits where the shopping ends.
+A receipt is a photo, here or in the chat. No typed form.
 No tabs, charts or breakdowns: nothing here that changes what Tore does next.
-A receipt photo opens its review card, then returns here.
-Receipts record cost only. They never change the pantry or the list.
+Receipts record cost only. They never change the list.
 ```
 
 ---

@@ -25,6 +25,7 @@
 - **Companion docs:** `docs/specs/llm-native-features.md` (the design brief this spec absorbs), `docs/specs/ui.md` (UI/UX contract — meets this spec at the artifact boundary), `docs/specs/run-receipts.md` (the first vertical slice of the harness: receipts, diffs, undo; its run model is superseded by run core, §A.2). Per-feature design notes live under `docs/specs/`.
 - **Naming:** the project is *Tore*. Any remaining reference to Scullion or Family in code is legacy and slated for deletion (see §Removed in Rewrite).
 - **2026-11-11:** The app opens where the household needs it. A decision model (Jev, a fourth model tier, §A.8, Pattern C) picks the screen `/` opens on and the quick swaps above a chat box that sits at the bottom of every screen, with a ≡ menu in place of the navigation bars (§Interfaces). The pick is the latest applied `:home_pick_run`; a fixed rule picks without AI. Capture can suggest its own swaps with a `quick_swaps` tool.
+- **2026-11-15:** Fewer screens, and a tab bar. Today · Plan · Tore · Shop · Recipes replaces the chat bar and its ≡ menu; Tore, in the middle, opens Capture over the current screen, and the quick swaps live there now. Recipes are saved straight away with undo, so the review page (`/review`, `/runs/:id`) is gone (§A.6.1). Spending moved under the shopping list, diet and allergies into Settings, and the pantry and costs pages and `/cooking` were removed. The palette is Gjutjärn and Dagsljus (docs/specs/ui.md §4).
 
 ---
 
@@ -223,17 +224,15 @@ how the other implements its half.
 | `ShopChange` | `:shop_edit_run` | An item added or checked off, or the week's list built |
 | `HomePick` | `:home_pick_run` | The screen the app opens on, the quick swaps, and whether the decision model or the fixed rule picked them |
 
-A proposal is a registered artifact or a list of them, because a run waiting for review
-stores it until it is confirmed.
+A proposal is a registered artifact or a list of them.
 
 **Rendering.** The UI reads artifacts and status, never a run's internals. Capture
-shows each run as one short line built from its artifact, with Undo. The run review
-page shows a waiting `RecipeProposal` as a card the person saves or discards.
+shows each run as one short line built from its artifact, with Undo.
 
 **No chat transcripts in artifacts.** The LLM's prose is never an artifact.
 
 **Hard rule.** An applied run carries the artifacts of what it changed, and a run that
-changed nothing carries none. A run waiting for review carries its proposal.
+changed nothing carries none. A run waiting on a question carries no proposal.
 
 ### A.4 — Context capsules, not one big prompt
 
@@ -631,7 +630,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
 Run core and household memory landed on 2026-11-10 (§A.2, §1).
-The home pick, the chat bar and the menu landed on 2026-11-11 (§Interfaces).
+The home pick landed on 2026-11-11 (§Interfaces); its swaps moved from the chat bar into Capture on 2026-11-15.
 
 ### 1. Household Memory → `:memory_review_run`, `:memory_update_run`
 
@@ -831,39 +830,32 @@ Plan links to "Prep this week". The page generates a guide from the week's plan 
 is the latest applied `:home_pick_run` (`Tore.Home`):
 
 - **The pick.** One Pattern C call asks the decision model a choice among the screens that make
-  sense now (Today, Plan, Shop, Review with something waiting, Costs) and a yes/no per quick swap that makes sense now. The state it reads is worked out in
-  code: weekday and time, tonight, what's unplanned this week and next, the list, the reviews
-  waiting, this week's plan and the household memory. Below 0.6 confidence, or when the call fails
+  sense now (Today, Plan, Shop) and a yes/no per quick swap that makes sense now. The state it reads is worked out in
+  code: weekday and time, tonight, what's unplanned this week and next, the list, this week's
+  plan and the household memory. Below 0.6 confidence, or when the call fails
   for any reason but the gate, the run stores the fixed rule's pick.
 - **When.** Only when someone opens `/` and the pick is stale: older than an hour, or older than
   another run applied since. The open starts a new pick in the background for next time, at most
   one per ten minutes per household, and never without AI. There's no cron.
-- **The fixed rule.** A review waiting → Review; Saturday before 14:00 → Shop; Sunday from 16:00 →
+- **The fixed rule.** Saturday before 14:00 → Shop; Sunday from 16:00 →
   Plan; otherwise Today. Its swaps open the other main screens.
 - **Times** come from `Tore.Clock`, the server's local clock: set `TZ` to the household's time
   zone. Every calendar date in the app (today, this week, tonight, a receipt's or a pantry item's
   date) comes from it, so the pick and the screens agree on the day. Stored timestamps stay UTC.
 
-A stored pick is narrowed when it is read, so it never opens on a review that has been handled.
-A household that can't use the model now gets the fixed rule, not its last pick.
+A stored pick is narrowed when it is read. A household that can't use the model now gets the fixed rule, not its last pick.
 
-### The chat bar and menu (every screen)
+### The tab bar (every main screen)
 
-`ToreWeb.ChatBarLive`, a sticky LiveView at the bottom of every screen, in place of the
-navigation bars:
-
-- Up to three quick swaps: the stored pick's, or the ones the last Capture turn suggested, until
-  the next pick. A swap opens a screen or sends a request to Capture. The swap for the screen
-  already shown is left out.
-- The chat box. Sending opens Capture with the text, which Capture sends once and then drops
-  from the URL, so a reconnect or reload doesn't send it again. The bar signs the request for
-  that person (`CaptureLive.request_path/3`, valid a minute), so a link from anywhere else can't
-  make Capture act. Capture's Close returns to the page it was opened from, query string and all.
-- ≡ opens a menu of every page, with the number of reviews waiting. It works without AI.
+`ToreWeb.TabBarLive`, a sticky LiveView at the bottom of every main screen: Today, Plan, Tore,
+Shop and Recipes. Tore, in the middle, opens Capture over the current screen; Capture's Close
+returns there, query string and all. Prep counts as Plan, and a recipe's pages as Recipes.
+Settings opens from a button on Today. Cook mode has no bar.
 
 ### Today (`/today`)
 
 - Tonight's dinner. A night marked as eating out says so instead of showing a dinner.
+- A button to Settings.
 - Long-press on tonight for its object sheet.
 
 ### Planner (`/plan`)
@@ -884,12 +876,14 @@ Each write a turn makes is its own run and shows as its own line, with Undo wher
 run has one. Typed edits go through `Runs.submit/4`; photos, links and pantry edits
 through `Runs.start/3`. The runs: plan edits (`:plan_edit_run`, `:set_plan_slot_run`), the
 shopping list (`:shop_edit_run`), the pantry, receipts, recipes (`:recipe_ingestion_run`,
-whose line links to its review) and memory (`:memory_update_run`). Building the
+saved with undo) and memory (`:memory_update_run`). Building the
 shopping list has no Undo, since it replaces the list.
 
-A turn may end with `quick_swaps`: up to three next steps for the chat bar, each opening a
-listed screen or sending a one-line request. They're checked by `Tore.Home.suggested_swaps/1`,
-sent to the person's bar and not stored; invalid ones go back to the model.
+Above the input sit up to three quick swaps: the stored pick's, until a turn suggests its own.
+A swap opens a screen or sends its request. A turn may end with `quick_swaps`: up to three
+next steps, each opening a listed screen or sending a one-line request. They're checked by
+`Tore.Home.suggested_swaps/1`, sent to the person's open Capture and not stored; invalid ones
+go back to the model.
 
 Deleting a recipe, a receipt or a shopping item is a plain tool with no review or undo.
 The model finds the id itself (`find_recipe`, `list_receipts`) and deletes only what the
@@ -903,25 +897,20 @@ the list, so a plan change must not wipe hand-added items and check-offs. The li
 missing plan, a missing pantry, and a missing connection to the LLM. Checking an item
 dispatches a `:pantry_belief_update_run` (see §4).
 
+Under the list, what was spent this month (`ToreWeb.Spending`): the total against last month,
+the five latest receipts, eating out from the plans, and "Scan receipt", which reads a photo
+like Capture does. A receipt is a photo, here or in the chat; there is no typed form.
+
 ### Settings (`/settings`)
 
 - Members, by name and Pocket ID username. Add someone by their Pocket ID username; remove a member, or leave. The last member can't leave, since the household's data would have nobody to reach it. "Sign out".
+- Diet and allergies: the choices every plan is checked against (§A.6.1, Tier 3). A refused allergy in Capture links here.
 - Household: rename it; the language, picked at `/welcome` when the household was created and shown locked.
 - **Your households:** a switcher, shown only to someone in two or more.
 - AI: someone with the `tore_ai` claim can let the household use their credits ("Use my credits for this household"). Others see who sponsors it, or that AI is off.
 - **Things Tore has learned:** the household memory (§1), as "Your household" (the profile) and "Notes", each with how full it is and a "Forget" button per entry. Either member can forget anything.
 - **Stores:** add by link, switch on or off, remove (§8).
 - AI usage.
-- Links to the pantry view ("Approximate inventory") and costs ("Spending").
-
-### Costs (`/settings/costs`)
-
-One page, reachable from Settings and the menu:
-
-- This month's total against last month.
-- The five most recent receipts.
-- Eating out this month, from the plans.
-- Adding a receipt, by photo or by typing a total.
 
 ---
 
@@ -932,9 +921,11 @@ plans must remove these explicitly — they are not deprecated, they are gone.
 
 | Removed | Replacement |
 |---------|-------------|
-| `pantry_live.ex` full CRUD (add/edit/category management UI) | Inferred pantry view in Settings; grocery check-offs, shelf photos and Capture add to it |
+| `pantry_live.ex` full CRUD (add/edit/category management UI) | No pantry screen (2026-11-15): grocery check-offs, receipts, shelf photos and Capture keep it, and Capture corrects it |
 | `/pantry` in main nav | Removed entirely |
-| `/costs` in main nav | Moved under Settings |
+| `/costs` in main nav, later `/settings/costs` | Spending under the shopping list (2026-11-15) |
+| The run review page (`/review`, `/runs/:id`) | Recipes save straight away with undo (2026-11-15) |
+| The chat bar and ≡ menu | The tab bar, with Tore in the middle (2026-11-15) |
 | `Tore.Family` context (introduced as the canonical name in the prior rewrite) | `Tore.Household` is canonical; `Tore.Family.*` deleted |
 | Onboarding questionnaire (if/when added) | Inference from events over time |
 | Any meal-rating or "how was dinner?" UI | Never built; explicitly prohibited |
@@ -1031,18 +1022,14 @@ lib/tore_web/controllers/home_controller.ex   # GET /: redirects to the stored p
 
 lib/tore_web/live/
   home_live.ex               # /today: tonight
-  chat_bar_live.ex           # sticky: quick swaps, the chat box and the ≡ menu, on every screen
+  tab_bar_live.ex            # sticky: Today, Plan, Tore, Shop, Recipes, on every main screen
   planner_live.ex            # command bar drives PlannerAgent
-  capture_live.ex            # capture → run dispatch → artifact rendering
-  run_review_live.ex         # :needs_user review of a proposed recipe
-  cooking_live.ex
-  shop_live.ex               # check → :pantry_belief_update_run
+  capture_live.ex            # capture → run dispatch → artifact rendering; the quick swaps
+  shop_live.ex               # check → :pantry_belief_update_run; spending under the list
   recipe_live.ex
   prep_live.ex
-  settings_live.ex           # members, households switcher, rename, sign-out, stores, kitchen memory, AI sponsorship and usage
+  settings_live.ex           # members, diet and allergies, households switcher, rename, sign-out, stores, kitchen memory, AI sponsorship and usage
   welcome_live.ex            # /welcome: a new household picks its language once
-  pantry_live.ex             # /settings/pantry: approximate inventory
-  cost_live.ex               # /settings/costs: one page
 ```
 
 ```

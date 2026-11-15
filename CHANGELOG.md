@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fewer screens, a tab bar and a locked palette (2026-11-15)
+
+- A tab bar at the bottom of every main screen replaces the chat bar and its ≡ menu: Today, Plan, Tore, Shop and Recipes. Tore, in the middle, opens the chat over the current screen and returns there. The quick swaps moved into the chat, above its input. Settings opens from a button on Today.
+- Recipes from a link, a photo or the planner are saved straight away, and Undo in the chat deletes them again. The review page (`/review`, `/runs/:id`) and the review counts are gone.
+- Spending moved under the shopping list: this month against last, the latest receipts, eating out, and "Scan receipt". The costs page and its typed receipt form are gone.
+- Diet and allergies moved into Settings; `/cooking` is gone. The pantry page is gone too: Tore keeps the pantry, and the chat corrects it.
+- The palette is locked: cast-iron greys tinted toward saffron (Gjutjärn, dark) and a warm white (Dagsljus, light), saffron 400 with black type as the one accent, dill for done (the shopping tick), lingon only for what can be lost. Contrast is checked in docs/specs/ui.md §4.3.
+
 ### The app opens where you need it
 
 - `/` opens the screen the household most likely needs now, picked by a decision model (TypeSafe's Jev, `typesafe/jev-1.14`) and stored as the latest `:home_pick_run`. Opening the app never waits for it: a pick older than an hour, or older than a change since, starts a new one in the background for next time, at most once every ten minutes and never without AI. Below 0.6 confidence, or without AI, a fixed rule picks: a review waiting, the list on Saturday morning, next week's plan on Sunday evening, otherwise tonight.
