@@ -2,7 +2,7 @@ defmodule Tore.Harness.Kinds.ShopEdit do
   @moduledoc """
   Capture changes the shopping list as someone asked: adds an item, checks one off, or builds the
   week's list from the plan. The proposal is made before the run opens (`add/5`, `check/2`,
-  `build/4`), so the run itself makes no LLM call.
+  `build/4`) with no model; names it doesn't know yet are learned after it applies.
 
   Undo is the inverse command: an added item is removed, a checked item unchecked. Building
   replaces the whole list, so it can't be undone. A checked-off item also goes into the pantry,
@@ -76,6 +76,16 @@ defmodule Tore.Harness.Kinds.ShopEdit do
     ])
 
     :ok
+  end
+
+  # Names on a new or rebuilt list that Tore hasn't learned are sorted into their sections later.
+  def after_commit(
+        %{status: :applied, artifacts: [%ShopChange{change: change} = shop_change]} = run
+      )
+      when change in [:add, :build] do
+    scope = Scope.for_household(run.household_id)
+    Shop.announce(scope)
+    Shop.learn(scope, shop_change.list_id, Enum.map(shop_change.items, & &1["name"]))
   end
 
   def after_commit(%{status: status} = run) when status in [:applied, :reverted],

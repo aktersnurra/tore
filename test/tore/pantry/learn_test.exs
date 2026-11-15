@@ -99,12 +99,19 @@ defmodule Tore.Pantry.LearnTest do
              Match.ingredient(scope, {:name, "Gräddfil"})
   end
 
-  test "a name already learned, or unknown, asks nothing" do
+  test "a name already learned asks nothing" do
     scope = home_scope()
     ingredient(scope, %{name: "Mjölk", category: "dairy"})
 
     assert :ok = Learn.name(scope, "Mjölk")
-    assert :ok = Learn.name(scope, "Finns inte")
+  end
+
+  test "a name Tore has never seen gets its ingredient, and is learned" do
+    scope = home_scope()
+    answer(%{"raw_name" => "Kaffe", "catalogue_name" => "Kaffe", "category" => "beverages"})
+
+    assert :ok = Learn.name(scope, "Kaffe")
+    assert {:ok, %Ingredient{category: "beverages"}} = Match.ingredient(scope, {:name, "kaffe"})
   end
 
   test "without the model, nothing is asked and the name stays as written" do

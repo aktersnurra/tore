@@ -32,27 +32,31 @@ defmodule Tore.Pantry do
   defp parse_decimal(s) when is_binary(s), do: Decimal.new(s)
 
   @doc """
-  Catalogue snapshot used to ground the LLM canonicaliser, leaving out `except_id`, the
-  ingredient being learned, so it can't be matched to itself.
+  Catalogue snapshot used to ground the LLM canonicaliser, leaving out `except_ids`, the
+  ingredients being learned, so none is matched to itself.
   """
-  @spec catalogue(Scope.t(), integer() | nil) ::
+  @spec catalogue(Scope.t(), [integer()]) ::
           [%{key: String.t(), name: String.t(), category: String.t() | nil}]
-  def catalogue(%Scope{} = scope, except_id \\ nil) do
-    query = from(i in Ingredient, select: %{key: i.key, name: i.name, category: i.category})
-    query = if except_id, do: where(query, [i], i.id != ^except_id), else: query
-    Repo.all(query, Scope.repo_opts(scope))
+  def catalogue(%Scope{} = scope, except_ids \\ []) do
+    Repo.all(
+      from(i in Ingredient,
+        where: i.id not in ^except_ids,
+        select: %{key: i.key, name: i.name, category: i.category}
+      ),
+      Scope.repo_opts(scope)
+    )
   end
 
   @doc """
-  Send raw pantry items through the LLM canonicaliser, against the catalogue without `except_id`.
+  Send raw pantry items through the LLM canonicaliser, against the catalogue without `except_ids`.
   Returns a list of
   `{raw_name, catalogue_name, category, default_unit, matched_key}` maps.
   """
-  @spec canonicalise(Scope.t(), [map()], String.t() | nil, integer() | nil) ::
+  @spec canonicalise(Scope.t(), [map()], String.t() | nil, [integer()]) ::
           {:ok, [map()]} | {:error, term()}
-  def canonicalise(%Scope{} = scope, items, locale, except_id \\ nil) do
+  def canonicalise(%Scope{} = scope, items, locale, except_ids \\ []) do
     {system, user} =
-      Tore.LLM.Prompts.canonicalise_pantry_items(items, locale, catalogue(scope, except_id))
+      Tore.LLM.Prompts.canonicalise_pantry_items(items, locale, catalogue(scope, except_ids))
 
     case Tore.LLM.text(scope, system, user,
            response_format: Tore.LLM.Prompts.canonicalise_pantry_schema(),

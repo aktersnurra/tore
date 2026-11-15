@@ -38,7 +38,8 @@ defmodule Tore.Harness.Kinds.ShopEditTest do
              artifacts: [%ShopChange{change: :add}]
            } = Runs.get(home_scope(), bubble.run_stream_id)
 
-    assert list() == [%{name: "mjölk", checked: false, section: :dairy}]
+    # A name Tore hasn't learned waits in "other" until it is (Tore.Shop.PantryRulesTest).
+    assert list() == [%{name: "mjölk", checked: false, section: :other}]
 
     {:ok, _} = undo(bubble)
     assert list() == []

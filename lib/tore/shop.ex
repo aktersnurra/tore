@@ -1,8 +1,11 @@
 defmodule Tore.Shop do
   alias Tore.{EventStore, Scope, Shop.Decider, Shop.Commands, Shop.Aggregator, Pantry}
+  alias Tore.Pantry.{Learn, Match}
+  alias Tore.Recipes.Ingredient
   alias Phoenix.PubSub
 
   @pubsub Tore.PubSub
+  @valid_sections Ingredient.sections()
 
   @doc "The topic a household's shopping-list changes are broadcast on."
   @spec topic(Scope.t()) :: String.t()
@@ -13,101 +16,68 @@ defmodule Tore.Shop do
   end
 
   @doc """
-  The list for `recipe_ids`' ingredients, without what the pantry already holds. Asks the model
-  to match against the pantry, and keeps every ingredient if it can't.
+  The list for `recipe_ids`' ingredients, each in its section, without what the pantry holds:
+  an ingredient with a usable pantry row is left out. Exact, with no model, so a near miss stays
+  on the list rather than dropping off it.
   """
   @spec items_for(Scope.t(), [integer()]) :: [map()]
   def items_for(%Scope{} = scope, recipe_ids) do
-    all_items = Aggregator.aggregate_by_ids(scope, recipe_ids)
-    pantry = Pantry.list_usable(scope)
+    at_home = scope |> Pantry.list_usable() |> MapSet.new(&Ingredient.to_key(&1.name))
 
-    if pantry == [] do
-      all_items
-    else
-      case filter_pantry_items(scope, all_items, pantry) do
-        {:ok, filtered} -> filtered
-        _ -> all_items
-      end
-    end
+    scope
+    |> Aggregator.aggregate_by_ids(recipe_ids)
+    |> Enum.reject(&MapSet.member?(at_home, Ingredient.to_key(&1.name)))
+    |> Enum.map(&Map.put(&1, :section, section_for(scope, &1.name)))
   end
 
-  @doc "The shop section `name` goes in, as the model sorts it, or `:other`."
+  @doc """
+  The shop section `name` goes in: its ingredient's, or `:other` for a name not learned yet, with
+  no model. `resettle_sections/2` moves it once the name is learned.
+  """
   @spec section_for(Scope.t(), String.t()) :: atom()
   def section_for(%Scope{} = scope, name) do
-    case classify_grocery_item(scope, name) do
-      {:ok, s} -> s
-      _ -> :other
+    case Match.ingredient(scope, {:name, name}) do
+      {:ok, %{category: category}} when category in @valid_sections ->
+        String.to_existing_atom(category)
+
+      _ ->
+        :other
     end
   end
+
+  @doc "Moves unticked items still in `:other` to the section their name has learned since."
+  @spec resettle_sections(Scope.t(), String.t()) :: :ok
+  def resettle_sections(%Scope{} = scope, list_id) do
+    {:ok, state} = load_list(scope, list_id)
+
+    for %{section: :other, checked: false} = item <- Map.values(state.items),
+        section = section_for(scope, item.name),
+        section != :other do
+      run(scope, list_id, %Commands.SetItemSection{item_id: item.id, section: section})
+    end
+
+    :ok
+  end
+
+  @doc "Learns the names on `list_id` in the background, then moves them to their sections."
+  @spec learn(Scope.t(), String.t(), [String.t()]) :: :ok
+  def learn(%Scope{} = scope, list_id, names),
+    do: Learn.later(scope, names, fn -> resettle_sections(scope, list_id) end)
 
   def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
-    section = section_for(scope, name)
+    result =
+      run(scope, list_id, %Commands.AddItem{
+        item_id: Ecto.UUID.generate(),
+        name: name,
+        quantity: quantity,
+        unit: unit,
+        section: section_for(scope, name),
+        added_by: user_id
+      })
 
-    run(scope, list_id, %Commands.AddItem{
-      item_id: Ecto.UUID.generate(),
-      name: name,
-      quantity: quantity,
-      unit: unit,
-      section: section,
-      added_by: user_id
-    })
+    learn(scope, list_id, [name])
+    result
   end
-
-  @valid_sections Tore.Recipes.Ingredient.sections()
-
-  defp filter_pantry_items(scope, ingredients, pantry) do
-    {system, user} = Tore.LLM.Prompts.filter_pantry_items(ingredients, pantry)
-
-    fallback = Application.get_env(:tore, :openrouter_check_model_fallback, "openai/gpt-oss-120b")
-
-    case Tore.LLM.text(scope, system, user,
-           model: fallback,
-           response_format: Tore.LLM.Prompts.filter_pantry_schema(),
-           feature: :filter_pantry
-         ) do
-      {:ok, items, _usage} when is_list(items) -> {:ok, build_filter_result(items)}
-      {:ok, %{"items" => items}, _usage} when is_list(items) -> {:ok, build_filter_result(items)}
-      {:ok, _, _} -> {:error, :invalid_response}
-      {:error, _} = err -> err
-    end
-  end
-
-  defp classify_grocery_item(scope, name) do
-    {system, user} = Tore.LLM.Prompts.classify_grocery_item(name)
-
-    case Tore.LLM.text(scope, system, user, feature: :classify_item) do
-      {:ok, %{"section" => section}, _usage} -> {:ok, to_section_atom(section)}
-      {:ok, _, _} -> {:error, :invalid_response}
-      {:error, _} = err -> err
-    end
-  end
-
-  defp build_filter_result(items) do
-    items
-    |> Enum.map(&Map.put(&1, "name", &1["name"] || &1["item"] || &1["ingredient"]))
-    |> Enum.filter(&is_binary(&1["name"]))
-    |> Enum.map(fn i ->
-      qty =
-        case i["quantity"] do
-          nil -> nil
-          n when is_number(n) -> n
-          s when is_binary(s) -> s
-          _ -> nil
-        end
-
-      %{
-        id: Ecto.UUID.generate(),
-        name: i["name"],
-        quantity: qty,
-        unit: i["unit"],
-        section: to_section_atom(i["section"]),
-        checked: false
-      }
-    end)
-  end
-
-  defp to_section_atom(s) when is_binary(s) and s in @valid_sections, do: String.to_atom(s)
-  defp to_section_atom(_), do: :other
 
   @doc """
   Annotate shop list items with the pantry's belief about whether they're

@@ -17,39 +17,80 @@ defmodule Tore.Pantry.Learn do
   alias Tore.Pantry.{IngredientAlias, Match, PantryItem}
   alias Tore.Recipes.{Ingredient, RecipeIngredient}
 
-  @doc "Learns `names` after the caller has moved on. Off in tests (`config :tore, :learn`)."
-  @spec later(Scope.t(), [String.t()]) :: :ok
-  def later(%Scope{} = scope, names) do
+  @doc """
+  Learns `names` after the caller has moved on, then runs `then`, if given. Off in tests
+  (`config :tore, :learn`).
+  """
+  @spec later(Scope.t(), [String.t()], (-> any()) | nil) :: :ok
+  def later(%Scope{} = scope, names, then \\ nil) do
     if Application.get_env(:tore, :learn, :background) == :background do
       Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-        Enum.each(names, &name(scope, &1))
+        names(scope, names)
+        if then, do: then.()
       end)
     end
 
     :ok
   end
 
-  @spec name(Scope.t(), String.t()) :: :ok
-  def name(%Scope{} = scope, name) do
-    with {:ok, %Ingredient{category: nil} = ingredient} <- Match.ingredient(scope, {:name, name}),
-         :ok <- Tore.LLM.check(scope),
-         {:ok, [norm | _]} <-
+  @doc """
+  Learns every name in `names` not learned yet, in one model call. A name Tore has never seen gets
+  its ingredient first, as written.
+  """
+  @spec names(Scope.t(), [String.t()]) :: :ok
+  def names(%Scope{} = scope, names) do
+    with :ok <- Tore.LLM.check(scope),
+         [_ | _] = learning <- unlearned(scope, names),
+         {:ok, norms} <-
            Pantry.canonicalise(
              scope,
-             [%{raw_name: ingredient.name}],
+             Enum.map(learning, &%{raw_name: &1.name}),
              Household.locale(scope),
-             ingredient.id
+             Enum.map(learning, & &1.id)
            ) do
-      case known(scope, norm.matched_key) do
-        nil -> fill(ingredient, norm)
-        into -> merge(scope, ingredient, into)
+      by_name = Map.new(norms, &{&1.raw_name, &1})
+
+      for ingredient <- learning, norm = by_name[ingredient.name], norm != nil do
+        case known(scope, norm.matched_key) do
+          nil -> fill(ingredient, norm)
+          into -> merge(scope, ingredient, into)
+        end
       end
     else
-      {:error, reason} -> Logger.warning("Couldn't learn #{inspect(name)}: #{inspect(reason)}")
+      {:error, reason} -> Logger.warning("Couldn't learn #{inspect(names)}: #{inspect(reason)}")
       _ -> :ok
     end
 
     :ok
+  end
+
+  @spec name(Scope.t(), String.t()) :: :ok
+  def name(%Scope{} = scope, name), do: names(scope, [name])
+
+  defp unlearned(scope, names) do
+    names
+    |> Enum.uniq_by(&Ingredient.to_key/1)
+    |> Enum.flat_map(fn name ->
+      case Match.ingredient(scope, {:name, name}) do
+        {:ok, %Ingredient{category: nil} = ingredient} -> [ingredient]
+        {:ok, _learned} -> []
+        :unknown -> new_ingredient(scope, name)
+      end
+    end)
+  end
+
+  defp new_ingredient(scope, name) do
+    case Ingredient.to_key(name) do
+      "" ->
+        []
+
+      _ ->
+        [
+          %Ingredient{household_id: scope.household_id}
+          |> Ingredient.changeset(%{name: String.trim(name)})
+          |> Repo.insert!()
+        ]
+    end
   end
 
   defp known(_scope, key) when key in [nil, ""], do: nil

@@ -4,6 +4,7 @@ defmodule Tore.Shop.Events do
   defmodule ItemRemoved, do: defstruct([:item_id, :removed_by])
   defmodule ItemChecked, do: defstruct([:item_id, :checked_by])
   defmodule ItemUnchecked, do: defstruct([:item_id, :unchecked_by])
+  defmodule ItemSectionSet, do: defstruct([:item_id, :section])
 
   @type t ::
           %ListBuilt{}
@@ -11,4 +12,5 @@ defmodule Tore.Shop.Events do
           | %ItemRemoved{}
           | %ItemChecked{}
           | %ItemUnchecked{}
+          | %ItemSectionSet{}
 end

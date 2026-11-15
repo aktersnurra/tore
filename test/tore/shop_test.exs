@@ -3,22 +3,11 @@ defmodule Tore.ShopTest do
 
   import Tore.AccountsFixtures, only: [home_scope: 0]
 
-  import Mox
-
   alias Tore.Shop
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
     Phoenix.PubSub.subscribe(Tore.PubSub, Shop.topic(home_scope()))
-
-    # Shop.add_item/check_item call Tore.LLM.text/3 to classify
-    # items, filter the pantry, and canonicalise pantry beliefs. Stub a
-    # response shape that satisfies all three: section for classify,
-    # items: [] for filter, and an empty items list for the canonicaliser
-    # (its caller falls back to raw names when nothing matches).
-    stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
-      {:ok, %{"section" => "other", "items" => []}, %{}}
-    end)
 
     :ok
   end
@@ -178,29 +167,5 @@ defmodule Tore.ShopTest do
       ])
 
     assert annotated.pantry_belief == nil
-  end
-
-  test "items_for filters only against pantry items still within their date" do
-    {:ok, _} =
-      Tore.Pantry.add_item(home_scope(), %{name: "färsk ost", expires_at: Tore.Clock.today()})
-
-    {:ok, _} =
-      Tore.Pantry.add_item(home_scope(), %{
-        name: "gammal ost",
-        expires_at: Date.add(Tore.Clock.today(), -1)
-      })
-
-    test_pid = self()
-
-    stub(Tore.MockLLM, :text, fn _system, user, _opts ->
-      send(test_pid, {:filter_prompt, user})
-      {:ok, %{"items" => []}, %{}}
-    end)
-
-    Shop.items_for(home_scope(), [])
-
-    assert_received {:filter_prompt, prompt}
-    assert prompt =~ "färsk ost"
-    refute prompt =~ "gammal ost"
   end
 end

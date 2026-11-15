@@ -237,8 +237,6 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
 
     test "keeps its line items, and leaves the pantry and the shopping list alone" do
       list_id = Tore.Streams.shop_list(member(), ~D[2026-11-02])
-      # Adding to the list sorts the item into a section once; a receipt asks nothing more.
-      expect(Tore.MockLLM, :text, fn _, _, _ -> {:ok, %{"section" => "dairy"}, @usage} end)
       {:ok, _} = Tore.Shop.add_item(member(), list_id, "Mjölk", Decimal.new(1), "l", nil)
 
       read(%{
