@@ -97,7 +97,7 @@ defmodule ToreWeb.ChatBarLiveTest do
     menu = bar(view) |> element(~s([data-role="menu"])) |> render()
 
     for path <-
-          ~w(/today /plan /shop /recipes /prep /cooking /settings/costs /settings/pantry /settings) do
+          ~w(/today /plan /shop /recipes /prep /cooking /settings/costs /settings) do
       assert menu =~ ~s(href="#{path}"), "menu has no #{path}"
     end
   end

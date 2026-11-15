@@ -576,15 +576,6 @@ defmodule ToreWeb.SettingsLive do
           <ul class="divide-y divide-[color:var(--hairline)] rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)]">
             <li>
               <.link
-                navigate={~p"/settings/pantry"}
-                class="flex items-center justify-between p-4 hover:bg-[var(--bg)]"
-              >
-                <span>{gettext("Approximate inventory")}</span>
-                <.icon name="hero-chevron-right" class="size-4 text-[color:var(--subtle)]" />
-              </.link>
-            </li>
-            <li>
-              <.link
                 navigate={~p"/settings/costs"}
                 class="flex items-center justify-between p-4 hover:bg-[var(--bg)]"
               >

@@ -106,7 +106,6 @@ defmodule ToreWeb.ChatBarLive do
       {~p"/prep", gettext("Prep")},
       {~p"/cooking", gettext("Household kitchen")},
       {~p"/settings/costs", gettext("Costs")},
-      {~p"/settings/pantry", gettext("Pantry")},
       {~p"/settings", gettext("Settings")}
     ]
   end
