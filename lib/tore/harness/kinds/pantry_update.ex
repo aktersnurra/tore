@@ -4,10 +4,11 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   by hand. `ctx` holds `:channel` (`:shelf_photo`, `:grocery_checkoff` or `:manual`), and
   `:image_binary` for a photo or `:items` otherwise. An item with an `:item_id` removes that row.
 
-  `resolve` sends photographed and checked-off names through the LLM canonicaliser (a name typed
-  by hand is kept as typed, with no model call). A household that can't use the model now keeps
-  checked-off names as written too, so `Tore.Pantry.upsert_belief/2` lands each on the ingredient
-  with that name or a new one. `verify` refuses an answer that
+  `resolve` sends photographed names through the LLM canonicaliser, since the photo already asked
+  the model. Every other name asks no model: `Tore.Pantry.Match` lands it on the ingredient with
+  its key or a name learned for one, and an unknown name is kept as written, so
+  `Tore.Pantry.upsert_belief/2` creates it. `Tore.Pantry.Learn` learns it later, once.
+  `verify` refuses an answer that
   names a catalogue ingredient the household doesn't have, so an invented key never creates one.
   It applies straight away, and undo puts each item back as it was.
   """
@@ -17,6 +18,7 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
   import Ecto.Query
 
   alias Tore.{Household, Pantry, Repo, Scope}
+  alias Tore.Pantry.Match
   alias Tore.Harness.Artifact.PantryBeliefUpdate
   alias Tore.Harness.Verifier.PantryVerifier
   alias Tore.Recipes.Ingredient
@@ -42,17 +44,13 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
 
   @impl true
   def resolve(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do
-    # Only additions read by the model need a catalogue name. Someone typing a name says what
-    # they mean, as before runs, and a removal names a row already there.
-    # Without the model, a checked-off name is kept as written, as one typed by hand is. A shelf
-    # photo never gets this far without it.
-    raws =
-      for %{change: :added, provenance: p, name: name} <- items,
-          p != "manual",
-          do: %{raw_name: name}
+    items = Enum.map(items, &matched(scope, &1))
+
+    # Only names read off a photo go to the model; a shelf photo never gets this far without it.
+    raws = for %{change: :added, provenance: "vision", name: name} <- items, do: %{raw_name: name}
 
     if raws == [] or Tore.LLM.check(scope) != :ok do
-      {:ok, update}
+      {:ok, %{update | items: items}}
     else
       with {:ok, norms} <- Pantry.canonicalise(scope, raws, Household.locale(scope)) do
         by_name = Map.new(norms, &{&1.raw_name, &1})
@@ -60,6 +58,21 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
       end
     end
   end
+
+  # A name Tore knows lands on its ingredient, with no model.
+  defp matched(_scope, %{change: :added, provenance: "vision"} = item), do: item
+
+  defp matched(scope, %{change: :added, name: name} = item) do
+    case Match.ingredient(scope, {:name, name}) do
+      {:ok, ingredient} ->
+        Map.merge(item, %{catalogue_name: ingredient.name, matched_key: ingredient.key})
+
+      :unknown ->
+        item
+    end
+  end
+
+  defp matched(_scope, item), do: item
 
   @impl true
   def verify(%PantryBeliefUpdate{items: items} = update, %{scope: scope}) do

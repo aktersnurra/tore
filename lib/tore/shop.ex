@@ -194,12 +194,19 @@ defmodule Tore.Shop do
     end
   end
 
-  @doc "Puts checked-off items (`name`, `quantity`, `unit`) into the pantry, as a pantry run."
+  @doc """
+  Puts checked-off items (`name`, `quantity`, `unit`) into the pantry, as a pantry run, with no
+  model. A name Tore hasn't seen is learned afterwards (`Tore.Pantry.Learn`).
+  """
   def pantry_checkoff(%Scope{} = scope, items) do
-    Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PantryUpdate, %{
-      channel: :grocery_checkoff,
-      items: items
-    })
+    result =
+      Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PantryUpdate, %{
+        channel: :grocery_checkoff,
+        items: items
+      })
+
+    Tore.Pantry.Learn.later(scope, Enum.map(items, & &1.name))
+    result
   end
 
   @doc """

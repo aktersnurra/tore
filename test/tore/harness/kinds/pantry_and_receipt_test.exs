@@ -69,11 +69,9 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "undo puts a bumped item back exactly as it was" do
-      canonicalise(["smör"])
       {:ok, _} = tick([%{name: "smör", quantity: 1, unit: "st"}])
       before = inventory()
 
-      canonicalise(["smör"])
       {:ok, run} = tick([%{name: "smör", quantity: 2, unit: "st"}])
       refute inventory() == before
 
@@ -81,17 +79,23 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       assert inventory() == before
     end
 
-    test "a name matched to a catalogue ingredient the household has lands on it" do
+    test "a ticked name lands on its ingredient, or on one learned for it, asking no model" do
       {:ok, mjolk} =
         %Ingredient{household_id: home_scope().household_id}
         |> Ingredient.changeset(%{name: "Mjölk", key: "mjolk"})
         |> Repo.insert()
 
-      canonicalise(["MJÖLK 1.5L"], %{"MJÖLK 1.5L" => {"Mjölk", "mjolk"}})
+      :ok = Tore.Pantry.Match.learn_alias(home_scope(), {:name, "Mellanmjölk"}, mjolk.id)
 
-      assert {:ok, %KitchenRun{status: :applied}} = tick([%{name: "MJÖLK 1.5L"}])
-      assert [%{ingredient_id: id}] = Pantry.list_inventory(home_scope())
+      assert {:ok, %KitchenRun{status: :applied}} = tick([%{name: "MJÖLK"}])
+      assert {:ok, %KitchenRun{status: :applied}} = tick([%{name: "mellanmjölk"}])
+      assert [%{ingredient_id: id, name: "mjölk"}] = Pantry.list_inventory(home_scope())
       assert id == mjolk.id
+    end
+
+    test "a ticked name Tore doesn't know is kept as written, asking no model" do
+      assert {:ok, %KitchenRun{status: :applied}} = tick([%{name: "Gräddfil"}])
+      assert names() == ["gräddfil"]
     end
 
     test "without AI, a ticked item lands on the ingredient with its name, or is kept as written" do
@@ -114,10 +118,17 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "an invented catalogue key fails the run and creates no ingredient" do
+      expect(Tore.MockLLM, :vision, fn _, _, _, _ ->
+        {:ok, %{"items" => [%{"name" => "gräddfil", "category" => "dairy"}]}, @usage}
+      end)
+
       canonicalise(["gräddfil"], %{"gräddfil" => {"Gräddfil", "invented_key"}})
 
       assert {:ok, %KitchenRun{status: :failed, failure_code: :unknown_ingredient}} =
-               tick([%{name: "gräddfil"}])
+               Runs.start(home_scope(), PantryUpdate, %{
+                 channel: :shelf_photo,
+                 image_binary: <<1>>
+               })
 
       assert names() == []
       refute Repo.get_by(Ingredient, [key: "invented_key"], Tore.Scope.repo_opts(home_scope()))
@@ -145,7 +156,6 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "Capture removing asks no model, and undo puts the row back as it was" do
-      canonicalise(["smör"])
       {:ok, _} = tick([%{name: "smör", quantity: 2, unit: "st"}])
       before = inventory()
       ctx = capture_ctx(home_scope().household_id)
@@ -161,12 +171,10 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "undoing a removal after the item came back leaves one row" do
-      canonicalise(["smör"])
       {:ok, _} = tick([%{name: "smör", quantity: 2, unit: "st"}])
       ctx = capture_ctx(home_scope().household_id)
 
       removed = Tore.Capture.Dispatch.remove_from_pantry("smör", ctx)
-      canonicalise(["smör"])
       {:ok, _} = tick([%{name: "smör", quantity: 1, unit: "st"}])
       {:ok, _} = Runs.revert(home_scope(), removed.run_stream_id)
 
