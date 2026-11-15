@@ -222,7 +222,7 @@ defmodule ToreWeb.CaptureLiveTest do
       assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
     end
 
-    test "an allergy is refused and points to the kitchen page", %{conn: conn} do
+    test "an allergy is refused and points to diet and allergies", %{conn: conn} do
       say_and_note("Anna är allergisk mot nötter.", self())
       {:ok, lv, _html} = live(conn, "/capture")
 
@@ -231,8 +231,8 @@ defmodule ToreWeb.CaptureLiveTest do
       assert answer =~ ~s("status":"rejected")
       assert answer =~ ~s("refused":"allergy")
 
-      eventually(fn -> render(lv) =~ "Öppna kökssidan" end)
-      assert has_element?(lv, ~s(a[href="/cooking"]))
+      eventually(fn -> render(lv) =~ "Öppna kost och allergier" end)
+      assert has_element?(lv, ~s(a[href="/settings#diet"]))
       refute render(lv) =~ "Noterat"
       assert notes() == []
 

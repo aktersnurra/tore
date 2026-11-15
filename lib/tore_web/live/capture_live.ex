@@ -278,10 +278,10 @@ defmodule ToreWeb.CaptureLive do
             <span>{msg.text}</span>
             <.link
               :if={Map.get(msg, :kitchen_link)}
-              navigate={~p"/cooking"}
+              navigate={~p"/settings#diet"}
               class="self-start text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
             >
-              {gettext("Open the kitchen page")}
+              {gettext("Open diet and allergies")}
             </.link>
             <.undo msg={msg} />
           </div>

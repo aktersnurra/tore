@@ -29,9 +29,19 @@ defmodule ToreWeb.SettingsLive do
        household: Household.get!(socket.assigns.current_scope),
        stores: Deals.list_stores(socket.assigns.current_scope),
        store_url: "",
-       store_error: nil
+       store_error: nil,
+       prefs: Household.get_preferences(scope)
      )}
   end
+
+  @dietary_restrictions ~w(vegetarian vegan gluten_free lactose_free low_carb high_protein nut_free)
+  @allergies ~w(nuts shellfish gluten lactose eggs)
+
+  def handle_event("toggle_restriction", %{"item" => value}, socket),
+    do: toggle_preference(socket, :dietary_restrictions, value)
+
+  def handle_event("toggle_allergy", %{"item" => value}, socket),
+    do: toggle_preference(socket, :allergies, value)
 
   def handle_event("add_store", %{"url" => url}, socket) do
     case Deals.add_store(socket.assigns.current_scope, url) do
@@ -195,7 +205,59 @@ defmodule ToreWeb.SettingsLive do
   defp feature_label("suggest_substitution"), do: gettext("Substitution suggestions")
   defp feature_label(f), do: f
 
+  defp toggle_preference(socket, field, value) do
+    current = Map.get(socket.assigns.prefs, field) || []
+    updated = if value in current, do: List.delete(current, value), else: current ++ [value]
+
+    case Household.update_preferences(socket.assigns.current_scope, %{field => updated}) do
+      {:ok, prefs} -> {:noreply, assign(socket, prefs: prefs)}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  defp preference_label("vegetarian"), do: gettext("Vegetarian")
+  defp preference_label("vegan"), do: gettext("Vegan")
+  defp preference_label("gluten_free"), do: gettext("Gluten-free")
+  defp preference_label("lactose_free"), do: gettext("Lactose-free")
+  defp preference_label("low_carb"), do: gettext("Low carb")
+  defp preference_label("high_protein"), do: gettext("High protein")
+  defp preference_label("nut_free"), do: gettext("Nut-free")
+  defp preference_label("nuts"), do: gettext("Nuts")
+  defp preference_label("shellfish"), do: gettext("Shellfish")
+  defp preference_label("gluten"), do: gettext("Gluten")
+  defp preference_label("lactose"), do: gettext("Lactose")
+  defp preference_label("eggs"), do: gettext("Eggs")
+
+  attr :items, :list, required: true
+  attr :chosen, :list, required: true
+  attr :event, :string, required: true
+
+  defp preference_chips(assigns) do
+    ~H"""
+    <div class="flex flex-wrap gap-2">
+      <button
+        :for={item <- @items}
+        type="button"
+        phx-click={@event}
+        phx-value-item={item}
+        aria-pressed={to_string(item in (@chosen || []))}
+        class={[
+          "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+          item in (@chosen || []) &&
+            "border-[color:var(--text)] bg-[var(--text)] text-[color:var(--bg)]",
+          item not in (@chosen || []) &&
+            "border-[color:var(--border)] bg-[var(--surface)] text-[color:var(--muted)] hover:text-[color:var(--text)]"
+        ]}
+      >
+        {preference_label(item)}
+      </button>
+    </div>
+    """
+  end
+
   def render(assigns) do
+    assigns = assign(assigns, dietary_restrictions: @dietary_restrictions, allergies: @allergies)
+
     ~H"""
     <Layouts.app
       flash={@flash}
@@ -339,6 +401,29 @@ defmodule ToreWeb.SettingsLive do
                 </button>
               </div>
             </div>
+          </section>
+
+          <%!-- Diet and allergies: every plan is checked against these --%>
+          <section
+            id="diet"
+            class="px-6 pt-5 pb-5 border-t first:border-t-0 border-[color:var(--hairline)]"
+          >
+            <h2 class="section-label mb-1">{gettext("Diet and allergies")}</h2>
+            <p class="mb-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {gettext("Tore checks every plan against these. Tastes it learns as you plan.")}
+            </p>
+            <p class="mb-2 text-[color:var(--text)]" style="font-size: var(--t-meta);">
+              {gettext("We eat")}
+            </p>
+            <.preference_chips
+              items={@dietary_restrictions}
+              chosen={@prefs.dietary_restrictions}
+              event="toggle_restriction"
+            />
+            <p class="mt-4 mb-2 text-[color:var(--text)]" style="font-size: var(--t-meta);">
+              {gettext("Never include")}
+            </p>
+            <.preference_chips items={@allergies} chosen={@prefs.allergies} event="toggle_allergy" />
           </section>
 
           <%!-- Household --%>
