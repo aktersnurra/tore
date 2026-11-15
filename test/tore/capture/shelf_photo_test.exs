@@ -53,7 +53,6 @@ defmodule Tore.Capture.ShelfPhotoTest do
     bubble = Dispatch.update_pantry_from_shelf(photo(1), ctx)
 
     assert %KitchenRun{status: :applied} = Runs.get(home_scope(), bubble.run_stream_id)
-    refute Map.has_key?(bubble, :review_link)
     for name <- names, do: assert(bubble.text =~ name)
 
     assert Enum.map(Pantry.list_inventory(home_scope()), & &1.name) |> Enum.sort() ==

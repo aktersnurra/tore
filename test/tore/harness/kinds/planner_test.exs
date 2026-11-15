@@ -150,79 +150,31 @@ defmodule Tore.Harness.Kinds.PlannerTest do
         pending_assignment: %{slot_key: "tue_dinner", servings: 2}
       }
 
-      {:ok, run} =
-        Runs.submit(home_scope(), PlannerCommand, proposal, command(plan, "ramen tuesday"))
-
-      %{run: run, proposal: proposal}
+      %{proposal: proposal, ctx: command(plan, "ramen tuesday")}
     end
 
-    test "waits for review, and confirming saves it on the day it was meant for", %{
-      run: run,
+    test "is saved straight away on the day it was meant for, and undo deletes it", %{
       plan: plan,
-      proposal: proposal
+      proposal: proposal,
+      ctx: ctx
     } do
-      assert %KitchenRun{status: :needs_user, artifacts: [%RecipeProposal{}]} = run
-
-      assert {:ok, %KitchenRun{status: :applied} = applied} =
-               Runs.confirm(home_scope(), run.id, proposal)
+      assert {:ok, %KitchenRun{status: :applied} = run} =
+               Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
 
       assert %{title: "Tofu ramen", id: id} =
                Recipes.list(home_scope()) |> Enum.find(&(&1.title == "Tofu ramen"))
 
       assert {%{"tue_dinner" => %{recipe_id: ^id, servings: 2}}, _} = slots(plan)
 
-      assert {:ok, _} = Runs.revert(home_scope(), applied.id)
+      assert {:ok, _} = Runs.revert(home_scope(), run.id)
       refute Recipes.get(home_scope(), id)
       assert {slots, _} = slots(plan)
       refute Map.has_key?(slots, "tue_dinner")
     end
 
-    test "an edited proposal saves the edits, ingredients and all", %{
-      run: run,
-      proposal: proposal
-    } do
-      edited = %{
-        proposal
-        | title: "Vegan ramen",
-          ingredients: proposal.ingredients ++ [%{name: "miso", quantity: "2", unit: "msk"}]
-      }
-
-      {:ok, _} = Runs.confirm(home_scope(), run.id, edited)
-
-      %{id: id} = Enum.find(Recipes.list(home_scope()), &(&1.title == "Vegan ramen"))
-      assert length(Recipes.get!(home_scope(), id).recipe_ingredients) == 2
-    end
-
-    test "an edit the verifier refuses saves nothing, and the recipe still waits", %{
-      run: run,
-      proposal: proposal
-    } do
-      assert {:error, {:verifier_failed, :no_ingredients, :reject}} =
-               Runs.confirm(home_scope(), run.id, %{proposal | ingredients: []})
-
-      assert %KitchenRun{status: :needs_user} = Runs.get(home_scope(), run.id)
-      refute Enum.any?(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
-    end
-
-    test "discarding saves nothing and leaves the day", %{run: run, plan: plan} do
-      assert {:ok, %KitchenRun{status: :discarded}} =
-               Runs.discard(home_scope(), run.id, :user_discarded)
-
-      refute Enum.any?(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
-      assert {slots, _} = slots(plan)
-      refute Map.has_key?(slots, "tue_dinner")
-    end
-
-    test "can be confirmed once", %{run: run, proposal: proposal} do
-      {:ok, _} = Runs.confirm(home_scope(), run.id, proposal)
-
-      assert {:error, {:invalid_transition, :applied, :confirm}} =
-               Runs.confirm(home_scope(), run.id, proposal)
-    end
-
-    test "is saved as made by whoever confirms it", %{run: run, proposal: proposal} do
+    test "is saved as made by whoever asked for it", %{proposal: proposal, ctx: ctx} do
       person = scope_fixture(user_fixture())
-      {:ok, _} = Runs.confirm(person, run.id, proposal)
+      {:ok, _} = Runs.submit(person, PlannerCommand, proposal, ctx)
 
       assert %{created_by: by} =
                Enum.find(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
@@ -230,37 +182,35 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       assert by == person.user_id
     end
 
-    test "undo still works after the recipe was deleted by hand", %{run: run, proposal: proposal} do
-      {:ok, applied} = Runs.confirm(home_scope(), run.id, proposal)
+    test "undo still works after the recipe was deleted by hand", %{
+      proposal: proposal,
+      ctx: ctx
+    } do
+      {:ok, applied} = Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
       recipe = Enum.find(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
       {:ok, _} = Recipes.delete(home_scope(), recipe)
 
       assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(home_scope(), applied.id)
     end
 
-    test "a day pinned while it waited is left alone, and nothing is saved", %{
-      run: run,
+    test "a pinned day is left alone, and nothing is saved", %{
       plan: plan,
-      proposal: proposal
+      proposal: proposal,
+      ctx: ctx
     } do
       {:ok, _} = Planning.pin_slot(home_scope(), plan, "tue_dinner", true)
 
-      assert {:error, {:verifier_failed, :slot_pinned, {:edit_plan, ["tue_dinner"]}}} =
-               Runs.confirm(home_scope(), run.id, proposal)
+      assert {:ok, %KitchenRun{status: :failed, failure_code: :slot_pinned}} =
+               Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
 
-      assert %KitchenRun{status: :needs_user} = Runs.get(home_scope(), run.id)
       refute Enum.any?(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
     end
 
-    test "a day marked eating out while it waited is left alone", %{
-      run: run,
-      plan: plan,
-      proposal: proposal
-    } do
+    test "a day marked eating out is left alone", %{plan: plan, proposal: proposal, ctx: ctx} do
       {:ok, _} = Planning.eat_out(home_scope(), plan, "tue_dinner", %{})
 
-      assert {:error, {:verifier_failed, :slot_eating_out, _}} =
-               Runs.confirm(home_scope(), run.id, proposal)
+      assert {:ok, %KitchenRun{status: :failed, failure_code: :slot_eating_out}} =
+               Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
 
       assert {%{"tue_dinner" => slot}, _} = slots(plan)
       assert State.eating_out?(slot)

@@ -44,12 +44,9 @@ defmodule ToreWeb.ChatBarLive do
   end
 
   defp load(socket) do
-    scope = socket.assigns.current_scope
-    reviews = length(Runs.list_reviews(scope))
-
     if socket.assigns.suggested?,
-      do: assign(socket, reviews: reviews),
-      else: assign(socket, reviews: reviews, swaps: Home.current(scope).swaps)
+      do: socket,
+      else: assign(socket, swaps: Home.current(socket.assigns.current_scope).swaps)
   end
 
   @impl true
@@ -100,7 +97,7 @@ defmodule ToreWeb.ChatBarLive do
   defp here?(%{action: {:open, screen}}, path), do: Home.path(screen) == path
   defp here?(_swap, _path), do: false
 
-  defp menu_items(reviews) do
+  defp menu_items do
     [
       {~p"/today", gettext("Today")},
       {~p"/plan", gettext("Plan")},
@@ -108,11 +105,6 @@ defmodule ToreWeb.ChatBarLive do
       {~p"/recipes", gettext("Recipes")},
       {~p"/prep", gettext("Prep")},
       {~p"/cooking", gettext("Household kitchen")},
-      {~p"/review",
-       if(reviews == 0,
-         do: gettext("Review"),
-         else: ngettext("Review (%{count})", "Review (%{count})", reviews, count: reviews)
-       )},
       {~p"/settings/costs", gettext("Costs")},
       {~p"/settings/pantry", gettext("Pantry")},
       {~p"/settings", gettext("Settings")}
@@ -123,7 +115,7 @@ defmodule ToreWeb.ChatBarLive do
   def render(%{current_scope: nil} = assigns), do: ~H""
 
   def render(assigns) do
-    assigns = assign(assigns, shown: shown_swaps(assigns), items: menu_items(assigns.reviews))
+    assigns = assign(assigns, shown: shown_swaps(assigns), items: menu_items())
 
     ~H"""
     <div id="chat-bar-here" phx-hook=".Here">
@@ -142,16 +134,7 @@ defmodule ToreWeb.ChatBarLive do
         >
           <%= for {{path, label}, i} <- Enum.with_index(@items) do %>
             <hr :if={i == 3} class="mx-4 my-2 border-[color:var(--border)]" />
-            <a
-              :if={path == ~p"/review"}
-              href={path}
-              data-role="menu-item"
-              class={item_class(path, @path, i < 3)}
-            >
-              {label}
-            </a>
             <.link
-              :if={path != ~p"/review"}
               navigate={path}
               data-role="menu-item"
               aria-current={if path == @path, do: "page"}

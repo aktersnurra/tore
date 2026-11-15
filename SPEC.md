@@ -354,13 +354,13 @@ requires explicit confirmation before anything is written.
 |---|---|---|
 | **Tier 0 — Surface only** | Capture's `suggest_from_fridge`, `suggest_meals_from_pantry` and `quick_swaps` tools; `:home_pick_run` | They write no domain state. The tools need no run; the home pick is a run only so its pick is stored, and its undo is empty. Acting on a suggestion is a separate request. |
 | **Tier 1 — Reversible domain edits** | `:planner_command_run`, `:weekly_planning_run`, `:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`, `:pantry_belief_update_run`, `:memory_review_run`, `:memory_update_run` | Auto-apply after verifier passes. The run receipt is visible. Undo is one tap. |
-| **Tier 2 — Reversible ingestion** | `:receipt_ingestion_run`, `:recipe_ingestion_run`, and a planner run that proposes a recipe | Reviewed when the kind's `review_question/1` asks, per the rule below. Otherwise applies straight away with undo. |
+| **Tier 2 — Reversible ingestion** | `:receipt_ingestion_run`, `:recipe_ingestion_run`, and a planner run that proposes a recipe | Applies straight away with undo. Capture shows what was saved, with Undo. |
 | **Tier 3 — Destructive or sensitive** | Bulk operations like *clear the week*; any change touching dietary constraints or allergens | Never auto-applies. Proposal is produced; commit requires explicit user confirmation. |
 
 A kind decides whether to ask for review from its proposal alone, in
 `review_question/1`:
 
-- **Recipes** always wait for review, from a link, a photo or the planner.
+- **Recipes** never wait (since 2026-11-15, when the review screen was removed). A recipe from a link, a photo or the planner is saved once `RecipeProposalVerifier` passes, and undo deletes it.
 - **Receipts** never wait. A readable receipt applies straight away with undo, and one without a store, date or total fails.
 
 Shelf photos are Tier 1 and apply straight away, since one misread item is one tap to fix.
@@ -368,7 +368,7 @@ Shelf photos are Tier 1 and apply straight away, since one misread item is one t
 **Hard rules.**
 
 - Review is decided by the kind's code from the proposal, never by the model. The model cannot escalate or de-escalate.
-- Tier 3 is the only tier with a confirm modal. Tiers 0 and 1, and receipts, use act-then-undo; recipes wait for review. The UI never asks "are you sure?" for Tier 1 or 2.
+- Tier 3 is the only tier with a confirm modal. Tiers 0, 1 and 2 use act-then-undo. The UI never asks "are you sure?" for Tier 1 or 2.
 - A run that touches household preferences (diet, allergies) is Tier 3 regardless of its declared kind.
 
 #### A.6.2 — Resolved references, never raw IDs
@@ -582,11 +582,10 @@ thinking-state and failure-state and undo and "Why this?" patterns.
 
 The two specs meet at artifact schemas. Concretely:
 
-- A run's artifact (§A.3) drives Capture's one-line receipt (docs/specs/ui.md §7.1) and the run review page's card (§5.2).
+- A run's artifact (§A.3) drives Capture's one-line receipt (docs/specs/ui.md §7.1).
 - `KitchenRun.phase` (§A.2) drives docs/specs/ui.md §7.2's operational thinking-state strip.
 - A failed run's `failure_code` and `repair_action` (§A.5) drive docs/specs/ui.md §7.3's failure-state card.
 - Per-item `rationale` and `evidence` on every artifact (§A.7) drive docs/specs/ui.md §7.5's "Why this?" expansion.
-- `RecipeProposal` fields drive the recipe proposal on the run review page.
 - Household memory's parts and how full each is (§1) drive Settings' kitchen memory section.
 
 When docs/specs/ui.md adds a surface that needs an artifact field this spec didn't
@@ -614,7 +613,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
-| Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it, a person reviews it, then it's saved |
+| Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
 

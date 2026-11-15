@@ -3,14 +3,12 @@ defmodule Tore.Harness.Kinds.Planner do
   What the plan kinds share: running `PlannerAgent`, and verifying and applying its proposal.
 
   A proposal is a `PlanDiff`, applied straight away once `PlanVerifier` passes, or a
-  `RecipeProposal`, which always waits for review: generated or imported recipes never save
-  themselves. Confirming one saves the recipe and assigns it to the slot the planner meant it for.
+  `RecipeProposal`, which saves the recipe once `RecipeProposalVerifier` passes and assigns it
+  to the slot the planner meant it for. Undo deletes the recipe.
 
   Applying records each touched slot as it was, so undo puts back what was there rather than
   clearing it. Plan screens hear about the change after the run commits.
   """
-
-  use Gettext, backend: ToreWeb.Gettext
 
   alias Tore.{Household, Planning, Recipes, Scope}
   alias Tore.Harness.{Capsules, Handles, PlanDiffBuilder}
@@ -79,9 +77,9 @@ defmodule Tore.Harness.Kinds.Planner do
         existing_recipes: Recipes.catalog_fingerprints(scope)
       })
 
-  @spec review_question(PlanDiff.t() | RecipeProposal.t()) :: String.t() | nil
-  def review_question(%PlanDiff{}), do: nil
-  def review_question(%RecipeProposal{}), do: gettext("Review this recipe before saving it.")
+  # Nothing waits for review: a recipe is saved straight away, and undo deletes it.
+  @spec review_question(PlanDiff.t() | RecipeProposal.t()) :: nil
+  def review_question(_proposal), do: nil
 
   @spec apply_proposal(PlanDiff.t() | RecipeProposal.t(), map()) ::
           {:ok, Tore.Harness.Undo.t(), [struct()]} | {:fail, atom(), term()} | {:error, term()}

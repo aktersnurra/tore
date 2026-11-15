@@ -219,22 +219,6 @@ defmodule ToreWeb.CaptureLive do
           ]}
         >
           <div
-            :if={Map.get(msg, :review_link)}
-            class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%]"
-          >
-            <p class="text-sm text-[color:var(--text)] mb-2">{msg.text}</p>
-            <.link
-              href={
-                if msg[:stream_id],
-                  do: ~p"/runs/#{msg.stream_id}?from=/capture",
-                  else: ~p"/review"
-              }
-              class="text-sm text-[color:var(--accent)] font-semibold whitespace-nowrap"
-            >
-              {gettext("Review")}
-            </.link>
-          </div>
-          <div
             :if={Map.get(msg, :pantry_suggestions)}
             class="bg-[var(--surface)] border border-[color:var(--border)] rounded-[var(--r-lg)] px-4 py-3 max-w-[80%] space-y-2"
           >
@@ -282,10 +266,7 @@ defmodule ToreWeb.CaptureLive do
             <.undo msg={msg} />
           </div>
           <div
-            :if={
-              !Map.get(msg, :review_link) &&
-                !Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link)
-            }
+            :if={!Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link)}
             class={[
               "max-w-[80%] rounded-[var(--r-lg)] px-4 py-2.5 text-sm leading-relaxed flex flex-col gap-1",
               msg.role == :user && "bg-[color:var(--accent)] text-[color:var(--on-accent)]",

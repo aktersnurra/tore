@@ -2,7 +2,6 @@ defmodule ToreWeb.ChatBarLiveTest do
   use ToreWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
-  import Tore.RunFixtures
 
   alias Tore.Harness.Runs
   alias Tore.Harness.Artifact.HomePick
@@ -89,8 +88,7 @@ defmodule ToreWeb.ChatBarLiveTest do
     assert %{"return_to" => "/runs/run-1?from=%2F"} = query(to)
   end
 
-  test "the menu lists every page and the reviews waiting", %{conn: conn} do
-    pending_review_fixture(home_scope())
+  test "the menu lists every page", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/today")
 
     refute has_element?(bar(view), ~s([data-role="menu"]))
@@ -99,11 +97,9 @@ defmodule ToreWeb.ChatBarLiveTest do
     menu = bar(view) |> element(~s([data-role="menu"])) |> render()
 
     for path <-
-          ~w(/today /plan /shop /recipes /prep /cooking /review /settings/costs /settings/pantry /settings) do
+          ~w(/today /plan /shop /recipes /prep /cooking /settings/costs /settings/pantry /settings) do
       assert menu =~ ~s(href="#{path}"), "menu has no #{path}"
     end
-
-    assert menu =~ "Granska (1)"
   end
 
   test "a Capture turn's swaps replace the pick's until the next pick", %{conn: conn, user: user} do

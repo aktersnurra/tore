@@ -94,7 +94,6 @@ defmodule Tore.Capture.DispatchTest do
       bubble = Dispatch.ingest_receipt(image, capture_ctx(household_id))
 
       assert bubble.text =~ "already uploaded"
-      refute Map.has_key?(bubble, :review_link)
     end
 
     test "is read again when the first try failed" do

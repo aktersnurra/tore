@@ -25,8 +25,7 @@ defmodule Tore.HomeTest do
         unplanned_this_week: 2,
         unplanned_next_week: 7,
         list_items: 4,
-        items_left: 3,
-        reviews: 0
+        items_left: 3
       },
       Map.new(overrides)
     )
@@ -55,7 +54,7 @@ defmodule Tore.HomeTest do
   end
 
   describe "facts/2" do
-    test "reads tonight, what's unplanned, the list and the reviews waiting" do
+    test "reads tonight, what's unplanned and the list" do
       scope = home_scope()
       plan_tonight(scope)
 
@@ -69,7 +68,6 @@ defmodule Tore.HomeTest do
       {:ok, state} = Shop.load_list(scope, list_id)
       [item | _] = Map.values(state.items)
       {:ok, _} = Shop.check_item(scope, list_id, item.id, nil)
-      pending_review_fixture(scope)
 
       assert %{
                tonight: :planned,
@@ -77,23 +75,17 @@ defmodule Tore.HomeTest do
                unplanned_this_week: 5,
                unplanned_next_week: 7,
                list_items: 2,
-               items_left: 1,
-               reviews: 1
+               items_left: 1
              } = Home.facts(scope, @tuesday_evening)
     end
 
     test "an empty week has nothing planned tonight" do
-      assert %{tonight: :empty, planned_this_week: 0, list_items: 0, reviews: 0} =
+      assert %{tonight: :empty, planned_this_week: 0, list_items: 0} =
                Home.facts(home_scope(), @tuesday_evening)
     end
   end
 
   describe "fallback/1" do
-    test "a review waiting wins over every other rule" do
-      assert %{screen: :review} =
-               Home.fallback(facts(reviews: 1, now: ~N[2026-11-14 09:00:00]))
-    end
-
     test "Saturday before two opens the list, after it tonight" do
       assert %{screen: :shop} = Home.fallback(facts(now: ~N[2026-11-14 13:59:00]))
       assert %{screen: :today} = Home.fallback(facts(now: ~N[2026-11-14 14:00:00]))
@@ -106,21 +98,15 @@ defmodule Tore.HomeTest do
 
     test "otherwise tonight, with swaps to the other main screens and never its own" do
       assert %{screen: :today, swaps: [:open_plan, :open_shop]} = Home.fallback(facts([]))
-
-      assert %{screen: :review, swaps: [:open_today, :open_plan, :open_shop]} =
-               Home.fallback(facts(reviews: 2))
     end
   end
 
-  describe "screens_for/1 and swaps_for/1" do
-    test "leave out what makes no sense now" do
-      refute :review in Home.screens_for(facts(reviews: 0))
-      assert :review in Home.screens_for(facts(reviews: 1))
-
-      none = Home.swaps_for(facts(tonight: :planned, unplanned_next_week: 0, reviews: 0))
+  describe "swaps_for/1" do
+    test "leaves out what makes no sense now" do
+      none = Home.swaps_for(facts(tonight: :planned, unplanned_next_week: 0))
 
       refute Enum.any?(
-               [:open_review, :plan_next_week, :suggest_tonight, :build_list],
+               [:plan_next_week, :suggest_tonight, :build_list],
                &(&1 in none)
              )
 
@@ -132,12 +118,11 @@ defmodule Tore.HomeTest do
 
   describe "questions/1 and pick/2" do
     test "ask a choice among the screens that make sense and a yes/no per swap" do
-      questions = Home.questions(facts(reviews: 0))
+      questions = Home.questions(facts([]))
 
       assert %{"type" => "choice", "criteria" => criteria} = questions["screen"]
-      refute Map.has_key?(criteria, "review")
+      assert Map.keys(criteria) == ~w(costs plan shop today)
       assert %{"type" => "noul", "instructions" => _} = questions["swap_open_shop"]
-      refute Map.has_key?(questions, "swap_open_review")
     end
 
     test "a sure choice is used, with likely swaps best first, at most three, never its own screen" do
@@ -162,7 +147,7 @@ defmodule Tore.HomeTest do
       assert %HomePick{source: :rules, screen: :today} = Home.pick(unsure, facts([]))
 
       gone = %{"screen" => %{"choice" => "review", "confidence" => 0.9}}
-      assert %HomePick{source: :rules} = Home.pick(gone, facts(reviews: 0))
+      assert %HomePick{source: :rules} = Home.pick(gone, facts([]))
 
       assert %HomePick{source: :rules} = Home.pick(%{}, facts([]))
     end
@@ -239,19 +224,6 @@ defmodule Tore.HomeTest do
       )
 
       assert %{stale?: true} = Home.current(scope, @tuesday_evening)
-    end
-
-    test "a stored review that has since been handled opens on the fixed rule's screen" do
-      scope = home_scope()
-
-      stored_pick(scope, %HomePick{
-        screen: :review,
-        source: :model,
-        swaps: [:open_review, :open_plan]
-      })
-
-      assert %{screen: :today, swaps: swaps} = Home.current(scope, @tuesday_evening)
-      refute :open_review in Enum.map(swaps, & &1.key)
     end
   end
 

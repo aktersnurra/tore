@@ -9,8 +9,7 @@ defmodule Tore.Home do
   picks from the same facts.
 
   The model only chooses among screens and swaps that make sense now (`screens_for/1`,
-  `swaps_for/1`), and the stored pick is narrowed the same way when it is read, so a review
-  that has since been handled is never the screen the app opens on.
+  `swaps_for/1`), and the stored pick is narrowed the same way when it is read.
 
   Times are the household's clock (`Tore.Clock`).
   """
@@ -24,12 +23,11 @@ defmodule Tore.Home do
   alias Tore.Harness.Artifact.HomePick
   alias Tore.Harness.Capsules.WeekPlanCapsule
 
-  @screens [:today, :plan, :shop, :review, :costs]
+  @screens [:today, :plan, :shop, :costs]
   @swap_keys [
     :open_today,
     :open_plan,
     :open_shop,
-    :open_review,
     :plan_next_week,
     :suggest_tonight,
     :build_list
@@ -40,12 +38,11 @@ defmodule Tore.Home do
   @stale_after_seconds 3600
   @refresh_every_seconds 600
 
-  @type screen :: :today | :plan | :shop | :review | :costs
+  @type screen :: :today | :plan | :shop | :costs
   @type swap_key ::
           :open_today
           | :open_plan
           | :open_shop
-          | :open_review
           | :plan_next_week
           | :suggest_tonight
           | :build_list
@@ -61,8 +58,7 @@ defmodule Tore.Home do
           unplanned_this_week: non_neg_integer(),
           unplanned_next_week: non_neg_integer(),
           list_items: non_neg_integer(),
-          items_left: non_neg_integer(),
-          reviews: non_neg_integer()
+          items_left: non_neg_integer()
         }
   @type current :: %{screen: screen(), swaps: [swap()], stale?: boolean()}
 
@@ -80,7 +76,6 @@ defmodule Tore.Home do
   def path(:today), do: "/today"
   def path(:plan), do: "/plan"
   def path(:shop), do: "/shop"
-  def path(:review), do: "/review"
   def path(:costs), do: "/settings/costs"
 
   # ----- reading the pick ------------------------------------------------------------------
@@ -169,8 +164,7 @@ defmodule Tore.Home do
 
   @doc """
   What the pick is made from, worked out in code, since a decision model doesn't do date
-  maths: tonight's dinner, what's unplanned from today to Sunday and next week, the list and
-  the reviews waiting.
+  maths: tonight's dinner, what's unplanned from today to Sunday and next week, and the list.
   """
   @spec facts(Scope.t(), NaiveDateTime.t()) :: facts()
   def facts(%Scope{} = scope, %NaiveDateTime{} = now) do
@@ -188,8 +182,7 @@ defmodule Tore.Home do
       unplanned_this_week: Enum.count(rest_of_week, &(&1.status == :empty)),
       unplanned_next_week: Enum.count(next_week, &(&1.status == :empty)),
       list_items: length(items),
-      items_left: Enum.count(items, &(not &1.checked)),
-      reviews: length(Runs.list_reviews(scope))
+      items_left: Enum.count(items, &(not &1.checked))
     }
   end
 
@@ -207,20 +200,14 @@ defmodule Tore.Home do
   defp tonight(%{status: :eating_out}), do: :eating_out
   defp tonight(_slot), do: :empty
 
-  @doc "The screens that make sense now: Review only with something waiting."
+  @doc "The screens that make sense now: all of them."
   @spec screens_for(facts()) :: [screen()]
-  def screens_for(facts) do
-    Enum.filter(@screens, fn
-      :review -> facts.reviews > 0
-      _screen -> true
-    end)
-  end
+  def screens_for(_facts), do: @screens
 
   @doc "The swaps that make sense now."
   @spec swaps_for(facts()) :: [swap_key()]
   def swaps_for(facts) do
     Enum.filter(@swap_keys, fn
-      :open_review -> facts.reviews > 0
       :plan_next_week -> facts.unplanned_next_week > 0
       :suggest_tonight -> facts.tonight == :empty
       :build_list -> facts.list_items == 0 and facts.planned_this_week > 0
@@ -231,7 +218,7 @@ defmodule Tore.Home do
   # ----- the fixed rule ----------------------------------------------------------------------
 
   @doc """
-  The pick without a model: a review waiting comes first, then the list on Saturday morning,
+  The pick without a model: the list on Saturday morning,
   next week's plan on Sunday evening, and otherwise tonight. The swaps open the other main
   screens.
   """
@@ -242,14 +229,13 @@ defmodule Tore.Home do
 
     screen =
       cond do
-        facts.reviews > 0 -> :review
         day == 6 and hour < 14 -> :shop
         day == 7 and hour >= 16 -> :plan
         true -> :today
       end
 
     swaps =
-      [:open_today, :open_plan, :open_shop, :open_review]
+      [:open_today, :open_plan, :open_shop]
       |> Enum.filter(&(&1 in swaps_for(facts) and &1 != open(screen)))
       |> Enum.take(@max_swaps)
 
@@ -285,7 +271,6 @@ defmodule Tore.Home do
       "#{facts.unplanned_this_week} dinners from today to Sunday are unplanned.",
       "#{facts.unplanned_next_week} of next week's 7 dinners are unplanned.",
       "The shopping list has #{facts.list_items} items, #{facts.items_left} not yet bought.",
-      "#{facts.reviews} things wait for the household to review.",
       plan,
       Tore.Household.Memory.snapshot(scope)
     ]
@@ -347,10 +332,6 @@ defmodule Tore.Home do
   defp screen_criterion(:plan), do: "This week's or next week's dinners, to plan or change them."
   defp screen_criterion(:shop), do: "The shopping list, to buy groceries."
 
-  defp screen_criterion(:review),
-    do:
-      "Something Tore read, such as a recipe or a receipt, waiting for the household to check it."
-
   defp screen_criterion(:costs), do: "What the household has spent on food this month."
 
   defp swap_criterion(:open_today), do: "The household wants to see tonight's dinner."
@@ -359,7 +340,6 @@ defmodule Tore.Home do
     do: "The household wants to look at or change this week's plan."
 
   defp swap_criterion(:open_shop), do: "The household is shopping, or about to."
-  defp swap_criterion(:open_review), do: "Something waits for the household to review it."
   defp swap_criterion(:plan_next_week), do: "Next week's dinners need planning now."
   defp swap_criterion(:suggest_tonight), do: "The household needs an idea for dinner tonight."
 
@@ -425,7 +405,6 @@ defmodule Tore.Home do
   def swap(:open_today), do: open_swap(:open_today, gettext("Tonight"), :today)
   def swap(:open_plan), do: open_swap(:open_plan, gettext("This week's plan"), :plan)
   def swap(:open_shop), do: open_swap(:open_shop, gettext("Shopping list"), :shop)
-  def swap(:open_review), do: open_swap(:open_review, gettext("Review"), :review)
 
   def swap(:plan_next_week),
     do: prompt_swap(:plan_next_week, gettext("Plan next week"), gettext("Plan next week"))

@@ -170,8 +170,8 @@ defmodule Tore.LLM.PlannerAgent do
         # at start. Read tools that resolve a ref themselves (generate_recipe_variant)
         # need the live registry, or a ref from resolve_recipe reads as unknown.
         case tool.run.(call.args, tool_ctx(state), state.working_plan) do
-          # A proposal ends the loop: the run parks in :needs_user for the
-          # user to confirm, so there is nothing more for the model to do.
+          # A proposal ends the loop: the run verifies and saves it, so there
+          # is nothing more for the model to do.
           {:proposal, proposal, pending, next_plan} ->
             state =
               %{state | working_plan: next_plan}

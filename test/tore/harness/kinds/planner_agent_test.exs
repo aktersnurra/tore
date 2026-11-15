@@ -90,7 +90,7 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       expect(Tore.MockLLM, :text, fn _, _, _ -> {:ok, payload, @usage} end)
     end
 
-    test "waits for review, carrying the day it was meant for", %{plan: plan, ramen: ramen} do
+    test "is saved on the day it was meant for", %{plan: plan, ramen: ramen} do
       variant(
         ramen,
         %{"instruction" => "make it vegetarian", "slot_key" => "mon_dinner", "servings" => 4},
@@ -105,14 +105,9 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
         }
       )
 
-      assert {:ok,
-              %KitchenRun{
-                status: :needs_user,
-                question: question,
-                artifacts: [%RecipeProposal{} = proposal]
-              }} = Runs.start(home_scope(), PlannerCommand, command(plan, "vegetarian ramen"))
+      assert {:ok, %KitchenRun{status: :applied, artifacts: [%RecipeProposal{} = proposal]}} =
+               Runs.start(home_scope(), PlannerCommand, command(plan, "vegetarian ramen"))
 
-      assert question =~ "Review"
       assert proposal.title == "Vegetarian Miso Ramen"
       assert proposal.source == :generation
       assert proposal.pending_assignment == %{slot_key: "mon_dinner", servings: 4}

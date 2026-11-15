@@ -36,23 +36,21 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
 
   defp titles, do: home_scope() |> Recipes.list() |> Enum.map(& &1.title)
 
-  test "a recipe photo waits for review, and confirming saves it until undone", %{ctx: ctx} do
+  test "a recipe photo is saved straight away, and undo deletes it", %{ctx: ctx} do
     expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, @soup, @usage} end)
 
     bubble = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
 
-    assert %{review_link: true, stream_id: id} = bubble
+    assert %{run_stream_id: id} = bubble
     assert bubble.text =~ "Morotssoppa"
-    assert titles() == []
 
     assert %KitchenRun{
-             status: :needs_user,
+             status: :applied,
              kind: "recipe_ingestion_run",
              input: %{"source" => "photo", "pages" => 1},
-             artifacts: [%RecipeProposal{source: :photo} = proposal]
+             artifacts: [%RecipeProposal{source: :photo}]
            } = Runs.get(home_scope(), id)
 
-    {:ok, %KitchenRun{status: :applied}} = Runs.confirm(home_scope(), id, proposal)
     assert [recipe] = Recipes.list(home_scope())
     assert recipe.title == "Morotssoppa"
     assert [%{"action" => "Koka."}] = Tore.Recipes.Recipe.decode_steps(recipe)
@@ -67,9 +65,9 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     raw = @soup |> Map.put("base_servings", nil) |> Map.put("image_url", "https://evil.example/x")
     expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, raw, @usage} end)
 
-    %{stream_id: id} = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
+    %{run_stream_id: id} = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
 
-    assert %KitchenRun{status: :needs_user, artifacts: [proposal]} = Runs.get(home_scope(), id)
+    assert %KitchenRun{status: :applied, artifacts: [proposal]} = Runs.get(home_scope(), id)
     assert %RecipeProposal{base_servings: 4, image_url: nil} = proposal
   end
 
@@ -101,13 +99,12 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
       {:ok, Map.put(@soup, "image_url", "https://example.com/soppa.jpg"), @usage}
     end)
 
-    %{stream_id: id} = Dispatch.import_recipe_from_url("https://example.com/soppa", ctx)
+    %{run_stream_id: id} = Dispatch.import_recipe_from_url("https://example.com/soppa", ctx)
 
     assert %KitchenRun{artifacts: [%RecipeProposal{} = proposal]} = Runs.get(home_scope(), id)
     assert proposal.source_url == "https://example.com/soppa"
     assert proposal.image_url == "https://example.com/soppa.jpg"
 
-    {:ok, _} = Runs.confirm(home_scope(), id, proposal)
     assert_receive :picture_fetched, 1000
     [recipe] = Recipes.list(home_scope())
     assert eventually(fn -> Recipes.get(home_scope(), recipe.id).image_path end)
@@ -139,7 +136,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     bubble = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
 
     assert bubble.text =~ "redan har"
-    refute Map.has_key?(bubble, :review_link)
+    refute Map.has_key?(bubble, :run_stream_id)
     assert titles() == ["Morotssoppa"]
   end
 
@@ -151,7 +148,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     bubble = Dispatch.import_recipe_from_url("https://example.com/hej", ctx)
 
     assert bubble.text =~ "inte ut som ett recept"
-    refute Map.has_key?(bubble, :review_link)
+    refute Map.has_key?(bubble, :run_stream_id)
     assert titles() == []
   end
 end

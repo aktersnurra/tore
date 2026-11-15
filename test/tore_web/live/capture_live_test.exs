@@ -184,14 +184,6 @@ defmodule ToreWeb.CaptureLiveTest do
     assert items == %{}
   end
 
-  test "a reply waiting for review links to its own run, and back to Capture", %{conn: conn} do
-    {:ok, lv, _html} = live(conn, "/capture")
-    reply = %{role: :assistant, review_link: true, stream_id: "run-abc", text: "Titta igenom"}
-    send(lv.pid, {:route_complete, {:ok, [reply]}})
-
-    assert has_element?(lv, ~s(a[href="/runs/run-abc?from=/capture"]))
-  end
-
   describe "the memory tool" do
     @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
 

@@ -61,7 +61,7 @@ defmodule Tore.HouseholdLanguageTest do
        }, @usage}
     end)
 
-    assert %{review_link: true, text: text} =
+    assert %{run_stream_id: _, text: text} =
              Dispatch.import_recipe_from_url(
                "https://example.com/soup",
                capture_ctx(home_scope().household_id)

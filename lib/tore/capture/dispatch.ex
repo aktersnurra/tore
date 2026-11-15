@@ -129,13 +129,12 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  # A recipe read from photos or a page waits for review before it is saved.
-  defp recipe_bubble({:ok, %KitchenRun{status: :needs_user, id: id, artifacts: [proposal]}}) do
+  # A recipe read from photos or a page is saved straight away; undo deletes it.
+  defp recipe_bubble({:ok, %KitchenRun{status: :applied, id: id, artifacts: [proposal]}}) do
     %{
       role: :assistant,
-      review_link: true,
-      stream_id: id,
-      text: gettext("I read %{title}. Review it before it's saved.", title: proposal.title)
+      run_stream_id: id,
+      text: gettext("Saved %{title} to your recipes.", title: proposal.title)
     }
   end
 

@@ -1,10 +1,9 @@
 defmodule Tore.Recipes.Variant do
   @moduledoc """
   Generate a variant of an existing recipe ("simpler", "vegetarian", "for 6")
-  as a `RecipeProposal`. Nothing is written to the catalog here — the
-  proposal goes to a `:needs_user` card and only
-  confirming the run (`Tore.Harness.Kinds.Planner`) turns it into a real recipe
-  (SPEC §A.6.1: invented content never auto-commits).
+  as a `RecipeProposal`. Nothing is written to the catalog here: the run
+  (`Tore.Harness.Kinds.Planner`) verifies the proposal and saves it, with undo
+  (SPEC §A.6.1).
   """
 
   alias Tore.Harness.Artifact.RecipeProposal
