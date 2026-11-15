@@ -190,7 +190,7 @@ Use:
 
 ```md
 Large calm surfaces
-A cool porcelain background with white cards
+Cast-iron greys with white (light) or raised (dark) cards
 Hairlines, not shadows
 Precise typography
 Sparse accent color
@@ -215,9 +215,9 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **A large photograph melts into the page.** Its foot blurs and fades to the page colour
   (`.photo-blur` under `.photo-fade`), and the dish's name stands on the fade in the page's
   own type colour. Small picture cards keep a dark foot and white type (`.photo-shade`).
-- **Two palettes, one set of tokens.** Warm paper and ember in light, near-black and saffron
-  in dark (follows the phone, or `data-theme`). Type on the accent uses `--on-accent`, never
-  `text-white`: the dark accent is a light colour.
+- **Two palettes, one set of tokens.** Dagsljus in light, Gjutjärn in dark, saffron in both
+  (follows the phone, or `data-theme`). Type on the accent uses `--on-accent`, never
+  `text-white`: saffron is a light colour.
 - **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
   Recipes is a picture grid. A recipe without a picture shows a quiet block, never a stock image.
 - **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card
@@ -241,41 +241,64 @@ AI sparkle icons everywhere
 ## 4.2 Theme name
 
 ```md
-Theme: Glöd (light) and Natt (dark)
+Theme: Gjutjärn (dark) and Dagsljus (light)
 ```
 
-Warm and quiet, so the photographs carry the colour: paper white with an ember accent in
-light, soft charcoal with apricot in dark. The phone's setting picks; `data-theme` overrides.
+Calm, warm and capable. The page is cast iron: greys with a trace of warmth, tinted toward
+the accent so they belong to it. Saffron is the one lamp on the page. The photographs carry
+the rest of the colour. The phone's setting picks dark or light; `data-theme` overrides.
+
+Four rules:
+
+- **One lamp per screen.** Saffron marks the next step. If two things are saffron, one is wrong.
+- **The food is the colour.** Surfaces stay low in colour so tomatoes and dill are the
+  brightest things on screen.
+- **Green means done.** Dill for in the basket, cooked, in stock. Nothing else.
+- **Red never nags.** Lingon only when something can be lost. An open Thursday is not an error.
+
+Locked 2026-11-15 after rounds on the design canvas (blue, neutral and green darks were tried
+and dropped). Improve it later in the app, not by reopening the base.
 
 ## 4.3 Color tokens
 
 `assets/css/app.css` is the source of truth; this is a copy. Screens use these tokens only, never raw colours.
 
 ```css
-/* light                     dark */
---bg:           #F7F4EF;  /* #171614 */
---surface:      #FFFFFF;  /* #211F1D */
---sunken:       #F0ECE5;  /* #2A2826 */
+/* light (Dagsljus)          dark (Gjutjärn) */
+--bg:           #F4EFEC;  /* #1B1815 */
+--surface:      #FFFFFF;  /* #282522 */
+--sunken:       #ECE8E5;  /* #322E2C */
 
---text:         #2B2825;  /* #EAE6DF */
---muted:        #756F67;  /* #A8A29A */
---subtle:       #A39C92;  /* #6F6A63 */
+--text:         #1B1815;  /* #F7F4F2 */
+--muted:        #666260;  /* #9A9896 */
+--subtle:       #BCB8B5;  /* #73716F: rings and lines only, never text */
 
---border:       #E9E4DB;  /* #33302C */
---hairline:     #EEEAE2;  /* #2A2826 */
+--border:       #E4E0DD;  /* #3C3836 */
+--hairline:     #ECE8E5;  /* #2D2927 */
 
---accent:       #C8562A;  /* #EDBE8C */
---accent-hover: #B24A22;  /* #F2CBA1 */
---accent-soft:  #FBE9DF;  /* #33291D */
---accent-ink:   #9A3412;  /* #EFCBA4 */
---on-accent:    #FFFFFF;  /* #2A1D10: type set on the accent */
+--accent:       #FFAE41;  /* #FFAE41: saffran 400 */
+--accent-hover: #EE9903;  /* #FFC581 */
+--accent-soft:  #FFEBD5;  /* #382000 */
+--accent-ink:   #7B4C01;  /* #FFAE41: saffron as text */
+--on-accent:    #000000;  /* #000000 */
 
---warn:         #8F6212;  /* #E0B15A */
---warn-soft:    #F8EDD3;  /* #33290F */
-
---danger:       #B3261E;  /* #F0877F */
+--done:         #2E7B3F;  /* #6DC97D: dill */
+--warn:         #7B4C01;  /* #FFC581 */
+--warn-soft:    #FFEBD5;  /* #382000 */
+--danger:       #C92F33;  /* #F3625D: lingon */
 --danger-soft:  #F9E4E2;  /* #3A1C1A */
 ```
+
+The saffron ramp (OKLCH hue 70), for anything that needs a step between:
+
+```md
+50 #FFF5EB · 100 #FFEBD5 · 200 #FEDAB2 · 300 #FFC581 · 400 #FFAE41 · 500 #EE9903
+600 #C98000 · 700 #A06604 · 800 #7B4C01 · 900 #5A3700 · 950 #382000
+```
+
+Checked contrast: text on page 15–16:1; muted on page, surface or sunken 5.0–6.2:1;
+black on saffron 11.4:1; saffron text 6.4:1 (light) and 9.6:1 (dark); dill and lingon
+4.6:1 or more on both pages. `--subtle` is 3.6:1 at best, so it is for rings and lines only.
 
 Color must communicate hierarchy and state, not decoration.
 
@@ -1483,59 +1506,8 @@ ToreWeb.UI.EmptyState
 
 ## 12.2 Design tokens
 
-Create a token file:
-
-```css
-assets/css/tokens.css
-```
-
-With:
-
-```css
-:root {
-  color-scheme: light;
-
-  --bg: #F4EFE7;
-  --surface: #FFFCF6;
-  --surface-raised: #FFFFFF;
-  --surface-muted: #ECE3D7;
-
-  --ink: #1F211D;
-  --ink-muted: #6C6A61;
-  --ink-faint: #9A9488;
-
-  --line: #DED4C6;
-  --line-strong: #C8BAA8;
-
-  --accent: #556B5F;
-  --accent-ink: #F8F4EA;
-  --accent-soft: #DDE7DF;
-
-  --attention: #A56A43;
-  --attention-soft: #EFE0D3;
-
-  --danger: #9B3E35;
-  --danger-soft: #F1DAD6;
-
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-
-  --shadow-soft: 0 12px 40px rgba(31, 33, 29, 0.08);
-  --shadow-float: 0 20px 80px rgba(31, 33, 29, 0.14);
-}
-```
+The tokens live at the top of `assets/css/app.css`: colour (§4.3), radius, shadow, type
+scale and tap size. Screens use those tokens only, never raw colours or one-off values.
 
 ## 12.3 LiveView states
 

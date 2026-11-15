@@ -25,29 +25,30 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* ---------------------------------------------------------------------- */
-/* Design tokens: "Porslin". See docs/specs/ui.md §4.                      */
-/* Colours come from Swedish tableware: porcelain, cobalt, saffron,       */
-/* lingonberry. Screens use these tokens only, never raw colours.         */
+/* Design tokens: "Gjutjärn". See docs/specs/ui.md §4.                     */
+/* Cast-iron greys with a trace of warmth, one saffron accent, dill for   */
+/* done, lingon for loss. Screens use these tokens only, never raw colours. */
 /* ---------------------------------------------------------------------- */
 
 :root {
   /* Colour */
-  --bg: #F7F4EF;            /* a warm paper white, the page */
+  --bg: #F4EFEC;            /* daylight: a warm white page */
   --surface: #FFFFFF;       /* cards, sheets, inputs */
-  --sunken: #F0ECE5;        /* wells: empty photos, quiet buttons */
-  --text: #2B2825;
-  --muted: #756F67;
-  --subtle: #A39C92;
-  --border: #E9E4DB;
-  --hairline: #EEEAE2;
-  --accent: #C8562A;        /* glöd: ember */
-  --accent-hover: #B24A22;
-  --accent-soft: #FBE9DF;
-  --accent-ink: #9A3412;
-  --on-accent: #FFFFFF;     /* type set on the accent */
-  --warn: #8F6212;
-  --warn-soft: #F8EDD3;
-  --danger: #B3261E;
+  --sunken: #ECE8E5;        /* wells: empty photos, quiet buttons */
+  --text: #1B1815;
+  --muted: #666260;
+  --subtle: #BCB8B5;        /* rings and lines only, too faint for text */
+  --border: #E4E0DD;
+  --hairline: #ECE8E5;
+  --accent: #FFAE41;        /* saffran 400: one per screen */
+  --accent-hover: #EE9903;
+  --accent-soft: #FFEBD5;
+  --accent-ink: #7B4C01;    /* saffron as text on a light page */
+  --on-accent: #000000;     /* type set on the accent */
+  --done: #2E7B3F;          /* dill: in the basket, cooked, in stock */
+  --warn: #7B4C01;
+  --warn-soft: #FFEBD5;
+  --danger: #C92F33;        /* lingon: only for what can be lost */
   --danger-soft: #F9E4E2;
 
   /* Radius follows hierarchy: sheets, cards, controls, chips */
@@ -76,22 +77,23 @@
 /* Dark, for a phone set to dark: the photographs carry the colour. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #171614;            /* natt: the kitchen with the lights down */
-    --surface: #211F1D;
-    --sunken: #2A2826;
-    --text: #EAE6DF;
-    --muted: #A8A29A;
-    --subtle: #6F6A63;
-    --border: #33302C;
-    --hairline: #2A2826;
-    --accent: #EDBE8C;        /* saffran: warm against the black */
-    --accent-hover: #F2CBA1;
-    --accent-soft: #33291D;
-    --accent-ink: #EFCBA4;
-    --on-accent: #2A1D10;
-    --warn: #E0B15A;
-    --warn-soft: #33290F;
-    --danger: #F0877F;
+    --bg: #1B1815;            /* gjutjärn: cast iron, the evening page */
+    --surface: #282522;
+    --sunken: #322E2C;
+    --text: #F7F4F2;
+    --muted: #9A9896;
+    --subtle: #73716F;
+    --border: #3C3836;
+    --hairline: #2D2927;
+    --accent: #FFAE41;
+    --accent-hover: #FFC581;
+    --accent-soft: #382000;
+    --accent-ink: #FFAE41;
+    --on-accent: #000000;
+    --done: #6DC97D;
+    --warn: #FFC581;
+    --warn-soft: #382000;
+    --danger: #F3625D;
     --danger-soft: #3A1C1A;
     --shadow-card: none;
     --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
@@ -99,22 +101,23 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #171614;            /* natt: the kitchen with the lights down */
-  --surface: #211F1D;
-  --sunken: #2A2826;
-  --text: #EAE6DF;
-  --muted: #A8A29A;
-  --subtle: #6F6A63;
-  --border: #33302C;
-  --hairline: #2A2826;
-  --accent: #EDBE8C;        /* saffran: warm against the black */
-  --accent-hover: #F2CBA1;
-  --accent-soft: #33291D;
-  --accent-ink: #EFCBA4;
-  --on-accent: #2A1D10;
-  --warn: #E0B15A;
-  --warn-soft: #33290F;
-  --danger: #F0877F;
+  --bg: #1B1815;            /* gjutjärn: cast iron, the evening page */
+  --surface: #282522;
+  --sunken: #322E2C;
+  --text: #F7F4F2;
+  --muted: #9A9896;
+  --subtle: #73716F;
+  --border: #3C3836;
+  --hairline: #2D2927;
+  --accent: #FFAE41;
+  --accent-hover: #FFC581;
+  --accent-soft: #382000;
+  --accent-ink: #FFAE41;
+  --on-accent: #000000;
+  --done: #6DC97D;
+  --warn: #FFC581;
+  --warn-soft: #382000;
+  --danger: #F3625D;
   --danger-soft: #3A1C1A;
   --shadow-card: none;
   --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7);

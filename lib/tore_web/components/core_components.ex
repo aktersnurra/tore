@@ -700,8 +700,8 @@ defmodule ToreWeb.CoreComponents do
       class={[
         "inline-flex items-center justify-center size-6 rounded-[var(--r-pill)] border-[1.5px] transition-colors",
         @checked &&
-          "bg-[color:var(--accent)] border-[color:var(--accent)] text-[color:var(--on-accent)]",
-        !@checked && "bg-transparent border-[color:var(--subtle)] hover:border-[color:var(--accent)]"
+          "bg-[color:var(--done)] border-[color:var(--done)] text-[color:var(--bg)]",
+        !@checked && "bg-transparent border-[color:var(--subtle)] hover:border-[color:var(--done)]"
       ]}
       {@rest}
     >
