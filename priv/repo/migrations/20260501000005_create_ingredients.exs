@@ -9,6 +9,9 @@ defmodule Tore.Repo.Migrations.CreateIngredients do
       add :category, :string
       add :default_unit, :string
       add :shelf_life_days, :integer
+      # The model's guess at a typical price, per kg, l or st, when nothing better is known.
+      add :estimated_price, :decimal
+      add :estimated_unit, :string
       timestamps()
     end
 

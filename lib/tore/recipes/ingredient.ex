@@ -8,6 +8,8 @@ defmodule Tore.Recipes.Ingredient do
     field :category, :string
     field :default_unit, :string
     field :shelf_life_days, :integer
+    field :estimated_price, :decimal
+    field :estimated_unit, :string
     field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
     timestamps()

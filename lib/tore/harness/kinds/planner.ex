@@ -44,6 +44,10 @@ defmodule Tore.Harness.Kinds.Planner do
   @spec propose(Tore.Harness.KitchenRun.t(), map(), String.t(), keyword()) ::
           {:ok, PlanDiff.t() | RecipeProposal.t()} | {:ask, String.t()} | {:error, term()}
   def propose(run, %{scope: scope} = ctx, user_text, opts \\ []) do
+    # Recipes nothing prices yet get the model's guess first, so the planner sees a cost for each.
+    # Off in tests (`config :tore, :estimate_prices`), where it would take the planner's mocks.
+    if Application.get_env(:tore, :estimate_prices, true), do: Tore.Prices.Estimate.missing(scope)
+
     with {:ok, plan} <- Planning.load_plan(scope, ctx.plan_stream_id),
          {:ok, loop} <-
            PlannerAgent.run(system_prompt(scope, ctx), user_text, agent_ctx(run, ctx, plan), opts) do
