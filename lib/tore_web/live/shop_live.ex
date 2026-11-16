@@ -156,6 +156,11 @@ defmodule ToreWeb.ShopLive do
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
+  def handle_event("move_receipt_week", %{"id" => id}, socket) do
+    _ = Tore.Costs.move_receipt_week(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, reload_spending(socket)}
+  end
+
   # The barcode scanner: a line per pack scanned, newest first, each with Undo.
   def handle_event("open_scanner", _params, socket),
     do: {:noreply, assign(socket, scanner: %{lines: [], asking: nil, busy: false, camera: :ok})}

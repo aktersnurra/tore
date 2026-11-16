@@ -76,6 +76,72 @@ defmodule ToreWeb.BudgetLiveTest do
     end
   end
 
+  describe "after the week" do
+    test "the plan screen gives the verdict for a week that has ended", %{conn: conn} do
+      last_week = Date.add(week_start(), -7)
+
+      {:ok, recipe} =
+        Recipes.create(
+          home_scope(),
+          %{title: "Gryta", base_servings: 4, ingredients: [%{name: "bönor", quantity: 1}]},
+          image: false
+        )
+
+      Tore.Repo.update_all(
+        from(i in Tore.Recipes.Ingredient, where: i.name == "bönor"),
+        [set: [estimated_price: Decimal.new(1000), estimated_unit: "st"]],
+        Tore.Scope.repo_opts(home_scope())
+      )
+
+      {:ok, _} =
+        Planning.assign_recipe(
+          home_scope(),
+          Streams.plan(home_scope(), last_week),
+          "mon_dinner",
+          recipe.id,
+          4
+        )
+
+      :ok = Budget.set_week(home_scope(), last_week, Decimal.new(1200))
+
+      {:ok, _} =
+        Tore.Costs.log_receipt(home_scope(), %{
+          date: Date.add(last_week, 2),
+          store_name: "ICA",
+          total_amount: Decimal.new(1100),
+          user_id: user_fixture().id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/plan")
+      render_click(view, "prev_week", %{})
+
+      assert view |> element(~s([data-role="week-verdict"])) |> render() =~
+               "Handlat för 1 100 av 1 200 kr, runt 10 % över uppskattningen"
+    end
+
+    test "a receipt on Shop shows its week, and a tap moves it", %{conn: conn} do
+      date = Tore.Clock.today()
+
+      {:ok, receipt} =
+        Tore.Costs.log_receipt(home_scope(), %{
+          date: date,
+          store_name: "ICA",
+          total_amount: Decimal.new(300),
+          user_id: user_fixture().id
+        })
+
+      week = Tore.Streams.week_number(date)
+      {:ok, view, _html} = live(conn, ~p"/shop")
+
+      assert view |> element(~s([data-role="receipt-week"])) |> render() =~ "Vecka #{week}"
+
+      view |> element(~s([data-role="receipt-week"])) |> render_click()
+
+      assert Tore.Repo.get!(Tore.Costs.Receipt, receipt.id, Tore.Scope.repo_opts(home_scope())).week_start ==
+               Date.add(week_start(), 7)
+    end
+  end
+
   describe "settings" do
     test "sets the usual weekly budget, and blank removes it", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/settings")

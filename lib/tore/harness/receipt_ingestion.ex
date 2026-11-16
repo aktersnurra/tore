@@ -42,16 +42,22 @@ defmodule Tore.Harness.ReceiptIngestion do
     }
   end
 
-  @spec apply!(Tore.Scope.t(), CostEntry.t(), integer() | nil) ::
+  @doc "Logs the receipt. Without `week_start` it counts towards `Costs.receipt_week/2`'s week."
+  @spec apply!(Tore.Scope.t(), CostEntry.t(), integer() | nil, Date.t() | nil) ::
           {:ok, Costs.Receipt.t()} | {:error, term()}
-  def apply!(%Tore.Scope{} = scope, %CostEntry{} = cost, user_id) do
-    Costs.log_receipt(scope, %{
+  def apply!(%Tore.Scope{} = scope, %CostEntry{} = cost, user_id, week_start \\ nil) do
+    attrs = %{
       date: cost.date,
       store_name: cost.store_name,
       total_amount: cost.total,
       user_id: user_id,
       line_items: Enum.map(cost.line_items, &to_cost_line_item/1)
-    })
+    }
+
+    Costs.log_receipt(
+      scope,
+      if(week_start, do: Map.put(attrs, :week_start, week_start), else: attrs)
+    )
   end
 
   @cost_categories ~w[dairy meat produce frozen dry_goods canned herbs_spices condiments other]

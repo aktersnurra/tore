@@ -88,6 +88,7 @@ defmodule ToreWeb.Spending do
           title={r.store_name || gettext("Unknown store")}
           date={r.date}
           amount={r.total_amount}
+          receipt={r}
         />
         <.spent_row
           :for={d <- @spending.dining}
@@ -111,6 +112,10 @@ defmodule ToreWeb.Spending do
   attr :date, Date, required: true
   attr :amount, :any, required: true
 
+  attr :receipt, :any,
+    default: nil,
+    doc: "a receipt shows which week it counts towards, and a tap moves it to the other"
+
   defp spent_row(assigns) do
     ~H"""
     <li class="flex items-center gap-4 px-4 py-3">
@@ -122,6 +127,21 @@ defmodule ToreWeb.Spending do
           {Calendar.strftime(@date, "%-d/%-m")}
         </span>
       </span>
+      <button
+        :if={@receipt}
+        type="button"
+        phx-click="move_receipt_week"
+        phx-value-id={@receipt.id}
+        data-role="receipt-week"
+        class="pill press num shrink-0"
+        aria-label={
+          gettext("Counts towards week %{week}. Tap to move it.",
+            week: Tore.Streams.week_number(@receipt.week_start)
+          )
+        }
+      >
+        {gettext("Week %{week}", week: Tore.Streams.week_number(@receipt.week_start))}
+      </button>
       <span :if={@amount} class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
         {money(@amount)} kr
       </span>

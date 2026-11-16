@@ -50,7 +50,8 @@ defmodule ToreWeb.PlannerLive do
     assign(socket,
       plan_state: plan_state,
       plan_health: PlanHealth.compute(plan_state),
-      budget: Tore.Budget.status(scope, plan_state, week_start)
+      budget: Tore.Budget.status(scope, plan_state, week_start),
+      verdict: Tore.Budget.verdict(scope, week_start, socket.assigns.today)
     )
   end
 
@@ -442,7 +443,21 @@ defmodule ToreWeb.PlannerLive do
               {ToreWeb.Dates.range(@week_start, @week_end)}
             </p>
             <p
-              :if={@budget.estimate.total > 0 or @budget.budget}
+              :if={@verdict}
+              data-role="week-verdict"
+              class={[
+                "num mt-1 font-semibold",
+                @verdict.budget && Decimal.gt?(@verdict.spent, @verdict.budget) &&
+                  "text-[color:var(--warn)]",
+                !(@verdict.budget && Decimal.gt?(@verdict.spent, @verdict.budget)) &&
+                  "text-[color:var(--text)]"
+              ]}
+              style="font-size: 15px;"
+            >
+              {verdict_line(@verdict)}
+            </p>
+            <p
+              :if={!@verdict and (@budget.estimate.total > 0 or @budget.budget)}
               data-role="week-estimate"
               class={[
                 "num mt-1 transition-colors duration-200",
@@ -1117,27 +1132,52 @@ defmodule ToreWeb.PlannerLive do
     |> with_plan(plan_state)
   end
 
-  defp estimate_line(%{budget: nil, estimate: e}),
+  defp verdict_line(%{spent: spent, budget: budget, off_by_percent: pct}) do
+    spent_part =
+      if budget,
+        do:
+          gettext("Spent %{spent} of %{budget} kr",
+            spent: Tore.Money.format(spent),
+            budget: Tore.Money.format(budget)
+          ),
+        else: gettext("Spent %{spent} kr", spent: Tore.Money.format(spent))
+
+    cond do
+      pct == nil ->
+        spent_part
+
+      pct > 0 ->
+        gettext("%{spent}, about %{pct}% above the estimate", spent: spent_part, pct: pct)
+
+      pct < 0 ->
+        gettext("%{spent}, about %{pct}% below the estimate", spent: spent_part, pct: -pct)
+
+      true ->
+        gettext("%{spent}, as estimated", spent: spent_part)
+    end
+  end
+
+  defp estimate_line(%{budget: nil, estimate: e} = status),
     do:
       gettext("About %{amount} kr, %{priced} of %{total} ingredients priced",
-        amount: Tore.Money.format(e.amount),
+        amount: Tore.Money.format(status.expected),
         priced: e.priced,
         total: e.total
       )
 
-  defp estimate_line(%{budget: budget, estimate: e, over: nil}),
+  defp estimate_line(%{budget: budget, estimate: e, over: nil} = status),
     do:
       gettext("About %{amount} of %{budget} kr, %{priced} of %{total} ingredients priced",
-        amount: Tore.Money.format(e.amount),
+        amount: Tore.Money.format(status.expected),
         budget: Tore.Money.format(budget),
         priced: e.priced,
         total: e.total
       )
 
-  defp estimate_line(%{budget: budget, estimate: e, over: over}),
+  defp estimate_line(%{budget: budget, over: over} = status),
     do:
       gettext("About %{amount} of %{budget} kr, %{over} kr over",
-        amount: Tore.Money.format(e.amount),
+        amount: Tore.Money.format(status.expected),
         budget: Tore.Money.format(budget),
         over: Tore.Money.format(over)
       )

@@ -1,6 +1,7 @@
 defmodule Tore.Harness.Kinds.Receipt do
   @moduledoc """
   A receipt photo becomes a logged receipt. `ctx` holds `:image_binary`, and optionally `:date`.
+  A typed total is submitted with its `CostEntry` and no lines, and `:week_start` names its week.
 
   It applies straight away; a reading without a store, date or total fails instead. Undo deletes
   the receipt. Once it commits, its lines' products are matched to ingredients for prices
@@ -46,8 +47,9 @@ defmodule Tore.Harness.Kinds.Receipt do
   def after_commit(_run), do: :ok
 
   @impl true
-  def apply_proposal(%CostEntry{} = cost, %{scope: scope, run: run}) do
-    with {:ok, receipt} <- ReceiptIngestion.apply!(scope, cost, scope.user_id || run.user_id) do
+  def apply_proposal(%CostEntry{} = cost, %{scope: scope, run: run} = ctx) do
+    with {:ok, receipt} <-
+           ReceiptIngestion.apply!(scope, cost, scope.user_id || run.user_id, ctx[:week_start]) do
       {:ok, {:steps, [{:delete_receipt, receipt.id}]}, [cost]}
     end
   end

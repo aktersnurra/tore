@@ -1,5 +1,5 @@
 defmodule Tore.Costs do
-  alias Tore.{Planning, Repo, Scope, Costs.LLMUsage, Costs.Receipt, Costs.LineItem}
+  alias Tore.{Planning, Repo, Scope, Streams, Costs.LLMUsage, Costs.Receipt, Costs.LineItem}
   import Ecto.Query
 
   @doc "Records what an LLM call cost the household. Only `Tore.LLM` calls this, after each call."
@@ -67,10 +67,22 @@ defmodule Tore.Costs do
     Repo.all(from(r in Receipt, order_by: [desc: r.date], limit: ^n), Scope.repo_opts(scope))
   end
 
+  @doc """
+  Logs a receipt and its lines. Without a `:week_start` it counts towards `receipt_week/2`'s week.
+  """
   @spec log_receipt(Scope.t(), map()) :: {:ok, Receipt.t()} | {:error, term()}
   def log_receipt(%Scope{} = scope, attrs) do
     line_items = Map.get(attrs, :line_items, [])
     attrs = Map.delete(attrs, :line_items)
+
+    attrs =
+      case attrs do
+        %{date: %Date{} = date} ->
+          Map.put_new_lazy(attrs, :week_start, fn -> receipt_week(scope, date) end)
+
+        _ ->
+          attrs
+      end
 
     Repo.transaction(fn ->
       case %Receipt{household_id: scope.household_id}
@@ -89,6 +101,63 @@ defmodule Tore.Costs do
           Repo.rollback(changeset)
       end
     end)
+  end
+
+  @doc """
+  The week a shop on `date` was for: the list ticked most recently, when that list is the date's
+  week or the week after (a weekend shop for the coming week), otherwise the date's own week.
+  """
+  @spec receipt_week(Scope.t(), Date.t()) :: Date.t()
+  def receipt_week(%Scope{} = scope, %Date{} = date) do
+    own = Streams.monday(date)
+
+    last_ticked =
+      from(e in Tore.EventStore.Event,
+        where: e.stream_type == "shop" and e.event_type == "ItemChecked",
+        order_by: [desc: e.id],
+        limit: 1,
+        select: e.stream_id
+      )
+      |> Repo.one(Scope.repo_opts(scope))
+
+    with id when is_binary(id) <- last_ticked,
+         week = Streams.week_start(id),
+         true <- week in [own, Date.add(own, 7)] do
+      week
+    else
+      _ -> own
+    end
+  end
+
+  @doc """
+  Moves a receipt to the other week it can count towards: from its purchase date's week to the
+  week after, or back.
+  """
+  @spec move_receipt_week(Scope.t(), integer()) :: {:ok, Receipt.t()} | {:error, :not_found}
+  def move_receipt_week(%Scope{} = scope, id) do
+    case Repo.get(Receipt, id, Scope.repo_opts(scope)) do
+      nil ->
+        {:error, :not_found}
+
+      receipt ->
+        own = Streams.monday(receipt.date)
+        week = if receipt.week_start == own, do: Date.add(own, 7), else: own
+        receipt |> Ecto.Changeset.change(week_start: week) |> Repo.update()
+    end
+  end
+
+  @doc "What the household paid towards the week starting `week_start`, or nil with no receipt."
+  @spec spent_in_week(Scope.t(), Date.t()) :: Decimal.t() | nil
+  def spent_in_week(%Scope{} = scope, %Date{} = week_start) do
+    from(r in Receipt,
+      where: r.week_start == ^week_start,
+      select: {count(r.id), sum(r.total_amount)}
+    )
+    |> Repo.one(Scope.repo_opts(scope))
+    |> case do
+      {0, _} -> nil
+      {_, total} -> to_decimal(total)
+    end
   end
 
   def parse_receipt(%Scope{} = scope, image_binary, locale) do

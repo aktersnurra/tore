@@ -613,7 +613,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
-| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan |
+| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan, the verdict and calibration |
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
@@ -880,6 +880,18 @@ doesn't fit is applied, and the plan screen says how far over it is.
 A day's suggested alternatives show the difference ("−35 kr"). Settings has the default. Capture sets a budget
 (`set_budget`, written directly as a setting the person states) and plans a whole week (`plan_week`, the plan screen's
 command).
+
+**After the week.** Each receipt counts towards a week (`receipts.week_start`): the list ticked most recently when
+that is the purchase week or the one after, so a Saturday shop for the coming week lands there, otherwise the purchase
+week. The receipt row on Shop shows its week and a tap moves it to the other. "We spent 1 900 this week" in Capture
+(`log_total`) is a receipt with no lines, through the same receipt run, with undo. Once a week has ended and has a
+receipt, the plan screen gives the verdict in place of the estimate: "Spent 1 940 of 2 000 kr, about 5 % above the
+estimate". With nothing paid there is no verdict and no reminder.
+
+**Calibration** (`Tore.Budget.adjustment/2`): the mean of what was paid minus what was estimated, over the latest
+four earlier weeks that had a plan and receipts, once there are two. It is added to the dinners' estimate to give
+what the week is expected to cost, which is what the budget, the planner's retry and the plan screen hold against.
+It absorbs basics, pack sizes and what's already at home.
 
 ---
 

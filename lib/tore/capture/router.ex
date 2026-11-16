@@ -68,6 +68,7 @@ defmodule Tore.Capture.Router do
     - "Plan next week" / "planera veckan" → `plan_week` with their words as the request. A budget
       in the same breath ("budget 2000 kr") → `set_budget` for that week first, then `plan_week`.
       "Our budget is 2000 a week" → `set_budget` with no week. It covers the whole shop.
+      "We spent 1900 this week" → `log_total` for that week.
     - Adjust portions with `set_plan_servings`; pin/unpin with `pin_plan_slot`.
       Mark a recipe as cooked tonight with `mark_recipe_cooked` (this is what
       teaches the rotation to deprioritise it).
@@ -372,6 +373,12 @@ defmodule Tore.Capture.Router do
     end
   end
 
+  defp run_call(%{name: "log_total", args: %{"amount" => amount} = args}, _images, _count, ctx)
+       when is_number(amount) and amount > 0 do
+    with {:ok, date} <- parse_iso_date(args["week_of"]),
+         do: {:ok, [Dispatch.log_total(Tore.Types.decimal(amount), date, ctx)]}
+  end
+
   defp run_call(%{name: "plan_week", args: %{"request" => request} = args}, _images, _count, ctx)
        when is_binary(request) do
     with {:ok, date} <- parse_iso_date(args["week_of"]),
@@ -668,6 +675,19 @@ defmodule Tore.Capture.Router do
               description:
                 "Any ISO 8601 date in the week, for that week only; null for the usual budget."
             }
+          },
+          required: ["amount", "week_of"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "log_total",
+        "Log what a week's shopping cost in total, when the person says it instead of scanning receipts.",
+        %{
+          type: "object",
+          properties: %{
+            amount: %{type: "number", description: "Kronor."},
+            week_of: %{type: "string", description: "Any ISO 8601 date in the week it was for."}
           },
           required: ["amount", "week_of"],
           additionalProperties: false

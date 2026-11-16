@@ -475,7 +475,7 @@ defmodule Tore.Capture.Dispatch do
   end
 
   def set_budget(amount, %Date{} = date, ctx) do
-    week = date |> Streams.monday() |> week_number()
+    week = date |> Streams.monday() |> Streams.week_number()
 
     case Tore.Budget.set_week(ctx.scope, Streams.monday(date), amount) do
       :ok when amount == nil ->
@@ -496,6 +496,46 @@ defmodule Tore.Capture.Dispatch do
 
       {:error, reason} ->
         error_bubble(:budget, reason)
+    end
+  end
+
+  @doc """
+  Logs what the person says a week's shop cost, as a receipt with no lines, so the week gets a
+  verdict without a photo. Undo deletes it.
+  """
+  @spec log_total(Decimal.t(), Date.t(), ctx()) :: bubble()
+  def log_total(%Decimal{} = amount, %Date{} = date, ctx) do
+    today = Tore.Clock.today()
+    week_start = Streams.monday(date)
+
+    if Date.compare(week_start, today) == :gt do
+      %{role: :assistant, error: true, text: gettext("That week hasn't started yet.")}
+    else
+      cost = %CostEntry{
+        store_name: gettext("Typed total"),
+        date: Enum.min([today, Date.add(week_start, 6)], Date),
+        total: amount,
+        line_items: []
+      }
+
+      case Runs.submit(ctx.scope, Kinds.Receipt, cost, as_actor(%{week_start: week_start}, ctx)) do
+        {:ok, %KitchenRun{status: :applied, id: id}} ->
+          %{
+            role: :assistant,
+            text:
+              gettext("Logged %{amount} kr for week %{week}.",
+                amount: Tore.Money.format(amount),
+                week: Streams.week_number(week_start)
+              ),
+            run_stream_id: id
+          }
+
+        {:ok, %KitchenRun{failure_code: code}} ->
+          error_bubble(:receipt, code)
+
+        {:error, reason} ->
+          error_bubble(:receipt, reason)
+      end
     end
   end
 
@@ -529,8 +569,10 @@ defmodule Tore.Capture.Dispatch do
   end
 
   defp week_planned_text(scope, week_start) do
-    %{budget: budget, estimate: estimate} = Tore.Budget.status(scope, week_start)
-    week = week_number(week_start)
+    %{budget: budget, estimate: estimate, expected: expected} =
+      Tore.Budget.status(scope, week_start)
+
+    week = Streams.week_number(week_start)
 
     cond do
       estimate.total == 0 ->
@@ -540,7 +582,7 @@ defmodule Tore.Capture.Dispatch do
         gettext(
           "Planned week %{week}: about %{amount} kr, %{priced} of %{total} ingredients priced.",
           week: week,
-          amount: Tore.Money.format(estimate.amount),
+          amount: Tore.Money.format(expected),
           priced: estimate.priced,
           total: estimate.total
         )
@@ -549,15 +591,13 @@ defmodule Tore.Capture.Dispatch do
         gettext(
           "Planned week %{week}: about %{amount} of %{budget} kr, %{priced} of %{total} ingredients priced.",
           week: week,
-          amount: Tore.Money.format(estimate.amount),
+          amount: Tore.Money.format(expected),
           budget: Tore.Money.format(budget),
           priced: estimate.priced,
           total: estimate.total
         )
     end
   end
-
-  defp week_number(date), do: date |> Date.to_erl() |> :calendar.iso_week_number() |> elem(1)
 
   # ── pantry mutations ───────────────────────────────────────────────────
 

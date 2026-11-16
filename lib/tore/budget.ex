@@ -14,11 +14,28 @@ defmodule Tore.Budget do
   alias Tore.Budget.WeekBudget
   alias Tore.Planning.State
 
+  @typedoc """
+  `estimate` is the plan's dinners at stored prices; `adjustment` is what recent weeks paid beyond
+  their estimates (nil until two such weeks exist); `expected` is the two together, which is what
+  the budget is held against.
+  """
   @type status :: %{
           budget: Decimal.t() | nil,
           estimate: Prices.cost(),
+          adjustment: Decimal.t() | nil,
+          expected: Decimal.t(),
           over: Decimal.t() | nil
         }
+
+  @type verdict :: %{
+          spent: Decimal.t(),
+          budget: Decimal.t() | nil,
+          expected: Decimal.t(),
+          off_by_percent: integer() | nil
+        }
+
+  @calibration_weeks 4
+  @calibration_min 2
 
   @doc "The week's budget: its own, else the household's default, else none."
   @spec amount(Scope.t(), Date.t()) :: Decimal.t() | nil
@@ -106,11 +123,77 @@ defmodule Tore.Budget do
   def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start) do
     budget = amount(scope, week_start)
     estimate = estimate(scope, plan, week_start)
+    adjustment = adjustment(scope, week_start)
+    expected = Decimal.add(estimate.amount, adjustment || 0) |> Decimal.max(0) |> Decimal.round(2)
 
-    over =
-      if budget && Decimal.gt?(estimate.amount, budget),
-        do: Decimal.sub(estimate.amount, budget)
+    over = if budget && Decimal.gt?(expected, budget), do: Decimal.sub(expected, budget)
 
-    %{budget: budget, estimate: estimate, over: over}
+    %{budget: budget, estimate: estimate, adjustment: adjustment, expected: expected, over: over}
   end
+
+  @doc """
+  The calibration for the week starting `week_start`: the mean of what was paid minus what was
+  estimated, over the latest #{@calibration_weeks} weeks before it that had a plan and receipts. It
+  absorbs pack sizes, pantry stock and whatever was bought beyond the plan. Nil until
+  #{@calibration_min} such weeks exist.
+  """
+  @spec adjustment(Scope.t(), Date.t()) :: Decimal.t() | nil
+  def adjustment(%Scope{} = scope, %Date{} = week_start) do
+    gaps =
+      from(r in Tore.Costs.Receipt,
+        where: r.week_start < ^week_start,
+        group_by: r.week_start,
+        order_by: [desc: r.week_start],
+        select: {r.week_start, sum(r.total_amount)}
+      )
+      |> Repo.all(Scope.repo_opts(scope))
+      |> Stream.map(fn {week, spent} -> {to_decimal(spent), plan_estimate(scope, week)} end)
+      |> Stream.reject(fn {_spent, estimate} -> Decimal.eq?(estimate, 0) end)
+      |> Stream.map(fn {spent, estimate} -> Decimal.sub(spent, estimate) end)
+      |> Enum.take(@calibration_weeks)
+
+    if length(gaps) >= @calibration_min,
+      do: gaps |> Enum.reduce(&Decimal.add/2) |> Decimal.div(length(gaps)) |> Decimal.round(2)
+  end
+
+  defp plan_estimate(scope, week_start) do
+    {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week_start))
+    estimate(scope, plan, week_start).amount
+  end
+
+  @doc """
+  How the week went, once it has ended and something was paid towards it: what was spent, the
+  budget, what was expected, and how far the spend was from that, in percent. Nil otherwise: no
+  receipt and no typed total means no verdict.
+  """
+  @spec verdict(Scope.t(), Date.t(), Date.t()) :: verdict() | nil
+  def verdict(%Scope{} = scope, %Date{} = week_start, %Date{} = today \\ Tore.Clock.today()) do
+    with true <- Date.compare(Date.add(week_start, 6), today) == :lt,
+         %Decimal{} = spent <- Tore.Costs.spent_in_week(scope, week_start) do
+      %{expected: expected, budget: budget} = status(scope, week_start)
+
+      %{
+        spent: spent,
+        budget: budget,
+        expected: expected,
+        off_by_percent:
+          if(Decimal.gt?(expected, 0),
+            do:
+              spent
+              |> Decimal.sub(expected)
+              |> Decimal.mult(100)
+              |> Decimal.div(expected)
+              |> Decimal.round(0)
+              |> Decimal.to_integer()
+          )
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  defp to_decimal(nil), do: Decimal.new(0)
+  defp to_decimal(%Decimal{} = d), do: d
+  defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
+  defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
 end

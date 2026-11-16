@@ -111,7 +111,7 @@ defmodule Tore.Harness.Kinds.Planner do
 
   defp cost_after(scope, plan, diff, week_start) do
     after_diff = Enum.reduce(diff.plan_events, plan, &Decider.evolve(&2, &1))
-    Tore.Budget.estimate(scope, after_diff, week_start).amount
+    Tore.Budget.status(scope, after_diff, week_start).expected
   end
 
   defp over_note(estimate, budget) do

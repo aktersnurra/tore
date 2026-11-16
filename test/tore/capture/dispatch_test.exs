@@ -160,6 +160,25 @@ defmodule Tore.Capture.DispatchTest do
       assert Tore.Budget.amount(home_scope(), ~D[2026-11-16]) == Decimal.new(2000)
     end
 
+    test "a typed total is a receipt with no lines in the week named, with undo", %{ctx: ctx} do
+      last_week = Date.add(Tore.Streams.monday(Tore.Clock.today()), -7)
+      week = Tore.Streams.week_number(last_week)
+
+      assert %{text: text, run_stream_id: id} =
+               Dispatch.log_total(Decimal.new(1900), Date.add(last_week, 2), ctx)
+
+      assert text == "Lade in 1 900 kr för vecka #{week}."
+      assert Decimal.eq?(Tore.Costs.spent_in_week(home_scope(), last_week), 1900)
+
+      {:ok, _} = Runs.revert(home_scope(), id)
+      assert Tore.Costs.spent_in_week(home_scope(), last_week) == nil
+
+      next_week = Date.add(Tore.Clock.today(), 7)
+
+      assert %{error: true, text: "Den veckan har inte börjat än."} =
+               Dispatch.log_total(Decimal.new(100), next_week, ctx)
+    end
+
     test "planning the week answers with its estimate against the budget", %{ctx: ctx} do
       import Mox
 
