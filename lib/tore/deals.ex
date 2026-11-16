@@ -6,9 +6,14 @@ defmodule Tore.Deals do
 
   @http Application.compile_env(:tore, :http_client)
 
+  @doc """
+  Stores offers, each week's as its own row. An offer without an end date is taken to run to
+  Sunday, as ICA's do. The same offer seen again is left as it is.
+  """
   @spec upsert_deals([map()]) :: {:ok, integer()} | {:error, term()}
   def upsert_deals(deals) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    sunday = Tore.Clock.today() |> Streams.monday() |> Date.add(6)
 
     rows =
       deals
@@ -18,13 +23,14 @@ defmodule Tore.Deals do
       |> Enum.map(fn d ->
         d
         |> Map.put_new(:source, :scraped)
+        |> Map.update(:valid_until, sunday, &(&1 || sunday))
         |> Map.merge(%{inserted_at: now, updated_at: now})
       end)
 
     {count, _} =
       Repo.insert_all(Deal, rows,
         on_conflict: :nothing,
-        conflict_target: [:chain, :store, :product_name]
+        conflict_target: [:chain, :store, :product_name, :valid_until]
       )
 
     {:ok, count}
@@ -32,32 +38,34 @@ defmodule Tore.Deals do
 
   @doc "Current deals at the stores the household uses and has switched on."
   @spec list_current(Scope.t()) :: [Deal.t()]
-  def list_current(%Scope{} = scope) do
-    today = Tore.Clock.today()
+  def list_current(%Scope{} = scope), do: valid_from(scope, Tore.Clock.today())
 
+  @doc """
+  The deals that can count for the week starting `week_start`: those still running on its Monday
+  or later, at the stores the household uses and has switched on.
+  """
+  @spec valid_in_week(Scope.t(), Date.t()) :: [Deal.t()]
+  def valid_in_week(%Scope{} = scope, %Date{} = week_start), do: valid_from(scope, week_start)
+
+  defp valid_from(scope, date) do
     from(d in Deal,
       join: s in Store,
       on: s.name == d.store,
       join: hs in HouseholdStore,
       on: hs.store_id == s.id and hs.scrape_enabled,
-      where: is_nil(d.valid_until) or d.valid_until >= ^today,
+      where: d.valid_until >= ^date,
       distinct: true
     )
     |> Repo.all(Scope.repo_opts(scope))
   end
 
+  @history_days 26 * 7
+
+  @doc "Deletes offers that ended more than half a year ago. Newer ones are the price history."
   @spec clear_expired() :: :ok
   def clear_expired do
-    today = Tore.Clock.today()
-    week_start_dt = today |> Streams.monday() |> NaiveDateTime.new!(~T[00:00:00])
-
-    Repo.delete_all(
-      from d in Deal,
-        where:
-          (not is_nil(d.valid_until) and d.valid_until < ^today) or
-            (is_nil(d.valid_until) and d.inserted_at < ^week_start_dt)
-    )
-
+    cutoff = Date.add(Tore.Clock.today(), -@history_days)
+    Repo.delete_all(from d in Deal, where: d.valid_until < ^cutoff)
     :ok
   end
 
@@ -172,6 +180,8 @@ defmodule Tore.Deals do
           url: store.url,
           reason: inspect(reason)
         )
+
+        Alerts.scrape_failed(store.url, reason)
     end
   end
 end

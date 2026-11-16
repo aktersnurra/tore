@@ -52,28 +52,20 @@ defmodule Tore.Deals.Parsers.ICA do
     mechanics = offer["parsedMechanics"] || %{}
     store = List.first(offer["stores"] || []) || %{}
 
-    valid_until = parse_date(offer["validTo"])
-
-    # Build offer price label: prefer mechanicInfo ("3 för 42 kr", "35 kr/st"),
-    # fall back to composing from parsed mechanics
-    mechanic_label =
+    # The offer as the page words it ("3 för 40 kr", "39,90 kr/st"), or composed from the
+    # parsed mechanics when it isn't given. The price is read from these words: the parsed
+    # mechanics split off the öre.
+    condition =
       nilify(details["mechanicInfo"]) ||
         nilify(
           "#{mechanics["value1"]} #{mechanics["value2"]} kr#{mechanics["value4"]}"
           |> String.trim()
         )
 
-    # Regular price comes from the store entry, e.g. "52,89-57,83" or "267"
-    regular_price = nilify(store["regularPrice"])
+    {price, quantity, unit} = parse_offer(condition)
 
-    # Comparison price, e.g. "87:50/kg" — normalise colon separator to dot
-    comparison_price =
-      offer["comparisonPrice"]
-      |> nilify()
-      |> then(fn
-        nil -> nil
-        s -> Regex.replace(~r/(\d+):(\d+)/, s, "\\1.\\2")
-      end)
+    # The comparison price, e.g. "87:50/kg" or "412:50-495:00/kg u. spad".
+    {comparison_price, comparison_unit} = parse_comparison(offer["comparisonPrice"])
 
     store_name = nilify(store["storeMarketingName"]) || "ICA"
 
@@ -84,25 +76,70 @@ defmodule Tore.Deals.Parsers.ICA do
       product_name: details["name"] || "",
       brand: nilify(details["brand"]),
       size: nilify(details["packageInformation"]),
-      price: parse_price(mechanics["value2"]),
-      price_unit: nilify(mechanics["value4"]),
-      offer_condition: mechanic_label,
-      regular_price: regular_price,
+      price: price,
+      quantity: quantity,
+      price_unit: unit,
+      offer_condition: condition,
+      # From the store entry, e.g. "52,89-57,83" or "267".
+      regular_price: low_end(store["regularPrice"]),
       comparison_price: comparison_price,
-      valid_until: valid_until,
+      comparison_unit: comparison_unit,
+      valid_until: parse_date(offer["validTo"]),
       source: :scraped
     }
   end
 
-  defp parse_price(nil), do: nil
-  defp parse_price(""), do: nil
+  @amount ~S"(\d+(?:[,.:]\d+)?)"
 
-  defp parse_price(str) do
-    case Regex.run(~r/(\d+[,.]?\d*)/, str) do
-      [_, digits] -> digits |> String.replace(",", ".") |> Decimal.new()
+  # "39,90 kr/st", "3 för 40 kr", "79 kr/kg". An offer that only says what you save ("Spara
+  # 10 kr", "20% rabatt") or how many you get ("Köp 3 betala för 2") has no price.
+  defp parse_offer(nil), do: {nil, 1, nil}
+
+  defp parse_offer(condition) do
+    with false <- condition =~ ~r/spara|rabatt|%/iu,
+         [_, count, amount | unit] <-
+           Regex.run(
+             ~r/(?:(\d+)\s*(?:st\s*)?för\s*)?#{@amount}\s*kr(?:\s*\/\s*(\p{L}+))?/iu,
+             condition
+           ) do
+      quantity = if count == "", do: 1, else: String.to_integer(count)
+      {to_decimal(amount), quantity, unit(List.first(unit))}
+    else
+      _ -> {nil, 1, nil}
+    end
+  end
+
+  defp parse_comparison(nil), do: {nil, nil}
+
+  defp parse_comparison(text) do
+    case Regex.run(~r/^#{@amount}(?:-[\d,.:]+)?\s*\/\s*(\p{L}+)/u, String.trim(text)) do
+      [_, amount, unit] -> {to_decimal(amount), unit(unit)}
+      _ -> {nil, nil}
+    end
+  end
+
+  defp low_end(nil), do: nil
+
+  defp low_end(text) do
+    case Regex.run(~r/^\s*#{@amount}/u, text) do
+      [_, amount] -> to_decimal(amount)
       _ -> nil
     end
   end
+
+  # A price with no unit is per item.
+  defp unit(nil), do: "st"
+  defp unit(""), do: "st"
+
+  defp unit(word) do
+    case String.downcase(word) do
+      w when w in ["st", "förp", "fp", "pkt"] -> "st"
+      w when w in ["l", "lit", "liter"] -> "l"
+      w -> w
+    end
+  end
+
+  defp to_decimal(amount), do: amount |> String.replace([",", ":"], ".") |> Decimal.new()
 
   defp parse_date(nil), do: nil
 

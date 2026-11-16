@@ -84,7 +84,7 @@ behind a context boundary. LiveViews call context APIs only; the context modules
 | **Accounts**  | Users, sessions, per-user prefs.                                  |
 | **Household** | Shared household-level state (preferences, memory, members). |
 | **Recipes**   | Reference catalog.                                                |
-| **Deals**     | Scraped weekly from stores added by link, expire automatically.   |
+| **Deals**     | Scraped weekly from stores added by link; ended ones kept half a year as price history. |
 | **Pantry**    | Approximate inventory. **No primary management UI.** See §Pantry. |
 | **Costs**     | Receipts, for cost tracking; eating out is read from the plan (§7). Reached from Settings and the menu. |
 | **Runs** (`Tore.Harness.Runs`) | One `runs` row per `KitchenRun`, moved through its steps by pure transitions (§A.2). Replaced an event-sourced run aggregate on 2026-11-10. |
@@ -822,12 +822,18 @@ Eating out is a state of a day in the plan, not a cost form. "Eating out" on the
 A store is added in Settings by pasting a link to its offers. `Tore.Deals.Parsers.for_url/1` picks a parser from the
 link's host, and each chain is one module implementing `Tore.Deals.Parsers.Parser`. Only https links on a parser's
 hosts get fetched, so a pasted link can't point Tore anywhere else. A link no parser handles gets "Tore can't read
-that store yet". A Saturday job scrapes every enabled store, and the planner reads the results through `active_deals`.
+that store yet". A Saturday job scrapes every enabled store, and the planner reads the results through `active_deals`, which shows only
+offers still running in the week being planned (`Deals.valid_in_week/2`).
 
-**Known problems.** Tested on 2026-11-04 against one ICA store: `Req`, which the scrape uses, gets a 403 where plain
-`curl` gets a 200, and the parser truncates decimals and misreads multi-buys. These get fixed with the weekly budget,
-and until then the Saturday scrape may return nothing. When fetching is fixed, the limits are one store, at most once a
-day and only until the new week's offers appear, with no retries on a 403.
+Each offer stores its price for `quantity` items per `price_unit` ("3 för 40 kr" is 40 for 3, per st), the usual
+price per item and the comparison price per kg or litre, all as numbers. The ICA parser reads the price from the
+offer's own words, so the öre stay, and an offer that only says what you save has no price. An offer without an end
+date runs to Sunday. Each week's offer is its own row, and `clear_expired` keeps ended ones for 26 weeks: they are
+the price history the weekly budget prices recipes from. A failed fetch emails an alert, as zero deals does.
+
+**Known problem.** Tested on 2026-11-04 against one ICA store: `Req`, which the scrape uses, gets a 403 where plain
+`curl` gets a 200, so the Saturday scrape may return nothing (and now sends an alert). The limits when fetching
+works: one store, at most once a day and only until the new week's offers appear, with no retries on a 403.
 
 ### 9. Prep
 

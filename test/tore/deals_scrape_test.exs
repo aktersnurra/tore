@@ -27,6 +27,16 @@ defmodule Tore.DealsScrapeTest do
     assert deal.chain == "ica"
   end
 
+  test "a failed fetch of a switched-on store sends an alert" do
+    {:ok, _} = Deals.add_store(home_scope(), @store_url)
+    Tore.MockHTTP |> expect(:fetch, fn @store_url -> {:error, {:http_error, 403}} end)
+
+    assert :ok = Deals.scrape_all()
+
+    assert_received {:email, %{subject: "[Tore] Couldn't fetch a store's offers"} = email}
+    assert email.text_body =~ "403"
+  end
+
   test "scrape_url returns error on HTTP failure" do
     Tore.MockHTTP
     |> expect(:fetch, fn _url -> {:error, :timeout} end)

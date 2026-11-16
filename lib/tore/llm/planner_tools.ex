@@ -347,21 +347,24 @@ defmodule Tore.LLM.PlannerTools do
     %Tool{
       name: "active_deals",
       description:
-        "Currently active store deals across configured stores. Use before suggesting recipes that align with current promotions.",
+        "Store deals that still run in the week being planned, at the household's stores. Use before suggesting recipes that align with current promotions. `price` is for `quantity` items, per `price_unit`.",
       kind: :read,
       parameters: %{type: "object", properties: %{}, required: []},
       run: fn _args, ctx, plan ->
         deals =
-          Tore.Deals.list_current(ctx.scope)
+          Tore.Deals.valid_in_week(ctx.scope, ctx.week_start)
           |> Enum.map(fn d ->
             %{
               id: d.id,
               product_name: d.product_name,
               brand: d.brand,
+              size: d.size,
               store: d.store,
               chain: d.chain,
               price: d.price && Decimal.to_string(d.price),
-              price_unit: d.price_unit
+              quantity: d.quantity,
+              price_unit: d.price_unit,
+              valid_until: Date.to_iso8601(d.valid_until)
             }
           end)
 
