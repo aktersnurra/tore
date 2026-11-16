@@ -231,4 +231,39 @@ defmodule Tore.Capture.DispatchTest do
       assert %KitchenRun{kind: "planner_command_run"} = Runs.get(home_scope(), id)
     end
   end
+
+  describe "can_i_make/4" do
+    test "checks a recipe in the library by its own ingredients" do
+      {:ok, buns} =
+        Tore.Recipes.create(
+          home_scope(),
+          %{
+            title: "Kanelbullar",
+            recipe_type: :baking,
+            ingredients: [%{name: "vetemjöl"}, %{name: "kanel"}, %{name: "smör"}]
+          },
+          image: false
+        )
+
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vetemjöl"})
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
+
+      bubble = Dispatch.can_i_make("kanelbullar", nil, ["ignored"], %{scope: home_scope()})
+
+      assert %{recipe_id: id, baking: true, have: ["vetemjöl", "smör"], missing: ["kanel"]} =
+               bubble.can_make
+
+      assert id == buns.id
+    end
+
+    test "a dish not in the library is checked by the ingredients given for it" do
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ägg"})
+
+      bubble =
+        Dispatch.can_i_make("Pannkakor", nil, ["ägg", "mjölk", "vetemjöl"], %{scope: home_scope()})
+
+      assert %{recipe_id: nil, title: "Pannkakor", have: ["ägg"], missing: ["mjölk", "vetemjöl"]} =
+               bubble.can_make
+    end
+  end
 end

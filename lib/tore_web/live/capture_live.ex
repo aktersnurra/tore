@@ -13,8 +13,9 @@ defmodule ToreWeb.CaptureLive do
       socket
       |> assign(
         messages: [],
-        input: "",
+        input: params["q"] || "",
         loading: false,
+        working: nil,
         return_to: return_to
       )
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
@@ -57,6 +58,24 @@ defmodule ToreWeb.CaptureLive do
     end
   end
 
+  # The missing things from a "can I make it" card go on this week's list.
+  def handle_event("add_missing", %{"index" => index}, socket) do
+    index = String.to_integer(index)
+    %{current_scope: scope, current_user: user} = socket.assigns
+    list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(Tore.Clock.today()))
+
+    case Enum.at(socket.assigns.messages, index) do
+      %{can_make: %{missing: missing}, added: nil} ->
+        for name <- missing, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
+
+        {:noreply,
+         update(socket, :messages, &List.update_at(&1, index, fn m -> %{m | added: true} end))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   @impl true
   def handle_event("send_message", %{"message" => text}, socket) do
     text = String.trim(text)
@@ -73,14 +92,25 @@ defmodule ToreWeb.CaptureLive do
       user_bubble = user_bubble_for(text, images)
       messages = history ++ [user_bubble]
 
-      ctx = %{scope: socket.assigns.current_scope}
+      view = self()
+
+      ctx = %{
+        scope: socket.assigns.current_scope,
+        progress: &send(view, {:route_step, &1})
+      }
 
       ToreWeb.Background.run(
         fn -> Router.route(text, images, ctx, history) end,
         &{:route_complete, &1}
       )
 
-      {:noreply, assign(socket, messages: messages, input: "", loading: true)}
+      {:noreply,
+       assign(socket,
+         messages: messages,
+         input: "",
+         loading: true,
+         working: first_step(text, images)
+       )}
     end
   end
 
@@ -113,17 +143,132 @@ defmodule ToreWeb.CaptureLive do
     """
   end
 
+  # A card that can be acted on keeps whether it has been.
+  defp actionable(%{can_make: _} = bubble), do: Map.put(bubble, :added, nil)
+  defp actionable(bubble), do: bubble
+
+  attr :msg, :map, required: true
+  attr :index, :integer, required: true
+
+  # Whether a dish can be made now: its photo, what's missing, and the two ways on.
+  defp can_make(assigns) do
+    ~H"""
+    <div
+      data-role="can-make"
+      class="rise-in w-full max-w-[85%] rounded-[20px] rounded-bl-md bg-[var(--sunken)] p-3"
+    >
+      <div class="flex items-center gap-3">
+        <span
+          :if={@msg.can_make.photo}
+          class="size-16 shrink-0 overflow-hidden rounded-[var(--r-md)]"
+        >
+          <img
+            src={~p"/images/recipes/#{@msg.can_make.recipe_id}"}
+            alt=""
+            class="size-full object-cover"
+          />
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[16px] font-semibold text-[color:var(--text)]">
+            {@msg.can_make.title}
+          </p>
+          <p
+            :if={@msg.can_make.missing == []}
+            class="mt-0.5 flex items-center gap-1 text-[14px] font-semibold text-[color:var(--done)]"
+          >
+            <.icon name="hero-check-mini" class="size-4" /> {gettext("All of it is at home")}
+          </p>
+          <p :if={@msg.can_make.missing != []} class="mt-0.5 text-[14px] text-[color:var(--muted)]">
+            {gettext("Missing: %{things}", things: Enum.join(@msg.can_make.missing, ", "))}
+          </p>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <.link
+          :if={@msg.can_make.recipe_id}
+          navigate={~p"/recipes/#{@msg.can_make.recipe_id}/cook"}
+          class={["pill press", @msg.can_make.missing == [] && "pill-lamp"]}
+        >
+          <.icon name="hero-play" />
+          {if @msg.can_make.baking, do: gettext("Bake now"), else: gettext("Cook now")}
+        </.link>
+        <button
+          :if={@msg.can_make.missing != [] and !@msg.added}
+          type="button"
+          phx-click="add_missing"
+          phx-value-index={@index}
+          class="pill pill-lamp press"
+        >
+          <.icon name="hero-plus" /> {gettext("Put what's missing on the list")}
+        </button>
+        <.link
+          :if={@msg.added}
+          id={"added-#{@index}"}
+          navigate={~p"/shop"}
+          class="settle inline-flex items-center gap-1 text-[14px] font-semibold text-[color:var(--done)]"
+        >
+          <.icon name="hero-check-mini" class="size-4" /> {gettext("On the list")}
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
   # A reply meant only for the model, such as a rejected memory batch, has no text.
   defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
 
+  # What Tore is doing, named as the kitchen would: before any tool runs, and as each starts.
+  defp first_step(_text, [_ | _]), do: gettext("Reading the photo…")
+
+  defp first_step(text, []) do
+    if text =~ ~r{https?://},
+      do: gettext("Reading the link…"),
+      else: gettext("Checking the kitchen…")
+  end
+
+  defp step_label(names), do: Enum.find_value(names, &step_label_for/1)
+
+  defp step_label_for("ingest_receipt"), do: gettext("Reading the receipt…")
+
+  defp step_label_for(n) when n in ~w(ingest_recipe import_recipe_from_url),
+    do: gettext("Reading the recipe…")
+
+  defp step_label_for(n) when n in ~w(update_pantry_from_shelf suggest_from_fridge),
+    do: gettext("Reading the photo…")
+
+  defp step_label_for("find_recipe"), do: gettext("Looking through the recipes…")
+
+  defp step_label_for(n) when n in ~w(can_i_make check_pantry),
+    do: gettext("Checking what's at home…")
+
+  defp step_label_for("suggest_meals_from_pantry"), do: gettext("Finding dinners…")
+  defp step_label_for("plan_week"), do: gettext("Planning the week…")
+
+  defp step_label_for(n)
+       when n in ~w(set_plan_slot clear_plan_slot skip_plan_meal set_plan_servings pin_plan_slot mark_eating_out),
+       do: gettext("Changing the plan…")
+
+  defp step_label_for("generate_shopping_list_from_plan"), do: gettext("Making the list…")
+
+  defp step_label_for(n)
+       when n in ~w(add_to_shopping_list check_off_shopping_item remove_shopping_item list_shopping_list),
+       do: gettext("Going through the list…")
+
+  defp step_label_for(_name), do: nil
+
   @impl true
+  def handle_info({:route_step, names}, socket) do
+    {:noreply, assign(socket, working: step_label(names) || socket.assigns.working)}
+  end
+
   def handle_info({:quick_swaps, swaps}, socket), do: {:noreply, assign(socket, swaps: swaps)}
 
   def handle_info({:route_complete, {:ok, bubbles}}, socket) do
     {:noreply,
      socket
      |> assign(:loading, false)
-     |> update(:messages, &(&1 ++ shown(bubbles)))}
+     |> assign(working: nil)
+     |> update(:messages, &(&1 ++ Enum.map(shown(bubbles), fn b -> actionable(b) end)))}
   end
 
   def handle_info({:route_complete, {:error, _reason}}, socket) do
@@ -187,7 +332,7 @@ defmodule ToreWeb.CaptureLive do
           </p>
         </div>
         <div
-          :for={msg <- @messages}
+          :for={{msg, index} <- Enum.with_index(@messages)}
           class={[
             "flex",
             msg.role == :user && "justify-end",
@@ -196,26 +341,42 @@ defmodule ToreWeb.CaptureLive do
         >
           <div
             :if={Map.get(msg, :pantry_suggestions)}
-            class="rise-in bg-[var(--sunken)] rounded-[20px] rounded-bl-md px-4 py-3 max-w-[85%] space-y-2"
+            class="rise-in w-full max-w-[85%] space-y-2"
           >
-            <p class="text-sm text-[color:var(--text)]">{msg.text}</p>
-            <ul class="space-y-1.5">
+            <p class="rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5 text-[15px] text-[color:var(--text)]">
+              {msg.text}
+            </p>
+            <ul class="space-y-1">
               <li :for={s <- msg.suggestions}>
                 <.link
-                  navigate={~p"/recipes"}
-                  class="block text-[15px] font-semibold text-[color:var(--text)] underline underline-offset-4 decoration-[color:var(--subtle)]"
+                  navigate={~p"/recipes?#{[id: s.recipe_id]}"}
+                  class="row-hover press-soft flex items-center gap-3 rounded-[var(--r-lg)] p-1.5"
                 >
-                  {s.title}
+                  <span class="size-14 shrink-0 overflow-hidden rounded-[var(--r-md)] bg-[var(--sunken)]">
+                    <img
+                      :if={s[:photo]}
+                      src={~p"/images/recipes/#{s.recipe_id}"}
+                      alt=""
+                      loading="lazy"
+                      class="size-full object-cover"
+                    />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-[15px] font-semibold text-[color:var(--text)]">
+                      {s.title}
+                    </span>
+                    <span
+                      :if={s.reasons != []}
+                      class="block truncate text-[13px] text-[color:var(--muted)]"
+                    >
+                      {hd(s.reasons)}
+                    </span>
+                  </span>
                 </.link>
-                <p
-                  :if={s.reasons != []}
-                  class="text-xs text-[color:var(--muted)]"
-                >
-                  {Enum.join(s.reasons, " · ")}
-                </p>
               </li>
             </ul>
           </div>
+          <.can_make :if={Map.get(msg, :can_make)} msg={msg} index={index} />
           <div
             :if={Map.get(msg, :shop_link)}
             class="rise-in bg-[var(--sunken)] rounded-[20px] rounded-bl-md px-4 py-3 max-w-[85%] space-y-2"
@@ -242,7 +403,10 @@ defmodule ToreWeb.CaptureLive do
             <.undo msg={msg} />
           </div>
           <div
-            :if={!Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link)}
+            :if={
+              !Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link) &&
+                !Map.get(msg, :can_make)
+            }
             class={[
               "rise-in max-w-[85%] rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed flex flex-col gap-1",
               msg.role == :user && "rounded-br-md bg-[var(--text)] text-[color:var(--bg)]",
@@ -271,7 +435,13 @@ defmodule ToreWeb.CaptureLive do
               name="hero-arrow-path"
               class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
             />
-            <span class="text-[15px] text-[color:var(--muted)]">{gettext("Working on it…")}</span>
+            <span
+              id={"working-#{:erlang.phash2(@working)}"}
+              data-role="working"
+              class="settle text-[15px] text-[color:var(--muted)]"
+            >
+              {@working}
+            </span>
           </div>
         </div>
       </div>

@@ -279,6 +279,69 @@ defmodule Tore.Capture.Dispatch do
 
   # ── pantry-driven suggestions ──────────────────────────────────────────
 
+  @doc """
+  Whether `dish` can be made with what's at home. A recipe in the library (by `recipe_id`, or a
+  title containing `dish`) is checked by its own ingredients; otherwise by `ingredients`, the
+  model's idea of what the dish needs. The reply carries what's had and what's missing, and,
+  for a library recipe, its id so it can be started.
+  """
+  @spec can_i_make(String.t(), integer() | nil, [String.t()], ctx()) :: bubble()
+  def can_i_make(dish, recipe_id, ingredients, ctx) when is_binary(dish) do
+    recipe = library_recipe(ctx.scope, recipe_id, dish)
+
+    names =
+      if recipe,
+        do: Enum.map(recipe.recipe_ingredients, & &1.ingredient.name),
+        else: ingredients
+
+    %{have: have, missing: missing} = Tore.Pantry.at_home(ctx.scope, names)
+    title = if recipe, do: recipe.title, else: dish
+
+    %{
+      role: :assistant,
+      can_make: %{
+        title: title,
+        recipe_id: recipe && recipe.id,
+        photo: recipe && recipe.image_path != nil,
+        baking: recipe && recipe.recipe_type == :baking,
+        have: have,
+        missing: missing
+      },
+      text: can_make_text(title, missing)
+    }
+  end
+
+  defp library_recipe(scope, id, _dish) when is_integer(id) do
+    case Recipes.get_many(scope, [id]) do
+      [recipe] -> recipe
+      [] -> nil
+    end
+  end
+
+  defp library_recipe(scope, nil, dish) do
+    wanted = String.downcase(dish)
+
+    scope
+    |> Recipes.search(dish)
+    |> Enum.find(&String.contains?(String.downcase(&1.title), wanted))
+    |> case do
+      nil -> nil
+      found -> library_recipe(scope, found.id, dish)
+    end
+  end
+
+  defp can_make_text(dish, []), do: gettext("Everything for %{dish} is at home.", dish: dish)
+
+  defp can_make_text(dish, missing) do
+    ngettext(
+      "%{dish}: one thing is missing, %{things}.",
+      "%{dish}: %{count} things are missing, %{things}.",
+      length(missing),
+      dish: dish,
+      things: Enum.join(missing, ", ")
+    )
+  end
+
   @spec suggest_meals_from_pantry(pos_integer(), ctx()) :: bubble()
   def suggest_meals_from_pantry(count, ctx) when is_integer(count) and count > 0 do
     today = Tore.Clock.today()
@@ -298,7 +361,12 @@ defmodule Tore.Capture.Dispatch do
       {:ok, ranked} ->
         suggestions =
           Enum.map(ranked, fn %{recipe: r, reasons: reasons} ->
-            %{recipe_id: r.id, title: r.title, reasons: Enum.take(reasons, 2)}
+            %{
+              recipe_id: r.id,
+              title: r.title,
+              photo: r.image_path != nil,
+              reasons: Enum.take(reasons, 2)
+            }
           end)
           |> Enum.take(min(count, @suggestion_limit))
 

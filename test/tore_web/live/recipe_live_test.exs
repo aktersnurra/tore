@@ -397,4 +397,35 @@ defmodule ToreWeb.RecipeLiveTest do
       assert hd(updated.recipe_ingredients).ingredient.name == "Spaghetti"
     end
   end
+
+  describe "what's at home" do
+    test "the page says what's missing and puts it on the list", %{conn: conn, user: user} do
+      Mox.set_mox_global()
+      Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
+
+      {:ok, buns} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Kanelbullar",
+            recipe_type: :baking,
+            ingredients: [%{name: "smör"}, %{name: "kanel"}]
+          },
+          image: false
+        )
+
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: buns.id]}")
+
+      assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
+      assert view |> element(~s([data-role="ask-tore"])) |> render() =~ "q=Om+Kanelbullar"
+
+      view |> element(~s([data-role="at-home"] button)) |> render_click()
+      assert has_element?(view, "#home-added")
+
+      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
+      {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
+      assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
+    end
+  end
 end

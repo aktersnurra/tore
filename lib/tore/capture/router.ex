@@ -65,6 +65,10 @@ defmodule Tore.Capture.Router do
       have?") rather than committing.
     - To clear a day, call `clear_plan_slot`.
     - When the user asks what to cook, call `suggest_meals_from_pantry`.
+    - "Can I make/bake X with what I have?" / "kan jag baka kanelbullar med det jag har hemma?"
+      → `can_i_make` with the dish. If it isn't in their recipes, also pass `ingredients`: what
+      the dish usually needs, in their language, staples included. Then say in one line what's
+      missing; the card offers to start it or put the missing things on the list.
     - "Plan next week" / "planera veckan" → `plan_week` with their words as the request. A budget
       in the same breath ("budget 2000 kr") → `set_budget` for that week first, then `plan_week`.
       "Our budget is 2000 a week" → `set_budget` with no week. It covers the whole shop.
@@ -106,7 +110,12 @@ defmodule Tore.Capture.Router do
 
   @max_tool_loop_iterations 5
 
-  @type ctx :: %{required(:scope) => Tore.Scope.t()}
+  # `progress`, when given, hears the names of the tools about to run, so a screen can say what
+  # it's doing.
+  @type ctx :: %{
+          required(:scope) => Tore.Scope.t(),
+          optional(:progress) => ([String.t()] -> any())
+        }
   @type reply :: map()
 
   @spec route(String.t(), [binary()], ctx(), [map()]) :: {:ok, [reply()]} | {:error, term()}
@@ -170,6 +179,7 @@ defmodule Tore.Capture.Router do
         {:ok, bubbles_acc ++ [%{role: :assistant, text: text}]}
 
       {:ok, {:tool_calls, calls}, _usage} ->
+        if progress = ctx[:progress], do: progress.(Enum.map(calls, & &1.name))
         results = dispatch_calls_with_results(calls, images, ctx)
         new_bubbles = Enum.flat_map(results, & &1.bubbles)
 
@@ -304,6 +314,13 @@ defmodule Tore.Capture.Router do
     with {:ok, date} <- parse_iso_date(date_str) do
       {:ok, [Dispatch.clear_plan_slot(date, ctx)]}
     end
+  end
+
+  defp run_call(%{name: "can_i_make", args: %{"dish" => dish} = args}, _images, _count, ctx)
+       when is_binary(dish) do
+    recipe_id = if is_integer(args["recipe_id"]), do: args["recipe_id"]
+    ingredients = Enum.filter(args["ingredients"] || [], &is_binary/1)
+    {:ok, [Dispatch.can_i_make(dish, recipe_id, ingredients, ctx)]}
   end
 
   defp run_call(%{name: "suggest_meals_from_pantry", args: args}, _images, _count, ctx) do
@@ -552,6 +569,28 @@ defmodule Tore.Capture.Router do
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."}
           },
           required: ["date"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "can_i_make",
+        "Check whether a dish can be made with what's at home: what's had and what's missing. A recipe in their library is checked by its own ingredients; otherwise by `ingredients`.",
+        %{
+          type: "object",
+          properties: %{
+            dish: %{type: "string", description: "The dish as they named it."},
+            recipe_id: %{
+              type: ["integer", "null"],
+              description: "The recipe's id when find_recipe or the plan gave it; else null."
+            },
+            ingredients: %{
+              type: "array",
+              items: %{type: "string"},
+              description:
+                "What the dish usually needs, for a dish not in their recipes. Empty when it is."
+            }
+          },
+          required: ["dish", "recipe_id", "ingredients"],
           additionalProperties: false
         }
       ),
@@ -993,6 +1032,17 @@ defmodule Tore.Capture.Router do
       status: "ok",
       items: bubble[:shopping_items] || [],
       message: bubble[:text]
+    }
+  end
+
+  defp tool_result_payload("can_i_make", %{can_make: can_make} = bubble) do
+    %{
+      status: "ok",
+      in_library: can_make.recipe_id != nil,
+      recipe_id: can_make.recipe_id,
+      have: can_make.have,
+      missing: can_make.missing,
+      message: bubble.text
     }
   end
 

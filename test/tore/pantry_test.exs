@@ -456,4 +456,19 @@ defmodule Tore.PantryTest do
       assert Enum.map(Pantry.list_inventory(other), & &1.name) == ["smör"]
     end
   end
+
+  describe "at_home/2" do
+    test "splits a dish's ingredients into what's at home and what's missing, in order" do
+      {:ok, _} = Pantry.add_item(home_scope(), %{name: "Vetemjöl"})
+      {:ok, _} = Pantry.add_item(home_scope(), %{name: "Smör"})
+
+      assert Pantry.at_home(home_scope(), ["vetemjöl", "Kanel", "smör", "Kardemumma"]) ==
+               %{have: ["vetemjöl", "smör"], missing: ["Kanel", "Kardemumma"]}
+    end
+
+    test "water, salt and pepper are taken as always at home" do
+      assert Pantry.at_home(home_scope(), ["Vatten", "salt", "svartpeppar", "jäst"]) ==
+               %{have: ["Vatten", "salt", "svartpeppar"], missing: ["jäst"]}
+    end
+  end
 end

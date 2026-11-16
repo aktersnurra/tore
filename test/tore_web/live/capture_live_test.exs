@@ -316,4 +316,63 @@ defmodule ToreWeb.CaptureLiveTest do
     assert Tore.Pantry.list_inventory(home_scope()) == []
     assert render(lv) =~ "Återställd"
   end
+
+  describe "can I make it" do
+    test "says what it's doing, then shows what's missing and puts it on the list", %{conn: conn} do
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vetemjöl"})
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
+      stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
+      test_pid = self()
+
+      call = %{
+        id: "c1",
+        name: "can_i_make",
+        args: %{
+          "dish" => "Kanelbullar",
+          "recipe_id" => nil,
+          "ingredients" => ["vetemjöl", "smör", "kanel", "jäst"]
+        }
+      }
+
+      expect(Tore.MockLLM, :chat_with_tools, 2, fn _sys, msgs, _tools, _opts ->
+        if Enum.any?(msgs, &(&1[:role] == "tool")) do
+          send(test_pid, {:second_turn, self()})
+          receive do: (:go_on -> :ok)
+          {:ok, {:message, "Du saknar kanel och jäst."}, %{}}
+        else
+          {:ok, {:tool_calls, [call]}, %{}}
+        end
+      end)
+
+      {:ok, view, _} = live(conn, ~p"/capture")
+
+      html =
+        view
+        |> form(~s(form[phx-submit="send_message"]), %{message: "kan jag baka kanelbullar?"})
+        |> render_submit()
+
+      assert html =~ "Kollar köket…"
+      assert_receive {:second_turn, worker}, 1000
+
+      assert view |> element(~s([data-role="working"])) |> render() =~
+               "Kollar vad som finns hemma…"
+
+      send(worker, :go_on)
+
+      assert eventually(fn -> has_element?(view, ~s([data-role="can-make"])) end)
+      card = view |> element(~s([data-role="can-make"])) |> render()
+      assert card =~ "Saknas: kanel, jäst"
+
+      view |> element("button", "Lägg det som saknas på listan") |> render_click()
+      assert render(view) =~ "På listan"
+
+      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
+      {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
+
+      assert state.items |> Map.values() |> Enum.map(& &1.name) |> Enum.sort() == [
+               "jäst",
+               "kanel"
+             ]
+    end
+  end
 end

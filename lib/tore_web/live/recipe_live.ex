@@ -228,6 +228,16 @@ defmodule ToreWeb.RecipeLive do
       else: {:noreply, closed(socket)}
   end
 
+  # What's missing for this recipe goes on this week's list.
+  def handle_event("add_missing", _params, %{assigns: %{home_added: false}} = socket) do
+    %{current_scope: scope, current_user: user, home: home} = socket.assigns
+    list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(Tore.Clock.today()))
+    for name <- home.missing, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
+    {:noreply, assign(socket, home_added: true)}
+  end
+
+  def handle_event("add_missing", _params, socket), do: {:noreply, socket}
+
   def handle_event("servings", %{"by" => by}, socket) do
     servings = (socket.assigns.servings + String.to_integer(by)) |> max(1) |> min(24)
     {:noreply, assign(socket, servings: servings)}
@@ -385,9 +395,13 @@ defmodule ToreWeb.RecipeLive do
   defp select(socket, id) do
     recipe = Recipes.get!(socket.assigns.current_scope, id)
 
+    names = Enum.map(recipe.recipe_ingredients, & &1.ingredient.name)
+
     assign(socket,
       selected: recipe,
       servings: recipe.base_servings || 4,
+      home: Tore.Pantry.at_home(socket.assigns.current_scope, names),
+      home_added: false,
       week: nil,
       put: nil,
       opened: id,
@@ -795,6 +809,33 @@ defmodule ToreWeb.RecipeLive do
               </a>
             </dd>
           </div>
+          <div :if={@selected.recipe_ingredients != []} data-role="at-home">
+            <dt><.icon name="hero-home" /> {gettext("At home")}</dt>
+            <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
+              {gettext("All of it")}
+            </dd>
+            <dd :if={@home.missing != []} class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span class="text-[color:var(--muted)]">
+                {gettext("Missing: %{things}", things: Enum.join(@home.missing, ", "))}
+              </span>
+              <button
+                :if={!@home_added}
+                type="button"
+                phx-click="add_missing"
+                class="press font-semibold text-[color:var(--accent-ink)] hover:underline"
+              >
+                {gettext("Put on the list")}
+              </button>
+              <.link
+                :if={@home_added}
+                id="home-added"
+                navigate={~p"/shop"}
+                class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
+              >
+                <.icon name="hero-check-mini" class="size-4" /> {gettext("On the list")}
+              </.link>
+            </dd>
+          </div>
           <div :if={@selected.last_used_at}>
             <dt><.icon name="hero-calendar" /> {gettext("Last made")}</dt>
             <dd>{ToreWeb.Dates.day(DateTime.to_date(@selected.last_used_at))}</dd>
@@ -824,6 +865,15 @@ defmodule ToreWeb.RecipeLive do
           <button type="button" phx-click="toggle_substitution" class="pill press">
             <.icon name="hero-arrows-right-left" /> {gettext("Missing something?")}
           </button>
+          <.link
+            navigate={
+              ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", q: gettext("About %{dish}: ", dish: @selected.title)]}"
+            }
+            data-role="ask-tore"
+            class="pill press"
+          >
+            <.icon name="hero-chat-bubble-oval-left" /> {gettext("Ask Tore")}
+          </.link>
         </div>
 
         <%!-- Which day: the next seven, each with what it has now. --%>

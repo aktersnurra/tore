@@ -246,6 +246,26 @@ defmodule Tore.Pantry do
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 
+  # Taken as always in the house: nobody keeps a pantry row for them.
+  @always_at_home MapSet.new(
+                    ~w(vatten water salt peppar svartpeppar vitpeppar pepper black_pepper),
+                    &Ingredient.to_key/1
+                  )
+
+  @doc """
+  `names` (a dish's ingredients) split into what the pantry holds and what's missing, each in the
+  order given. Matched exactly by ingredient key, as the shopping list is, so a near miss counts
+  as missing rather than as had.
+  """
+  @spec at_home(Scope.t(), [String.t()]) :: %{have: [String.t()], missing: [String.t()]}
+  def at_home(%Scope{} = scope, names) do
+    held = scope |> list_usable() |> MapSet.new(&Ingredient.to_key(&1.name))
+    {have, missing} = Enum.split_with(names, &at_home?(held, Ingredient.to_key(&1)))
+    %{have: have, missing: missing}
+  end
+
+  defp at_home?(held, key), do: MapSet.member?(held, key) or MapSet.member?(@always_at_home, key)
+
   @spec add_item(Scope.t(), map()) :: {:ok, PantryItem.t()} | {:error, Ecto.Changeset.t()}
   def add_item(%Scope{} = scope, attrs) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
