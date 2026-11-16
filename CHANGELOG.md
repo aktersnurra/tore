@@ -7,6 +7,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Pages, collections, and a smarter kitchen (2026-11-17)
+
+- Recipes are collections: 🍲 Dinner, 🥐 Baking, 🫙 Sauces & sides, 🥪 Assemblies. An import files itself. Only dinners go on the week; the rest are there to find and start.
+- A recipe is a page: cover, then quiet properties (collection, time, servings, at home, source, last made). The servings stepper scales the amounts and carries into cook mode. Cook or Bake now, Put on the week (pick a day, Undo), Ask Tore.
+- Every picture is drawn in one house style, so the library reads as one cookbook. `Tore.Recipes.restyle_images/0` redraws the existing ones (paid image calls; run by hand).
+- Tab bar: names under the icons, a filled icon for where you are, no sparkles.
+- Today's "Something else" offers three dinners with photos and why each fits; choosing one changes tonight, with Undo. "No dinner tonight" is one tap.
+- Plan: "Plan the N open days" fills what's open, with the run's receipt and Undo. Day rows lead with the dish's photo.
+- Shop: one add field at the top that reads "2 l mjölk"; Make the list from the week's dinners; ticking draws the check and folds the row into the basket; each item says which dinner it's for ("till tisdagens tacos").
+- Tore: "can I bake cinnamon rolls with what I've got?" answers with what's missing, Bake now, and Put what's missing on the list. While it works it says what it's doing. Dinner suggestions are photo rows.
+- Cook mode: a timer on any step with minutes, kept while you move on; a hand-written recipe's steps are written when it's saved.
+
 ### The list in your store's order, recipes from a link (2026-11-16)
 
 - A new recipe starts from a link: + on Recipes opens a link field, Tore reads the page in and opens the recipe. Writing it in by hand is the way out underneath, and takes what was typed along.

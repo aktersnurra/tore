@@ -133,10 +133,10 @@ ahead of time by a decision model and stored (`SPEC.md` §Interfaces): tonight a
 the list on Saturday morning, next week's plan on Sunday evening. The pick is never
 computed while someone waits.
 
-Every main screen has the same tab bar at the bottom, icons only:
+Every main screen has the same tab bar at the bottom, each tab an icon with its name under it:
 
 ```md
- ⌂ Today    ▦ Plan    (✦) Tore    🛒 Shop    📖 Recipes
+ ⌂ Today    ▦ Plan    (💬) Tore    🛒 Shop    📖 Recipes
 ```
 
 - **Tore**, in the middle, is a filled round button in the text colour, not saffron. It
@@ -146,7 +146,8 @@ Every main screen has the same tab bar at the bottom, icons only:
   chips: no AI iconography, no animation.
 - **Settings** is a button on Today, top right. It holds members, diet and allergies,
   the household, memory, stores and AI.
-- The current tab is in the text colour, the others muted. Prep counts as Plan.
+- The current tab is in the text colour with a filled icon, the others muted and outlined.
+  Prep counts as Plan. No sparkle icons anywhere: Tore is a chat glyph.
 
 Without AI, a fixed rule picks the screen and the swaps, and nothing else changes.
 
@@ -1693,13 +1694,16 @@ What did Tore's pipeline do?
 Allowed top-level destinations:
 
 ```md
-Today · Plan · Shop · Capture
+Today · Plan · Tore · Shop · Recipes
 ```
+
+Recipes earned its tab on 2026-11-17: the household keeps baking, sauces and assemblies there
+to find and start right away, without putting them on the week. It is a library you start
+from (each recipe is a page with Cook/Bake now), not a table to manage.
 
 Forbidden as top-level nav:
 
 ```md
-Recipes
 Pantry
 Deals
 Receipts
@@ -1710,6 +1714,21 @@ Ingredients
 
 Those are system resources and must appear contextually inside an operational
 surface.
+
+## 16.2a Pages and collections (2026-11-17)
+
+Borrowed from Notion's structure, not its look; the Gjutjärn/Dagsljus tokens stay.
+
+- **A recipe is a page:** cover photo, title, then quiet property rows (Collection, Time,
+  Servings as a stepper that scales the amounts, At home, Source, Last made), then the
+  actions (Cook/Bake now, Put on the week, Missing something?, Ask Tore), then sections.
+- **At home** checks the recipe against the pantry with no model: "All of it", or what's
+  missing with Put on the list.
+- **Collections** are view tabs with an emoji each: 🍲 Dinner, 🥐 Baking, 🫙 Sauces & sides,
+  🥪 Assemblies. Only dinners are planned or suggested for a day.
+- Rows answer hover with a soft background; chrome stays quiet.
+- **Pictures** share one house style (one fixed art direction appended to every dish), so
+  the library looks like one cookbook.
 
 ## 16.3 Agent acts; user undoes
 
