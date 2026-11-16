@@ -36,10 +36,10 @@ defmodule Tore.Harness.Kinds.ShopEdit do
   def check(list_id, item),
     do: %ShopChange{list_id: list_id, change: :check, items: [ShopChange.item(item)]}
 
-  @doc "The week's list from `recipe_ids`, without what the pantry holds."
+  @doc "The week's list from `recipe_ids` and the basics due, without what the pantry holds."
   @spec build(Scope.t(), String.t(), Date.t(), [integer()]) :: ShopChange.t()
   def build(%Scope{} = scope, list_id, week_start, recipe_ids) do
-    items = scope |> Shop.items_for(recipe_ids) |> Enum.map(&ShopChange.item/1)
+    items = scope |> Shop.items_for(recipe_ids, week_start) |> Enum.map(&ShopChange.item/1)
     %ShopChange{list_id: list_id, change: :build, items: items, week_start: week_start}
   end
 
@@ -75,7 +75,7 @@ defmodule Tore.Harness.Kinds.ShopEdit do
       %{name: item["name"], quantity: decimal(item["quantity"]), unit: item["unit"]}
     ])
 
-    :ok
+    Tore.Basics.bought(scope, [item["name"]], Tore.Clock.today())
   end
 
   # Names on a new or rebuilt list that Tore hasn't learned are sorted into their sections later.

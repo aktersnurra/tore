@@ -21,7 +21,7 @@ defmodule Tore.Harness.Artifact.ShopChange do
           week_start: Date.t() | nil
         }
 
-  @item_keys ~w(id name quantity unit section checked)
+  @item_keys ~w(id name quantity unit section checked basic)
 
   @doc "An item in the stored form, from the shop's own item map."
   @spec item(map()) :: item()
@@ -32,7 +32,8 @@ defmodule Tore.Harness.Artifact.ShopChange do
       "quantity" => quantity(fetch(item, :quantity)),
       "unit" => fetch(item, :unit),
       "section" => item |> fetch(:section) |> section(),
-      "checked" => fetch(item, :checked) || false
+      "checked" => fetch(item, :checked) || false,
+      "basic" => fetch(item, :basic) || false
     }
   end
 

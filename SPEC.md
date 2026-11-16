@@ -613,7 +613,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
-| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan, the verdict and calibration |
+| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan, the verdict and calibration, basics |
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
@@ -892,6 +892,14 @@ estimate". With nothing paid there is no verdict and no reminder.
 four earlier weeks that had a plan and receipts, once there are two. It is added to the dinners' estimate to give
 what the week is expected to cost, which is what the budget, the planner's retry and the plan screen hold against.
 It absorbs basics, pack sizes and what's already at home.
+
+**Basics** (`Tore.Basics`) are what the household buys regularly beyond its dinners, so the list and the estimate
+cover the whole shop. One is learned when an ingredient was ticked off a list or matched on a receipt line in three
+or more of the last twelve weeks, in weeks whose dinners didn't call for it; its interval is the median gap. Or
+someone names them in Capture (`set_basics`: "we have cereal and milk for breakfast"), due every week. Building the
+list learns first, then adds the basics due, marked as basics. Ticking one off records the purchase; taking one off
+the list lengthens its interval by half, and three in a row stop it. No model is asked. Until calibration exists, the
+due basics are priced into what the week is expected to cost; after, calibration covers them.
 
 ---
 

@@ -95,21 +95,14 @@ defmodule Tore.Budget do
         do: {id, slot[:servings]}
   end
 
-  @doc "What `plan` for the week starting `week_start` is estimated to cost."
+  @doc """
+  What the week starting `week_start` is estimated to cost: `plan`'s dinners and the basics due
+  (`Tore.Basics`).
+  """
   @spec estimate(Scope.t(), State.t(), Date.t()) :: Prices.cost()
   def estimate(%Scope{} = scope, %State{} = plan, %Date{} = week_start) do
-    meals = meals(plan)
-    recipes = Map.new(Recipes.get_many(scope, Enum.map(meals, &elem(&1, 0))), &{&1.id, &1})
-
-    pairs =
-      for {id, servings} <- meals, recipe = recipes[id], recipe != nil, do: {recipe, servings}
-
-    ids = for {recipe, _} <- pairs, ri <- recipe.recipe_ingredients, do: ri.ingredient_id
-    prices = Prices.for_ingredients(scope, ids, week_start)
-
-    pairs
-    |> Enum.map(fn {recipe, servings} -> Prices.cost(Prices.lines(recipe, servings), prices) end)
-    |> Prices.sum()
+    %{dinners: dinners, basics: basics} = costs(scope, plan, week_start)
+    Prices.sum([dinners, basics])
   end
 
   @doc "The week's budget against its plan's estimate, and how far over it is, if it is."
@@ -119,22 +112,60 @@ defmodule Tore.Budget do
     status(scope, plan, week_start)
   end
 
+  @doc """
+  As `status/2`, for `plan`. Once calibrated, what's expected is the dinners plus what recent weeks
+  paid beyond their dinners, which already covers basics; before that, the dinners plus the basics.
+  """
   @spec status(Scope.t(), State.t(), Date.t()) :: status()
   def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start) do
     budget = amount(scope, week_start)
-    estimate = estimate(scope, plan, week_start)
+    %{dinners: dinners, basics: basics} = costs(scope, plan, week_start)
+    estimate = Prices.sum([dinners, basics])
     adjustment = adjustment(scope, week_start)
-    expected = Decimal.add(estimate.amount, adjustment || 0) |> Decimal.max(0) |> Decimal.round(2)
+
+    expected =
+      case adjustment do
+        nil -> estimate.amount
+        adjustment -> Decimal.add(dinners.amount, adjustment)
+      end
+      |> Decimal.max(0)
+      |> Decimal.round(2)
 
     over = if budget && Decimal.gt?(expected, budget), do: Decimal.sub(expected, budget)
 
     %{budget: budget, estimate: estimate, adjustment: adjustment, expected: expected, over: over}
   end
 
+  # The dinners and the due basics, priced from one lookup.
+  defp costs(scope, plan, week_start) do
+    meals = meals(plan)
+    recipes = Map.new(Recipes.get_many(scope, Enum.map(meals, &elem(&1, 0))), &{&1.id, &1})
+
+    pairs =
+      for {id, servings} <- meals, recipe = recipes[id], recipe != nil, do: {recipe, servings}
+
+    basics = Tore.Basics.lines(scope, week_start)
+
+    ids =
+      for({recipe, _} <- pairs, ri <- recipe.recipe_ingredients, do: ri.ingredient_id) ++
+        Enum.map(basics, & &1.ingredient_id)
+
+    prices = Prices.for_ingredients(scope, ids, week_start)
+
+    dinners =
+      pairs
+      |> Enum.map(fn {recipe, servings} ->
+        Prices.cost(Prices.lines(recipe, servings), prices)
+      end)
+      |> Prices.sum()
+
+    %{dinners: dinners, basics: Prices.cost(basics, prices)}
+  end
+
   @doc """
-  The calibration for the week starting `week_start`: the mean of what was paid minus what was
-  estimated, over the latest #{@calibration_weeks} weeks before it that had a plan and receipts. It
-  absorbs pack sizes, pantry stock and whatever was bought beyond the plan. Nil until
+  The calibration for the week starting `week_start`: the mean of what was paid minus what its
+  dinners were estimated at, over the latest #{@calibration_weeks} weeks before it that had a plan and receipts. It
+  absorbs basics, pack sizes, pantry stock and whatever was bought beyond the plan. Nil until
   #{@calibration_min} such weeks exist.
   """
   @spec adjustment(Scope.t(), Date.t()) :: Decimal.t() | nil
@@ -158,7 +189,7 @@ defmodule Tore.Budget do
 
   defp plan_estimate(scope, week_start) do
     {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week_start))
-    estimate(scope, plan, week_start).amount
+    costs(scope, plan, week_start).dinners.amount
   end
 
   @doc """

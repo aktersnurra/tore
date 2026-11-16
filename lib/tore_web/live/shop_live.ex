@@ -626,6 +626,14 @@ defmodule ToreWeb.ShopLive do
         >
           {pantry_belief_hint(@item.pantry_belief, @item.pantry_last_seen_at)}
         </p>
+        <p
+          :if={Map.get(@item, :basic) && !Map.get(@item, :pantry_belief)}
+          data-role="basic"
+          class="text-[color:var(--subtle)] mt-0.5"
+          style="font-size: var(--t-micro);"
+        >
+          {gettext("Basic")}
+        </p>
       </button>
       <span
         :if={qty_label(@item) != ""}

@@ -69,6 +69,7 @@ defmodule Tore.Capture.Router do
       in the same breath ("budget 2000 kr") → `set_budget` for that week first, then `plan_week`.
       "Our budget is 2000 a week" → `set_budget` with no week. It covers the whole shop.
       "We spent 1900 this week" → `log_total` for that week.
+      "We have cereal and milk for breakfast" → `set_basics`. "We don't buy coffee any more" → `set_basics` with stop.
     - Adjust portions with `set_plan_servings`; pin/unpin with `pin_plan_slot`.
       Mark a recipe as cooked tonight with `mark_recipe_cooked` (this is what
       teaches the rotation to deprioritise it).
@@ -371,6 +372,20 @@ defmodule Tore.Capture.Router do
         with {:ok, date} <- parse_iso_date(date_str),
              do: {:ok, [Dispatch.set_budget(amount, date, ctx)]}
     end
+  end
+
+  defp run_call(%{name: "set_basics", args: %{"items" => items} = args}, _images, _count, ctx)
+       when is_list(items) do
+    items =
+      for %{"name" => name} = item <- items, is_binary(name), String.trim(name) != "" do
+        %{
+          name: String.trim(name),
+          quantity: (is_number(item["quantity"]) && Tore.Types.decimal(item["quantity"])) || nil,
+          unit: item["unit"]
+        }
+      end
+
+    {:ok, [Dispatch.set_basics(items, args["stop"] == true, ctx)]}
   end
 
   defp run_call(%{name: "log_total", args: %{"amount" => amount} = args}, _images, _count, ctx)
@@ -677,6 +692,31 @@ defmodule Tore.Capture.Router do
             }
           },
           required: ["amount", "week_of"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "set_basics",
+        "Things the household buys every week beyond its dinners (breakfast, coffee, milk): they go on each week's list and into its estimate. stop true when they no longer want one.",
+        %{
+          type: "object",
+          properties: %{
+            items: %{
+              type: "array",
+              items: %{
+                type: "object",
+                properties: %{
+                  name: %{type: "string", description: "In the household's language, singular."},
+                  quantity: %{type: ["number", "null"], description: "How much a week, if said."},
+                  unit: %{type: ["string", "null"], description: "g, kg, dl, l, st or null."}
+                },
+                required: ["name", "quantity", "unit"],
+                additionalProperties: false
+              }
+            },
+            stop: %{type: "boolean"}
+          },
+          required: ["items", "stop"],
           additionalProperties: false
         }
       ),

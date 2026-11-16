@@ -1,5 +1,5 @@
 defmodule Tore.Shop do
-  alias Tore.{EventStore, Scope, Shop.Decider, Shop.Commands, Shop.Aggregator, Pantry}
+  alias Tore.{Basics, EventStore, Scope, Shop.Decider, Shop.Commands, Shop.Aggregator, Pantry}
   alias Tore.Pantry.{Learn, Match}
   alias Tore.Recipes.Ingredient
   alias Phoenix.PubSub
@@ -16,16 +16,24 @@ defmodule Tore.Shop do
   end
 
   @doc """
-  The list for `recipe_ids`' ingredients, each in its section, without what the pantry holds:
-  an ingredient with a usable pantry row is left out. Exact, with no model, so a near miss stays
-  on the list rather than dropping off it.
+  The week's list: `recipe_ids`' ingredients, then the basics due that week (`Tore.Basics`), each
+  in its section, without what the pantry holds: an ingredient with a usable pantry row is left
+  out. Exact, with no model, so a near miss stays on the list rather than dropping off it.
   """
-  @spec items_for(Scope.t(), [integer()]) :: [map()]
-  def items_for(%Scope{} = scope, recipe_ids) do
+  @spec items_for(Scope.t(), [integer()], Date.t()) :: [map()]
+  def items_for(%Scope{} = scope, recipe_ids, %Date{} = week_start) do
     at_home = scope |> Pantry.list_usable() |> MapSet.new(&Ingredient.to_key(&1.name))
+    dinners = Aggregator.aggregate_by_ids(scope, recipe_ids)
+    on_list = MapSet.new(dinners, &Ingredient.to_key(&1.name))
 
-    scope
-    |> Aggregator.aggregate_by_ids(recipe_ids)
+    :ok = Basics.learn(scope, Tore.Clock.today())
+
+    basics =
+      for item <- Basics.items(scope, week_start),
+          not MapSet.member?(on_list, Ingredient.to_key(item.name)),
+          do: Map.merge(item, %{id: Ecto.UUID.generate(), checked: false})
+
+    (dinners ++ basics)
     |> Enum.reject(&MapSet.member?(at_home, Ingredient.to_key(&1.name)))
     |> Enum.map(&Map.put(&1, :section, section_for(scope, &1.name)))
   end
@@ -144,8 +152,16 @@ defmodule Tore.Shop do
 
   defp tokens_overlap?(a, b), do: not MapSet.disjoint?(a, b)
 
+  @doc "Removes an item. A basic taken off the list is wanted less often (`Tore.Basics.removed/2`)."
   def remove_item(%Scope{} = scope, list_id, item_id, user_id) do
-    run(scope, list_id, %Commands.RemoveItem{item_id: item_id, removed_by: user_id})
+    {:ok, state} = load_list(scope, list_id)
+    result = run(scope, list_id, %Commands.RemoveItem{item_id: item_id, removed_by: user_id})
+
+    with {:ok, _} <- result,
+         %{basic: true, name: name} <- state.items[item_id],
+         do: Basics.removed(scope, name)
+
+    result
   end
 
   def check_item(%Scope{} = scope, list_id, item_id, user_id) do
@@ -158,6 +174,7 @@ defmodule Tore.Shop do
 
       if item do
         pantry_checkoff(scope, [%{name: item.name, quantity: item.quantity, unit: item.unit}])
+        Basics.bought(scope, [item.name], Tore.Clock.today())
       end
 
       {:ok, events}

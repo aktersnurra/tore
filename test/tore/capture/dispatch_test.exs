@@ -160,6 +160,23 @@ defmodule Tore.Capture.DispatchTest do
       assert Tore.Budget.amount(home_scope(), ~D[2026-11-16]) == Decimal.new(2000)
     end
 
+    test "basics the person names go on every week's list, and stop when asked", %{ctx: ctx} do
+      items = [
+        %{name: "Havregryn", quantity: nil, unit: nil},
+        %{name: "Mjölk", quantity: Decimal.new(3), unit: "l"}
+      ]
+
+      assert %{text: "Havregryn, Mjölk hamnar på listan varje vecka."} =
+               Dispatch.set_basics(items, false, ctx)
+
+      assert ["Havregryn", "Mjölk"] = Enum.map(Tore.Basics.list(home_scope()), & &1.name)
+
+      assert %{text: "havregryn läggs inte till på listan längre."} =
+               Dispatch.set_basics([%{name: "havregryn", quantity: nil, unit: nil}], true, ctx)
+
+      assert ["Mjölk"] = Enum.map(Tore.Basics.list(home_scope()), & &1.name)
+    end
+
     test "a typed total is a receipt with no lines in the week named, with undo", %{ctx: ctx} do
       last_week = Date.add(Tore.Streams.monday(Tore.Clock.today()), -7)
       week = Tore.Streams.week_number(last_week)

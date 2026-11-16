@@ -500,6 +500,41 @@ defmodule Tore.Capture.Dispatch do
   end
 
   @doc """
+  Adds the basics the person says they buy regularly, due every week, or with `stop: true` stops
+  them. A standing preference, so it's written directly.
+  """
+  @spec set_basics([Tore.Basics.item()], boolean(), ctx()) :: bubble()
+  def set_basics(items, stop?, ctx)
+
+  def set_basics([], _stop?, _ctx),
+    do: %{role: :assistant, error: true, text: gettext("Which things do you mean?")}
+
+  def set_basics(items, false, ctx) do
+    :ok = Tore.Basics.ask(ctx.scope, items)
+    Tore.Pantry.Learn.later(ctx.scope, Enum.map(items, & &1.name))
+
+    %{
+      role: :assistant,
+      text:
+        gettext("%{names} go on the list every week.",
+          names: items |> Enum.map(& &1.name) |> Enum.join(", ")
+        )
+    }
+  end
+
+  def set_basics(items, true, ctx) do
+    Enum.each(items, &Tore.Basics.stop(ctx.scope, &1.name))
+
+    %{
+      role: :assistant,
+      text:
+        gettext("%{names} won't be added to the list any more.",
+          names: items |> Enum.map(& &1.name) |> Enum.join(", ")
+        )
+    }
+  end
+
+  @doc """
   Logs what the person says a week's shop cost, as a receipt with no lines, so the week gets a
   verdict without a photo. Undo deletes it.
   """

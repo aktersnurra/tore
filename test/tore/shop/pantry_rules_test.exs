@@ -77,7 +77,7 @@ defmodule Tore.Shop.PantryRulesTest do
     {:ok, _, _, _} =
       Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: "Ägg", provenance: "manual"})
 
-    items = Shop.items_for(home_scope(), [recipe.id])
+    items = Shop.items_for(home_scope(), [recipe.id], Tore.Streams.monday(Tore.Clock.today()))
 
     assert items |> Enum.map(&{&1.name, &1.section}) |> Enum.sort() ==
              [{"Mjölk", :dairy}, {"Vetemjöl", :other}]
@@ -97,6 +97,7 @@ defmodule Tore.Shop.PantryRulesTest do
         expires_at: Date.add(Tore.Clock.today(), -1)
       })
 
-    assert [%{name: "Ost"}] = Shop.items_for(home_scope(), [recipe.id])
+    assert [%{name: "Ost"}] =
+             Shop.items_for(home_scope(), [recipe.id], Tore.Streams.monday(Tore.Clock.today()))
   end
 end
