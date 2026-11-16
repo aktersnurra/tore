@@ -166,7 +166,8 @@ defmodule ToreWeb.RecipeLive do
     case socket.assigns.selected do
       nil ->
         case Recipes.create(socket.assigns.current_scope, attrs) do
-          {:ok, _recipe} ->
+          {:ok, recipe} ->
+            write_steps(socket.assigns.current_scope, recipe, nil)
             {:noreply, socket |> assign(form: nil, error: nil) |> reload_recipes()}
 
           {:error, changeset} ->
@@ -175,7 +176,9 @@ defmodule ToreWeb.RecipeLive do
 
       recipe ->
         case Recipes.update(socket.assigns.current_scope, recipe, attrs) do
-          {:ok, _recipe} ->
+          {:ok, updated} ->
+            write_steps(socket.assigns.current_scope, updated, recipe.instructions)
+
             {:noreply,
              socket
              |> assign(form: nil, selected: nil, error: nil)
@@ -330,6 +333,8 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, ingredient_rows: rows)}
   end
 
+  def handle_info({:steps_written, _result}, socket), do: {:noreply, socket}
+
   def handle_info({:recipe_image, id, key}, socket) do
     recipes =
       Enum.map(socket.assigns.recipes, fn recipe ->
@@ -391,6 +396,19 @@ defmodule ToreWeb.RecipeLive do
   end
 
   # ── Render ─────────────────────────────────────────────────────────────────
+
+  # Cook mode's steps are written when a hand-written recipe is saved, and again when its
+  # instructions change, so starting it later is instant.
+  defp write_steps(scope, recipe, instructions_before) do
+    written? = recipe.steps != nil and recipe.instructions == instructions_before
+
+    if recipe.instructions not in [nil, ""] and not written? do
+      ToreWeb.Background.run(
+        fn -> Recipes.cook_steps(scope, %{recipe | steps: nil}) end,
+        &{:steps_written, &1}
+      )
+    end
+  end
 
   defp select(socket, id) do
     recipe = Recipes.get!(socket.assigns.current_scope, id)

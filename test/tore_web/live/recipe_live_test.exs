@@ -428,4 +428,40 @@ defmodule ToreWeb.RecipeLiveTest do
       assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
     end
   end
+
+  describe "steps for cook mode" do
+    test "are written when a hand-written recipe is saved", %{conn: conn, user: user} do
+      Mox.set_mox_global()
+
+      # Saving also asks about the picture and the new ingredient; one answer serves all three.
+      Mox.stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
+        steps = [%{"order" => 1, "action" => "Koka linserna", "ingredients" => ["linser"]}]
+        {:ok, %{"steps" => steps, "prompt" => "A bowl of soup.", "section" => "dry_goods"}, %{}}
+      end)
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      render_click(lv, "new_recipe")
+
+      render_submit(lv, "save_recipe", %{
+        "recipe" => %{
+          "title" => "Linssoppa",
+          "recipe_type" => "meal",
+          "prep_time_minutes" => "",
+          "cook_time_minutes" => "",
+          "base_servings" => "",
+          "tags" => "",
+          "source_url" => "",
+          "instructions" => "Koka linserna mjuka."
+        },
+        "ingredients" => %{"0" => %{"name" => "linser", "quantity" => "", "unit" => ""}}
+      })
+
+      [recipe] = Recipes.search(home_scope(), "Linssoppa")
+
+      assert Enum.any?(1..50, fn _ ->
+               Process.sleep(10)
+               Recipes.get!(home_scope(), recipe.id).steps != nil
+             end)
+    end
+  end
 end

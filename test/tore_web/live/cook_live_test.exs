@@ -56,7 +56,7 @@ defmodule ToreWeb.CookLiveTest do
     html = view |> element(~s([data-role="step-card"])) |> render_click()
     assert html =~ "Skiva vitlöken"
     assert html =~ "Mise en place"
-    assert_patch(view, ~p"/recipes/#{recipe.id}/cook?#{[from: "/recipes", step: 2]}")
+    assert_patch(view, ~p"/recipes/#{recipe.id}/cook?#{[from: "/recipes", servings: 4, step: 2]}")
 
     html = view |> element(~s([data-role="step-card"])) |> render_click()
     assert html =~ "Fräs vitlöken i oljan"
@@ -110,5 +110,52 @@ defmodule ToreWeb.CookLiveTest do
     {:ok, recipe} = Recipes.create(other, %{title: "Hemlig", recipe_type: :meal})
 
     assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/recipes/#{recipe.id}/cook") end
+  end
+
+  describe "timers" do
+    test "a step with minutes starts a timer that stays while the steps move on", %{
+      conn: conn,
+      recipe: recipe
+    } do
+      {:ok, view, _} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
+      assert eventually(view, "Fräs vitlöken")
+
+      before = System.system_time(:millisecond)
+      view |> element(~s([data-role="start-timer"]), "Starta 2 min") |> render_click()
+
+      [ends_at] =
+        view
+        |> render()
+        |> then(&Regex.run(~r/data-ends-at="(\d+)"/, &1, capture: :all_but_first))
+
+      assert_in_delta String.to_integer(ends_at), before + 120_000, 2_000
+      assert view |> element(~s([data-role="timers"])) |> render() =~ "Steg 2"
+
+      view |> element(~s(button[phx-value-to="1"]), "") |> render_click()
+      assert has_element?(view, ~s([data-role="timers"]))
+
+      view |> element(~s([data-role="timers"] button)) |> render_click()
+      refute has_element?(view, ~s([data-role="timers"]))
+    end
+
+    test "a step without minutes has no timer", %{conn: conn, recipe: recipe} do
+      {:ok, view, _} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=2")
+      assert eventually(view, "Skiva vitlöken")
+      refute has_element?(view, ~s([data-role="start-timer"]))
+    end
+  end
+
+  test "amounts follow the servings chosen on the recipe page", %{conn: conn} do
+    {:ok, recipe} =
+      Recipes.create(home_scope(), %{
+        title: "Gryta",
+        recipe_type: :meal,
+        base_servings: 4,
+        steps: Jason.encode!([%{"order" => 1, "action" => "Koka", "ingredients" => []}]),
+        ingredients: [%{name: "Linser", quantity: "400", unit: "g"}]
+      })
+
+    {:ok, view, _} = live(conn, ~p"/recipes/#{recipe.id}/cook?servings=6")
+    assert eventually(view, "600 g Linser")
   end
 end

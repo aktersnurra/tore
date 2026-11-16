@@ -27,6 +27,8 @@ defmodule ToreWeb.CookLive do
        cards: nil,
        failed: false,
        overview: false,
+       servings: servings(params["servings"], recipe),
+       timers: [],
        close_to: ToreWeb.SafeReturn.path(params["from"], ~p"/recipes")
      )}
   end
@@ -38,9 +40,8 @@ defmodule ToreWeb.CookLive do
 
   @impl true
   def handle_info({:cook_steps, {:ok, steps}}, socket) do
-    cards = [
-      needs_card(socket.assigns.recipe) | Enum.map(steps, &card(&1, socket.assigns.recipe))
-    ]
+    %{recipe: recipe, servings: servings} = socket.assigns
+    cards = [needs_card(recipe, servings) | Enum.map(steps, &card(&1, recipe, servings))]
 
     {:noreply, assign(socket, cards: cards, index: min(socket.assigns.index, length(cards) - 1))}
   end
@@ -60,12 +61,34 @@ defmodule ToreWeb.CookLive do
   def handle_event("toggle_overview", _params, socket),
     do: {:noreply, update(socket, :overview, &(not &1))}
 
+  # A timer is a deadline, so moving between steps (or a slow render) doesn't stretch it.
+  def handle_event("start_timer", %{"index" => index}, socket) do
+    index = String.to_integer(index)
+    %{minutes: minutes} = Enum.at(socket.assigns.cards, index)
+
+    timer = %{
+      id: System.unique_integer([:positive]),
+      label: gettext("Step %{n}", n: index),
+      ends_at: System.system_time(:millisecond) + round(minutes * 60_000)
+    }
+
+    {:noreply, update(socket, :timers, &(&1 ++ [timer]))}
+  end
+
+  def handle_event("stop_timer", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    {:noreply, update(socket, :timers, &Enum.reject(&1, fn t -> t.id == id end))}
+  end
+
   defp go(socket, to) do
     %{recipe: recipe, close_to: close_to} = socket.assigns
 
     socket
     |> assign(overview: false)
-    |> push_patch(to: ~p"/recipes/#{recipe.id}/cook?#{[step: to + 1, from: close_to]}")
+    |> push_patch(
+      to:
+        ~p"/recipes/#{recipe.id}/cook?#{[step: to + 1, from: close_to, servings: socket.assigns.servings]}"
+    )
   end
 
   # `?step=` counts from 1, like the counter on the screen.
@@ -78,36 +101,52 @@ defmodule ToreWeb.CookLive do
     end
   end
 
-  defp needs_card(recipe) do
+  # Servings from the recipe page's stepper; the recipe's own when there's none.
+  defp servings(value, recipe) do
+    case Integer.parse(value || "") do
+      {n, ""} when n in 1..24 -> n
+      _ -> recipe.base_servings || 4
+    end
+  end
+
+  defp needs_card(recipe, servings) do
     %{
       text: gettext("Take this out"),
-      needs: Enum.map(recipe.recipe_ingredients, &ingredient_line/1)
+      needs: Enum.map(recipe.recipe_ingredients, &ingredient_line(&1, recipe, servings))
     }
   end
 
-  defp card(step, recipe) do
+  defp card(step, recipe, servings) do
     %{
       label: step["phase"] && String.capitalize(step["phase"]),
       text: step["action"],
-      minutes: step["duration_minutes"],
-      needs: Enum.map(step["ingredients"] || [], &need_line(&1, recipe))
+      minutes: positive(step["duration_minutes"]),
+      needs: Enum.map(step["ingredients"] || [], &need_line(&1, recipe, servings))
     }
   end
 
+  defp positive(n) when is_number(n) and n > 0, do: n
+  defp positive(_), do: nil
+
   # A step names its ingredients; the amount comes from the recipe's own list when it's there.
-  defp need_line(name, recipe) do
+  defp need_line(name, recipe, servings) do
     case Enum.find(recipe.recipe_ingredients, &same_name?(&1.ingredient.name, name)) do
       nil -> name
-      ingredient -> ingredient_line(ingredient)
+      ingredient -> ingredient_line(ingredient, recipe, servings)
     end
   end
 
   defp same_name?(a, b), do: String.downcase(a) == String.downcase(b)
 
-  defp ingredient_line(%{quantity: nil} = ri), do: ri.ingredient.name
+  defp ingredient_line(%{quantity: nil} = ri, _recipe, _servings), do: ri.ingredient.name
 
-  defp ingredient_line(ri) do
-    amount = ri.quantity |> Decimal.normalize() |> Decimal.to_string(:normal)
+  defp ingredient_line(ri, recipe, servings) do
+    amount =
+      ri.quantity
+      |> Recipes.scale_quantity(recipe.base_servings, servings)
+      |> Decimal.normalize()
+      |> Decimal.to_string(:normal)
+
     Enum.join([amount, ri.unit, ri.ingredient.name] |> Enum.reject(&(&1 in [nil, ""])), " ")
   end
 
@@ -123,6 +162,7 @@ defmodule ToreWeb.CookLive do
         index={@index}
         overview={@overview}
         close_to={@close_to}
+        timers={@timers}
       />
 
       <div

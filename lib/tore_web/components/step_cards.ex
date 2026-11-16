@@ -23,6 +23,14 @@ defmodule ToreWeb.StepCards do
   attr :overview, :boolean, default: false
   attr :close_to, :string, required: true, doc: "where the cross and the last card's button go"
 
+  attr :timers, :list,
+    default: nil,
+    doc: """
+    Running timers, `%{id:, label:, ends_at:}` (ends_at in Unix ms). When given, a step with
+    minutes offers to start one (`"start_timer"` with `"index"`), and the running ones show under
+    the header (`"stop_timer"` with `"id"`). Without it, minutes are only shown.
+    """
+
   def deck(assigns) do
     assigns =
       assign(assigns,
@@ -67,6 +75,30 @@ defmodule ToreWeb.StepCards do
         </span>
       </div>
 
+      <%!-- Running timers: each counts down to its own deadline, so steps can move on --%>
+      <div
+        :if={@timers not in [nil, []]}
+        data-role="timers"
+        class="mx-auto mt-3 flex w-full max-w-2xl flex-wrap gap-2 px-4"
+      >
+        <button
+          :for={timer <- @timers}
+          id={"timer-#{timer.id}"}
+          type="button"
+          phx-hook=".Countdown"
+          phx-click="stop_timer"
+          phx-value-id={timer.id}
+          data-ends-at={timer.ends_at}
+          data-done={gettext("Done")}
+          aria-label={gettext("Stop the timer for %{label}", label: timer.label)}
+          class="timer-chip press rise-in"
+        >
+          <.icon name="hero-clock" class="size-4" />
+          <span class="truncate">{timer.label}</span>
+          <span data-role="left" class="num font-bold"></span>
+        </button>
+      </div>
+
       <%!-- The card. Tapping it is the same as Next. --%>
       <button
         type="button"
@@ -87,7 +119,7 @@ defmodule ToreWeb.StepCards do
             {@card.text}
           </span>
           <span
-            :if={@card[:minutes]}
+            :if={@card[:minutes] && @timers == nil}
             class="num mt-6 inline-flex h-10 items-center gap-2 rounded-full bg-[var(--sunken)] px-4 text-[16px] font-semibold text-[color:var(--text)]"
           >
             <.icon name="hero-clock" class="size-[18px] text-[color:var(--muted)]" />
@@ -108,6 +140,18 @@ defmodule ToreWeb.StepCards do
           </span>
         </span>
       </button>
+
+      <div :if={@card[:minutes] && @timers != nil} class="mx-auto w-full max-w-2xl px-5 pb-2">
+        <button
+          type="button"
+          phx-click="start_timer"
+          phx-value-index={@index}
+          data-role="start-timer"
+          class="pill pill-lg pill-lamp press num"
+        >
+          <.icon name="hero-clock" /> {gettext("Start %{minutes} min", minutes: @card.minutes)}
+        </button>
+      </div>
 
       <footer class="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         <button
@@ -221,6 +265,30 @@ defmodule ToreWeb.StepCards do
           </ol>
         </div>
       </div>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".Countdown">
+        // Counts down to the deadline the server holds; at zero the chip says so and the phone
+        // buzzes once. Tapping the chip stops it.
+        export default {
+          mounted() { this.tick(); this.timer = setInterval(() => this.tick(), 500) },
+          updated() { this.tick() },
+          destroyed() { clearInterval(this.timer) },
+          tick() {
+            const left = Math.max(0, Number(this.el.dataset.endsAt) - Date.now())
+            const out = this.el.querySelector("[data-role=left]")
+            if (left === 0) {
+              out.textContent = this.el.dataset.done || "0:00"
+              if (!this.el.classList.contains("is-done")) {
+                this.el.classList.add("is-done")
+                navigator.vibrate?.([200, 100, 200])
+              }
+              return
+            }
+            const s = Math.ceil(left / 1000)
+            out.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
+          }
+        }
+      </script>
 
       <script :type={Phoenix.LiveView.ColocatedHook} name=".Awake">
         // Keeps the screen on while the cards are open, where the browser allows it.
