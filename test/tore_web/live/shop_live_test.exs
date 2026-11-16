@@ -24,6 +24,21 @@ defmodule ToreWeb.ShopLiveTest do
     end
   end
 
+  describe "adding" do
+    test "the add form has a submit button, so Enter adds, and it clears after each item", %{
+      conn: conn
+    } do
+      {:ok, view, _} = live(conn, ~p"/shop")
+
+      # A form of several text fields with no submit button never submits on Enter.
+      assert has_element?(view, ~s(#add-item button[type="submit"]))
+
+      view |> form("#add-item", %{name: "feta", quantity: "", unit: ""}) |> render_submit()
+      assert_push_event(view, "reset_form", %{id: "add-item"})
+      assert has_element?(view, ~s([data-item-name="feta"]))
+    end
+  end
+
   describe "grocery item object sheet" do
     test "long-pressing a grocery row opens an item sheet whose input routes a scoped command",
          %{conn: conn} do

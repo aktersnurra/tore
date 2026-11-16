@@ -151,6 +151,10 @@ h1, h2, h3 { letter-spacing: -0.01em; text-wrap: balance; }
   outline-offset: 2px;
 }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset: 0; }
+/* Fields sharing one rounded box: the box draws the ring, not each field inside it. */
+.field-group { outline-offset: 0; }
+.field-group:focus-within { outline: 2px solid var(--accent); }
+.field-group input:focus-visible { outline: none; }
 
 /* The rim line: thick over thin, like the painted band on the edge of a plate.
    Once per screen, under the title. Nowhere else. */

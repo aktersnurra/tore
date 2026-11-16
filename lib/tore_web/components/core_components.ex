@@ -616,16 +616,18 @@ defmodule ToreWeb.CoreComponents do
 
       <.icon_button icon="hero-x-mark" label="Close" phx-click="close" />
       <.icon_button icon="hero-document-text" label="Show as text" variant={:filled} />
+      <.icon_button icon="hero-plus" label="Add" type="submit" />
   """
   attr :icon, :string, required: true
   attr :label, :string, required: true
   attr :variant, :atom, values: [:ghost, :filled], default: :ghost
+  attr :type, :string, values: ~w(button submit), default: "button"
   attr :rest, :global, include: ~w(phx-click phx-value-id href)
 
   def icon_button(assigns) do
     ~H"""
     <button
-      type="button"
+      type={@type}
       class={[
         "press inline-flex items-center justify-center size-11 shrink-0 rounded-[var(--r-pill)] hover:text-[var(--text)]",
         @variant == :ghost && "text-[color:var(--muted)] hover:bg-[var(--sunken)]",

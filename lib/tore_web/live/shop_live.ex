@@ -118,7 +118,7 @@ defmodule ToreWeb.ShopLive do
       )
     end
 
-    {:noreply, socket}
+    {:noreply, push_event(socket, "reset_form", %{id: "add-item"})}
   end
 
   def handle_event("open_item_sheet", %{"item_id" => id}, socket) do
@@ -404,11 +404,13 @@ defmodule ToreWeb.ShopLive do
           </ul>
         <% end %>
 
+        <%!-- A submit button, so Enter (and the phone's Go key) adds: a form with several text
+             fields and no button never submits on Enter. Cleared after each add, focus kept. --%>
         <form
+          id="add-item"
           phx-submit="add_item"
-          class="mt-7 flex items-center gap-2 rounded-full bg-[var(--sunken)] pl-4 pr-3 focus-within:outline-2 focus-within:outline-[color:var(--accent)]"
+          class="field-group mt-7 flex items-center gap-2 rounded-full bg-[var(--sunken)] pl-5 pr-1"
         >
-          <.icon name="hero-plus" class="size-5 shrink-0 text-[color:var(--muted)]" />
           <input
             type="text"
             name="name"
@@ -435,6 +437,7 @@ defmodule ToreWeb.ShopLive do
             class="h-12 w-12 border-0 bg-transparent text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] focus:outline-none"
             style="font-size: var(--t-meta);"
           />
+          <.icon_button icon="hero-plus" label={gettext("Add")} type="submit" />
         </form>
 
         <ToreWeb.Spending.spending
