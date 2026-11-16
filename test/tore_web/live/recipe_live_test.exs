@@ -176,6 +176,70 @@ defmodule ToreWeb.RecipeLiveTest do
     end
   end
 
+  describe "a recipe's page" do
+    setup do
+      {:ok, pasta} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Pasta",
+            recipe_type: :meal,
+            base_servings: 4,
+            ingredients: [%{name: "Spaghetti", quantity: Decimal.new(400), unit: "g"}]
+          },
+          image: false
+        )
+
+      %{pasta: pasta}
+    end
+
+    test "servings scale the amounts", %{conn: conn, user: user, pasta: pasta} do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes?id=#{pasta.id}")
+      assert lv |> element(~s([data-role="amount"])) |> render() =~ "400 g"
+
+      lv |> element(~s(button[phx-value-by="1"])) |> render_click()
+      lv |> element(~s(button[phx-value-by="1"])) |> render_click()
+
+      assert lv |> element(~s([data-role="servings"])) |> render() =~ "6"
+      assert lv |> element(~s([data-role="amount"])) |> render() =~ "600 g"
+      assert has_element?(lv, ~s(a[data-role="start-cooking"][href*="servings=6"]))
+    end
+
+    test "it goes on a day of the week, and Undo puts the day back", %{
+      conn: conn,
+      user: user,
+      pasta: pasta
+    } do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes?id=#{pasta.id}")
+      lv |> element(~s([data-role="put-on-week"])) |> render_click()
+
+      tomorrow = Date.add(Tore.Clock.today(), 1)
+      plan = Tore.Streams.plan(home_scope(), Tore.Streams.monday(tomorrow))
+      key = Tore.Streams.slot_key(tomorrow)
+
+      html = lv |> element(~s([data-day="#{Date.to_iso8601(tomorrow)}"])) |> render_click()
+      assert html =~ "Ångra"
+      {:ok, state} = Tore.Planning.load_plan(home_scope(), plan)
+      assert %{recipe_id: id, servings: 4} = state.slots[key]
+      assert id == pasta.id
+
+      lv |> element("button", "Ångra") |> render_click()
+      {:ok, state} = Tore.Planning.load_plan(home_scope(), plan)
+      assert state.slots[key] in [nil] or state.slots[key].recipe_id == nil
+    end
+
+    test "baking is started, not planned", %{conn: conn, user: user} do
+      {:ok, buns} =
+        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)
+
+      {:ok, lv, html} = live(authed(conn, user), "/recipes?id=#{buns.id}")
+
+      assert html =~ "Baka nu"
+      assert lv |> element(~s([data-role="collection"])) |> render() =~ "Bakning"
+      refute has_element?(lv, ~s([data-role="put-on-week"]))
+    end
+  end
+
   describe "collections" do
     test "Bakning shows the baking, and only that", %{conn: conn, user: user, recipe: recipe} do
       {:ok, _} =

@@ -244,6 +244,30 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .pill .hero-icon, .pill [class*="hero-"] { width: 17px; height: 17px; }
 .pill-lamp { background: var(--accent); color: var(--on-accent); }
 
+/* ── Properties: a page's facts as quiet rows, a label on the left and its value. ── */
+.props { display: grid; gap: 2px; }
+.props > div {
+  display: grid; grid-template-columns: 9.5rem 1fr; align-items: center; min-height: 40px;
+  padding-inline: 8px; margin-inline: -8px; border-radius: var(--r-sm);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .props > div:hover { background: var(--sunken); } }
+.props dt { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.props dt [class*="hero-"] { width: 16px; height: 16px; flex: none; }
+.props dd { font-size: 15px; color: var(--text); min-width: 0; }
+
+/* A small round button for steppers. */
+.step-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border-radius: 9999px; background: var(--sunken); color: var(--text);
+}
+.step-btn:disabled { opacity: .4; }
+
+/* A row you can tap: it answers hover with the sunken colour. */
+.row-hover { transition: background-color var(--dur-fast) var(--ease-out); }
+@media (hover: hover) { .row-hover:hover:not(:disabled) { background: var(--sunken); } }
+.row-hover:disabled { cursor: default; }
+
 /* ── Tab bar labels: small, but words, so a tab is named and not guessed. ── */
 .tab-label { font-size: 11px; line-height: 1; font-weight: 600; letter-spacing: 0.01em; }
 

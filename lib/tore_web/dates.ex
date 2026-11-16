@@ -21,6 +21,10 @@ defmodule ToreWeb.Dates do
   @spec long(Date.t()) :: String.t()
   def long(%Date{} = date), do: "#{weekday(date)} #{date.day} #{month(date)}"
 
+  @doc "\"3 November\"."
+  @spec day(Date.t()) :: String.t()
+  def day(%Date{} = date), do: "#{date.day} #{month(date)}"
+
   @doc "A week as \"9–15 November\", or \"30 November – 6 December\" across two months."
   @spec range(Date.t(), Date.t()) :: String.t()
   def range(%Date{month: m} = from, %Date{month: m} = to),

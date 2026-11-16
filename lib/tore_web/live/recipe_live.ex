@@ -35,7 +35,10 @@ defmodule ToreWeb.RecipeLive do
        show_recipe_menu: false,
        show_substitution: false,
        substitution: nil,
-       substitution_loading: false
+       substitution_loading: false,
+       servings: nil,
+       week: nil,
+       put: nil
      )}
   end
 
@@ -225,6 +228,39 @@ defmodule ToreWeb.RecipeLive do
       else: {:noreply, closed(socket)}
   end
 
+  def handle_event("servings", %{"by" => by}, socket) do
+    servings = (socket.assigns.servings + String.to_integer(by)) |> max(1) |> min(24)
+    {:noreply, assign(socket, servings: servings)}
+  end
+
+  def handle_event("toggle_week", _, socket) do
+    week = if socket.assigns.week, do: nil, else: week_days(socket.assigns.current_scope)
+    {:noreply, assign(socket, week: week, put: nil)}
+  end
+
+  # Puts the recipe on a day for the servings shown; what the day had is kept for Undo.
+  def handle_event("put_on", %{"date" => iso}, socket) do
+    %{current_scope: scope, selected: recipe, servings: servings} = socket.assigns
+    date = Date.from_iso8601!(iso)
+    plan_id = Tore.Streams.plan(scope, Tore.Streams.monday(date))
+    key = Tore.Streams.slot_key(date)
+    {:ok, state} = Tore.Planning.load_plan(scope, plan_id)
+    before = Tore.Planning.slots_before(state, [key])
+
+    {:ok, _} = Tore.Planning.assign_recipe(scope, plan_id, key, recipe.id, servings)
+
+    {:noreply,
+     assign(socket,
+       week: week_days(scope),
+       put: %{date: date, plan_id: plan_id, before: before}
+     )}
+  end
+
+  def handle_event("undo_put", _, %{assigns: %{put: %{} = put}} = socket) do
+    :ok = Tore.Planning.restore_slots(socket.assigns.current_scope, put.plan_id, put.before)
+    {:noreply, assign(socket, week: week_days(socket.assigns.current_scope), put: nil)}
+  end
+
   def handle_event("toggle_recipe_menu", _, socket) do
     {:noreply, assign(socket, show_recipe_menu: !socket.assigns.show_recipe_menu)}
   end
@@ -347,8 +383,13 @@ defmodule ToreWeb.RecipeLive do
   # ── Render ─────────────────────────────────────────────────────────────────
 
   defp select(socket, id) do
+    recipe = Recipes.get!(socket.assigns.current_scope, id)
+
     assign(socket,
-      selected: Recipes.get!(socket.assigns.current_scope, id),
+      selected: recipe,
+      servings: recipe.base_servings || 4,
+      week: nil,
+      put: nil,
       opened: id,
       form: nil,
       error: nil,
@@ -361,6 +402,8 @@ defmodule ToreWeb.RecipeLive do
 
   defp closed(socket) do
     assign(socket,
+      week: nil,
+      put: nil,
       selected: nil,
       form: nil,
       adding: false,
@@ -680,42 +723,144 @@ defmodule ToreWeb.RecipeLive do
         </div>
 
         <div :if={@selected.image_path} class="absolute inset-x-0 bottom-0 px-5 pb-1">
-          <p :if={source_host(@selected)} class="reveal t-eyebrow" style="--i: 0">
-            {gettext("From %{site}", site: source_host(@selected))}
-          </p>
-          <h1 class="reveal t-display mt-2" style="--i: 1">{@selected.title}</h1>
+          <h1 class="reveal t-display" style="--i: 1">{@selected.title}</h1>
         </div>
       </div>
 
       <div class="px-5 pb-28">
         <div :if={!@selected.image_path}>
-          <p :if={source_host(@selected)} class="t-eyebrow">
-            {gettext("From %{site}", site: source_host(@selected))}
-          </p>
           <h1 class="t-display mt-2">{@selected.title}</h1>
         </div>
 
+        <%!-- The page's properties: quiet rows, a label and its value. Servings is a stepper. --%>
+        <dl class="props reveal mt-4" style="--i: 2">
+          <div>
+            <dt><.icon name="hero-squares-2x2" /> {gettext("Collection")}</dt>
+            <dd data-role="collection">
+              <span aria-hidden="true">{type_icon(@selected.recipe_type)}</span>
+              {type_label(@selected.recipe_type)}
+            </dd>
+          </div>
+          <div :if={total_time(@selected) != "—"}>
+            <dt><.icon name="hero-clock" /> {gettext("Time")}</dt>
+            <dd class="num">
+              {total_time(@selected)}
+              <span :if={@selected.prep_time_minutes} class="text-[color:var(--muted)]">
+                · {gettext("%{minutes} min hands-on", minutes: @selected.prep_time_minutes)}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt><.icon name="hero-users" /> {gettext("Servings")}</dt>
+            <dd class="flex items-center gap-1">
+              <button
+                type="button"
+                phx-click="servings"
+                phx-value-by="-1"
+                disabled={@servings <= 1}
+                aria-label={gettext("Fewer servings")}
+                class="step-btn press"
+              >
+                <.icon name="hero-minus" class="size-4" />
+              </button>
+              <span
+                id={"servings-#{@servings}"}
+                data-role="servings"
+                class="settle num w-8 text-center font-semibold"
+              >
+                {@servings}
+              </span>
+              <button
+                type="button"
+                phx-click="servings"
+                phx-value-by="1"
+                disabled={@servings >= 24}
+                aria-label={gettext("More servings")}
+                class="step-btn press"
+              >
+                <.icon name="hero-plus" class="size-4" />
+              </button>
+            </dd>
+          </div>
+          <div :if={source_host(@selected)}>
+            <dt><.icon name="hero-link" /> {gettext("Source")}</dt>
+            <dd>
+              <a
+                href={@selected.source_url}
+                target="_blank"
+                rel="noopener"
+                class="underline decoration-[color:var(--hairline)] underline-offset-4 hover:decoration-[color:var(--text)]"
+              >
+                {source_host(@selected)}
+              </a>
+            </dd>
+          </div>
+          <div :if={@selected.last_used_at}>
+            <dt><.icon name="hero-calendar" /> {gettext("Last made")}</dt>
+            <dd>{ToreWeb.Dates.day(DateTime.to_date(@selected.last_used_at))}</dd>
+          </div>
+        </dl>
+
         <%!-- What you can do with it, before anything to read --%>
-        <div class="reveal scroll-quiet -mx-5 mt-5 flex gap-2 overflow-x-auto px-5" style="--i: 2">
+        <div class="reveal scroll-quiet -mx-5 mt-5 flex gap-2 overflow-x-auto px-5" style="--i: 3">
           <.link
-            navigate={~p"/recipes/#{@selected.id}/cook"}
+            navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
             data-role="start-cooking"
             class="pill pill-lamp press"
           >
-            <.icon name="hero-fire-solid" /> {gettext("Cook")}
+            <.icon name="hero-fire-solid" />
+            {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
           </.link>
+          <button
+            :if={@selected.recipe_type == :meal}
+            type="button"
+            phx-click="toggle_week"
+            aria-expanded={to_string(@week != nil)}
+            data-role="put-on-week"
+            class="pill press"
+          >
+            <.icon name="hero-calendar-days" /> {gettext("Put on the week")}
+          </button>
           <button type="button" phx-click="toggle_substitution" class="pill press">
             <.icon name="hero-arrows-right-left" /> {gettext("Missing something?")}
           </button>
-          <a
-            :if={@selected.source_url}
-            href={@selected.source_url}
-            target="_blank"
-            rel="noopener"
-            class="pill press"
-          >
-            <.icon name="hero-arrow-top-right-on-square" /> {gettext("Original")}
-          </a>
+        </div>
+
+        <%!-- Which day: the next seven, each with what it has now. --%>
+        <div :if={@week} id="week-days" class="reveal mt-4" data-role="week-days">
+          <p class="t-eyebrow mb-2">{gettext("Which day?")}</p>
+          <ul class="menu-lines">
+            <li :for={day <- @week} class="flex items-center gap-3 py-1">
+              <button
+                type="button"
+                phx-click="put_on"
+                phx-value-date={Date.to_iso8601(day.date)}
+                disabled={day.recipe_id == @selected.id}
+                data-day={Date.to_iso8601(day.date)}
+                class="row-hover press-soft flex min-h-12 flex-1 items-center justify-between gap-3 rounded-[var(--r-md)] px-2 text-left"
+              >
+                <span class="font-semibold text-[color:var(--text)]">
+                  {ToreWeb.Dates.weekday(day.date)}
+                  <span class="num font-normal text-[color:var(--muted)]">{day.date.day}</span>
+                </span>
+                <span class={[
+                  "truncate",
+                  day.recipe_id == @selected.id && "text-[color:var(--done)] font-semibold",
+                  day.recipe_id != @selected.id && "text-[color:var(--muted)]"
+                ]}>
+                  {day.title || gettext("Free")}
+                </span>
+              </button>
+              <button
+                :if={@put && @put.date == day.date}
+                type="button"
+                phx-click="undo_put"
+                class="settle press shrink-0 px-2 font-semibold text-[color:var(--accent-ink)]"
+              >
+                {gettext("Undo")}
+              </button>
+            </li>
+          </ul>
         </div>
 
         <div :if={@show_substitution} class="reveal mt-4">
@@ -759,31 +904,12 @@ defmodule ToreWeb.RecipeLive do
         <p
           :if={@selected.description not in [nil, ""]}
           class="reveal mt-5 text-[color:var(--muted)]"
-          style="--i: 3; font-size: 15px; line-height: 1.55;"
+          style="--i: 4; font-size: 15px; line-height: 1.55;"
         >
           {@selected.description}
         </p>
 
-        <dl class="facts reveal mt-5 border-t border-[color:var(--hairline)] pt-4" style="--i: 3">
-          <div :if={total_time(@selected) != "—"}>
-            <dt>{gettext("Time")}</dt>
-            <dd>{total_time(@selected)}</dd>
-          </div>
-          <div :if={@selected.prep_time_minutes}>
-            <dt>{gettext("Hands-on")}</dt>
-            <dd>{gettext("%{minutes} min", minutes: @selected.prep_time_minutes)}</dd>
-          </div>
-          <div :if={@selected.base_servings}>
-            <dt>{gettext("Servings")}</dt>
-            <dd>{@selected.base_servings}</dd>
-          </div>
-          <div :if={@selected.recipe_ingredients != []}>
-            <dt>{gettext("Ingredients")}</dt>
-            <dd>{length(@selected.recipe_ingredients)}</dd>
-          </div>
-        </dl>
-
-        <%!-- Ingredients: the name on the left, the amount on the right --%>
+        <%!-- Ingredients for the servings above: the name on the left, the amount on the right --%>
         <section :if={@selected.recipe_ingredients != []} class="reveal mt-9" style="--i: 4">
           <h2 class="t-head mb-3">{gettext("Ingredients")}</h2>
           <ul class="menu-lines">
@@ -794,8 +920,13 @@ defmodule ToreWeb.RecipeLive do
               <span class="text-[color:var(--text)]" style="font-size: 16px;">
                 {ri.ingredient.name}
               </span>
-              <span class="num shrink-0 text-[color:var(--muted)]" style="font-size: 15px;">
-                {ri.quantity}{if ri.unit && ri.unit != "", do: " #{ri.unit}"}
+              <span
+                id={"amount-#{ri.id}-#{@servings}"}
+                data-role="amount"
+                class="settle num shrink-0 text-[color:var(--muted)]"
+                style="font-size: 15px;"
+              >
+                {amount(ri, @selected.base_servings, @servings)}
               </span>
             </li>
           </ul>
@@ -839,6 +970,39 @@ defmodule ToreWeb.RecipeLive do
       </div>
     </article>
     """
+  end
+
+  defp amount(ri, base, servings) do
+    quantity = Recipes.scale_quantity(ri.quantity, base, servings)
+    unit = if ri.unit not in [nil, ""], do: " #{ri.unit}"
+    "#{quantity}#{unit}"
+  end
+
+  # The next seven days, each with the dinner it has now.
+  defp week_days(scope) do
+    today = Tore.Clock.today()
+    dates = Enum.map(0..6, &Date.add(today, &1))
+
+    slots =
+      dates
+      |> Enum.map(&Tore.Streams.monday/1)
+      |> Enum.uniq()
+      |> Enum.flat_map(fn monday ->
+        {:ok, state} = Tore.Planning.load_plan(scope, Tore.Streams.plan(scope, monday))
+        Enum.map(state.slots, fn {key, slot} -> {{monday, key}, slot} end)
+      end)
+      |> Map.new()
+
+    planned =
+      for {_, %{recipe_id: id, skipped: false}} when is_integer(id) <- slots, do: id
+
+    titles = scope |> Recipes.get_many(planned) |> Map.new(&{&1.id, &1.title})
+
+    for date <- dates do
+      slot = slots[{Tore.Streams.monday(date), Tore.Streams.slot_key(date)}]
+      recipe_id = slot && !slot.skipped && slot.recipe_id
+      %{date: date, recipe_id: recipe_id || nil, title: recipe_id && titles[recipe_id]}
+    end
   end
 
   defp source_host(%{source_url: url}) when is_binary(url) and url != "" do

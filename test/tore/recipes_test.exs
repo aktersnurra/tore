@@ -57,6 +57,18 @@ defmodule Tore.RecipesTest do
     end
   end
 
+  describe "scale_quantity/3" do
+    test "scales to the servings, whole numbers from 10, one decimal below" do
+      assert Recipes.scale_quantity(Decimal.new(200), 4, 6) == Decimal.new(300)
+      assert Recipes.scale_quantity(Decimal.new(1), 4, 6) == Decimal.new("1.5")
+      assert Recipes.scale_quantity(Decimal.new(3), 4, 1) == Decimal.new("0.8")
+      assert Recipes.scale_quantity(Decimal.new(125), 4, 3) == Decimal.new(94)
+      assert Recipes.scale_quantity(Decimal.new("2.5"), 4, 4) == Decimal.new("2.5")
+      assert Recipes.scale_quantity(nil, 4, 6) == nil
+      assert Recipes.scale_quantity(Decimal.new(2), nil, 6) == Decimal.new(2)
+    end
+  end
+
   describe "the house style" do
     test "every picture is the dish as described, taken the same way" do
       bun = Tore.LLM.Prompts.food_photo("Cinnamon buns with pearl sugar in a tin. ")

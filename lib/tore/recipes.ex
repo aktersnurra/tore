@@ -112,6 +112,22 @@ defmodule Tore.Recipes do
   defp split_names(nil), do: []
   defp split_names(joined), do: String.split(joined, @fp_sep)
 
+  @doc """
+  An ingredient amount for `servings` when the recipe is written for `base`: whole numbers from
+  10 up, one decimal below, so 200 g for 4 is 300 g for 6 and 1 egg for 4 is 1.5 for 6.
+  """
+  @spec scale_quantity(Decimal.t() | nil, pos_integer() | nil, pos_integer()) :: Decimal.t() | nil
+  def scale_quantity(nil, _base, _servings), do: nil
+  def scale_quantity(quantity, nil, _servings), do: quantity
+  def scale_quantity(quantity, base, base), do: quantity
+
+  def scale_quantity(%Decimal{} = quantity, base, servings) do
+    scaled = quantity |> Decimal.mult(servings) |> Decimal.div(base)
+    places = if Decimal.compare(scaled, 10) == :lt, do: 1, else: 0
+    rounded = Decimal.round(scaled, places)
+    if Decimal.integer?(rounded), do: Decimal.new(Decimal.to_integer(rounded)), else: rounded
+  end
+
   @spec list(Scope.t(), keyword()) :: [Recipe.t()]
   def list(%Scope{} = scope, opts \\ []) do
     Recipe
