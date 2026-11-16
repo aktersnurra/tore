@@ -7,6 +7,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### The list in your store's order (2026-11-16)
+
+- Shop sections start in the order of a typical Swedish store (fruit and veg first, frozen last) and then follow the order you tick things off, once Tore has seen three trips. No model call.
+
 ### Weekly budget (2026-11-16)
 
 - Tore knows what an ingredient costs: an offer running that week, the price paid on an earlier receipt, the usual price seen on an offer, or a guess. Every estimate says how much of it is real prices ("14 of 18 ingredients priced"). Offers and receipt lines are matched to ingredients once per product.

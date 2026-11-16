@@ -29,6 +29,7 @@ defmodule ToreWeb.ShopLive do
        item_sheet: nil,
        item_command_loading: false,
        spending: ToreWeb.Spending.load(scope),
+       section_order: Shop.Walk.order(scope),
        scanning: false,
        scanner: nil
      )
@@ -302,7 +303,7 @@ defmodule ToreWeb.ShopLive do
       |> then(&Shop.annotate_with_pantry_belief(assigns.current_scope, &1))
 
     {unchecked, checked} = Enum.split_with(items, &(!&1.checked))
-    groups = group_by_section(unchecked)
+    groups = group_by_section(unchecked, assigns.section_order)
 
     assigns =
       assign(assigns,
@@ -667,14 +668,11 @@ defmodule ToreWeb.ShopLive do
     |> Enum.sort_by(fn i -> {i.checked, String.downcase(i.name || "")} end)
   end
 
-  # The walk through a typical Swedish store: fruit and veg at the door, bread, the meat, fish
-  # and deli counters, dairy, the aisles, and frozen last, by the tills, so it stays cold.
-  @section_order ~w(produce bread meat fish deli dairy dry_goods canned herbs_spices condiments beverages household frozen other)a
-
-  defp group_by_section(items) do
+  # Sections in the order the household walks its store (`Tore.Shop.Walk`).
+  defp group_by_section(items, order) do
     grouped = Enum.group_by(items, &(Map.get(&1, :section) || :other))
 
-    @section_order
+    order
     |> Enum.filter(&Map.has_key?(grouped, &1))
     |> Enum.map(fn section ->
       {section, Enum.sort_by(grouped[section], &String.downcase(&1.name))}

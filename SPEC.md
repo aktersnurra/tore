@@ -985,6 +985,10 @@ the list, so a plan change must not wipe hand-added items and check-offs. The li
 missing plan, a missing pantry, and a missing connection to the LLM. Checking an item
 dispatches a `:pantry_belief_update_run` (see §4). Items sit in their ingredient's section, or in "other" until
 Tore has learned the name. Building the list leaves out what the pantry holds, by ingredient.
+Sections come in the order the household walks its store, learned from the order it ticks things
+off (`Tore.Shop.Walk`, no model): until three real trips are seen, the walk through a typical
+Swedish store, fruit and veg first and frozen by the tills. A list ticked off in seconds teaches
+nothing. One order per household; it doesn't tell two stores apart.
 
 The scanner button in the header opens a sheet with the camera: each pack scanned while unpacking goes into the
 pantry, or is ticked off if it's still on the list, with a line and Undo per pack (§4).
