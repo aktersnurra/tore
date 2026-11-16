@@ -99,6 +99,10 @@ if config_env() == :prod do
         raise("environment variable OIDC_CLIENT_SECRET is missing."),
     redirect_uri: System.get_env("OIDC_REDIRECT_URI") || "https://#{host}/auth/oidc/callback"
 
+  # MCP for someone's own Claude: the resource of the Pocket ID API for /mcp,
+  # https://<PHX_HOST>/mcp. Unset means /mcp is off.
+  config :tore, :mcp, audience: System.get_env("MCP_OIDC_AUDIENCE")
+
   config :tore, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   case System.get_env("SMTP_RELAY") do

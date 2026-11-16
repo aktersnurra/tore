@@ -25,6 +25,31 @@ defmodule ToreWeb.Router do
     delete "/logout", SessionController, :delete
   end
 
+  # MCP for someone's own Claude: Pocket ID signs them in, Tore checks the token (.docs/specs/mcp.md).
+  pipeline :mcp_metadata do
+    plug :accepts, ["json"]
+  end
+
+  scope "/.well-known", ToreWeb do
+    pipe_through :mcp_metadata
+
+    get "/oauth-protected-resource", McpMetadataController, :show
+    get "/oauth-protected-resource/mcp", McpMetadataController, :show
+  end
+
+  pipeline :mcp do
+    plug :accepts, ["json"]
+    plug ToreWeb.McpAuth
+  end
+
+  scope "/mcp", ToreWeb do
+    pipe_through :mcp
+
+    post "/", McpController, :create
+    get "/", McpController, :unsupported
+    delete "/", McpController, :unsupported
+  end
+
   if Application.compile_env(:tore, :dev_routes) do
     scope "/dev", ToreWeb do
       pipe_through :browser

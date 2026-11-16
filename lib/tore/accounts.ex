@@ -25,6 +25,15 @@ defmodule Tore.Accounts do
     end
   end
 
+  @doc "The session of the person Pocket ID knows as `sub`, as `get_session/1` gives it."
+  @spec get_session_by_sub(String.t()) :: {User.t(), Scope.t()} | nil
+  def get_session_by_sub(sub) when is_binary(sub) do
+    case Repo.get_by(User, oidc_sub: sub) do
+      nil -> nil
+      user -> get_session(user.id)
+    end
+  end
+
   @doc "The members of the scope's household, by name."
   @spec list_members(Scope.t()) :: [User.t()]
   def list_members(%Scope{household_id: household_id}) do

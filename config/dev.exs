@@ -97,6 +97,9 @@ config :tore, :oidc,
   client_secret: System.get_env("OIDC_CLIENT_SECRET"),
   redirect_uri: "http://localhost:4000/auth/oidc/callback"
 
+# MCP for someone's own Claude. Unset means /mcp is off.
+config :tore, :mcp, audience: System.get_env("MCP_OIDC_AUDIENCE")
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
