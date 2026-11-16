@@ -71,7 +71,9 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     assert %RecipeProposal{base_servings: 4, image_url: nil} = proposal
   end
 
-  test "a linked recipe keeps the page's picture", %{ctx: ctx} do
+  test "a linked recipe's picture is drawn in the house style, not taken from the page", %{
+    ctx: ctx
+  } do
     Application.put_env(:tore, :recipe_images_in_background, true)
     on_exit(fn -> Application.put_env(:tore, :recipe_images_in_background, false) end)
 
@@ -95,19 +97,22 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
         {:ok, <<255, 216, 255, 0>>}
     end)
 
-    expect(Tore.MockLLM, :text, fn _, _, _ ->
-      {:ok, Map.put(@soup, "image_url", "https://example.com/soppa.jpg"), @usage}
+    # Reading the recipe, then describing the dish for its picture.
+    stub(Tore.MockLLM, :text, fn _, _, _ ->
+      {:ok,
+       @soup
+       |> Map.put("image_url", "https://example.com/soppa.jpg")
+       |> Map.put("prompt", "A bowl of carrot soup."), @usage}
     end)
 
     %{run_stream_id: id} = Dispatch.import_recipe_from_url("https://example.com/soppa", ctx)
 
     assert %KitchenRun{artifacts: [%RecipeProposal{} = proposal]} = Runs.get(home_scope(), id)
     assert proposal.source_url == "https://example.com/soppa"
-    assert proposal.image_url == "https://example.com/soppa.jpg"
 
-    assert_receive :picture_fetched, 1000
     [recipe] = Recipes.list(home_scope())
     assert eventually(fn -> Recipes.get(home_scope(), recipe.id).image_path end)
+    refute_received :picture_fetched
   end
 
   defp eventually(fun, tries \\ 50) do

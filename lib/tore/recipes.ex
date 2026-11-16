@@ -407,7 +407,9 @@ defmodule Tore.Recipes do
 
   @doc """
   Starts making the picture of a recipe created with `image: false`: fetched from `image_url`
-  when there is one, otherwise generated.
+  when there is one, otherwise generated in Tore's house style (`Tore.LLM.Prompts.food_photo/1`).
+  Only a recipe saved over MCP passes `image_url`; everything else is generated, so the library
+  looks like one cookbook.
   """
   @spec start_image(Scope.t(), integer(), String.t() | nil) :: :ok
   def start_image(%Scope{} = scope, recipe_id, image_url \\ nil) do
@@ -431,6 +433,23 @@ defmodule Tore.Recipes do
         end
       end)
     end
+  end
+
+  @doc """
+  Draws every recipe's picture again in the house style, one at a time, for every household.
+  Each picture is a paid image call, so this is run by hand on the server
+  (`bin/tore eval "Tore.Recipes.restyle_images()"`), never by the app. Returns how many were
+  drawn and how many failed (a failed one keeps its old picture).
+  """
+  @spec restyle_images() :: %{drawn: non_neg_integer(), failed: non_neg_integer()}
+  def restyle_images do
+    for id <- Tore.Household.list_ids(),
+        scope = Scope.for_household(id),
+        recipe <- scope |> list() |> Repo.preload(recipe_ingredients: :ingredient) do
+      generate_image(scope, recipe, nil)
+    end
+    |> Enum.frequencies_by(&(&1 == :ok))
+    |> then(&%{drawn: Map.get(&1, true, 0), failed: Map.get(&1, false, 0)})
   end
 
   @spec generate_image(Scope.t(), Recipe.t(), String.t() | nil) :: :ok | {:error, term()}
@@ -522,8 +541,8 @@ defmodule Tore.Recipes do
   end
 
   defp fetch_or_generate(scope, recipe, _image_url) do
-    with {:ok, prompt} <- write_image_prompt(scope, recipe) do
-      @image_gen.generate_food_image(prompt)
+    with {:ok, dish} <- write_image_prompt(scope, recipe) do
+      @image_gen.generate_food_image(Tore.LLM.Prompts.food_photo(dish))
     end
   end
 

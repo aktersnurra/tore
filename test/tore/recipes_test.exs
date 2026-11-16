@@ -57,6 +57,27 @@ defmodule Tore.RecipesTest do
     end
   end
 
+  describe "the house style" do
+    test "every picture is the dish as described, taken the same way" do
+      bun = Tore.LLM.Prompts.food_photo("Cinnamon buns with pearl sugar in a tin. ")
+      sauce = Tore.LLM.Prompts.food_photo("A jar of béarnaise with a spoon lifted from it.")
+
+      assert String.starts_with?(bun, "Cinnamon buns with pearl sugar in a tin.\n\n")
+      style = fn prompt -> prompt |> String.split("\n\n", parts: 2) |> List.last() end
+      assert style.(bun) == style.(sauce)
+      assert style.(bun) =~ "cast-iron"
+    end
+
+    test "restyle_images draws every recipe again and counts them" do
+      Tore.Storage.Mock.reset()
+      {:ok, a} = Recipes.create(home_scope(), recipe_attrs(%{title: "A"}), image: false)
+      {:ok, _b} = Recipes.create(home_scope(), recipe_attrs(%{title: "B"}), image: false)
+
+      assert %{drawn: 2, failed: 0} = Recipes.restyle_images()
+      assert Recipes.get!(home_scope(), a.id).image_path
+    end
+  end
+
   describe "create/1" do
     test "inserts a basic recipe" do
       assert {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())

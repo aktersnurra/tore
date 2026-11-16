@@ -784,36 +784,39 @@ defmodule Tore.LLM.Prompts do
     }
   end
 
+  # Every recipe picture is taken the same way, so the library reads as one cookbook in Tore's
+  # cast-iron palette. The model only describes the dish; this sets the light, surface and frame.
+  @house_style """
+  Editorial cookbook photograph, vertical 3:4 frame, shot from about 45 degrees. The dish sits \
+  on a dark, matte charcoal stoneware or seasoned cast-iron surface. Soft, warm light from a \
+  single window on one side, deep warm shadows, gentle amber highlights. Muted natural colours; \
+  the food is the brightest thing in the frame. Plain matte ceramic or the dish's own pan, at \
+  most one quiet prop such as linen or a wooden spoon. Shallow depth of field, natural and \
+  appetising, not glossy. No text, no hands, no people, no logos.\
+  """
+
+  @doc "The image model's prompt: the dish as described, taken in Tore's one house style."
+  @spec food_photo(String.t()) :: String.t()
+  def food_photo(dish) when is_binary(dish), do: String.trim(dish) <> "\n\n" <> @house_style
+
   @doc """
-  Build a system + user prompt pair that asks a text LLM to write an image-gen
-  prompt for `recipe`. The text LLM picks composition, lighting, mood, plating
-  and cultural context based on the dish itself — so generated images vary in
-  style across recipes rather than all looking like the same overhead-shot
-  template.
+  Build a system + user prompt pair that asks a text LLM to describe what `recipe` looks like
+  when it's done, for `food_photo/1`. Only the dish: light, surface and framing are fixed.
 
   Use with `Tore.LLM.text/3` and `write_image_prompt_schema/0` as the
-  `:response_format`. The reply will be `%{"prompt" => "<the image prompt>"}`.
+  `:response_format`. The reply will be `%{"prompt" => "<the description>"}`.
   """
   def write_image_prompt(recipe, locale \\ nil) do
     system = """
-    You write short, varied prompts for an image-generation model that
-    illustrates cooked dishes.
+    You describe a finished dish for an image-generation model, in 30-60 words of natural
+    English (the image model speaks English).
 
-    Goals for the prompt you write:
-    - Describe the finished dish on a plate, in a bowl, or in whichever vessel
-      best fits the cuisine.
-    - Pick a composition (overhead, three-quarter, close-up, side-on) that
-      flatters this specific dish — do not default to overhead for everything.
-    - Pick a lighting mood (bright daylight, warm tungsten, golden hour, soft
-      window light, moody low-key) that suits the dish. Vary it across calls.
-    - Pick a surface and props (rustic wood, marble, linen, ceramic, enamel,
-      glass) that suit the cuisine; avoid the same combo every time.
-    - Mention typical garnishes, sauces, or side dishes that belong with the
-      cuisine when relevant.
-    - Keep the prompt 40-80 words. No markdown, no preamble — just the prompt
-      itself as one paragraph of natural English (the image model speaks
-      English).
-    - Do not invent ingredients or details that contradict the recipe.
+    Describe only the food: the finished dish in the vessel that suits it (plate, bowl, jar,
+    tin, board, the pan it was made in), its colours and textures, the garnish that belongs with
+    it, and what shows best (a cut bun showing its swirl, a spoon of sauce lifted from the jar).
+    Do not describe light, background, surface, camera angle or mood; those are fixed.
+    Do not invent ingredients or details that contradict the recipe.
+    No markdown, no preamble: just the description as one paragraph.
     #{locale_hint(locale)}
     """
 

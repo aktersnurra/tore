@@ -183,10 +183,12 @@ defmodule Tore.Harness.Kinds.Planner do
   def after_commit(%{status: :applied} = run) do
     scope = Scope.for_household(run.household_id)
 
-    # A confirmed recipe gets its picture now that the recipe is committed: the page's own if
-    # it came from one, otherwise a generated one. MCP never reaches the server's model, so a
-    # recipe saved over MCP without a picture of its own stays without one.
+    # A confirmed recipe gets its picture now that the recipe is committed, generated in Tore's
+    # house style so the library looks like one cookbook; a page's own photo isn't used. MCP
+    # never reaches the server's model, so a recipe saved over MCP takes its page's photo, or
+    # stays without one.
     image_url = Enum.find_value(run.artifacts, &(match?(%RecipeProposal{}, &1) && &1.image_url))
+    image_url = if run.actor == :mcp, do: image_url
 
     with {:steps, steps} <- run.undo,
          true <- image_url != nil or run.actor != :mcp,
