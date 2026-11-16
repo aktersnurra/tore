@@ -244,6 +244,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .pill .hero-icon, .pill [class*="hero-"] { width: 17px; height: 17px; }
 .pill-lamp { background: var(--accent); color: var(--on-accent); }
 
+/* ── Shimmer: where content is coming, a slow sweep instead of a blank. ── */
+.shimmer {
+  background: linear-gradient(90deg, var(--sunken) 0%, var(--surface) 50%, var(--sunken) 100%);
+  background-size: 200% 100%; animation: shimmer 1.4s var(--ease-out) infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
 /* ── Properties: a page's facts as quiet rows, a label on the left and its value. ── */
 .props { display: grid; gap: 2px; }
 .props > div {

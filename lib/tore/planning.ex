@@ -1,4 +1,6 @@
 defmodule Tore.Planning do
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.{Deals, EventStore, Repo, Recipes, Scope, SpendGuard, Streams}
   alias Tore.Planning.{Commands, Decider, Events, State}
   alias Phoenix.PubSub
@@ -432,6 +434,10 @@ defmodule Tore.Planning do
         nil ->
           0
 
+        # The same dish again doesn't use anything up; it's the same dinner twice.
+        %{id: id} when id == recipe.id ->
+          0
+
         prev ->
           prev_ingredients =
             prev.recipe_ingredients
@@ -457,23 +463,21 @@ defmodule Tore.Planning do
 
     reasons =
       []
-      |> add_reason(pantry_only?, "Pantry-only")
+      |> add_reason(pantry_only?, fn -> gettext("All of it is at home") end)
       |> add_reason(leftover_overlap > 0 and ctx.previous_recipe, fn ->
-        "Reuses #{ctx.previous_recipe.title}"
+        gettext("Uses up %{dish}", dish: ctx.previous_recipe.title)
       end)
       |> add_reason(pantry_overlap > 0 and not pantry_only?, fn ->
-        sample = pantry_sample(ingredient_names, ctx.pantry)
-        "Uses pantry #{sample}"
+        gettext("Uses %{things} from home", things: pantry_sample(ingredient_names, ctx.pantry))
       end)
       |> add_reason(deal_overlap > 0, fn ->
-        sample = pantry_sample(ingredient_names, ctx.deals)
-        "Cheap this week (#{sample})"
+        gettext("On offer: %{things}", things: pantry_sample(ingredient_names, ctx.deals))
       end)
       |> add_reason(
         (recipe.base_servings || 0) >= 4 and recipe.recipe_type == :meal,
-        "Makes leftovers"
+        fn -> gettext("Makes leftovers") end
       )
-      |> add_reason(recently_cooked?, "Recently cooked")
+      |> add_reason(recently_cooked?, fn -> gettext("Made recently") end)
       |> Enum.reverse()
 
     {score, reasons}
@@ -482,7 +486,6 @@ defmodule Tore.Planning do
   defp add_reason(reasons, false, _), do: reasons
   defp add_reason(reasons, nil, _), do: reasons
   defp add_reason(reasons, _truthy, fun) when is_function(fun, 0), do: [fun.() | reasons]
-  defp add_reason(reasons, _truthy, text) when is_binary(text), do: [text | reasons]
 
   defp pantry_sample(ingredient_set, source_set) do
     ingredient_set

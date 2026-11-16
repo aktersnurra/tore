@@ -153,4 +153,63 @@ defmodule ToreWeb.HomeLiveTest do
     assert html =~ "Äter ute ikväll"
     refute html =~ "Ikväll är öppen"
   end
+
+  describe "something else tonight" do
+    defp dinner(title, type \\ :meal) do
+      {:ok, r} =
+        Tore.Recipes.create(home_scope(), %{title: title, recipe_type: type}, image: false)
+
+      r
+    end
+
+    setup do
+      oxfile = dinner("Oxfilé")
+      lax = dinner("Laxpasta")
+      _buns = dinner("Kanelbullar", :baking)
+
+      {:ok, _} =
+        Tore.Planning.assign_recipe(
+          home_scope(),
+          plan_id_for_today(),
+          today_slot_key(),
+          oxfile.id,
+          2
+        )
+
+      %{oxfile: oxfile, lax: lax}
+    end
+
+    test "offers other dinners to choose between, and choosing changes tonight; Undo puts it back",
+         %{conn: conn, oxfile: oxfile, lax: lax} do
+      {:ok, view, _html} = live(conn, ~p"/today")
+
+      view |> element("button", "Något annat") |> render_click()
+      assert eventually(fn -> has_element?(view, ~s([data-choice="#{lax.id}"])) end)
+      refute has_element?(view, ~s([data-choice="#{oxfile.id}"]))
+      refute render(view) =~ "Kanelbullar"
+
+      html = view |> element(~s([data-choice="#{lax.id}"])) |> render_click()
+      assert html =~ "Laxpasta"
+      assert html =~ "I stället för Oxfilé."
+      {:ok, state} = Tore.Planning.load_plan(home_scope(), plan_id_for_today())
+      assert %{recipe_id: id, servings: 2} = state.slots[today_slot_key()]
+      assert id == lax.id
+
+      html = view |> element("#tonight-changed button", "Ångra") |> render_click()
+      assert html =~ "Oxfilé"
+      {:ok, state} = Tore.Planning.load_plan(home_scope(), plan_id_for_today())
+      assert state.slots[today_slot_key()].recipe_id == oxfile.id
+    end
+
+    test "no dinner tonight is one tap, and can be undone", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/today")
+      view |> element("button", "Något annat") |> render_click()
+
+      html = view |> element("button", "Ingen middag ikväll") |> render_click()
+      assert html =~ "Ikväll är öppen"
+
+      html = view |> element("button", "Ångra") |> render_click()
+      assert html =~ "Oxfilé"
+    end
+  end
 end

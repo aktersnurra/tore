@@ -115,6 +115,22 @@ defmodule Tore.PlanningTest do
       assert Enum.map(results, & &1.recipe.id) == [dinner.id]
     end
 
+    test "yesterday's dish isn't offered as using itself up" do
+      {:ok, oxfile} =
+        Recipes.create(
+          home_scope(),
+          %{title: "Oxfilé", ingredients: [%{name: "oxfilé"}, %{name: "potatis"}]},
+          image: false
+        )
+
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", oxfile.id, 4)
+
+      {:ok, results} = Planning.suggest_recipes_for_slot(home_scope(), plan_id(), "tue_dinner")
+
+      refute Enum.find(results, &(&1.recipe.id == oxfile.id)).reasons
+             |> Enum.any?(&(&1 =~ "Oxfilé"))
+    end
+
     test "respects :limit" do
       Enum.each(1..6, fn i -> create_recipe("Recipe #{i}") end)
 

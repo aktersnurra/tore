@@ -115,7 +115,7 @@ defmodule ToreWeb.PlannerLive do
     ToreWeb.Background.run(
       fn ->
         Planning.suggest_recipes_for_slot(scope, plan_id, sk,
-          limit: 5,
+          limit: 3,
           dietary_guidance: dietary_guidance
         )
       end,
@@ -239,7 +239,7 @@ defmodule ToreWeb.PlannerLive do
     ToreWeb.Background.run(
       fn ->
         Planning.suggest_recipes_for_slot(scope, plan_id, sk,
-          limit: 5,
+          limit: 3,
           include_llm: true,
           dietary_guidance: dietary_guidance
         )
@@ -719,6 +719,7 @@ defmodule ToreWeb.PlannerLive do
 
     other_recipes =
       assigns.recipes
+      |> Enum.filter(&(&1.recipe_type == :meal))
       |> Enum.reject(&MapSet.member?(suggested_ids, &1.id))
       |> filter_recipes(sa.search)
 
@@ -1021,21 +1022,13 @@ defmodule ToreWeb.PlannerLive do
                     </button>
                   </div>
 
-                  <%= if @slot_action.loading_suggestions and @slot_action.suggestions == [] do %>
-                    <p class="text-[color:var(--muted)] py-2" style="font-size: var(--t-meta);">
-                      {gettext("Finding suggestions…")}
-                    </p>
-                  <% else %>
-                    <ul class="space-y-2">
-                      <.recipe_pick_row
-                        :for={sug <- @slot_action.suggestions}
-                        recipe={sug.recipe}
-                        reasons={sug.reasons}
-                        price={@slot_action.prices[sug.recipe.id]}
-                        selected={@slot_action.selected_recipe_id == sug.recipe.id}
-                      />
-                    </ul>
-                  <% end %>
+                  <ToreWeb.DishChoices.dish_choices
+                    choices={@slot_action.suggestions}
+                    event="pick_recipe"
+                    prices={@slot_action.prices}
+                    selected_id={@slot_action.selected_recipe_id}
+                    loading={@slot_action.loading_suggestions}
+                  />
                 </section>
               <% end %>
 
