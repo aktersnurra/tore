@@ -159,7 +159,8 @@ LLM usage: each call's cost is in `llm_usage`, under its feature (§LLM Surface)
 | `after_commit` | best-effort effects, such as broadcasting or making a recipe's picture | |
 
 `Runs.start/3` runs every step. `Runs.submit/4` takes a ready proposal and skips
-`propose`: Capture's typed edits use it, and MCP writes will. A kind's `review_question/1`
+`propose`: Capture's typed edits and MCP's writes use it. `ctx[:actor]`, when given, overrides the
+kind's actor, so an MCP write is marked `:mcp`. A kind's `review_question/1`
 says whether a person must look first. If so, the run waits in `:needs_user` with its
 proposal, and `Runs.confirm/3` verifies the edited proposal again before applying it.
 `apply_proposal` may return `{:fail, code, repair}` when a check no longer holds inside
@@ -200,7 +201,7 @@ Screens match on `status`.
 
 **Hard rules.**
 
-- Only a `KitchenRun` may write household state on the AI's behalf. The planner, the crons, Capture and (later) MCP all go through `Runs`.
+- Only a `KitchenRun` may write household state on the AI's behalf. The planner, the crons, Capture and MCP all go through `Runs`.
 - Every kind has a verifier: `verify` is a required callback.
 - Two exceptions write directly, by decision. `mark_recipe_cooked` sets one timestamp. Capture's deletes (`delete_recipe`, `delete_receipt`, `remove_shopping_item`) do what the person asked for by name, so they get no review, receipt or undo (2026-11-10). A person tapping in a screen also writes directly.
 
@@ -615,6 +616,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
+| Tore from someone's own Claude, over MCP (§Interfaces) | Built (2026-11-16), not yet tried against a deployed server |
 
 **Run kinds in the code** (`Tore.Harness.Kinds`): `:planner_command_run`, `:weekly_planning_run`,
 `:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`, `:pantry_belief_update_run`, `:receipt_ingestion_run`,
@@ -622,15 +624,15 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
-1. MCP, so someone can use Tore through their own Claude or ChatGPT. Its writes go through `Runs.submit/4`; the kinds' `open/1` will need to take the actor, since each sets `:user` or `:system` today.
-2. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
-3. Instagram recipes.
-4. A prep upgrade.
+1. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
+2. Instagram recipes.
+3. A prep upgrade.
 
 Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
 Run core and household memory landed on 2026-11-10 (§A.2, §1).
 The home pick landed on 2026-11-11 (§Interfaces); its swaps moved from the chat bar into Capture on 2026-11-15.
 Pantry rules and barcode scanning landed on 2026-11-16 (§4).
+MCP landed on 2026-11-16 (§Interfaces); ChatGPT isn't tried yet.
 
 ### 1. Household Memory → `:memory_review_run`, `:memory_update_run`
 
@@ -1057,6 +1059,37 @@ lib/tore_web/controllers/
   oidc_controller.ex         # /auth/oidc and its callback
   dev_session_controller.ex  # /dev/login, dev only
 lib/tore_web/user_session.ex # starts and ends a session
+```
+
+### MCP (`/mcp`)
+
+Someone uses Tore from their own Claude: plans the week, keeps the list and the pantry, saves a recipe or
+logs a receipt Claude read. The thinking is theirs and paid by their plan; no MCP path reaches the server's
+model, so a household nobody sponsors gets the whole loop. Setup: `docs/guides/mcp.md`.
+
+- **Shape.** Tore is a resource server; Pocket ID issues the token (audience `MCP_OIDC_AUDIENCE`, the
+  `/mcp` URL). Stateless Streamable HTTP: one JSON-RPC POST, one JSON reply. RFC 9728 metadata at
+  `/.well-known/oauth-protected-resource`; a 401 points there. Unset audience means `/mcp` is a 404.
+- **Who.** The token's `sub` is a user who has signed in once; calls run as their active household's
+  scope, in its language.
+- **Tools.** Reads: `get_context` (language, today, diet, memory, both weeks' plan, the list, the pantry,
+  what's due), `search_recipes`, `get_recipe`, `list_receipts`, `list_deals`. Writes call the same
+  `Capture.Dispatch` functions Capture's tools do, with `actor: :mcp`: `set_dinner`, `change_day`,
+  `add_to_list`, `check_off`, `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`,
+  `update_memory`, `mark_cooked`, `delete_recipe`, `delete_receipt`. `save_recipe` and `log_receipt`
+  submit Claude's reading as the run's proposal, so the same verifiers decide. Each write answers with
+  its run id, and `undo` reverts any run. A bad argument or a refusal is a tool error Claude can read.
+- **One prompt**, `plan_week`: the weekly planner's own instruction and the household's week mode, then
+  how to carry them out with these tools.
+
+```
+lib/tore/mcp.ex                    # JSON-RPC dispatch, tools and the prompt
+lib/tore/mcp/token.ex              # verifies the Pocket ID token
+lib/tore/mcp/tool.ex               # the tool behaviour; ctx, reply, date
+lib/tore/mcp/tools/*.ex            # one module per tool
+lib/tore/mcp/plan_week.ex          # the plan_week prompt
+lib/tore_web/mcp_auth.ex           # bearer token → scope
+lib/tore_web/controllers/mcp_controller.ex, mcp_metadata_controller.ex
 ```
 
 ---

@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Tore from your own Claude (2026-11-16)
+
+- Tore is an MCP server at `/mcp`. Add it to Claude as a custom connector and sign in through Pocket ID; Claude then works on your active household, in its language.
+- Claude can read the week, the list, the pantry, recipes, receipts and deals, and change the plan, the list, the pantry and the household memory. It can save a recipe or log a receipt it read from a page or a photo. Every change shows in the app at once and can be undone from either side.
+- None of it uses the server's model, so a household without AI gets the whole loop on its own Claude plan.
+- The `plan_week` prompt plans next week the way Tore's own planner does.
+- Setup: `docs/guides/mcp.md`. Not yet tried against the deployed server, or from ChatGPT.
+
 ### Pantry rules and barcode scanning (2026-11-16)
 
 - Ticking an item, adding one and making the list ask no model. Tore matches a name to its ingredient exactly, by name or by a name it has learned, and learns a new name once, afterwards, in one call: it either joins an ingredient Tore has (*mellanmjölk* is *mjölk*) or gets its own section and shelf life. Until then the item waits in "Other".

@@ -34,7 +34,8 @@ defmodule Tore.Harness.Kinds.WeeklyPlanning do
   @impl true
   defdelegate after_commit(run), to: Planner
 
-  defp instruction do
+  @doc "What the weekly planner is asked to do. `Tore.Mcp.PlanWeek` gives Claude the same words."
+  def instruction do
     """
     Fill every empty, unplanned dinner this week with a suitable recipe. Leave
     days that already have a meal, days the household has pinned, and days marked

@@ -6,7 +6,7 @@ defmodule Tore.Mcp do
   undo as the app's, and no tool calls the server's model. See `.docs/specs/mcp.md`.
   """
 
-  alias Tore.Mcp.Tools
+  alias Tore.Mcp.{PlanWeek, Tools}
   alias Tore.Scope
 
   @protocol_versions ~w[2025-06-18 2025-03-26 2024-11-05]
@@ -68,7 +68,10 @@ defmodule Tore.Mcp do
      %{
        "protocolVersion" =>
          if(requested in @protocol_versions, do: requested, else: latest_protocol_version()),
-       "capabilities" => %{"tools" => %{"listChanged" => false}},
+       "capabilities" => %{
+         "tools" => %{"listChanged" => false},
+         "prompts" => %{"listChanged" => false}
+       },
        "serverInfo" => %{"name" => "tore", "version" => version()}
      }}
   end
@@ -98,6 +101,23 @@ defmodule Tore.Mcp do
 
   defp dispatch(_scope, "tools/call", _params, _tools),
     do: {:error, -32602, "tools/call needs a tool name"}
+
+  defp dispatch(_scope, "prompts/list", _params, _tools),
+    do:
+      {:ok,
+       %{"prompts" => [%{"name" => PlanWeek.name(), "description" => PlanWeek.description()}]}}
+
+  defp dispatch(scope, "prompts/get", %{"name" => "plan_week"}, _tools),
+    do:
+      {:ok,
+       %{
+         "description" => PlanWeek.description(),
+         "messages" => [
+           %{"role" => "user", "content" => %{"type" => "text", "text" => PlanWeek.text(scope)}}
+         ]
+       }}
+
+  defp dispatch(_scope, "prompts/get", _params, _tools), do: {:error, -32602, "Unknown prompt"}
 
   defp dispatch(_scope, method, _params, _tools),
     do: {:error, -32601, "Method not found: #{method}"}
