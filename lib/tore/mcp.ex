@@ -6,11 +6,18 @@ defmodule Tore.Mcp do
   undo as the app's, and no tool calls the server's model. See `.docs/specs/mcp.md`.
   """
 
+  alias Tore.Mcp.Tools
   alias Tore.Scope
 
   @protocol_versions ~w[2025-06-18 2025-03-26 2024-11-05]
 
-  @tools []
+  @tools [
+    Tools.GetContext,
+    Tools.SearchRecipes,
+    Tools.GetRecipe,
+    Tools.ListReceipts,
+    Tools.ListDeals
+  ]
 
   def tools, do: @tools
 
@@ -67,8 +74,29 @@ defmodule Tore.Mcp do
      }}
   end
 
+  defp dispatch(scope, "tools/call", %{"name" => name} = params, tools) when is_binary(name) do
+    case Enum.find(tools, &(&1.name() == name)) do
+      nil -> {:error, -32602, "Unknown tool: #{name}"}
+      module -> {:ok, tool_result(module.call(scope, Map.get(params, "arguments") || %{}))}
+    end
+  end
+
+  defp dispatch(_scope, "tools/call", _params, _tools),
+    do: {:error, -32602, "tools/call needs a tool name"}
+
   defp dispatch(_scope, method, _params, _tools),
     do: {:error, -32601, "Method not found: #{method}"}
+
+  # The content is JSON text for clients that only read text, and the same map as structured content.
+  defp tool_result({:ok, result}) when is_map(result),
+    do: %{
+      "content" => [%{"type" => "text", "text" => Jason.encode!(result)}],
+      "structuredContent" => result,
+      "isError" => false
+    }
+
+  defp tool_result({:error, message}) when is_binary(message),
+    do: %{"content" => [%{"type" => "text", "text" => message}], "isError" => true}
 
   defp error(id, code, message),
     do:

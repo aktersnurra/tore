@@ -15,7 +15,10 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
           date: Date.t(),
           slot_key: String.t(),
           status: :empty | :assigned | :skipped | :eating_out,
-          recipe_title: String.t() | nil
+          recipe_id: integer() | nil,
+          recipe_title: String.t() | nil,
+          servings: integer() | nil,
+          pinned: boolean()
         }
   @type t :: %__MODULE__{week_start: Date.t() | nil, slots: [slot()] | nil}
 
@@ -63,7 +66,10 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
         date: date,
         slot_key: slot_key,
         status: slot_status(slot),
-        recipe_title: slot_recipe_title(slot, title_lookup)
+        recipe_id: slot && slot[:recipe_id],
+        recipe_title: slot_recipe_title(slot, title_lookup),
+        servings: slot && slot[:servings],
+        pinned: Map.has_key?(state.pins, slot_key)
       }
     end)
   end
