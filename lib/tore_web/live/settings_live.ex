@@ -30,7 +30,9 @@ defmodule ToreWeb.SettingsLive do
        stores: Deals.list_stores(socket.assigns.current_scope),
        store_url: "",
        store_error: nil,
-       prefs: Household.get_preferences(scope)
+       prefs: Household.get_preferences(scope),
+       budget_saved: false,
+       budget_error: nil
      )}
   end
 
@@ -146,6 +148,26 @@ defmodule ToreWeb.SettingsLive do
     _ = Household.set_ai_sponsor(scope, user, !sponsoring)
     {:noreply, assign_ai_sponsor(socket)}
   end
+
+  # Blank means no budget. Spaces and a decimal comma are fine ("2 000", "1999,50").
+  def handle_event("set_budget", %{"amount" => text}, socket) do
+    with {:ok, amount} <- parse_amount(text),
+         :ok <- Tore.Budget.set_default(socket.assigns.current_scope, amount) do
+      {:noreply,
+       assign(socket,
+         prefs: Household.get_preferences(socket.assigns.current_scope),
+         budget_saved: true,
+         budget_error: nil
+       )}
+    else
+      _ ->
+        {:noreply,
+         assign(socket, budget_saved: false, budget_error: gettext("Enter an amount in kronor."))}
+    end
+  end
+
+  def handle_event("budget_changed", _params, socket),
+    do: {:noreply, assign(socket, budget_saved: false, budget_error: nil)}
 
   def handle_event("rename_household", %{"name" => name}, socket) do
     case Household.rename(socket.assigns.current_scope, name) do
@@ -430,6 +452,52 @@ defmodule ToreWeb.SettingsLive do
             <.preference_chips items={@allergies} chosen={@prefs.allergies} event="toggle_allergy" />
           </section>
 
+          <%!-- Weekly budget: what the planner aims at --%>
+          <section id="budget" class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
+            <h2 class="section-label mb-1">{gettext("Weekly budget")}</h2>
+            <p class="mb-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+              {gettext(
+                "The whole week's shop. Tore plans to it, and never changes a dinner you chose to save money."
+              )}
+            </p>
+            <form phx-submit="set_budget" phx-change="budget_changed" class="flex items-center gap-2">
+              <input
+                type="text"
+                name="amount"
+                inputmode="decimal"
+                value={@prefs.weekly_budget && Tore.Money.format(@prefs.weekly_budget)}
+                placeholder={gettext("No budget")}
+                aria-label={gettext("Weekly budget in kronor")}
+                class="num flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                style="font-size: var(--t-body);"
+              />
+              <span class="text-[color:var(--muted)]" style="font-size: var(--t-body);">kr</span>
+              <button
+                type="submit"
+                phx-disable-with={gettext("Saving…")}
+                class="press h-11 shrink-0 px-2 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
+              >
+                {gettext("Save")}
+              </button>
+            </form>
+            <p
+              :if={@budget_saved}
+              role="status"
+              class="reveal mt-2 text-[color:var(--done)]"
+              style="font-size: var(--t-meta);"
+            >
+              {gettext("Saved.")}
+            </p>
+            <p
+              :if={@budget_error}
+              role="alert"
+              class="mt-2 text-[color:var(--warn)]"
+              style="font-size: var(--t-meta);"
+            >
+              {@budget_error}
+            </p>
+          </section>
+
           <%!-- Household --%>
           <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
@@ -660,5 +728,18 @@ defmodule ToreWeb.SettingsLive do
       </.page>
     </Layouts.app>
     """
+  end
+
+  defp parse_amount(text) do
+    case text |> String.replace(~r/\s/u, "") |> String.replace(",", ".") do
+      "" ->
+        {:ok, nil}
+
+      clean ->
+        case Decimal.parse(clean) do
+          {amount, ""} -> if Decimal.gt?(amount, 0), do: {:ok, amount}, else: :error
+          _ -> :error
+        end
+    end
   end
 end

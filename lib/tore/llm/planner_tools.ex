@@ -193,7 +193,7 @@ defmodule Tore.LLM.PlannerTools do
     %Tool{
       name: "search_recipes",
       description:
-        "Search the recipe catalog. Combine query text and max cooking time, plus an optional limit. Use this before assigning a recipe so you have a ref to pass to assign_recipe.",
+        "Search the recipe catalog. Combine query text and max cooking time, plus an optional limit. Use this before assigning a recipe so you have a ref to pass to assign_recipe. Each result carries its estimated cost at its own servings.",
       kind: :read,
       parameters: %{
         type: "object",
@@ -229,11 +229,15 @@ defmodule Tore.LLM.PlannerTools do
           |> Enum.take(limit)
           |> Enum.map(&Handles.recipe(&1.id, &1.title, :search_recipes, 1.0))
 
+        shown = Enum.take(base, limit)
+        costs = recipe_costs(ctx, shown)
+
         result =
-          base
-          |> Enum.take(limit)
+          shown
           |> Enum.zip(handles)
-          |> Enum.map(fn {r, h} -> Map.put(summarise_recipe(r), :ref, h.ref) end)
+          |> Enum.map(fn {r, h} ->
+            r |> summarise_recipe() |> Map.put(:ref, h.ref) |> Map.merge(costs[r.id] || %{})
+          end)
 
         {:ok, %{recipes: result, __handles__: handles}, [], plan}
       end
@@ -341,6 +345,22 @@ defmodule Tore.LLM.PlannerTools do
         {:ok, %{items: items}, [], plan}
       end
     }
+  end
+
+  # Each recipe's estimated cost at its own servings, in the week being planned, with how many of
+  # its ingredients rest on a real price.
+  defp recipe_costs(ctx, recipes) do
+    full = Tore.Recipes.get_many(ctx.scope, Enum.map(recipes, & &1.id))
+
+    ctx.scope
+    |> Tore.Prices.recipe_costs(Enum.map(full, &{&1, &1.base_servings}), ctx.week_start)
+    |> Map.new(fn {id, cost} ->
+      {id,
+       %{
+         estimated_cost_kr: cost.amount |> Decimal.round(0) |> Decimal.to_integer(),
+         ingredients_priced: "#{cost.priced} of #{cost.total}"
+       }}
+    end)
   end
 
   defp active_deals do

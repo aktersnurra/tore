@@ -65,6 +65,9 @@ defmodule Tore.Capture.Router do
       have?") rather than committing.
     - To clear a day, call `clear_plan_slot`.
     - When the user asks what to cook, call `suggest_meals_from_pantry`.
+    - "Plan next week" / "planera veckan" → `plan_week` with their words as the request. A budget
+      in the same breath ("budget 2000 kr") → `set_budget` for that week first, then `plan_week`.
+      "Our budget is 2000 a week" → `set_budget` with no week. It covers the whole shop.
     - Adjust portions with `set_plan_servings`; pin/unpin with `pin_plan_slot`.
       Mark a recipe as cooked tonight with `mark_recipe_cooked` (this is what
       teaches the rotation to deprioritise it).
@@ -352,6 +355,29 @@ defmodule Tore.Capture.Router do
     {:ok, [Dispatch.mark_recipe_cooked(id, ctx)]}
   end
 
+  defp run_call(%{name: "set_budget", args: args}, _images, _count, ctx) do
+    amount =
+      case args["amount"] do
+        n when is_number(n) and n > 0 -> Tore.Types.decimal(n)
+        _ -> nil
+      end
+
+    case args["week_of"] do
+      nil ->
+        {:ok, [Dispatch.set_budget(amount, nil, ctx)]}
+
+      date_str ->
+        with {:ok, date} <- parse_iso_date(date_str),
+             do: {:ok, [Dispatch.set_budget(amount, date, ctx)]}
+    end
+  end
+
+  defp run_call(%{name: "plan_week", args: %{"request" => request} = args}, _images, _count, ctx)
+       when is_binary(request) do
+    with {:ok, date} <- parse_iso_date(args["week_of"]),
+         do: {:ok, [Dispatch.plan_week(date, request, ctx)]}
+  end
+
   defp run_call(%{name: "set_plan_servings", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]),
          servings when is_integer(servings) and servings > 0 <- args["servings"] do
@@ -627,6 +653,36 @@ defmodule Tore.Capture.Router do
             recipe_id: %{type: "integer", description: "Recipe id from find_recipe or the plan."}
           },
           required: ["recipe_id"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "set_budget",
+        "Set what the household's whole weekly shop should cost. With week_of, only that week; without, the usual budget for every week. amount null removes it.",
+        %{
+          type: "object",
+          properties: %{
+            amount: %{type: ["number", "null"], description: "Kronor for the whole week's shop."},
+            week_of: %{
+              type: ["string", "null"],
+              description:
+                "Any ISO 8601 date in the week, for that week only; null for the usual budget."
+            }
+          },
+          required: ["amount", "week_of"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "plan_week",
+        "Plan a whole week's dinners, filling the empty days. Pass what the person asked for in their own words (dishes they want, anything to avoid).",
+        %{
+          type: "object",
+          properties: %{
+            week_of: %{type: "string", description: "Any ISO 8601 date in the week to plan."},
+            request: %{type: "string", description: "The person's request, in their words."}
+          },
+          required: ["week_of", "request"],
           additionalProperties: false
         }
       ),

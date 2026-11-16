@@ -15,6 +15,7 @@ defmodule Tore.Harness.Kinds.Planner do
   alias Tore.Harness.Artifact.{PlanDiff, RecipeProposal}
 
   alias Tore.Harness.Capsules.{
+    BudgetCapsule,
     HouseholdPreferencesCapsule,
     MemoryCapsule,
     PantryBeliefsCapsule,
@@ -25,7 +26,13 @@ defmodule Tore.Harness.Kinds.Planner do
   alias Tore.LLM.PlannerAgent
   alias Tore.Planning.{Decider, Events}
 
-  @capsules [HouseholdPreferencesCapsule, MemoryCapsule, WeekPlanCapsule, PantryBeliefsCapsule]
+  @capsules [
+    HouseholdPreferencesCapsule,
+    MemoryCapsule,
+    WeekPlanCapsule,
+    BudgetCapsule,
+    PantryBeliefsCapsule
+  ]
 
   @doc "The run's input: where the plan lives, plus `extra`."
   @spec input(map(), map()) :: map()
@@ -59,9 +66,65 @@ defmodule Tore.Harness.Kinds.Planner do
           {:ok, %{proposal | pending_assignment: pending(pending)}}
 
         {kind, _} when kind in [:message, :capped] ->
-          {:ok, %{PlanDiffBuilder.build(loop.tool_trace, ctx) | plan_events: loop.plan_events}}
+          diff = diff(loop, ctx)
+
+          {:ok,
+           within_budget(
+             diff,
+             plan,
+             fn note -> rerun(run, ctx, plan, user_text <> note, opts) end,
+             ctx
+           )}
       end
     end
+  end
+
+  defp diff(loop, ctx),
+    do: %{PlanDiffBuilder.build(loop.tool_trace, ctx) | plan_events: loop.plan_events}
+
+  defp rerun(run, %{scope: scope} = ctx, plan, user_text, opts) do
+    case PlannerAgent.run(system_prompt(scope, ctx), user_text, agent_ctx(run, ctx, plan), opts) do
+      {:ok, %{result: {kind, _}} = loop} when kind in [:message, :capped] ->
+        {:ok, diff(loop, ctx)}
+
+      _ ->
+        :error
+    end
+  end
+
+  # When the planner's own picks take the week over its budget, it tries once more, told by how
+  # much, and the cheaper of the two plans is kept. Code works out both costs; the model's own
+  # figures are never read. A plan that still doesn't fit is applied, and the plan screen shows
+  # how far over it is.
+  defp within_budget(%PlanDiff{} = diff, plan, retry, %{scope: scope, week_start: week_start}) do
+    with %Decimal{} = budget <- Tore.Budget.amount(scope, week_start),
+         true <- Enum.any?(diff.events, &(&1.event_type in ["RecipeAssigned", "RecipeSwapped"])),
+         first = cost_after(scope, plan, diff, week_start),
+         true <- Decimal.gt?(first, budget),
+         {:ok, second_diff} <- retry.(over_note(first, budget)),
+         true <- Decimal.lt?(cost_after(scope, plan, second_diff, week_start), first) do
+      second_diff
+    else
+      _ -> diff
+    end
+  end
+
+  defp cost_after(scope, plan, diff, week_start) do
+    after_diff = Enum.reduce(diff.plan_events, plan, &Decider.evolve(&2, &1))
+    Tore.Budget.estimate(scope, after_diff, week_start).amount
+  end
+
+  defp over_note(estimate, budget) do
+    over = estimate |> Decimal.sub(budget) |> Decimal.round(0)
+
+    """
+
+
+    Note: your first attempt came to about #{Decimal.round(estimate, 0)} kr, #{over} kr over \
+    this week's #{Decimal.round(budget, 0)} kr budget. Plan again with cheaper recipes for the \
+    dinners you choose. Keep every dinner the household asked for by name, and if it still \
+    can't fit, get as close as you can.\
+    """
   end
 
   @spec verify(PlanDiff.t() | RecipeProposal.t(), map()) :: :ok | {:fail, atom(), term()}

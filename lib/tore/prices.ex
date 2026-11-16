@@ -6,7 +6,7 @@ defmodule Tore.Prices do
   An ingredient's price is the first that fits of:
 
   1. a deal still running in the week, matched to it (`Tore.Prices.Products`)
-  2. the latest price paid for it on a receipt
+  2. the latest price paid for it on a receipt from before the week
   3. the latest regular price seen on a deal
   4. the model's estimate, kept on the ingredient
 
@@ -39,7 +39,7 @@ defmodule Tore.Prices do
 
     [
       deal: deal_prices(scope, week_start),
-      paid: paid_prices(scope),
+      paid: paid_prices(scope, week_start),
       regular: regular_prices(scope),
       estimate: estimates(scope, ingredient_ids)
     ]
@@ -159,12 +159,14 @@ defmodule Tore.Prices do
     ])
   end
 
-  # The latest line per ingredient that says what it cost and how much it was.
-  defp paid_prices(scope) do
+  # The latest line per ingredient that says what it cost and how much it was, from before the
+  # week: a week's estimate never learns from that week's own receipts, so it can be worked out
+  # again later and still be compared with what was paid.
+  defp paid_prices(scope, week_start) do
     from(l in LineItem,
       join: r in Receipt,
       on: r.id == l.receipt_id,
-      where: not is_nil(l.total_price) and l.quantity > 0,
+      where: not is_nil(l.total_price) and l.quantity > 0 and r.date < ^week_start,
       order_by: [desc: r.date, desc: l.id],
       limit: 500,
       select: l

@@ -28,19 +28,30 @@ defmodule ToreWeb.PlannerLive do
     current_run = Runs.latest_on_surface(scope, :plan)
 
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        today: today,
        week_start: week_start,
        plan_id: plan_id,
-       plan_state: plan_state,
        recipes: recipes,
        slot_action: nil,
-       plan_health: PlanHealth.compute(plan_state),
        current_week_mode: Tore.WeekMode.get_current_mode(scope),
        current_run: current_run,
        quick_loading: false,
        focused_slots: MapSet.new()
-     )}
+     )
+     |> with_plan(plan_state)}
+  end
+
+  # The plan, how ready it is, and what it's estimated to cost against the week's budget.
+  defp with_plan(socket, plan_state) do
+    %{current_scope: scope, week_start: week_start} = socket.assigns
+
+    assign(socket,
+      plan_state: plan_state,
+      plan_health: PlanHealth.compute(plan_state),
+      budget: Tore.Budget.status(scope, plan_state, week_start)
+    )
   end
 
   def handle_params(params, _uri, socket) do
@@ -81,6 +92,7 @@ defmodule ToreWeb.PlannerLive do
       slot_key: sk,
       search: "",
       suggestions: [],
+      prices: %{},
       loading_suggestions: true,
       selected_recipe_id: slot && slot.recipe_id,
       servings: (slot && slot.servings) || 4,
@@ -318,21 +330,23 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_info({:events, _events}, socket) do
     {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, socket.assigns.plan_id)
-
-    socket =
-      assign(socket,
-        plan_state: plan_state,
-        plan_health: PlanHealth.compute(plan_state)
-      )
-
-    {:noreply, socket}
+    {:noreply, with_plan(socket, plan_state)}
   end
 
   def handle_info({:suggestions_loaded, sk, suggestions}, socket) do
     case socket.assigns.slot_action do
       %{slot_key: ^sk} = s ->
+        prices = suggestion_prices(socket, s, suggestions)
+
         {:noreply,
-         assign(socket, slot_action: %{s | suggestions: suggestions, loading_suggestions: false})}
+         assign(socket,
+           slot_action: %{
+             s
+             | suggestions: suggestions,
+               prices: prices,
+               loading_suggestions: false
+           }
+         )}
 
       _ ->
         {:noreply, socket}
@@ -426,6 +440,18 @@ defmodule ToreWeb.PlannerLive do
             <h1 class="t-display num">{gettext("Week %{week}", week: @week_number)}</h1>
             <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
               {ToreWeb.Dates.range(@week_start, @week_end)}
+            </p>
+            <p
+              :if={@budget.estimate.total > 0 or @budget.budget}
+              data-role="week-estimate"
+              class={[
+                "num mt-1 transition-colors duration-200",
+                @budget.over && "text-[color:var(--warn)] font-semibold",
+                !@budget.over && "text-[color:var(--muted)]"
+              ]}
+              style="font-size: 15px;"
+            >
+              {estimate_line(@budget)}
             </p>
           </div>
           <div class="flex shrink-0 items-center gap-2 pt-1">
@@ -988,6 +1014,7 @@ defmodule ToreWeb.PlannerLive do
                         :for={sug <- @slot_action.suggestions}
                         recipe={sug.recipe}
                         reasons={sug.reasons}
+                        price={@slot_action.prices[sug.recipe.id]}
                         selected={@slot_action.selected_recipe_id == sug.recipe.id}
                       />
                     </ul>
@@ -1025,6 +1052,7 @@ defmodule ToreWeb.PlannerLive do
 
   attr :recipe, :any, required: true
   attr :reasons, :list, default: []
+  attr :price, :string, default: nil
   attr :selected, :boolean, default: false
 
   defp recipe_pick_row(assigns) do
@@ -1066,6 +1094,14 @@ defmodule ToreWeb.PlannerLive do
             <% end %>
           </p>
         </div>
+        <span
+          :if={@price}
+          data-role="price-diff"
+          class="num shrink-0 self-center text-[color:var(--muted)]"
+          style="font-size: var(--t-meta);"
+        >
+          {@price}
+        </span>
       </button>
     </li>
     """
@@ -1076,12 +1112,81 @@ defmodule ToreWeb.PlannerLive do
     plan_id = plan_id(scope, week_start)
     {:ok, plan_state} = Planning.load_plan(scope, plan_id)
 
-    assign(socket,
-      week_start: week_start,
-      plan_id: plan_id,
-      plan_state: plan_state,
-      plan_health: PlanHealth.compute(plan_state)
-    )
+    socket
+    |> assign(week_start: week_start, plan_id: plan_id)
+    |> with_plan(plan_state)
+  end
+
+  defp estimate_line(%{budget: nil, estimate: e}),
+    do:
+      gettext("About %{amount} kr, %{priced} of %{total} ingredients priced",
+        amount: Tore.Money.format(e.amount),
+        priced: e.priced,
+        total: e.total
+      )
+
+  defp estimate_line(%{budget: budget, estimate: e, over: nil}),
+    do:
+      gettext("About %{amount} of %{budget} kr, %{priced} of %{total} ingredients priced",
+        amount: Tore.Money.format(e.amount),
+        budget: Tore.Money.format(budget),
+        priced: e.priced,
+        total: e.total
+      )
+
+  defp estimate_line(%{budget: budget, estimate: e, over: over}),
+    do:
+      gettext("About %{amount} of %{budget} kr, %{over} kr over",
+        amount: Tore.Money.format(e.amount),
+        budget: Tore.Money.format(budget),
+        over: Tore.Money.format(over)
+      )
+
+  # What each suggestion would cost on the day, as the difference from what's there now, or as an
+  # amount when the day is empty. Nothing for a recipe nothing prices.
+  defp suggestion_prices(socket, %{slot_key: sk, servings: servings}, suggestions) do
+    %{current_scope: scope, week_start: week_start, plan_state: plan} = socket.assigns
+    current_id = get_in(plan.slots, [sk, :recipe_id])
+    current = current_id && Recipes.get_many(scope, [current_id])
+
+    costs =
+      Tore.Prices.recipe_costs(
+        scope,
+        Enum.map((current || []) ++ Enum.map(suggestions, & &1.recipe), &{&1, servings}),
+        week_start
+      )
+
+    base = current_id && costs[current_id]
+
+    Map.new(suggestions, fn %{recipe: r} ->
+      {r.id, price_label(costs[r.id], base, r.id == current_id)}
+    end)
+  end
+
+  defp price_label(_cost, _base, true = _already_there), do: nil
+  defp price_label(nil, _base, _same), do: nil
+
+  defp price_label(%{amount: amount, total: total}, base, _same) do
+    cond do
+      total == 0 or Decimal.eq?(amount, 0) ->
+        nil
+
+      base == nil or Decimal.eq?(base.amount, 0) ->
+        gettext("about %{amount} kr", amount: Tore.Money.format(amount))
+
+      true ->
+        signed_kr(Decimal.sub(amount, base.amount))
+    end
+  end
+
+  defp signed_kr(diff) do
+    rounded = Decimal.round(diff, 0)
+
+    cond do
+      Decimal.gt?(rounded, 0) -> "+#{Tore.Money.format(rounded)} kr"
+      Decimal.lt?(rounded, 0) -> "−#{Tore.Money.format(Decimal.abs(rounded))} kr"
+      true -> gettext("same price")
+    end
   end
 
   defp recipe_by_id(_recipes, nil), do: nil

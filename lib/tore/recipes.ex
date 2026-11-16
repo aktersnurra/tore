@@ -76,6 +76,13 @@ defmodule Tore.Recipes do
     |> Repo.preload([:tags, recipe_ingredients: :ingredient])
   end
 
+  @doc "The household's recipes with these ids, ingredients loaded. Ids it doesn't have are left out."
+  @spec get_many(Scope.t(), [integer()]) :: [Recipe.t()]
+  def get_many(%Scope{} = scope, ids) do
+    from(r in Recipe, where: r.id in ^Enum.uniq(ids), preload: [recipe_ingredients: :ingredient])
+    |> Repo.all(Scope.repo_opts(scope))
+  end
+
   @doc "The recipe, or nil when there's none with that id in this household."
   @spec get(Scope.t(), term()) :: Recipe.t() | nil
   def get(%Scope{} = scope, id), do: Repo.get(Recipe, id, Scope.repo_opts(scope))

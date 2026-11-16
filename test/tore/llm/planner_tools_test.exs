@@ -205,6 +205,24 @@ defmodule Tore.LLM.PlannerToolsTest do
     assert %{__handles__: [%Tore.Harness.Handles.ResolvedRecipe{ref: ^ref}]} = result
   end
 
+  test "search_recipes gives each recipe's estimated cost and its coverage", %{ctx: ctx} do
+    make_recipe(%{
+      title: "Priced Stew",
+      ingredients: [%{name: "morot", quantity: 3, unit: "st"}, %{name: "salt"}]
+    })
+
+    Repo.update_all(
+      Ecto.Query.from(i in Tore.Recipes.Ingredient, where: i.name == "morot"),
+      [set: [estimated_price: Decimal.new("2.50"), estimated_unit: "st"]],
+      Tore.Scope.repo_opts(home_scope())
+    )
+
+    assert {:ok, %{recipes: [entry]}, [], _} =
+             find("search_recipes").run.(%{"query" => "Priced"}, ctx, %State{})
+
+    assert %{estimated_cost_kr: 8, ingredients_priced: "0 of 2"} = entry
+  end
+
   test "resolve_recipe tool maps an :ok resolver result", %{ctx: ctx} do
     %{id: rid, title: title} = make_recipe(%{title: "Very Unique Recipe Name"})
     tool = find("resolve_recipe")

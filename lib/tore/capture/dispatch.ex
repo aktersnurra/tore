@@ -451,6 +451,114 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
+  # ── budget and planning the week ───────────────────────────────────────
+
+  @doc """
+  Sets a budget the person stated: the week's own when `date` is given, otherwise the household's
+  default. A setting, so it's written directly. `nil` removes it.
+  """
+  @spec set_budget(Decimal.t() | nil, Date.t() | nil, ctx()) :: bubble()
+  def set_budget(amount, nil, ctx) do
+    case Tore.Budget.set_default(ctx.scope, amount) do
+      :ok when amount == nil ->
+        %{role: :assistant, text: gettext("Removed the weekly budget.")}
+
+      :ok ->
+        %{
+          role: :assistant,
+          text: gettext("Weekly budget set to %{amount} kr.", amount: Tore.Money.format(amount))
+        }
+
+      {:error, reason} ->
+        error_bubble(:budget, reason)
+    end
+  end
+
+  def set_budget(amount, %Date{} = date, ctx) do
+    week = date |> Streams.monday() |> week_number()
+
+    case Tore.Budget.set_week(ctx.scope, Streams.monday(date), amount) do
+      :ok when amount == nil ->
+        %{
+          role: :assistant,
+          text: gettext("Week %{week} uses the usual budget again.", week: week)
+        }
+
+      :ok ->
+        %{
+          role: :assistant,
+          text:
+            gettext("Budget for week %{week} set to %{amount} kr.",
+              week: week,
+              amount: Tore.Money.format(amount)
+            )
+        }
+
+      {:error, reason} ->
+        error_bubble(:budget, reason)
+    end
+  end
+
+  @doc """
+  Plans the week `date` falls in, as the plan screen's command does: `request` is what the person
+  asked for, in their words. Answers with the week's estimate against its budget.
+  """
+  @spec plan_week(Date.t(), String.t(), ctx()) :: bubble()
+  def plan_week(%Date{} = date, request, ctx) when is_binary(request) do
+    week_start = Streams.monday(date)
+
+    run_ctx = %{
+      command: request,
+      plan_stream_id: Streams.plan(ctx.scope, week_start),
+      week_start: week_start
+    }
+
+    case Runs.start(ctx.scope, Kinds.PlannerCommand, as_actor(run_ctx, ctx)) do
+      {:ok, %KitchenRun{status: :applied, id: id}} ->
+        %{role: :assistant, text: week_planned_text(ctx.scope, week_start), run_stream_id: id}
+
+      {:ok, %KitchenRun{status: :needs_user, question: question}} when is_binary(question) ->
+        %{role: :assistant, text: question}
+
+      {:ok, %KitchenRun{failure_code: code}} ->
+        error_bubble(:plan, code)
+
+      {:error, reason} ->
+        error_bubble(:plan, reason)
+    end
+  end
+
+  defp week_planned_text(scope, week_start) do
+    %{budget: budget, estimate: estimate} = Tore.Budget.status(scope, week_start)
+    week = week_number(week_start)
+
+    cond do
+      estimate.total == 0 ->
+        gettext("Planned week %{week}.", week: week)
+
+      budget == nil ->
+        gettext(
+          "Planned week %{week}: about %{amount} kr, %{priced} of %{total} ingredients priced.",
+          week: week,
+          amount: Tore.Money.format(estimate.amount),
+          priced: estimate.priced,
+          total: estimate.total
+        )
+
+      true ->
+        gettext(
+          "Planned week %{week}: about %{amount} of %{budget} kr, %{priced} of %{total} ingredients priced.",
+          week: week,
+          amount: Tore.Money.format(estimate.amount),
+          budget: Tore.Money.format(budget),
+          priced: estimate.priced,
+          total: estimate.total
+        )
+    end
+  end
+
+  defp week_number(date), do: date |> Date.to_erl() |> :calendar.iso_week_number() |> elem(1)
+
   # ── pantry mutations ───────────────────────────────────────────────────
 
   @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()

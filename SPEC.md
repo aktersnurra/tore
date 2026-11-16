@@ -613,6 +613,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
+| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan |
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
@@ -850,6 +851,35 @@ works: one store, at most once a day and only until the new week's offers appear
 Plan links to "Prep this week". The page generates a guide from the week's plan when asked, through
 `Tore.Prep.generate_guide/3` and the `prep_guide` prompt. It's a document to read: there's no scheduled job and no
 "report back". It isn't a run, since it changes nothing else.
+
+### 10. Weekly budget
+
+**Status: being built.** Spec `.docs/specs/weekly-budget.md`, plan `.docs/plans/weekly-budget.md`.
+
+A week's budget covers the whole shop. It is the week's own, set when someone asks to plan to one, or the household's
+default from Settings (`Tore.Budget`). The plan is aimed at it and never refused for it: a dinner someone chose is never
+changed to save money.
+
+**Prices** (`Tore.Prices`) are derived every time, never stored. An ingredient's price is the first of these that
+has one in the line's unit family (kg, l or st): a deal running in the week, the latest price paid on a receipt from
+before the week, the latest regular price seen on a deal, and the model's estimate. Products on deals and receipt
+lines reach ingredients through `Tore.Prices.Products` (§8). The estimate is guessed in one call at the start of a
+planner run, for recipe ingredients nothing prices (`Tore.Prices.Estimate`). Only the first three count as priced:
+every estimate carries its coverage, "14 of 18 ingredients priced".
+
+**The week's estimate** (`Tore.Budget.estimate/3`) adds up the dinners the plan cooks at their servings; leftovers
+and skipped days cost nothing. Because it never reads that week's own receipts, it can be worked out again later and
+compared with what was paid.
+
+**Planning to it.** The planner's prompt carries the budget and the estimate so far (`BudgetCapsule`), and
+`search_recipes` gives each recipe's estimated cost. When the planner's own picks take the week over, it plans once
+more, told by how much, and the cheaper of the two plans is kept; both costs are worked out in code. A plan that still
+doesn't fit is applied, and the plan screen says how far over it is.
+
+**Where it shows.** The plan screen shows "About 1 850 of 2 000 kr, 14 of 18 ingredients priced", or how far over.
+A day's suggested alternatives show the difference ("−35 kr"). Settings has the default. Capture sets a budget
+(`set_budget`, written directly as a setting the person states) and plans a whole week (`plan_week`, the plan screen's
+command).
 
 ---
 

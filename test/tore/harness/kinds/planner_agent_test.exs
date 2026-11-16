@@ -152,4 +152,98 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
     assert Map.has_key?(state.pins, "mon_dinner")
     assert state.slots["tue_dinner"].recipe_id == stew.id
   end
+
+  describe "a budget" do
+    setup do
+      {:ok, steak} =
+        recipe(%{title: "Oxfilé", ingredients: [%{name: "oxfilé", quantity: 1, unit: "st"}]})
+
+      {:ok, lentils} =
+        recipe(%{title: "Linsgryta", ingredients: [%{name: "linser", quantity: 1, unit: "st"}]})
+
+      for {name, kr} <- [{"oxfilé", "400"}, {"linser", "30"}] do
+        Repo.update_all(
+          Ecto.Query.from(i in Tore.Recipes.Ingredient, where: i.name == ^name),
+          [set: [estimated_price: Decimal.new(kr), estimated_unit: "st"]],
+          Tore.Scope.repo_opts(home_scope())
+        )
+      end
+
+      %{steak: steak, lentils: lentils}
+    end
+
+    defp assigns(title) do
+      resolve_then(
+        title,
+        {"assign_recipe",
+         &%{"slot_key" => "mon_dinner", "recipe_ref" => &1, "servings" => 4, "rationale" => "x"}}
+      )
+
+      expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
+        {:ok, {:message, "Done."}, @usage}
+      end)
+    end
+
+    test "over it, the planner tries once more and the cheaper plan is kept", %{
+      plan: plan,
+      lentils: lentils
+    } do
+      :ok = Tore.Budget.set_week(home_scope(), @week, Decimal.new("100"))
+      test_pid = self()
+
+      assigns("Oxfilé")
+
+      Tore.MockLLM
+      |> expect(:chat_with_tools, fn _, [%{content: text}], _, _ ->
+        send(test_pid, {:retry, text})
+
+        {:ok,
+         {:tool_calls, [%{id: "c1", name: "resolve_recipe", args: %{"query" => "Linsgryta"}}]},
+         @usage}
+      end)
+      |> expect(:chat_with_tools, fn _, msgs, _, _ ->
+        args = %{
+          "slot_key" => "mon_dinner",
+          "recipe_ref" => resolved_ref(msgs),
+          "servings" => 4,
+          "rationale" => "x"
+        }
+
+        {:ok, {:tool_calls, [%{id: "c2", name: "assign_recipe", args: args}]}, @usage}
+      end)
+      |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Cheaper."}, @usage} end)
+
+      assert {:ok, %KitchenRun{status: :applied}} =
+               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+
+      assert_received {:retry, text}
+      assert text =~ "about 400 kr, 300 kr over"
+
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
+      assert state.slots["mon_dinner"].recipe_id == lentils.id
+    end
+
+    test "within it, the plan is applied as the planner made it", %{plan: plan, steak: steak} do
+      :ok = Tore.Budget.set_week(home_scope(), @week, Decimal.new("500"))
+      assigns("Oxfilé")
+
+      assert {:ok, %KitchenRun{status: :applied}} =
+               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
+      assert state.slots["mon_dinner"].recipe_id == steak.id
+    end
+
+    test "a retry that costs no less leaves the first plan", %{plan: plan, steak: steak} do
+      :ok = Tore.Budget.set_week(home_scope(), @week, Decimal.new("100"))
+      assigns("Oxfilé")
+      assigns("Oxfilé")
+
+      assert {:ok, %KitchenRun{status: :applied}} =
+               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
+      assert state.slots["mon_dinner"].recipe_id == steak.id
+    end
+  end
 end

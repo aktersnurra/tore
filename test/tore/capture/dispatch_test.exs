@@ -138,4 +138,61 @@ defmodule Tore.Capture.DispatchTest do
       assert %{place: "Sushi", amount: "450"} = state.slots["fri_dinner"]
     end
   end
+
+  describe "budget" do
+    setup do
+      Gettext.put_locale(ToreWeb.Gettext, "sv")
+      %{ctx: capture_ctx(home_scope().household_id, user_fixture().id)}
+    end
+
+    test "the usual budget, a week's own, and back", %{ctx: ctx} do
+      assert %{text: "Veckobudgeten är nu 2 000 kr."} =
+               Dispatch.set_budget(Decimal.new(2000), nil, ctx)
+
+      assert %{text: "Budgeten för vecka 47 är nu 1 500 kr."} =
+               Dispatch.set_budget(Decimal.new(1500), ~D[2026-11-19], ctx)
+
+      assert Tore.Budget.amount(home_scope(), ~D[2026-11-16]) == Decimal.new(1500)
+
+      assert %{text: "Vecka 47 har den vanliga budgeten igen."} =
+               Dispatch.set_budget(nil, ~D[2026-11-16], ctx)
+
+      assert Tore.Budget.amount(home_scope(), ~D[2026-11-16]) == Decimal.new(2000)
+    end
+
+    test "planning the week answers with its estimate against the budget", %{ctx: ctx} do
+      import Mox
+
+      {:ok, recipe} =
+        Tore.Recipes.create(
+          home_scope(),
+          %{
+            title: "Gryta",
+            base_servings: 4,
+            ingredients: [%{name: "bönor", quantity: 2, unit: "st"}]
+          },
+          image: false
+        )
+
+      Repo.update_all(
+        Ecto.Query.from(i in Tore.Recipes.Ingredient, where: i.name == "bönor"),
+        [set: [estimated_price: Decimal.new(15), estimated_unit: "st"]],
+        Tore.Scope.repo_opts(home_scope())
+      )
+
+      Dispatch.set_budget(Decimal.new(500), ~D[2026-11-16], ctx)
+      plan = Tore.Streams.plan(home_scope(), ~D[2026-11-16])
+      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "mon_dinner", recipe.id, 4)
+
+      expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Klart."}, %{}} end)
+
+      assert %{
+               text: "Planerade vecka 47: runt 30 av 500 kr, 0 av 1 ingredienser har pris.",
+               run_stream_id: id
+             } =
+               Dispatch.plan_week(~D[2026-11-18], "planera veckan", ctx)
+
+      assert %KitchenRun{kind: "planner_command_run"} = Runs.get(home_scope(), id)
+    end
+  end
 end

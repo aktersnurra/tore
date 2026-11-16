@@ -132,15 +132,5 @@ defmodule ToreWeb.Spending do
   defp signed_percent(n) when n > 0, do: "+#{n}%"
   defp signed_percent(n), do: "#{n}%"
 
-  defp money(%Decimal{} = amount) do
-    amount
-    |> Decimal.round(0)
-    |> Decimal.to_integer()
-    |> Integer.to_string()
-    |> String.reverse()
-    |> String.graphemes()
-    |> Enum.chunk_every(3)
-    |> Enum.map_join(" ", &Enum.join/1)
-    |> String.reverse()
-  end
+  defp money(%Decimal{} = amount), do: Tore.Money.format(amount)
 end
