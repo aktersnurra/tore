@@ -214,6 +214,9 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   `text-white`: saffron is a light colour.
 - **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
   Recipes is a picture grid. A recipe without a picture shows a quiet block, never a stock image.
+  Its + starts from a link: paste one and Tore reads the recipe in and opens it. "Write it
+  yourself" under the field is the way out to the form, taking along what was typed (a link as
+  the source, anything else as the name).
 - **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card
   per step, a tap for the next, and "All steps" to peek ahead. Cook mode and the week's prep
   use it.

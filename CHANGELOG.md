@@ -7,8 +7,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### The list in your store's order (2026-11-16)
+### The list in your store's order, recipes from a link (2026-11-16)
 
+- A new recipe starts from a link: + on Recipes opens a link field, Tore reads the page in and opens the recipe. Writing it in by hand is the way out underneath, and takes what was typed along.
 - Shop sections start in the order of a typical Swedish store (fruit and veg first, frozen last) and then follow the order you tick things off, once Tore has seen three trips. No model call.
 
 ### Weekly budget (2026-11-16)

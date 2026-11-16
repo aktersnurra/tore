@@ -9,6 +9,14 @@ defmodule ToreWeb.RecipeLiveTest do
     %{user: user, recipe: recipe}
   end
 
+  defp eventually(fun, tries \\ 40) do
+    cond do
+      fun.() -> true
+      tries == 0 -> false
+      true -> Process.sleep(25) && eventually(fun, tries - 1)
+    end
+  end
+
   defp authed(conn, user), do: Plug.Test.init_test_session(conn, %{user_id: user.id})
 
   describe "page render" do
@@ -23,6 +31,109 @@ defmodule ToreWeb.RecipeLiveTest do
       {:ok, _lv, html} = live(authed(conn, user), "/recipes")
       refute html =~ "quick"
       refute html =~ "Sortera"
+    end
+  end
+
+  describe "a new recipe" do
+    import Mox
+    setup :verify_on_exit!
+    setup :set_mox_from_context
+
+    @page """
+    <html><head><script type="application/ld+json">
+    {"@type": "Recipe", "name": "Morotssoppa", "recipeYield": "4",
+     "recipeIngredient": ["6 morötter"], "recipeInstructions": ["Koka."]}
+    </script></head></html>
+    """
+
+    @soup %{
+      "title" => "Morotssoppa",
+      "base_servings" => 4,
+      "ingredients" => [%{"item" => "morot", "quantity" => 6, "unit" => "st"}],
+      "steps" => [%{"order" => 1, "phase" => "COOKING", "action" => "Koka.", "ingredients" => []}],
+      "tags" => []
+    }
+
+    test "starts from a link, and writing it yourself is the way out", %{conn: conn, user: user} do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+
+      html = render_click(lv, "new_recipe")
+      assert has_element?(lv, "#import-link input[name=url]")
+      assert html =~ "Hämta recept"
+      refute has_element?(lv, ~s(input[name="recipe[title]"]))
+
+      lv
+      |> form("#import-link", %{url: "https://example.com/soppa"})
+      |> put_submitter(~s(button[name="write"]))
+      |> render_submit()
+
+      assert has_element?(lv, ~s(input[name="recipe[title]"]))
+
+      assert has_element?(
+               lv,
+               ~s(input[name="recipe[source_url]"][value="https://example.com/soppa"])
+             )
+    end
+
+    test "a link is read in and the recipe opens", %{conn: conn, user: user} do
+      stub(Tore.MockHTTP, :fetch, fn
+        "https://example.com/soppa" -> {:ok, @page}
+        _ -> {:error, :not_found}
+      end)
+
+      stub(Tore.MockLLM, :text, fn _, _, _ ->
+        {:ok, @soup, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
+      end)
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      render_click(lv, "new_recipe")
+
+      html = lv |> form("#import-link", %{url: " https://example.com/soppa "}) |> render_submit()
+      assert html =~ "Läser receptet"
+
+      assert eventually(fn ->
+               Enum.any?(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
+             end)
+
+      _ = render(lv)
+      [recipe] = Enum.filter(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
+      assert_patch(lv, "/recipes?id=#{recipe.id}")
+    end
+
+    test "a page that isn't a recipe says so, next to the field", %{conn: conn, user: user} do
+      stub(Tore.MockHTTP, :fetch, fn _ -> {:ok, "<html><body>Hej</body></html>"} end)
+
+      stub(Tore.MockLLM, :text, fn _, _, _ ->
+        {:ok, %{"not_a_recipe" => true}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
+      end)
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      render_click(lv, "new_recipe")
+      lv |> form("#import-link", %{url: "https://example.com/hej"}) |> render_submit()
+
+      assert eventually(fn -> render(lv) =~ "inte ut som ett recept" end)
+      html = render(lv)
+      assert has_element?(lv, ~s(#import-link input[aria-invalid="true"]))
+      assert html =~ "Skriv in det själv"
+    end
+
+    test "something that isn't a link is caught before anything is fetched", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      render_click(lv, "new_recipe")
+
+      html = lv |> form("#import-link", %{url: "morotssoppa"}) |> render_submit()
+      assert html =~ "https://"
+      assert has_element?(lv, "#import-error")
+      # What was typed stays, so the error sits next to its cause.
+      assert has_element?(lv, ~s(#import-link input[value="morotssoppa"]))
+
+      # Writing it in by hand from there: it wasn't a link, so it's taken as the name.
+      lv |> form("#import-link") |> put_submitter(~s(button[name="write"])) |> render_submit()
+      assert has_element?(lv, ~s(input[name="recipe[title]"][value="morotssoppa"]))
+      assert has_element?(lv, ~s(input[name="recipe[source_url]"][value=""]))
     end
   end
 
@@ -119,6 +230,7 @@ defmodule ToreWeb.RecipeLiveTest do
     test "add_ingredient_row appends a blank row", %{conn: conn, user: user} do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "new_recipe")
+      lv |> form("#import-link") |> put_submitter(~s(button[name="write"])) |> render_submit()
       html = render_click(lv, "add_ingredient_row")
       assert html =~ ~s(placeholder="Ingrediens")
     end

@@ -23,6 +23,10 @@ defmodule ToreWeb.RecipeLive do
        opened: nil,
        form: nil,
        error: nil,
+       adding: false,
+       importing: false,
+       import_error: nil,
+       import_url: "",
        sorts: @sorts,
        types: @types,
        time_filters: @time_filters,
@@ -76,14 +80,54 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, show_more_filters: !socket.assigns.show_more_filters)}
   end
 
+  # A new recipe starts from a link; writing it in by hand is the way out.
   def handle_event("new_recipe", _, socket) do
     {:noreply,
      assign(socket,
-       form: blank_form(),
+       adding: true,
+       importing: false,
+       import_error: nil,
+       import_url: "",
+       form: nil,
+       selected: nil
+     )}
+  end
+
+  # Writing it in by hand. What was typed comes along: a link as the recipe's source, anything
+  # else as its title.
+  def handle_event("import_link", %{"write" => _} = params, socket) do
+    typed = String.trim(params["url"] || "")
+    field = if web_link(typed), do: :source_url, else: :title
+
+    {:noreply,
+     assign(socket,
+       adding: false,
+       importing: false,
+       form: Map.put(blank_form(), field, typed),
        selected: nil,
        error: nil,
        ingredient_rows: []
      )}
+  end
+
+  def handle_event("import_link", %{"url" => text}, socket) do
+    socket = assign(socket, import_url: text)
+
+    case web_link(String.trim(text)) do
+      url when is_binary(url) ->
+        ctx = %{scope: socket.assigns.current_scope}
+
+        ToreWeb.Background.run(
+          fn -> Tore.Capture.Dispatch.import_recipe_from_url(url, ctx) end,
+          &{:recipe_imported, &1}
+        )
+
+        {:noreply, assign(socket, importing: true, import_error: nil)}
+
+      nil ->
+        {:noreply,
+         assign(socket, import_error: gettext("Paste a link that starts with https://."))}
+    end
   end
 
   def handle_event("save_recipe", %{"recipe" => params} = payload, socket) do
@@ -246,6 +290,34 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, substitution: substitution, substitution_loading: false)}
   end
 
+  # An import still running when the sheet closes lands in the list without opening.
+  def handle_info({:recipe_imported, result}, socket) do
+    socket = socket |> assign(importing: false) |> reload_recipes()
+
+    case {socket.assigns.adding, result} do
+      {false, _} ->
+        {:noreply, socket}
+
+      {true, %{run_stream_id: run_id}} ->
+        {:steps, steps} = Tore.Harness.Runs.get(socket.assigns.current_scope, run_id).undo
+
+        recipe_id =
+          Enum.find_value(steps, fn
+            {:delete_recipe, id} -> id
+            _ -> nil
+          end)
+
+        {:noreply,
+         socket |> assign(adding: false) |> push_patch(to: ~p"/recipes?#{[id: recipe_id]}")}
+
+      {true, %{text: text}} ->
+        {:noreply, assign(socket, import_error: text)}
+
+      {true, {:error, :crashed}} ->
+        {:noreply, assign(socket, import_error: gettext("Couldn't import that URL."))}
+    end
+  end
+
   # ── Render ─────────────────────────────────────────────────────────────────
 
   defp select(socket, id) do
@@ -265,6 +337,9 @@ defmodule ToreWeb.RecipeLive do
     assign(socket,
       selected: nil,
       form: nil,
+      adding: false,
+      importing: false,
+      import_error: nil,
       error: nil,
       show_recipe_menu: false,
       show_substitution: false,
@@ -471,7 +546,7 @@ defmodule ToreWeb.RecipeLive do
         </ul>
 
         <div
-          :if={@selected != nil or @form != nil}
+          :if={@selected != nil or @form != nil or @adding}
           class="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
           phx-window-keydown="close"
           phx-key="Escape"
@@ -479,11 +554,13 @@ defmodule ToreWeb.RecipeLive do
           <div class="scrim absolute inset-0 hidden bg-black/50 md:block" phx-click="close"></div>
           <div class={[
             "scroll-quiet relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[28px] md:shadow-[var(--shadow-pop)]",
-            @form && "sheet"
+            (@form || @adding) && "sheet"
           ]}>
             <%= cond do %>
               <% @form -> %>
                 <div class="p-6">{render_form(assigns)}</div>
+              <% @adding -> %>
+                <div class="p-6">{render_link(assigns)}</div>
               <% @selected -> %>
                 {render_detail(assigns)}
               <% true -> %>
@@ -744,6 +821,80 @@ defmodule ToreWeb.RecipeLive do
 
   defp source_host(_recipe), do: nil
 
+  defp render_link(assigns) do
+    ~H"""
+    <div>
+      <div class="flex items-center justify-between">
+        <h2 class="font-semibold tracking-tight text-[var(--text)]" style="font-size: var(--t-h1);">
+          {gettext("New recipe")}
+        </h2>
+        <button
+          type="button"
+          phx-click="close"
+          aria-label={gettext("Close")}
+          class="press size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
+        >
+          <.icon name="hero-x-mark" class="size-5" />
+        </button>
+      </div>
+      <p class="mt-1 text-[color:var(--muted)]">
+        {gettext("Paste a link to a recipe and Tore reads it in.")}
+      </p>
+
+      <form id="import-link" phx-submit="import_link" class="mt-5 space-y-3">
+        <input
+          type="text"
+          name="url"
+          inputmode="url"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          value={@import_url}
+          placeholder="https://"
+          aria-label={gettext("Link to the recipe")}
+          aria-invalid={@import_error && "true"}
+          aria-describedby={@import_error && "import-error"}
+          readonly={@importing}
+          phx-mounted={JS.focus()}
+          class={[
+            "w-full rounded-full border bg-[var(--surface)] px-5 py-3 text-[var(--text)] transition-colors duration-[var(--dur-fast)]",
+            @import_error && "border-[color:var(--warn)]",
+            !@import_error && "border-[color:var(--hairline)]"
+          ]}
+        />
+        <p
+          :if={@import_error}
+          id="import-error"
+          role="alert"
+          class="settle text-[color:var(--warn)]"
+          style="font-size: var(--t-meta);"
+        >
+          {@import_error}
+        </p>
+        <.button type="submit" variant={:primary} full disabled={@importing}>
+          <span :if={@importing} class="inline-flex items-center gap-2" role="status">
+            <.icon name="hero-arrow-path" class="size-4 animate-spin" />
+            {gettext("Reading the recipe")}
+          </span>
+          <span :if={!@importing}>{gettext("Get recipe")}</span>
+        </.button>
+
+        <%!-- The way out: the link typed so far comes along as the recipe's source. --%>
+        <button
+          type="submit"
+          name="write"
+          value="true"
+          formnovalidate
+          class="press w-full py-2 text-center text-[color:var(--muted)] hover:text-[color:var(--text)]"
+          style="font-size: var(--t-meta);"
+        >
+          {gettext("Write it yourself")}
+        </button>
+      </form>
+    </div>
+    """
+  end
+
   defp render_form(assigns) do
     ~H"""
     <div>
@@ -913,6 +1064,18 @@ defmodule ToreWeb.RecipeLive do
   end
 
   defp reload_recipes(socket), do: assign(socket, recipes: reload(socket))
+
+  # An http(s) link with a host, or nil.
+  defp web_link(text) do
+    case URI.parse(text) do
+      %URI{scheme: scheme, host: host}
+      when scheme in ["http", "https"] and host not in [nil, ""] ->
+        text
+
+      _ ->
+        nil
+    end
+  end
 
   defp blank_form do
     %{
