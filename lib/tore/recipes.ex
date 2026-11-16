@@ -176,7 +176,7 @@ defmodule Tore.Recipes do
              response_format: Tore.LLM.Prompts.recipe_json_schema(),
              feature: :extract_recipe
            ) do
-      {:ok, recipe_attrs_from_raw(data)}
+      {:ok, attrs_from_parsed(data)}
     end
   end
 
@@ -257,7 +257,12 @@ defmodule Tore.Recipes do
     end
   end
 
-  defp recipe_attrs_from_raw(data) do
+  @doc """
+  Recipe attrs from a recipe in the shape `Tore.LLM.Prompts.recipe_json_schema/0` describes,
+  whether Tore's model read it or someone's own Claude did over MCP.
+  """
+  @spec attrs_from_parsed(map()) :: map()
+  def attrs_from_parsed(data) do
     raw_steps = data["steps"] || []
     steps = Enum.sort_by(raw_steps, & &1["order"])
 
@@ -457,7 +462,7 @@ defmodule Tore.Recipes do
                response_format: Tore.LLM.Prompts.recipe_json_schema(),
                feature: :extract_recipe
              ) do
-        {:ok, recipe_attrs_from_raw(data)}
+        {:ok, attrs_from_parsed(data)}
       end
     end
   end
@@ -470,7 +475,7 @@ defmodule Tore.Recipes do
              response_format: Tore.LLM.Prompts.recipe_json_schema(),
              feature: :extract_recipe
            ) do
-      {:ok, recipe_attrs_from_raw(data)}
+      {:ok, attrs_from_parsed(data)}
     end
   end
 

@@ -2,7 +2,8 @@ defmodule Tore.Harness.Kinds.RecipeIngestion do
   @moduledoc """
   A recipe someone sends Capture, as photos of its pages or as a link. The model reads it into a
   `RecipeProposal`, which always waits for review: nothing is saved until someone confirms it.
-  `ctx` holds `:images` (the page photos) or `:url`.
+  `ctx` holds `:images` (the page photos) or `:url`, or the `:proposal` itself when it was read
+  elsewhere (MCP).
 
   Confirming saves the recipe, and undo deletes it. Review, saving and the picture work as for a
   recipe the planner proposes.
@@ -25,6 +26,10 @@ defmodule Tore.Harness.Kinds.RecipeIngestion do
     do: %{input: %{"source" => "photo", "pages" => length(images)}, actor: :user}
 
   def open(%{url: url}), do: %{input: %{"source" => "web_import", "url" => url}, actor: :user}
+
+  # Read elsewhere and submitted whole, by someone's own Claude over MCP.
+  def open(%{proposal: %RecipeProposal{source_url: url}}),
+    do: %{input: %{"source" => "submitted", "url" => url}, actor: :user}
 
   # The recipe calls record their own usage in llm_usage.
   @impl true

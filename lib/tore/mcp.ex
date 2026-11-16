@@ -29,6 +29,8 @@ defmodule Tore.Mcp do
     Tools.MarkCooked,
     Tools.DeleteRecipe,
     Tools.DeleteReceipt,
+    Tools.SaveRecipe,
+    Tools.LogReceipt,
     Tools.Undo
   ]
 
