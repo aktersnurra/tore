@@ -105,6 +105,7 @@ defmodule Tore.Costs do
             name: it["name"],
             quantity: receipt_to_decimal(it["quantity"]),
             unit: it["unit"],
+            total_price: receipt_to_decimal(it["total_price"]),
             category: it["category"]
           }
         end)

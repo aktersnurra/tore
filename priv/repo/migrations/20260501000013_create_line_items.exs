@@ -7,6 +7,7 @@ defmodule Tore.Repo.Migrations.CreateLineItems do
       add :product_name, :string, null: false
       add :category, :string
       add :quantity, :decimal
+      add :unit, :string
       add :unit_price, :decimal
       add :total_price, :decimal
       timestamps()

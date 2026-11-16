@@ -2,13 +2,15 @@ defmodule Tore.Harness.Kinds.Receipt do
   @moduledoc """
   A receipt photo becomes a logged receipt. `ctx` holds `:image_binary`, and optionally `:date`.
 
-  It applies straight away; a reading without a store, date or total fails instead. The lines
-  carry no prices, so the total can't be checked against them. Undo deletes the receipt.
+  It applies straight away; a reading without a store, date or total fails instead. Undo deletes
+  the receipt. Once it commits, its lines' products are matched to ingredients for prices
+  (`Tore.Prices.Products`), with the model unless it came over MCP.
   """
 
   @behaviour Tore.Harness.Kind
 
-  alias Tore.Household
+  alias Tore.{Household, Scope}
+  alias Tore.Prices.Products
   alias Tore.Harness.Artifact.CostEntry
   alias Tore.Harness.ReceiptIngestion
   alias Tore.Harness.Verifier.CostEntryVerifier
@@ -34,6 +36,14 @@ defmodule Tore.Harness.Kinds.Receipt do
 
   @impl true
   def review_question(%CostEntry{}), do: nil
+
+  @impl true
+  def after_commit(%{status: :applied, artifacts: artifacts} = run) do
+    names = for %CostEntry{line_items: lines} <- artifacts, line <- lines, do: line.name
+    Products.later(Scope.for_household(run.household_id), names, model: run.actor != :mcp)
+  end
+
+  def after_commit(_run), do: :ok
 
   @impl true
   def apply_proposal(%CostEntry{} = cost, %{scope: scope, run: run}) do

@@ -7,6 +7,7 @@ defmodule Tore.Costs.LineItem do
   schema "line_items" do
     field :product_name, :string
     field :quantity, :decimal
+    field :unit, :string
     field :unit_price, :decimal
     field :total_price, :decimal
     field :category, :string
@@ -16,7 +17,15 @@ defmodule Tore.Costs.LineItem do
 
   def changeset(item, attrs) do
     item
-    |> cast(attrs, [:product_name, :quantity, :unit_price, :total_price, :category, :receipt_id])
+    |> cast(attrs, [
+      :product_name,
+      :quantity,
+      :unit,
+      :unit_price,
+      :total_price,
+      :category,
+      :receipt_id
+    ])
     |> validate_required([:product_name, :receipt_id])
     |> validate_inclusion(:category, PantryItem.category_values())
   end

@@ -60,6 +60,7 @@ defmodule Tore.Harness.ReceiptIngestion do
     %{
       product_name: it.name,
       quantity: it[:quantity],
+      unit: it[:unit],
       total_price: it[:total_price],
       category: sanitise_category(it[:category])
     }

@@ -244,8 +244,8 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
         "store_name" => "ICA",
         "purchase_date" => "2026-11-04",
         "items" => [
-          %{"name" => "MJÖLK 1.5L", "quantity" => 2},
-          %{"name" => "ÄGG 12P", "quantity" => 1}
+          %{"name" => "MJÖLK 1.5L", "quantity" => 2, "unit" => "st", "total_price" => 35.8},
+          %{"name" => "ÄGG 12P", "quantity" => 1, "unit" => "st", "total_price" => 53.7}
         ]
       })
 
@@ -258,6 +258,10 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
                "MJÖLK 1.5L",
                "ÄGG 12P"
              ]
+
+      milk = Enum.find(receipt.line_items, &(&1.product_name == "MJÖLK 1.5L"))
+      assert milk.total_price == Decimal.new("35.8")
+      assert milk.unit == "st"
 
       assert Pantry.list_inventory(member()) == []
       {:ok, %{items: items}} = Tore.Shop.load_list(member(), list_id)

@@ -789,7 +789,9 @@ off the list.
 - **Tier:** 2 — a readable receipt applies straight away, with no review (§A.6.1). Undo deletes it.
 - **Model tier:** vision.
 
-The same photo sent twice is caught and says it's already uploaded. Line items carry names, not prices. Capture can
+The same photo sent twice is caught and says it's already uploaded. Line items carry name, quantity, unit and what
+the row cost. Once a receipt commits, its products are matched to the household's ingredients for prices
+(`Tore.Prices.Products`, below), with the model unless it came over MCP. Capture can
 also delete a receipt outright: the model lists recent receipts (`list_receipts`) and deletes the one named
 (`delete_receipt`).
 
@@ -830,6 +832,12 @@ price per item and the comparison price per kg or litre, all as numbers. The ICA
 offer's own words, so the öre stay, and an offer that only says what you save has no price. An offer without an end
 date runs to Sunday. Each week's offer is its own row, and `clear_expired` keeps ended ones for 26 weeks: they are
 the price history the weekly budget prices recipes from. A failed fetch emails an alert, as zero deals does.
+
+**Products to ingredients.** `Tore.Prices.Products` matches each deal's and receipt line's product name to one of the
+household's ingredients, once per name, in `product_matches`. A name with an ingredient's key, or one the pantry has
+learned, matches for free; the rest go to the canonicaliser in one batch, and only a key the household has counts.
+"None fits" is stored too and asked again after four weeks. Matches are kept apart from the pantry's aliases, so a
+wrong one only nudges a price. After each scrape, every household matches the offers it can use.
 
 **Known problem.** Tested on 2026-11-04 against one ICA store: `Req`, which the scrape uses, gets a 403 where plain
 `curl` gets a 200, so the Saturday scrape may return nothing (and now sends an alert). The limits when fetching

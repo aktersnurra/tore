@@ -27,5 +27,16 @@ defmodule Tore.Repo.Migrations.CreateIngredients do
     end
 
     create unique_index(:ingredient_aliases, [:household_id, :alias])
+
+    # Which ingredient a deal's or a receipt line's product is, for prices only. Kept apart from
+    # the aliases so a wrong match can't reach the pantry or the list. No ingredient: none fits.
+    create table(:product_matches) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
+      add :product_key, :string, null: false
+      add :ingredient_id, references(:ingredients, on_delete: :delete_all)
+      timestamps()
+    end
+
+    create unique_index(:product_matches, [:household_id, :product_key])
   end
 end

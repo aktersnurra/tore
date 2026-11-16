@@ -2,6 +2,7 @@ defmodule Tore.Deals do
   require Logger
   alias Tore.{Alerts, Household, Repo, Scope, Streams}
   alias Tore.Deals.{Deal, HouseholdStore, Parsers, Store}
+  alias Tore.Prices.Products
   import Ecto.Query
 
   @http Application.compile_env(:tore, :http_client)
@@ -134,10 +135,22 @@ defmodule Tore.Deals do
   @doc "Fetches each store some household has switched on, once however many households use it."
   @spec scrape_all() :: :ok
   def scrape_all do
-    Household.list_ids()
-    |> Enum.flat_map(&switched_on_stores(Scope.for_household(&1)))
+    scopes = Enum.map(Household.list_ids(), &Scope.for_household/1)
+
+    scopes
+    |> Enum.flat_map(&switched_on_stores/1)
     |> Enum.uniq_by(& &1.id)
     |> Enum.each(&scrape_store/1)
+
+    Enum.each(scopes, &match_products/1)
+  end
+
+  # Each household matches the offers it can use to its ingredients, once per product name.
+  defp match_products(scope) do
+    case list_current(scope) do
+      [] -> :ok
+      deals -> Products.later(scope, Enum.map(deals, & &1.product_name))
+    end
   end
 
   defp switched_on_stores(scope) do

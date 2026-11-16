@@ -446,12 +446,13 @@ defmodule Tore.LLM.Prompts do
         type: "array",
         items: %{
           type: "object",
-          required: ["name", "quantity", "unit", "category"],
+          required: ["name", "quantity", "unit", "total_price", "category"],
           additionalProperties: false,
           properties: %{
             name: %{type: "string"},
             quantity: %{type: ["number", "null"]},
             unit: %{type: ["string", "null"]},
+            total_price: %{type: ["number", "null"]},
             # Constrain to the canonical English keys our schemas accept —
             # locale-aware names (e.g. "Mejeri & Ost") get rejected downstream
             # at the changeset, so force the model to pick from this set.
@@ -481,7 +482,9 @@ defmodule Tore.LLM.Prompts do
        (yyyy-mm-dd). If the receipt shows a locale-specific format
        (DD/MM/YYYY, MM-DD-YY, etc.), convert to ISO. If no date is
        visible, return null — do not guess.
-    4. Extract each purchased grocery item with name, quantity, and unit.
+    4. Extract each purchased grocery item with name, quantity, unit, and
+       total_price: what the row cost in total, after any discount printed
+       directly under it. Null if the row shows no amount.
        - Omit administrative line items: shopping bags, deposit/pant, returns,
          loyalty discounts, fees. These are not products.
        - Include food AND kitchen/cooking consumables a household would track
