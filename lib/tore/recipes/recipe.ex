@@ -7,7 +7,7 @@ defmodule Tore.Recipes.Recipe do
     field :description, :string
     field :instructions, :string
     field :steps, :string
-    field :recipe_type, Ecto.Enum, values: [:meal, :component, :assembly], default: :meal
+    field :recipe_type, Ecto.Enum, values: [:meal, :baking, :component, :assembly], default: :meal
     field :base_servings, :integer
     field :prep_time_minutes, :integer
     field :cook_time_minutes, :integer
@@ -44,7 +44,7 @@ defmodule Tore.Recipes.Recipe do
       :created_by
     ])
     |> validate_required([:title])
-    |> validate_inclusion(:recipe_type, [:meal, :component, :assembly])
+    |> validate_inclusion(:recipe_type, [:meal, :baking, :component, :assembly])
   end
 
   def decode_steps(%__MODULE__{steps: nil}), do: []

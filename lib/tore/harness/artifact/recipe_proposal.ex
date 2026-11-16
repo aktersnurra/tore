@@ -27,6 +27,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   @enforce_keys [:title, :ingredients, :source]
   defstruct [
     :title,
+    :recipe_type,
     :description,
     :instructions,
     :base_servings,
@@ -55,6 +56,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
 
   @type t :: %__MODULE__{
           title: String.t(),
+          recipe_type: :meal | :baking | :component | :assembly | nil,
           description: String.t() | nil,
           instructions: String.t() | nil,
           base_servings: pos_integer() | nil,
@@ -80,6 +82,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   def from_attrs(attrs, source, source_url) do
     %__MODULE__{
       title: attrs[:title],
+      recipe_type: attrs[:recipe_type],
       description: attrs[:description],
       instructions: attrs[:instructions],
       base_servings: attrs[:base_servings] || 4,
@@ -109,6 +112,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   def to_json(%__MODULE__{} = proposal) do
     %{
       "title" => proposal.title,
+      "recipe_type" => proposal.recipe_type && Atom.to_string(proposal.recipe_type),
       "description" => proposal.description,
       "instructions" => proposal.instructions,
       "base_servings" => proposal.base_servings,
@@ -130,6 +134,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   def from_json(%{"title" => title} = json) do
     %__MODULE__{
       title: title,
+      recipe_type: recipe_type_from_json(json["recipe_type"]),
       description: json["description"],
       instructions: json["instructions"],
       base_servings: json["base_servings"],
@@ -146,6 +151,11 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       steps: json["steps"]
     }
   end
+
+  defp recipe_type_from_json(type) when type in ~w(meal baking component assembly),
+    do: String.to_existing_atom(type)
+
+  defp recipe_type_from_json(_), do: nil
 
   defp pending_to_json(nil), do: nil
 

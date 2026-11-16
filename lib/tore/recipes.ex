@@ -285,6 +285,7 @@ defmodule Tore.Recipes do
 
     %{
       title: data["title"],
+      recipe_type: recipe_type(data["recipe_type"]),
       description: data["description"],
       prep_time_minutes: data["prep_time_minutes"],
       cook_time_minutes: data["cook_time_minutes"],
@@ -297,6 +298,11 @@ defmodule Tore.Recipes do
     }
     |> Map.reject(fn {_, v} -> is_nil(v) end)
   end
+
+  defp recipe_type(type) when type in ~w(meal baking component assembly),
+    do: String.to_existing_atom(type)
+
+  defp recipe_type(_), do: nil
 
   defp ingredients_from_raw(list) do
     Enum.map(list, fn item ->

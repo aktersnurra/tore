@@ -249,6 +249,7 @@ defmodule Tore.Harness.Kinds.Planner do
   defp recipe_attrs(%RecipeProposal{} = proposal, user_id) do
     %{
       title: proposal.title,
+      recipe_type: proposal.recipe_type || :meal,
       description: proposal.description,
       instructions: proposal.instructions,
       base_servings: proposal.base_servings,

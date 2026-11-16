@@ -211,7 +211,9 @@ defmodule Tore.LLM.PlannerTools do
         base =
           case args["query"] do
             q when is_binary(q) and byte_size(q) > 0 ->
-              results = Tore.Recipes.search(ctx.scope, q)
+              # Only dinners: baking, sauces and other recipes aren't planned.
+              results =
+                ctx.scope |> Tore.Recipes.search(q) |> Enum.filter(&(&1.recipe_type == :meal))
 
               if is_integer(max_minutes) do
                 Enum.filter(results, &recipe_under_minutes?(&1, max_minutes))
@@ -221,6 +223,7 @@ defmodule Tore.LLM.PlannerTools do
 
             _ ->
               opts = if is_integer(max_minutes), do: [max_minutes: max_minutes], else: []
+              opts = [{:type, :meal} | opts]
               Tore.Recipes.list(ctx.scope, opts)
           end
 

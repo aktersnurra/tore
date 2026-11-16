@@ -176,6 +176,21 @@ defmodule ToreWeb.RecipeLiveTest do
     end
   end
 
+  describe "collections" do
+    test "Bakning shows the baking, and only that", %{conn: conn, user: user, recipe: recipe} do
+      {:ok, _} =
+        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+
+      html = lv |> element(~s([data-collection="baking"])) |> render_click()
+
+      assert html =~ "Kanelbullar"
+      refute html =~ recipe.title
+      assert has_element?(lv, ~s([data-collection="baking"][aria-selected="true"]))
+    end
+  end
+
   describe "toggle_more_filters" do
     test "expands and collapses filter panel", %{conn: conn, user: user} do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")

@@ -104,6 +104,17 @@ defmodule Tore.PlanningTest do
       assert curry.score >= 0
     end
 
+    test "only dinners are suggested: baking and sauces are made without planning" do
+      dinner = create_recipe("Kycklinggryta")
+      _buns = create_recipe("Kanelbullar", recipe_type: :baking)
+      _sauce = create_recipe("Bearnaise", recipe_type: :component)
+
+      assert {:ok, results} =
+               Planning.suggest_recipes_for_slot(home_scope(), plan_id(), "mon_dinner")
+
+      assert Enum.map(results, & &1.recipe.id) == [dinner.id]
+    end
+
     test "respects :limit" do
       Enum.each(1..6, fn i -> create_recipe("Recipe #{i}") end)
 

@@ -243,6 +243,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .pill .hero-icon, .pill [class*="hero-"] { width: 17px; height: 17px; }
 .pill-lamp { background: var(--accent); color: var(--on-accent); }
+
+/* ── View tabs: one library seen several ways. A row of words; the open one is underlined. ── */
+.view-tab { position: relative; transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.view-tab::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px;
+  background: var(--text); transform: scaleX(0); transition: transform var(--dur-base) var(--ease-out);
+}
+.view-tab.is-open::after { transform: scaleX(1); }
+@media (hover: hover) { .view-tab:hover { background: var(--sunken); color: var(--text); } }
 .pill-lg { height: 52px; padding-inline: 24px; font-size: 17px; }
 @media (hover: hover) {
   .pill:hover { background: color-mix(in srgb, var(--sunken) 80%, var(--text) 8%); }

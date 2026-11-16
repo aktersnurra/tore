@@ -59,6 +59,7 @@ defmodule Tore.LLM.Prompts do
   @recipe_schema """
   {
     "title": "string (required)",
+    "recipe_type": "meal | baking | component | assembly",
     "description": "string or null",
     "prep_time_minutes": "integer or null",
     "cook_time_minutes": "integer or null",
@@ -84,6 +85,7 @@ defmodule Tore.LLM.Prompts do
     type: "object",
     required: [
       "title",
+      "recipe_type",
       "description",
       "prep_time_minutes",
       "cook_time_minutes",
@@ -96,6 +98,7 @@ defmodule Tore.LLM.Prompts do
     additionalProperties: false,
     properties: %{
       title: %{type: "string"},
+      recipe_type: %{type: "string", enum: ["meal", "baking", "component", "assembly"]},
       description: %{type: ["string", "null"]},
       prep_time_minutes: %{type: ["integer", "null"]},
       cook_time_minutes: %{type: ["integer", "null"]},
@@ -142,6 +145,10 @@ defmodule Tore.LLM.Prompts do
 
   @recipe_rules """
   - title is required; steps and ingredients must always be arrays (empty if unknown)
+  - recipe_type: "meal" for a dish eaten as a dinner or lunch; "baking" for bread, buns, cakes,
+    cookies, pies and pastries; "component" for sauces, dressings, stocks, spice mixes, pickles
+    and sides made to go with something else; "assembly" for things put together rather than
+    cooked (sandwiches, platters, bowls of ready parts)
   - CRITICAL: the steps array must be sorted in the exact order a cook performs them, start to finish
   - The "order" field is a single global counter: the first thing you do is order 1, the second is order 2, etc.
   - MISE EN PLACE (prep) always comes before any cooking phase — assign it the lowest order numbers

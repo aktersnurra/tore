@@ -20,6 +20,8 @@ defmodule Tore.Mcp.Tools.SaveRecipe do
     Saves a recipe you read from a page or a photo, in the household's language. Ingredients \
     are `item`, `quantity` and `unit`; steps are single actions in cooking order, grouped by a \
     `phase` in capitals (MISE EN PLACE, SAUCE, …), with `duration_minutes` for a step that waits. \
+    `recipe_type` puts it in a collection: meal (a dinner, the only kind that's planned), baking, \
+    component (sauces, dressings, sides) or assembly. \
     Give `source_url` for a page, and `image_url` for the page's own picture. A recipe the \
     household already has is refused.\
     """

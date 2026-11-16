@@ -364,10 +364,9 @@ defmodule Tore.Planning do
     dietary_guidance = Keyword.get(opts, :dietary_guidance)
 
     with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
+      # Only dinners: baking, sauces and other recipes are cooked without being planned.
       recipes =
-        Recipes.list(scope,
-          sort: :alphabetical
-        )
+        Recipes.list(scope, sort: :alphabetical, type: :meal)
         |> Enum.map(&Recipes.get!(scope, &1.id))
 
       pantry_names = pantry_ingredient_names(scope)

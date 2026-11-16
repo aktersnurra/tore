@@ -3,7 +3,7 @@ defmodule ToreWeb.RecipeLive do
   alias Tore.Recipes
 
   @sorts [:recently_added, :last_used, :alphabetical]
-  @types [:all, :meal, :component, :assembly]
+  @types [:all, :meal, :baking, :component, :assembly]
   @time_filters [:any, 30, 45, 60]
 
   def mount(_params, _session, socket) do
@@ -419,20 +419,23 @@ defmodule ToreWeb.RecipeLive do
 
             <%!-- Type filters + More filters toggle --%>
             <div class="flex items-center justify-between gap-2">
-              <div class="scroll-quiet -ml-4 flex gap-2 overflow-x-auto pl-4">
+              <%!-- Collections, as views of one library: the open one is underlined. --%>
+              <div class="scroll-quiet -ml-4 flex gap-1 overflow-x-auto pl-4" role="tablist">
                 <button
                   :for={type <- @types}
                   phx-click="filter_type"
                   phx-value-type={type}
-                  aria-pressed={to_string(@filter_type == type)}
+                  role="tab"
+                  aria-selected={to_string(@filter_type == type)}
+                  data-collection={type}
                   class={[
-                    "press px-3.5 h-9 rounded-full",
-                    @filter_type == type && "bg-[color:var(--text)] text-[color:var(--bg)]",
-                    @filter_type != type &&
-                      "bg-[var(--sunken)] text-[color:var(--muted)] hover:text-[var(--text)]"
+                    "view-tab press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--r-sm)] px-2.5 whitespace-nowrap",
+                    @filter_type == type && "is-open text-[color:var(--text)]",
+                    @filter_type != type && "text-[color:var(--muted)]"
                   ]}
                   style="font-size: 14px; font-weight: 600;"
                 >
+                  <span :if={type_icon(type)} aria-hidden="true">{type_icon(type)}</span>
                   {type_label(type)}
                 </button>
               </div>
@@ -950,11 +953,11 @@ defmodule ToreWeb.RecipeLive do
             style="font-size: var(--t-body);"
           >
             <option
-              :for={t <- [:meal, :component, :assembly]}
+              :for={t <- [:meal, :baking, :component, :assembly]}
               value={t}
               selected={@form[:recipe_type] == to_string(t)}
             >
-              {t}
+              {type_icon(t)} {type_label(t)}
             </option>
           </select>
         </label>
@@ -1216,12 +1219,24 @@ defmodule ToreWeb.RecipeLive do
     end
   end
 
+  # The collections a recipe lives in. Only dinners are planned; the rest are found and started.
   defp type_label(type) do
     case to_string(type) do
       "all" -> gettext("All")
-      "meal" -> gettext("Meals")
-      "component" -> gettext("Components")
+      "meal" -> gettext("Dinner")
+      "baking" -> gettext("Baking")
+      "component" -> gettext("Sauces & sides")
       "assembly" -> gettext("Assemblies")
+    end
+  end
+
+  defp type_icon(type) do
+    case to_string(type) do
+      "all" -> nil
+      "meal" -> "🍲"
+      "baking" -> "🥐"
+      "component" -> "🫙"
+      "assembly" -> "🥪"
     end
   end
 

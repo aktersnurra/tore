@@ -140,6 +140,16 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     assert titles() == ["Morotssoppa"]
   end
 
+  test "an imported recipe goes in its collection: buns are baking", %{ctx: ctx} do
+    expect(Tore.MockLLM, :vision, fn _, _, _, _ ->
+      {:ok, @soup |> Map.put("title", "Kanelbullar") |> Map.put("recipe_type", "baking"), @usage}
+    end)
+
+    %{run_stream_id: _} = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
+
+    assert [%{title: "Kanelbullar", recipe_type: :baking}] = Recipes.list(home_scope())
+  end
+
   test "a page that isn't a recipe says so", %{ctx: ctx} do
     expect(Tore.MockHTTP, :fetch, fn _ -> {:ok, "<html><body>Hej</body></html>"} end)
     expect(Tore.MockLLM, :text, fn _, _, _ -> {:ok, %{"not_a_recipe" => true}, @usage} end)
