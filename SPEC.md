@@ -873,7 +873,8 @@ compared with what was paid.
 
 **Planning to it.** The planner's prompt carries the budget and the estimate so far (`BudgetCapsule`), and
 `search_recipes` gives each recipe's estimated cost. When the planner's own picks take the week over, it plans once
-more, told by how much, and the cheaper of the two plans is kept; both costs are worked out in code. A plan that still
+more, told by how much, and the cheaper of the two plans is kept; both costs are worked out in code. The second plan
+may only differ on days that were empty before the run, so a dinner already on the plan is never swapped for money. A plan that still
 doesn't fit is applied, and the plan screen says how far over it is.
 
 **Where it shows.** The plan screen shows "About 1 850 of 2 000 kr, 14 of 18 ingredients priced", or how far over.
@@ -894,16 +895,16 @@ what the week is expected to cost, which is what the budget, the planner's retry
 It absorbs basics, pack sizes and what's already at home.
 
 **Basics** (`Tore.Basics`) are what the household buys regularly beyond its dinners, so the list and the estimate
-cover the whole shop. One is learned when an ingredient was ticked off a list or matched on a receipt line in three
-or more of the last twelve weeks, in weeks whose dinners didn't call for it; its interval is the median gap. Or
+cover the whole shop. One is learned when an ingredient was ticked off the list in three or more of the last twelve
+weeks, in weeks whose dinners didn't call for it (receipt lines don't count: a price match must never reach the list); its interval is the median gap. Or
 someone names them in Capture (`set_basics`: "we have cereal and milk for breakfast"), due every week. Building the
 list learns first, then adds the basics due, marked as basics. Ticking one off records the purchase; taking one off
-the list lengthens its interval by half, and three in a row stop it. No model is asked. Until calibration exists, the
+the list restarts its wait and lengthens its interval by half, and three in a row stop it. No model is asked. Until calibration exists, the
 due basics are priced into what the week is expected to cost; after, calibration covers them.
 
-**Timing** (`Tore.WeekAhead`, Friday to Sunday at 09:00 and Sunday at 18:00). Each run fetches the stores whose offers
-for the coming week haven't appeared (offers first seen this week that run past Sunday), so a store is fetched at most
-once a day and not again once they're in. A household with the model gets its coming week planned once: when all its
+**Timing** (`Tore.WeekAhead`, Friday to Sunday at 09:00 and Sunday at 18:00). Each morning run fetches the stores whose
+offers for the coming week haven't appeared (most of what the latest fetch added runs past Sunday), so a store is
+fetched at most once a day and not again once they're in; the deadline run doesn't fetch. A household with the model gets its coming week planned once: when all its
 stores' new offers are in, or at Sunday 18:00 with whatever prices exist. Later offers change the estimate and the
 alternatives, never the plan.
 
@@ -1271,15 +1272,15 @@ config :tore, Tore.Scheduler,
     {"0 3 * * *",  {Tore.Deals,                          :clear_expired,      []}},
     {"0 4 * * 0",  {Tore.Harness.InboxSweeper,           :sweep_weekly,       []}},
     {"0 6 * * 6",  {Tore.Harness.Kinds.MemoryReview,     :review_weekly,      []}},  # starts :memory_review_run
-    {"0 8 * * 6",  {Tore.Deals,                          :scrape_all,         []}},
-    {"0 18 * * 6", {Tore.Planning,                       :plan_upcoming_weeks, []}}   # dispatches :weekly_planning_run
+    {"0 9 * * 0,5,6", {Tore.WeekAhead,                   :run,                []}},  # fetches offers, dispatches :weekly_planning_run
+    {"0 18 * * 0", {Tore.WeekAhead,                      :run,                []}}   # the deadline: plans, doesn't fetch
   ]
 ```
 
 **Scheduled jobs go through the harness.** A cron job that writes state on the
 AI's behalf starts a `KitchenRun` (with `actor: :system`) — it never
 calls a context function directly, per §A.2's hard rule. `Tore.Deals.clear_expired`
-and `scrape_all` are deterministic maintenance, not AI actions, and stay direct.
+and the fetching in `Tore.WeekAhead` are deterministic maintenance, not AI actions, and stay direct.
 
 ---
 

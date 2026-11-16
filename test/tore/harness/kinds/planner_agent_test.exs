@@ -172,11 +172,11 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       %{steak: steak, lentils: lentils}
     end
 
-    defp assigns(title) do
+    defp assigns(title, slot \\ "mon_dinner") do
       resolve_then(
         title,
         {"assign_recipe",
-         &%{"slot_key" => "mon_dinner", "recipe_ref" => &1, "servings" => 4, "rationale" => "x"}}
+         &%{"slot_key" => slot, "recipe_ref" => &1, "servings" => 4, "rationale" => "x"}}
       )
 
       expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
@@ -232,6 +232,26 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
       assert state.slots["mon_dinner"].recipe_id == steak.id
+    end
+
+    test "a retry may not change a dinner that was there before, however much cheaper", %{
+      plan: plan,
+      steak: steak,
+      lentils: lentils
+    } do
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan, "mon_dinner", steak.id, 4)
+      :ok = Tore.Budget.set_week(home_scope(), @week, Decimal.new("100"))
+
+      # First Tore fills Tuesday; told it's over, it swaps the household's Monday instead.
+      assigns("Linsgryta", "tue_dinner")
+      assigns("Linsgryta", "mon_dinner")
+
+      assert {:ok, %KitchenRun{status: :applied}} =
+               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
+      assert state.slots["mon_dinner"].recipe_id == steak.id
+      assert state.slots["tue_dinner"].recipe_id == lentils.id
     end
 
     test "a retry that costs no less leaves the first plan", %{plan: plan, steak: steak} do

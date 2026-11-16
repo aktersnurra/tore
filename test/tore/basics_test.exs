@@ -87,7 +87,7 @@ defmodule Tore.BasicsTest do
       assert basic("Grädde") == nil
     end
 
-    test "a receipt line that matched counts as bought" do
+    test "receipt lines never make a basic: a price match must not reach the list" do
       milk = ingredient("Mjölk")
       Tore.Prices.Products.put(home_scope(), "MELLANMJOLK 1,5%", milk.id)
 
@@ -110,8 +110,7 @@ defmodule Tore.BasicsTest do
       end
 
       :ok = Basics.learn(home_scope(), @today)
-      assert %Basic{interval_days: 14, quantity: q, unit: "l"} = basic("Mjölk")
-      assert Decimal.eq?(q, d("1.5"))
+      assert basic("Mjölk") == nil
     end
   end
 
@@ -136,27 +135,63 @@ defmodule Tore.BasicsTest do
       assert [_] = Basics.due(home_scope(), Date.add(Streams.monday(bought), 7))
     end
 
-    test "removing it lengthens the interval by half; three in a row stop it" do
-      list = Streams.shop_list(home_scope(), @week)
+    test "removing it puts it off for longer each time; three in a row stop it" do
+      this_week = Streams.monday(Tore.Clock.today())
+      list = Streams.shop_list(home_scope(), this_week)
+      items = Shop.items_for(home_scope(), [], this_week)
 
-      for expected <- [11, 17, 26] do
-        items = Shop.items_for(home_scope(), [], @week)
+      {:ok, _} =
+        Shop.append(home_scope(), list, %Shop.Commands.BuildList{
+          week_start: this_week,
+          items: items
+        })
 
-        {:ok, _} =
-          Shop.append(home_scope(), list, %Shop.Commands.BuildList{
-            week_start: @week,
-            items: items
-          })
+      {:ok, %{items: on_list}} = Shop.load_list(home_scope(), list)
+      [id] = Map.keys(on_list)
+      {:ok, _} = Shop.remove_item(home_scope(), list, id, nil)
 
-        {:ok, %{items: on_list}} = Shop.load_list(home_scope(), list)
-        [id] = Map.keys(on_list)
-        {:ok, _} = Shop.remove_item(home_scope(), list, id, nil)
+      assert %Basic{interval_days: 11, removals: 1, last_bought: today} = basic("Mjölk")
+      assert today == Tore.Clock.today()
+      assert Basics.due(home_scope(), this_week) == []
+      assert [_] = Basics.due(home_scope(), Date.add(this_week, 14))
 
-        assert basic("Mjölk").interval_days == expected
-      end
+      :ok = Basics.removed(home_scope(), "Mjölk")
+      :ok = Basics.removed(home_scope(), "Mjölk")
+      assert %Basic{interval_days: 26, stopped: true} = basic("Mjölk")
+      assert Shop.items_for(home_scope(), [], Date.add(this_week, 56)) == []
+    end
 
-      assert basic("Mjölk").stopped
-      assert Shop.items_for(home_scope(), [], @week) == []
+    test "bought this week, it stays in this week's estimate" do
+      this_week = Streams.monday(Tore.Clock.today())
+      tick(this_week, "Mjölk")
+
+      assert Basics.due(home_scope(), this_week) == []
+      assert [%{ingredient_id: _}] = Basics.lines(home_scope(), this_week)
+    end
+
+    test "a basic the dinners already need isn't counted twice" do
+      {:ok, recipe} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Pannkakor",
+            base_servings: 4,
+            ingredients: [%{name: "Mjölk", quantity: 1, unit: "l"}]
+          },
+          image: false
+        )
+
+      {:ok, _} =
+        Planning.assign_recipe(
+          home_scope(),
+          Streams.plan(home_scope(), @week),
+          "mon_dinner",
+          recipe.id,
+          4
+        )
+
+      assert %{estimate: %{amount: amount}} = Budget.status(home_scope(), @week)
+      assert Decimal.eq?(amount, 15)
     end
 
     test "it's priced into the week's estimate" do

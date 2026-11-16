@@ -357,12 +357,13 @@ defmodule Tore.Capture.Router do
     {:ok, [Dispatch.mark_recipe_cooked(id, ctx)]}
   end
 
+  # Only an explicit null removes a budget; an amount that isn't above 0 is refused.
+  defp run_call(%{name: "set_budget", args: %{"amount" => n}}, _images, _count, _ctx)
+       when not is_nil(n) and not (is_number(n) and n > 0),
+       do: {:error, :invalid_amount}
+
   defp run_call(%{name: "set_budget", args: args}, _images, _count, ctx) do
-    amount =
-      case args["amount"] do
-        n when is_number(n) and n > 0 -> Tore.Types.decimal(n)
-        _ -> nil
-      end
+    amount = Tore.Types.decimal(args["amount"])
 
     case args["week_of"] do
       nil ->

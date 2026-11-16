@@ -39,16 +39,25 @@ defmodule Tore.Deals do
 
   @doc "Current deals at the stores the household uses and has switched on."
   @spec list_current(Scope.t()) :: [Deal.t()]
-  def list_current(%Scope{} = scope), do: valid_from(scope, Tore.Clock.today())
+  def list_current(%Scope{} = scope), do: scope |> valid_from(Tore.Clock.today()) |> all(scope)
 
   @doc """
   The deals that can count for the week starting `week_start`: those still running on its Monday
-  or later, at the stores the household uses and has switched on.
+  or later and seen before it ended, at the stores the household uses and has switched on. A past
+  week is priced as it was, never from offers that came later.
   """
   @spec valid_in_week(Scope.t(), Date.t()) :: [Deal.t()]
-  def valid_in_week(%Scope{} = scope, %Date{} = week_start), do: valid_from(scope, week_start)
+  def valid_in_week(%Scope{} = scope, %Date{} = week_start) do
+    seen_by = week_end(week_start)
+    scope |> valid_from(week_start) |> where([d], d.inserted_at < ^seen_by) |> all(scope)
+  end
 
-  defp valid_from(scope, date) do
+  @doc "The moment the week starting `week_start` ends: the next Monday at midnight."
+  @spec week_end(Date.t()) :: NaiveDateTime.t()
+  def week_end(%Date{} = week_start),
+    do: NaiveDateTime.new!(Date.add(week_start, 7), ~T[00:00:00])
+
+  defp valid_from(_scope, date) do
     from(d in Deal,
       join: s in Store,
       on: s.name == d.store,
@@ -57,8 +66,9 @@ defmodule Tore.Deals do
       where: d.valid_until >= ^date,
       distinct: true
     )
-    |> Repo.all(Scope.repo_opts(scope))
   end
+
+  defp all(query, scope), do: Repo.all(query, Scope.repo_opts(scope))
 
   @history_days 26 * 7
 
@@ -150,23 +160,36 @@ defmodule Tore.Deals do
   end
 
   @doc """
-  Whether every store the household has switched on has its offers for the week after `today`'s:
-  offers first seen this week that run past this Sunday. True with no stores, as nothing is coming.
+  Whether every store the household has switched on has its offers for the week after `today`'s.
+  True with no stores, as nothing is coming.
   """
   @spec coming_week_in?(Scope.t(), Date.t()) :: boolean()
   def coming_week_in?(%Scope{} = scope, %Date{} = today),
     do: scope |> switched_on_stores() |> Enum.all?(&coming_week?(&1, today))
 
+  # A store's coming week is in when most of the offers its latest fetch this week added run past
+  # this Sunday. A fetch adds its offers with one timestamp, so the latest timestamp is its batch. Fetching starts on Friday, so this week's own offers are first seen this week
+  # too; a few of them running longer mustn't count, which is why it's most, not any.
   defp coming_week?(%Store{name: name}, today) do
     monday = Streams.monday(today)
-    since = NaiveDateTime.new!(monday, ~T[00:00:00])
+    sunday = Date.add(monday, 6)
 
-    Repo.exists?(
+    added =
       from(d in Deal,
-        where:
-          d.store == ^name and d.valid_until > ^Date.add(monday, 6) and d.inserted_at >= ^since
+        where: d.store == ^name and d.inserted_at >= ^NaiveDateTime.new!(monday, ~T[00:00:00]),
+        select: {d.inserted_at, d.valid_until}
       )
-    )
+      |> Repo.all()
+
+    case added do
+      [] ->
+        false
+
+      added ->
+        latest = added |> Enum.map(&elem(&1, 0)) |> Enum.max(NaiveDateTime)
+        ends = for {^latest, until} <- added, do: until
+        Enum.count(ends, &(Date.compare(&1, sunday) == :gt)) * 2 > length(ends)
+    end
   end
 
   # Each household matches the offers it can use to its ingredients, once per product name.

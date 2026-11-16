@@ -29,21 +29,16 @@ defmodule Tore.Harness.Capsules.BudgetCapsule do
   @impl true
   def to_prompt(%__MODULE__{status: nil}), do: nil
 
-  def to_prompt(%__MODULE__{status: %{budget: budget, estimate: estimate} = status}) do
+  def to_prompt(%__MODULE__{status: %{budget: budget, estimate: estimate, expected: expected}}) do
     """
-    Budget for this week's whole shop: #{kr(budget)} kr. The dinners already planned are \
-    estimated at #{kr(estimate.amount)} kr (#{estimate.priced} of #{estimate.total} ingredients \
-    priced)#{beyond(status.adjustment)}. Choose dinners so the week stays within the budget: search_recipes gives each \
-    recipe's estimated cost, and active_deals shows what's cheap this week. Never change a dinner \
-    the household chose or pinned to save money.\
+    Budget for this week's whole shop: #{kr(budget)} kr. With the dinners already planned, the \
+    week is expected to cost about #{kr(expected)} kr, everyday extras included \
+    (#{estimate.priced} of #{estimate.total} ingredients have a real price). Choose dinners so the \
+    week stays within the budget: search_recipes gives each recipe's estimated cost, and \
+    active_deals shows what's cheap this week. Never change a dinner the household chose or \
+    pinned to save money.\
     """
   end
-
-  # What recent weeks paid beyond their dinners' estimates: basics, pack sizes, extras.
-  defp beyond(nil), do: ""
-
-  defp beyond(adjustment),
-    do: ", and recent weeks paid about #{kr(adjustment)} kr beyond their dinners' estimate"
 
   defp kr(amount), do: amount |> Decimal.round(0) |> Decimal.to_string()
 end

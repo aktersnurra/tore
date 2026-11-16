@@ -3,23 +3,23 @@ defmodule Tore.Basics do
   What the household buys regularly beyond its dinners, so the week's list and its estimate cover
   the whole shop. No model is asked.
 
-  A basic is learned from what was bought: an ingredient ticked off a list or on a receipt line in
-  three or more of the last twelve weeks, in weeks whose dinners didn't call for it. Its interval is
+  A basic is learned from what was ticked off the list in three or more of the last twelve weeks,
+  in weeks whose dinners didn't call for it. Receipt lines don't count: they reach ingredients
+  through price matches (`Tore.Prices.Products`), and a wrong price match must never put
+  anything on the list. Its interval is
   the median gap between those weeks. Or someone asks for one ("we have milk and cereal for
   breakfast"), and it's due every week.
 
   A basic is due in a week when it was last bought its interval ago or more, and is then added to
-  the list as a basic. Ticking it off records the purchase. Removing it from the list lengthens the
-  interval by half; three removals in a row stop it.
+  the list as a basic. Ticking it off records the purchase. Removing it from the list restarts its
+  wait and lengthens the interval by half; three removals in a row stop it.
   """
 
   import Ecto.Query
 
   alias Tore.{Budget, Planning, Recipes, Repo, Scope, Shop, Streams}
   alias Tore.Basics.Basic
-  alias Tore.Costs.{LineItem, Receipt}
   alias Tore.Pantry.Match
-  alias Tore.Prices.Products
   alias Tore.Recipes.Ingredient
 
   @history_weeks 12
@@ -44,19 +44,24 @@ defmodule Tore.Basics do
 
   @doc "The basics due in the week starting `week_start`."
   @spec due(Scope.t(), Date.t()) :: [%{basic: Basic.t(), name: String.t()}]
-  def due(%Scope{} = scope, %Date{} = week_start) do
-    week_end = Date.add(week_start, 6)
+  def due(%Scope{} = scope, %Date{} = week_start),
+    do: Enum.filter(list(scope), &due?(&1.basic, week_start))
 
-    Enum.filter(list(scope), fn %{basic: b} ->
-      b.last_bought == nil or
-        Date.compare(Date.add(b.last_bought, b.interval_days), week_end) != :gt
-    end)
-  end
+  defp due?(%Basic{last_bought: nil}, _week_start), do: true
 
-  @doc "The due basics as lines to price (`Tore.Prices.cost/2`); one item when no amount is known."
+  defp due?(%Basic{} = b, week_start),
+    do: Date.compare(Date.add(b.last_bought, b.interval_days), Date.add(week_start, 6)) != :gt
+
+  defp bought_in?(%Basic{last_bought: at}, week_start), do: Date.diff(at, week_start) in 0..6
+
+  @doc """
+  The basics the week starting `week_start` pays for, as lines to price (`Tore.Prices.cost/2`):
+  those due, and those already bought in it. One item when no amount is known.
+  """
   @spec lines(Scope.t(), Date.t()) :: [Tore.Prices.line()]
   def lines(%Scope{} = scope, %Date{} = week_start) do
-    for %{basic: b} <- due(scope, week_start),
+    for %{basic: b} <- list(scope),
+        due?(b, week_start) or bought_in?(b, week_start),
         do: %{
           ingredient_id: b.ingredient_id,
           quantity: b.quantity || Decimal.new(1),
@@ -127,13 +132,17 @@ defmodule Tore.Basics do
     :ok
   end
 
-  @doc "A basic taken off the list: its interval grows by half, and three in a row stop it."
+  @doc """
+  A basic taken off the list: it waits its interval again from today, the interval grows by half,
+  and three in a row stop it.
+  """
   @spec removed(Scope.t(), String.t()) :: :ok
   def removed(%Scope{} = scope, name) do
     with {:ok, %Ingredient{id: id}} <- Match.ingredient(scope, {:name, name}),
          %Basic{} = basic <- Repo.get_by(Basic, [ingredient_id: id], Scope.repo_opts(scope)) do
       basic
       |> Ecto.Changeset.change(
+        last_bought: Tore.Clock.today(),
         interval_days: round(basic.interval_days * 1.5),
         removals: basic.removals + 1,
         stopped: basic.removals + 1 >= @stop_after
@@ -145,7 +154,7 @@ defmodule Tore.Basics do
   end
 
   @doc """
-  Learns basics from the last #{@history_weeks} weeks of ticks and receipt lines, up to `today`.
+  Learns basics from the last #{@history_weeks} weeks of ticks, up to `today`.
   A basic already known keeps its interval, removals and whether it's stopped; only when it was
   last bought moves.
   """
@@ -155,7 +164,7 @@ defmodule Tore.Basics do
 
     planned = Map.new(weeks, &{&1, planned_ingredients(scope, &1)})
 
-    (ticked(scope, weeks) ++ paid(scope, List.last(weeks)))
+    ticked(scope, weeks)
     |> Enum.reject(fn p -> MapSet.member?(Map.get(planned, p.week, MapSet.new()), p.id) end)
     |> Enum.group_by(& &1.id)
     |> Enum.each(fn {id, purchases} ->
@@ -192,24 +201,6 @@ defmodule Tore.Basics do
           quantity: Tore.Types.decimal(item.quantity),
           unit: item.unit
         }
-  end
-
-  defp paid(scope, from) do
-    lines =
-      from(l in LineItem,
-        join: r in Receipt,
-        on: r.id == l.receipt_id,
-        where: r.week_start >= ^from,
-        select: {l.product_name, r.week_start, r.date, l.quantity, l.unit}
-      )
-      |> Repo.all(Scope.repo_opts(scope))
-
-    matches = Products.lookup(scope, Enum.map(lines, &elem(&1, 0)))
-
-    for {name, week, date, quantity, unit} <- lines,
-        id = Map.get(matches, Ingredient.to_key(name)),
-        id != nil,
-        do: %{id: id, week: week, date: date, quantity: quantity, unit: unit}
   end
 
   defp planned_ingredients(scope, week) do

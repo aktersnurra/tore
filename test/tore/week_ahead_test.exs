@@ -14,10 +14,17 @@ defmodule Tore.WeekAheadTest do
   defp day(n), do: Tore.Clock.today() |> Tore.Streams.monday() |> Date.add(n - 1)
   defp at(n, time), do: NaiveDateTime.new!(day(n), time)
 
-  # One offer, running until `valid_to`.
-  defp offers(valid_to) do
-    {:ok,
-     ~s({"weeklyOffers":[{"details":{"name":"Kycklingfilé #{valid_to}","brand":"Kronfågel"},"mechanicInfo":"59 kr/kg","stores":[],"validTo":"#{valid_to}T23:59:59"}],"compensationOffersStatus":"ok"})}
+  # Offers running until each date in `ends`.
+  defp offers(ends) do
+    json =
+      ends
+      |> List.wrap()
+      |> Enum.with_index()
+      |> Enum.map_join(",", fn {valid_to, i} ->
+        ~s({"details":{"name":"Vara #{i} #{valid_to}","brand":"X"},"mechanicInfo":"59 kr/kg","stores":[],"validTo":"#{valid_to}T23:59:59"})
+      end)
+
+    {:ok, ~s({"weeklyOffers":[#{json}],"compensationOffersStatus":"ok"})}
   end
 
   defp plans_once do
@@ -25,6 +32,15 @@ defmodule Tore.WeekAheadTest do
       {:ok, {:message, "Nothing to do."},
        %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
     end)
+  end
+
+  # The fetches in a test happen moments apart; real ones are a day apart.
+  defp a_day_earlier do
+    for d <- Repo.all(Tore.Deals.Deal) do
+      d
+      |> Ecto.Changeset.change(inserted_at: NaiveDateTime.add(d.inserted_at, -60))
+      |> Repo.update!()
+    end
   end
 
   defp runs, do: Repo.all(KitchenRun, Tore.Scope.repo_opts(home_scope()))
@@ -44,6 +60,7 @@ defmodule Tore.WeekAheadTest do
     expect(Tore.MockHTTP, :fetch, fn @store_url -> offers(day(7)) end)
     assert :ok = WeekAhead.run(at(5, ~T[09:00:00]))
     assert runs() == []
+    a_day_earlier()
 
     expect(Tore.MockHTTP, :fetch, fn @store_url -> offers(Date.add(day(7), 7)) end)
     plans_once()
@@ -57,8 +74,16 @@ defmodule Tore.WeekAheadTest do
     assert length(runs()) == 1
   end
 
-  test "with no new offers by Sunday evening, it plans with what there is" do
-    stub(Tore.MockHTTP, :fetch, fn @store_url -> offers(day(7)) end)
+  test "a few of this week's offers running longer don't count as the new week" do
+    later = Date.add(day(7), 14)
+    expect(Tore.MockHTTP, :fetch, fn @store_url -> offers([day(7), day(7), day(7), later]) end)
+    assert :ok = WeekAhead.run(at(5, ~T[09:00:00]))
+    refute Deals.coming_week_in?(home_scope(), day(5))
+    assert runs() == []
+  end
+
+  test "with no new offers by Sunday evening, it plans with what there is, fetching once that day" do
+    expect(Tore.MockHTTP, :fetch, 1, fn @store_url -> offers(day(7)) end)
 
     assert :ok = WeekAhead.run(at(7, ~T[09:00:00]))
     assert runs() == []

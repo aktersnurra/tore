@@ -140,6 +140,56 @@ defmodule Tore.BudgetVerdictTest do
       assert Decimal.eq?(expected, 1200)
     end
 
+    test "a week still being shopped for doesn't count" do
+      w1 = Date.add(@week, -14)
+      w2 = Date.add(@week, -7)
+      for w <- [w1, w2, @week], do: planned(w, "1000")
+
+      receipt(Date.add(w1, 3), "1100")
+      receipt(Date.add(w2, 3), "1300")
+      receipt(Date.add(@week, 1), "200")
+
+      next = Date.add(@week, 7)
+      assert Budget.adjustment(home_scope(), next, Date.add(@week, 5)) == d("200.00")
+      assert Budget.adjustment(home_scope(), next, next) == d("-133.33")
+    end
+
+    test "a weekend shop for the week doesn't price that week's own estimate" do
+      {:ok, recipe} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Lax",
+            base_servings: 4,
+            ingredients: [%{name: "Lax", quantity: 1, unit: "kg"}]
+          },
+          image: false
+        )
+
+      salmon =
+        Repo.get_by!(Tore.Recipes.Ingredient, [name: "Lax"], Tore.Scope.repo_opts(home_scope()))
+
+      Tore.Prices.Products.put(home_scope(), "LAXFILE", salmon.id)
+
+      {:ok, _} =
+        Planning.assign_recipe(
+          home_scope(),
+          Streams.plan(home_scope(), @week),
+          "mon_dinner",
+          recipe.id,
+          4
+        )
+
+      receipt(Date.add(@week, -2), "300", %{
+        week_start: @week,
+        line_items: [
+          %{product_name: "LAXFILE", quantity: d("1"), unit: "kg", total_price: d("300")}
+        ]
+      })
+
+      assert %{estimate: %{priced: 0}} = Budget.status(home_scope(), @week)
+    end
+
     test "a week without a plan doesn't count" do
       w1 = Date.add(@week, -21)
       w2 = Date.add(@week, -14)

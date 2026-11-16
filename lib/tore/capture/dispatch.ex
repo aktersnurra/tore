@@ -511,7 +511,9 @@ defmodule Tore.Capture.Dispatch do
 
   def set_basics(items, false, ctx) do
     :ok = Tore.Basics.ask(ctx.scope, items)
-    Tore.Pantry.Learn.later(ctx.scope, Enum.map(items, & &1.name))
+
+    # Over MCP the server's model is never asked; the names are learned when the list is made.
+    if ctx[:actor] != :mcp, do: Tore.Pantry.Learn.later(ctx.scope, Enum.map(items, & &1.name))
 
     %{
       role: :assistant,

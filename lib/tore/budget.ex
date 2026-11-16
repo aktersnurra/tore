@@ -144,11 +144,15 @@ defmodule Tore.Budget do
     pairs =
       for {id, servings} <- meals, recipe = recipes[id], recipe != nil, do: {recipe, servings}
 
-    basics = Tore.Basics.lines(scope, week_start)
+    dinner_ids = for {recipe, _} <- pairs, ri <- recipe.recipe_ingredients, do: ri.ingredient_id
 
-    ids =
-      for({recipe, _} <- pairs, ri <- recipe.recipe_ingredients, do: ri.ingredient_id) ++
-        Enum.map(basics, & &1.ingredient_id)
+    # A basic the dinners already need isn't on the list twice, so it isn't counted twice.
+    basics =
+      scope
+      |> Tore.Basics.lines(week_start)
+      |> Enum.reject(&(&1.ingredient_id in dinner_ids))
+
+    ids = dinner_ids ++ Enum.map(basics, & &1.ingredient_id)
 
     prices = Prices.for_ingredients(scope, ids, week_start)
 
@@ -168,11 +172,14 @@ defmodule Tore.Budget do
   absorbs basics, pack sizes, pantry stock and whatever was bought beyond the plan. Nil until
   #{@calibration_min} such weeks exist.
   """
-  @spec adjustment(Scope.t(), Date.t()) :: Decimal.t() | nil
-  def adjustment(%Scope{} = scope, %Date{} = week_start) do
+  @spec adjustment(Scope.t(), Date.t(), Date.t()) :: Decimal.t() | nil
+  def adjustment(%Scope{} = scope, %Date{} = week_start, %Date{} = today \\ Tore.Clock.today()) do
+    # Only weeks that have ended: one still being shopped for has only part of its receipts.
+    before = Enum.min([week_start, Streams.monday(today)], Date)
+
     gaps =
       from(r in Tore.Costs.Receipt,
-        where: r.week_start < ^week_start,
+        where: r.week_start < ^before,
         group_by: r.week_start,
         order_by: [desc: r.week_start],
         select: {r.week_start, sum(r.total_amount)}

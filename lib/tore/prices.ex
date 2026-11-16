@@ -40,7 +40,7 @@ defmodule Tore.Prices do
     [
       deal: deal_prices(scope, week_start),
       paid: paid_prices(scope, week_start),
-      regular: regular_prices(scope),
+      regular: regular_prices(scope, week_start),
       estimate: estimates(scope, ingredient_ids)
     ]
     |> Enum.reduce(%{}, fn {source, by_ingredient}, acc ->
@@ -159,14 +159,15 @@ defmodule Tore.Prices do
     ])
   end
 
-  # The latest line per ingredient that says what it cost and how much it was, from before the
-  # week: a week's estimate never learns from that week's own receipts, so it can be worked out
-  # again later and still be compared with what was paid.
+  # The latest line per ingredient that says what it cost and how much it was, from receipts
+  # counted towards earlier weeks: a week's estimate never learns from its own receipts, a
+  # weekend shop for it included, so it can be worked out again later and compared with what was
+  # paid.
   defp paid_prices(scope, week_start) do
     from(l in LineItem,
       join: r in Receipt,
       on: r.id == l.receipt_id,
-      where: not is_nil(l.total_price) and l.quantity > 0 and r.date < ^week_start,
+      where: not is_nil(l.total_price) and l.quantity > 0 and r.week_start < ^week_start,
       order_by: [desc: r.date, desc: l.id],
       limit: 500,
       select: l
@@ -183,15 +184,17 @@ defmodule Tore.Prices do
     end
   end
 
-  # The latest regular price per ingredient, from any offer the household's stores have had.
-  # It is per the offer's unit; the comparison price scales by the same discount.
-  defp regular_prices(scope) do
+  # The latest regular price per ingredient, from any offer the household's stores had seen by
+  # the week's end. It is per the offer's unit; the comparison price scales by the same discount.
+  defp regular_prices(scope, week_start) do
+    seen_by = Deals.week_end(week_start)
+
     from(d in Deal,
       join: s in Store,
       on: s.name == d.store,
       join: hs in HouseholdStore,
       on: hs.store_id == s.id,
-      where: not is_nil(d.regular_price),
+      where: not is_nil(d.regular_price) and d.inserted_at < ^seen_by,
       order_by: [desc: d.valid_until],
       distinct: true
     )

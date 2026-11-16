@@ -90,6 +90,6 @@ defmodule Tore.BudgetTest do
     :ok = Budget.set_default(home_scope(), d("1800"))
     prompt = BudgetCapsule.to_prompt(BudgetCapsule.build(ctx))
     assert prompt =~ "1800 kr"
-    assert prompt =~ "estimated at 0 kr"
+    assert prompt =~ "expected to cost about 0 kr"
   end
 end

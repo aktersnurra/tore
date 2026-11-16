@@ -94,24 +94,37 @@ defmodule Tore.Harness.Kinds.Planner do
 
   # When the planner's own picks take the week over its budget, it tries once more, told by how
   # much, and the cheaper of the two plans is kept. Code works out both costs; the model's own
-  # figures are never read. A plan that still doesn't fit is applied, and the plan screen shows
-  # how far over it is.
+  # figures are never read. The second plan may only differ on days that were empty before this
+  # run, so a dinner someone set or asked for in a filled day is never traded away for money. A
+  # plan that still doesn't fit is applied, and the plan screen shows how far over it is.
   defp within_budget(%PlanDiff{} = diff, plan, retry, %{scope: scope, week_start: week_start}) do
+    first_plan = after_diff(plan, diff)
+
     with %Decimal{} = budget <- Tore.Budget.amount(scope, week_start),
          true <- Enum.any?(diff.events, &(&1.event_type in ["RecipeAssigned", "RecipeSwapped"])),
-         first = cost_after(scope, plan, diff, week_start),
+         first = Tore.Budget.status(scope, first_plan, week_start).expected,
          true <- Decimal.gt?(first, budget),
          {:ok, second_diff} <- retry.(over_note(first, budget)),
-         true <- Decimal.lt?(cost_after(scope, plan, second_diff, week_start), first) do
+         second_plan = after_diff(plan, second_diff),
+         true <- same_outside_open_days?(plan, first_plan, second_plan),
+         true <- Decimal.lt?(Tore.Budget.status(scope, second_plan, week_start).expected, first) do
       second_diff
     else
       _ -> diff
     end
   end
 
-  defp cost_after(scope, plan, diff, week_start) do
-    after_diff = Enum.reduce(diff.plan_events, plan, &Decider.evolve(&2, &1))
-    Tore.Budget.status(scope, after_diff, week_start).expected
+  defp after_diff(plan, diff), do: Enum.reduce(diff.plan_events, plan, &Decider.evolve(&2, &1))
+
+  # The days the first attempt filled that had no dinner before: the only ones a retry may change.
+  defp same_outside_open_days?(before, first, second) do
+    open =
+      for {key, slot} <- first.slots,
+          get_in(before.slots, [key, :recipe_id]) == nil,
+          slot != Map.get(before.slots, key),
+          do: key
+
+    Map.drop(first.slots, open) == Map.drop(second.slots, open)
   end
 
   defp over_note(estimate, budget) do
