@@ -117,6 +117,45 @@ defmodule ToreWeb.RecipeLiveTest do
       assert html =~ "Skriv in det själv"
     end
 
+    test "a link shared to Tore is read in straight away, and the address drops it", %{
+      conn: conn,
+      user: user
+    } do
+      stub(Tore.MockHTTP, :fetch, fn
+        "https://example.com/soppa" -> {:ok, @page}
+        _ -> {:error, :not_found}
+      end)
+
+      stub(Tore.MockLLM, :text, fn _, _, _ ->
+        {:ok, @soup, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
+      end)
+
+      # Instagram and others put the link in `text`, among other words.
+      {:ok, lv, _html} =
+        live(
+          authed(conn, user),
+          "/recipes?text=Kolla%20h%C3%A4r%20https%3A%2F%2Fexample.com%2Fsoppa"
+        )
+
+      assert eventually(fn ->
+               Enum.any?(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
+             end)
+
+      _ = render(lv)
+      [recipe] = Enum.filter(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
+      assert_patch(lv, "/recipes?id=#{recipe.id}")
+    end
+
+    test "something shared without a link opens the sheet and says what's missing", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes?text=Morotssoppa")
+
+      assert has_element?(lv, "#import-error")
+      assert has_element?(lv, ~s(#import-link input[value="Morotssoppa"]))
+    end
+
     test "something that isn't a link is caught before anything is fetched", %{
       conn: conn,
       user: user

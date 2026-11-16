@@ -44,6 +44,39 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, select(socket, String.to_integer(id))}
   end
 
+  # A link shared to Tore, from the phone's share sheet or a Shortcut, is read in straight away.
+  # Apps like Instagram put it in `text`, among other words. Once the import has started the
+  # address drops the link, so reloading doesn't import it again.
+  def handle_params(params, _uri, socket)
+      when is_map_key(params, "url") or is_map_key(params, "text") do
+    shared = Enum.find_value(["url", "text"], &shared_link(params[&1]))
+
+    socket =
+      assign(socket,
+        adding: true,
+        importing: false,
+        import_error: nil,
+        import_url: shared || String.trim(params["url"] || params["text"] || ""),
+        form: nil,
+        selected: nil
+      )
+
+    cond do
+      shared == nil ->
+        {:noreply,
+         assign(socket, import_error: gettext("Paste a link that starts with https://."))}
+
+      connected?(socket) ->
+        {:noreply, socket |> start_import(shared) |> push_patch(to: ~p"/recipes", replace: true)}
+
+      true ->
+        {:noreply, socket}
+    end
+  end
+
+  # The sheet stays open when a shared link's address is cleaned up.
+  def handle_params(_params, _uri, %{assigns: %{adding: true}} = socket), do: {:noreply, socket}
+
   def handle_params(_params, _uri, socket), do: {:noreply, closed(socket)}
 
   # ── Events ─────────────────────────────────────────────────────────────────
@@ -115,14 +148,7 @@ defmodule ToreWeb.RecipeLive do
 
     case web_link(String.trim(text)) do
       url when is_binary(url) ->
-        ctx = %{scope: socket.assigns.current_scope}
-
-        ToreWeb.Background.run(
-          fn -> Tore.Capture.Dispatch.import_recipe_from_url(url, ctx) end,
-          &{:recipe_imported, &1}
-        )
-
-        {:noreply, assign(socket, importing: true, import_error: nil)}
+        {:noreply, start_import(socket, url)}
 
       nil ->
         {:noreply,
@@ -1064,6 +1090,24 @@ defmodule ToreWeb.RecipeLive do
   end
 
   defp reload_recipes(socket), do: assign(socket, recipes: reload(socket))
+
+  defp start_import(socket, url) do
+    ctx = %{scope: socket.assigns.current_scope}
+
+    ToreWeb.Background.run(
+      fn -> Tore.Capture.Dispatch.import_recipe_from_url(url, ctx) end,
+      &{:recipe_imported, &1}
+    )
+
+    assign(socket, importing: true, import_error: nil)
+  end
+
+  # The first http(s) link in what was shared.
+  defp shared_link(nil), do: nil
+
+  defp shared_link(text) do
+    Enum.find_value(Regex.scan(~r{https?://\S+}, text), fn [candidate] -> web_link(candidate) end)
+  end
 
   # An http(s) link with a host, or nil.
   defp web_link(text) do

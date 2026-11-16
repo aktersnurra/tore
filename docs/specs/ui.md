@@ -217,6 +217,9 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   Its + starts from a link: paste one and Tore reads the recipe in and opens it. "Write it
   yourself" under the field is the way out to the form, taking along what was typed (a link as
   the source, anything else as the name).
+  A link shared to Tore opens `/recipes?url=…` (or `?text=…`, where apps like Instagram put it)
+  and is read in straight away. Android offers Tore in the share sheet through the manifest's
+  share target; iPhone has no share targets for web apps, so a Shortcut opens that address.
 - **Anything followed with hands full is step cards** (`ToreWeb.StepCards`): one large card
   per step, a tap for the next, and "All steps" to peek ahead. Cook mode and the week's prep
   use it.

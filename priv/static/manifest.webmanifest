@@ -1,0 +1,14 @@
+{
+  "name": "Tore",
+  "short_name": "Tore",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1B1815",
+  "theme_color": "#1B1815",
+  "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }],
+  "share_target": {
+    "action": "/recipes",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}
