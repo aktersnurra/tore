@@ -31,8 +31,10 @@ defmodule ToreWeb.ShopLive do
        spending: ToreWeb.Spending.load(scope),
        section_order: Shop.Walk.order(scope),
        scanning: false,
-       scanner: nil
+       scanner: nil,
+       making_list: false
      )
+     |> assign_dinners()
      |> allow_upload(:receipt_photo,
        accept: ~w(.jpg .jpeg .png .webp .heic),
        max_entries: 1,
@@ -100,15 +102,11 @@ defmodule ToreWeb.ShopLive do
     {:noreply, assign(socket, export_text: nil)}
   end
 
-  def handle_event("add_item", %{"name" => name} = params, socket) do
-    name = String.trim(name)
+  # One field: "2 l mjölk" is read into an amount, a unit and the name.
+  def handle_event("add_item", %{"name" => line}, socket) do
+    {name, quantity, unit} = Shop.parse_line(line)
 
     if name != "" do
-      qty = Map.get(params, "quantity", "")
-      unit = Map.get(params, "unit", "")
-      quantity = if qty == "", do: nil, else: parse_qty(qty)
-      unit = if unit == "", do: nil, else: unit
-
       Shop.add_item(
         socket.assigns.current_scope,
         socket.assigns.list_id,
@@ -120,6 +118,18 @@ defmodule ToreWeb.ShopLive do
     end
 
     {:noreply, push_event(socket, "reset_form", %{id: "add-item"})}
+  end
+
+  # The list from the week's dinners, without what's at home. No model is asked.
+  def handle_event("make_list", _params, socket) do
+    scope = socket.assigns.current_scope
+
+    ToreWeb.Background.run(
+      fn -> Tore.Capture.Dispatch.generate_shopping_list_from_plan(nil, %{scope: scope}) end,
+      &{:list_made, &1}
+    )
+
+    {:noreply, assign(socket, making_list: true)}
   end
 
   def handle_event("open_item_sheet", %{"item_id" => id}, socket) do
@@ -219,6 +229,12 @@ defmodule ToreWeb.ShopLive do
      |> put_flash(kind, text)}
   end
 
+  def handle_info({:list_made, %{error: true, text: text}}, socket),
+    do: {:noreply, socket |> assign(making_list: false) |> put_flash(:error, text)}
+
+  def handle_info({:list_made, _bubble}, socket),
+    do: {:noreply, assign(socket, making_list: false)}
+
   def handle_info({:events, _events}, socket) do
     {:ok, grocery_state} = Shop.load_list(socket.assigns.current_scope, socket.assigns.list_id)
     {:noreply, assign(socket, grocery_state: grocery_state)}
@@ -293,6 +309,12 @@ defmodule ToreWeb.ShopLive do
     :ok
   end
 
+  # Which dinner each item is for, from the week's plan: "for Tuesday's tacos".
+  defp assign_dinners(socket) do
+    %{current_scope: scope, week_start: week_start} = socket.assigns
+    assign(socket, dinners: Shop.dinners_for(scope, week_start, Tore.Clock.today()))
+  end
+
   defp reload_spending(socket),
     do: assign(socket, spending: ToreWeb.Spending.load(socket.assigns.current_scope))
 
@@ -349,6 +371,28 @@ defmodule ToreWeb.ShopLive do
           </div>
         </header>
 
+        <%!-- One field, where the thumb starts: "2 l mjölk" is read as two litres of milk. A
+             submit button, so Enter (and the phone's Go key) adds; cleared after, focus kept. --%>
+        <div class="sticky top-0 z-10 -mx-4 mt-4 bg-[var(--bg)] px-4 py-2">
+          <form
+            id="add-item"
+            phx-submit="add_item"
+            class="field-group flex items-center gap-2 rounded-full bg-[var(--sunken)] pl-5 pr-1"
+          >
+            <input
+              type="text"
+              name="name"
+              placeholder={gettext("Add, e.g. 2 l milk")}
+              aria-label={gettext("Add to the list")}
+              autocomplete="off"
+              required
+              class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+              style="font-size: 16px;"
+            />
+            <.icon_button icon="hero-plus" label={gettext("Add")} type="submit" />
+          </form>
+        </div>
+
         <%!-- How far along the shop is: dill fills as things go in the basket --%>
         <div
           :if={@total > 0}
@@ -385,15 +429,32 @@ defmodule ToreWeb.ShopLive do
 
         <div :if={@total == 0} class="pt-8 pb-2">
           <p class="t-head">{gettext("Nothing to buy")}</p>
-          <p class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
-            {gettext("Add an item here, or ask Tore to make the list from the plan.")}
+          <p :if={@dinners == %{}} class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
+            {gettext("Add what you need above, or plan some dinners and the list makes itself.")}
           </p>
+          <p :if={@dinners != %{}} class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
+            {gettext("The week's dinners are planned. The list leaves out what's at home.")}
+          </p>
+          <button
+            :if={@dinners != %{}}
+            type="button"
+            phx-click="make_list"
+            disabled={@making_list}
+            data-role="make-list"
+            class="pill pill-lamp press mt-5"
+          >
+            <.icon
+              name={if @making_list, do: "hero-arrow-path", else: "hero-list-bullet"}
+              class={@making_list && "motion-safe:animate-spin"}
+            />
+            {if @making_list, do: gettext("Making the list…"), else: gettext("Make the list")}
+          </button>
         </div>
 
         <%= for {section, section_items} <- @groups do %>
           <h2 class="t-eyebrow mt-7 mb-2">{section_label(section)}</h2>
-          <ul class="menu-lines">
-            <.item_row :for={item <- section_items} item={item} />
+          <ul id={"items-#{section}"} class="menu-lines" phx-hook=".Tick">
+            <.item_row :for={item <- section_items} item={item} dinner={dinner_line(@dinners, item)} />
           </ul>
         <% end %>
 
@@ -401,46 +462,10 @@ defmodule ToreWeb.ShopLive do
           <h2 class="t-eyebrow mt-7 mb-2">
             {gettext("In the basket, %{n}", n: length(@checked))}
           </h2>
-          <ul class="menu-lines">
+          <ul id="items-basket" class="menu-lines" phx-hook=".Tick">
             <.item_row :for={item <- @checked} item={item} />
           </ul>
         <% end %>
-
-        <%!-- A submit button, so Enter (and the phone's Go key) adds: a form with several text
-             fields and no button never submits on Enter. Cleared after each add, focus kept. --%>
-        <form
-          id="add-item"
-          phx-submit="add_item"
-          class="field-group mt-7 flex items-center gap-2 rounded-full bg-[var(--sunken)] pl-5 pr-1"
-        >
-          <input
-            type="text"
-            name="name"
-            placeholder={gettext("Add item…")}
-            aria-label={gettext("Add item…")}
-            required
-            class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-            style="font-size: 16px;"
-          />
-          <input
-            type="text"
-            name="quantity"
-            placeholder={gettext("Qty")}
-            aria-label={gettext("Qty")}
-            inputmode="decimal"
-            class="num h-12 w-14 border-0 bg-transparent text-right text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] focus:outline-none"
-            style="font-size: var(--t-meta);"
-          />
-          <input
-            type="text"
-            name="unit"
-            placeholder={gettext("Unit")}
-            aria-label={gettext("Unit")}
-            class="h-12 w-12 border-0 bg-transparent text-[color:var(--muted)] placeholder:text-[color:var(--subtle)] focus:outline-none"
-            style="font-size: var(--t-meta);"
-          />
-          <.icon_button icon="hero-plus" label={gettext("Add")} type="submit" />
-        </form>
 
         <ToreWeb.Spending.spending
           spending={@spending}
@@ -483,6 +508,27 @@ defmodule ToreWeb.ShopLive do
           </button>
         </div>
       </.bottom_sheet>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".Tick">
+        // Ticking an item draws its check, then folds the row away before the server moves it
+        // to the basket. Unticking, or reduced motion, goes straight through.
+        export default {
+          mounted() {
+            this.onClick = (e) => {
+              const target = e.target.closest("[data-tick]")
+              const row = target?.closest(".tick-row")
+              if (!row || row.classList.contains("is-checked")) return
+              if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
+              e.stopPropagation()
+              e.preventDefault()
+              if (row.classList.contains("is-ticking")) return
+              row.classList.add("is-ticking")
+              setTimeout(() => this.pushEvent("toggle_item", {item_id: target.dataset.tick}), 620)
+            }
+            this.el.addEventListener("click", this.onClick, true)
+          },
+          destroyed() { this.el.removeEventListener("click", this.onClick, true) }
+        }
+      </script>
     </Layouts.app>
     """
   end
@@ -594,7 +640,10 @@ defmodule ToreWeb.ShopLive do
   defp scan_line(%{change: :failed}), do: gettext("Couldn't look that code up. Try again.")
 
   attr :item, :map, required: true
+  attr :dinner, :string, default: nil
 
+  # Ticking draws the check, then the row folds away into the basket (the `.Tick` hook waits
+  # for that before telling the server); with reduced motion it moves at once.
   defp item_row(assigns) do
     ~H"""
     <li
@@ -604,41 +653,55 @@ defmodule ToreWeb.ShopLive do
       data-item-id={@item.id}
       data-item-name={@item.name}
       class={[
-        "flex min-h-[56px] items-center gap-4 py-2.5 transition-opacity duration-[var(--dur-base)]",
-        @item.checked && "opacity-50"
+        "tick-row flex min-h-[56px] items-center gap-4 py-2.5",
+        @item.checked && "is-checked"
       ]}
     >
-      <.checkbox checked={@item.checked} phx-click="toggle_item" phx-value-item_id={@item.id} />
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={to_string(@item.checked)}
+        aria-label={@item.name}
+        phx-click="toggle_item"
+        phx-value-item_id={@item.id}
+        data-tick={@item.id}
+        class="press tick-box"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2L18.5 8" /></svg>
+      </button>
       <button
         type="button"
         phx-click="toggle_item"
         phx-value-item_id={@item.id}
-        class="press press-soft flex-1 min-w-0 text-left"
+        data-tick={@item.id}
+        class="press press-soft min-w-0 flex-1 text-left"
       >
-        <span
-          class={[
-            "text-[var(--text)] truncate",
-            @item.checked && "line-through"
-          ]}
-          style="font-size: var(--t-body);"
-        >
-          <span :if={Map.get(@item, :pantry_belief)} class="text-[color:var(--muted)] mr-1">?</span>{@item.name}
+        <span class="tick-name block truncate text-[var(--text)]" style="font-size: var(--t-body);">
+          <span :if={Map.get(@item, :pantry_belief)} class="mr-1 text-[color:var(--muted)]">?</span>{@item.name}
         </span>
-        <p
+        <span
           :if={Map.get(@item, :pantry_belief)}
-          class="text-[color:var(--subtle)] mt-0.5"
+          class="mt-0.5 block text-[color:var(--muted)]"
           style="font-size: var(--t-micro);"
         >
           {pantry_belief_hint(@item.pantry_belief, @item.pantry_last_seen_at)}
-        </p>
-        <p
-          :if={Map.get(@item, :basic) && !Map.get(@item, :pantry_belief)}
+        </span>
+        <span
+          :if={@dinner && !Map.get(@item, :pantry_belief)}
+          data-role="for-dinner"
+          class="mt-0.5 block truncate text-[color:var(--muted)]"
+          style="font-size: var(--t-micro);"
+        >
+          {@dinner}
+        </span>
+        <span
+          :if={Map.get(@item, :basic) && !@dinner && !Map.get(@item, :pantry_belief)}
           data-role="basic"
-          class="text-[color:var(--muted)] mt-0.5"
+          class="mt-0.5 block text-[color:var(--muted)]"
           style="font-size: var(--t-micro);"
         >
           {gettext("Basic")}
-        </p>
+        </span>
       </button>
       <span
         :if={qty_label(@item) != ""}
@@ -650,6 +713,25 @@ defmodule ToreWeb.ShopLive do
     </li>
     """
   end
+
+  defp dinner_line(dinners, item) do
+    case dinners[Tore.Recipes.Ingredient.to_key(item.name)] do
+      nil ->
+        nil
+
+      %{date: date, title: title} ->
+        dish = lowercase_first(title)
+
+        if date == Tore.Clock.today(),
+          do: gettext("for tonight's %{dish}", dish: dish),
+          else:
+            gettext("for %{day} %{dish}", day: ToreWeb.Dates.weekday_possessive(date), dish: dish)
+    end
+  end
+
+  # A dish named inside a sentence: "Tacos" reads "tacos" there.
+  defp lowercase_first(<<first::utf8, rest::binary>>),
+    do: String.downcase(<<first::utf8>>) <> rest
 
   defp bubble_text(bubbles) do
     bubbles
@@ -706,13 +788,6 @@ defmodule ToreWeb.ShopLive do
   end
 
   defp format_decimal(other), do: to_string(other)
-
-  defp parse_qty(s) do
-    case Decimal.parse(s) do
-      {d, _} -> d
-      :error -> nil
-    end
-  end
 
   defp pantry_belief_hint(:confirmed, last_seen),
     do: gettext("confirmed at home%{when}", when: last_seen_suffix(last_seen))

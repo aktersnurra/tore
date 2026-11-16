@@ -17,6 +17,20 @@ defmodule ToreWeb.Dates do
     end
   end
 
+  @doc "The weekday as an owner, before a noun: \"Wednesday's\" (\"onsdagens\")."
+  @spec weekday_possessive(Date.t()) :: String.t()
+  def weekday_possessive(%Date{} = date) do
+    case Date.day_of_week(date) do
+      1 -> gettext("Monday's")
+      2 -> gettext("Tuesday's")
+      3 -> gettext("Wednesday's")
+      4 -> gettext("Thursday's")
+      5 -> gettext("Friday's")
+      6 -> gettext("Saturday's")
+      7 -> gettext("Sunday's")
+    end
+  end
+
   @doc "\"Wednesday 11 November\"."
   @spec long(Date.t()) :: String.t()
   def long(%Date{} = date), do: "#{weekday(date)} #{date.day} #{month(date)}"

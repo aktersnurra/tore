@@ -244,6 +244,29 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .pill .hero-icon, .pill [class*="hero-"] { width: 17px; height: 17px; }
 .pill-lamp { background: var(--accent); color: var(--on-accent); }
 
+/* ── Ticking an item: the check draws, then the row folds into the basket. ── */
+.tick-box {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 999px; border: 1.5px solid var(--subtle);
+  color: var(--on-accent);
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.tick-box:hover { border-color: var(--done); }
+.tick-box svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6;
+  stroke-linecap: round; stroke-linejoin: round; }
+.tick-box path { stroke-dasharray: 22; stroke-dashoffset: 22;
+  transition: stroke-dashoffset var(--dur-base) var(--ease-out) 60ms; }
+.tick-row.is-checked .tick-box, .tick-row.is-ticking .tick-box {
+  background: var(--done); border-color: var(--done);
+}
+.tick-row.is-checked .tick-box path, .tick-row.is-ticking .tick-box path { stroke-dashoffset: 0; }
+.tick-row.is-checked .tick-name { text-decoration: line-through; color: var(--muted); }
+.tick-row.is-ticking { overflow: hidden; animation: tick-fold var(--dur-base) var(--ease-out) 340ms forwards; }
+@keyframes tick-fold {
+  from { max-height: 80px; opacity: 1; }
+  to { max-height: 0; min-height: 0; padding-block: 0; opacity: 0; }
+}
+
 /* ── Shimmer: where content is coming, a slow sweep instead of a blank. ── */
 .shimmer {
   background: linear-gradient(90deg, var(--sunken) 0%, var(--surface) 50%, var(--sunken) 100%);

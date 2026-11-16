@@ -15,6 +15,64 @@ defmodule Tore.Shop do
     EventStore.load(scope, list_id, Decider)
   end
 
+  @units ~w(g hg kg ml cl dl l msk tsk krm st förp paket pkt burk)
+  @line ~r/^(\d+(?:[.,]\d+)?)\s*(?:(#{Enum.join(@units, "|")})\.?\s+|\s+)(\S.*)$/iu
+
+  @doc """
+  A line typed into the list, read as people write it: "2 l mjölk" is two litres of milk, "6 ägg"
+  six eggs, "bananer" just bananas. Returns `{name, quantity, unit}`; the unit is lower-cased.
+  """
+  @spec parse_line(String.t()) :: {String.t(), Decimal.t() | nil, String.t() | nil}
+  def parse_line(line) do
+    line = String.trim(line)
+
+    with [_, amount, unit, name] <- Regex.run(@line, line),
+         # "2 l" alone names no item; keep the line as typed rather than add an "l".
+         false <- unit == "" and String.downcase(name) in @units do
+      quantity = amount |> String.replace(",", ".") |> Decimal.new()
+      {String.trim(name), quantity, if(unit == "", do: nil, else: String.downcase(unit))}
+    else
+      _ -> {line, nil, nil}
+    end
+  end
+
+  @doc """
+  For each ingredient key (`Ingredient.to_key/1`), the first dinner on the week's plan from
+  `today` on that needs it: `%{date:, title:}`. Derived from the plan, so a list made by hand
+  gets the same line as one built from it.
+  """
+  @spec dinners_for(Scope.t(), Date.t(), Date.t()) :: %{
+          String.t() => %{date: Date.t(), title: String.t()}
+        }
+  def dinners_for(%Scope{} = scope, %Date{} = week_start, %Date{} = today) do
+    {:ok, plan} = Tore.Planning.load_plan(scope, Tore.Streams.plan(scope, week_start))
+
+    days =
+      for i <- 0..6,
+          date = Date.add(week_start, i),
+          Date.compare(date, today) != :lt,
+          slot = plan.slots[Tore.Streams.slot_key(date)],
+          slot && slot.recipe_id && !slot.skipped && !slot[:leftover],
+          do: {date, slot.recipe_id}
+
+    recipes =
+      scope |> Tore.Recipes.get_many(Enum.map(days, &elem(&1, 1))) |> Map.new(&{&1.id, &1})
+
+    days
+    |> Enum.reverse()
+    |> Enum.reduce(%{}, fn {date, id}, acc ->
+      case recipes[id] do
+        nil ->
+          acc
+
+        recipe ->
+          recipe.recipe_ingredients
+          |> Map.new(&{Ingredient.to_key(&1.ingredient.name), %{date: date, title: recipe.title}})
+          |> then(&Map.merge(acc, &1))
+      end
+    end)
+  end
+
   @doc """
   The week's list: `recipe_ids`' ingredients, then the basics due that week (`Tore.Basics`), each
   in its section, without what the pantry holds: an ingredient with a usable pantry row is left

@@ -168,4 +168,59 @@ defmodule Tore.ShopTest do
 
     assert annotated.pantry_belief == nil
   end
+
+  describe "parse_line/1" do
+    test "reads an amount, a unit and the name, as people type them" do
+      assert Shop.parse_line("2 l mjölk") == {"mjölk", Decimal.new("2"), "l"}
+      assert Shop.parse_line("1,5 kg potatis") == {"potatis", Decimal.new("1.5"), "kg"}
+      assert Shop.parse_line("500g köttfärs") == {"köttfärs", Decimal.new("500"), "g"}
+      assert Shop.parse_line("3 Paket smör") == {"smör", Decimal.new("3"), "paket"}
+    end
+
+    test "a number with no unit counts things; no number is just a name" do
+      assert Shop.parse_line("6 ägg") == {"ägg", Decimal.new("6"), nil}
+      assert Shop.parse_line("  bananer ") == {"bananer", nil, nil}
+    end
+
+    test "a word that starts like a unit is the name" do
+      assert Shop.parse_line("2 lime") == {"lime", Decimal.new("2"), nil}
+      assert Shop.parse_line("gurka") == {"gurka", nil, nil}
+    end
+
+    test "a number alone is kept as the name rather than lost" do
+      assert Shop.parse_line("7up") == {"7up", nil, nil}
+      assert Shop.parse_line("2 l") == {"2 l", nil, nil}
+    end
+  end
+
+  describe "dinners_for/3" do
+    defp dinner(title, names) do
+      {:ok, r} =
+        Tore.Recipes.create(
+          home_scope(),
+          %{title: title, ingredients: Enum.map(names, &%{name: &1})},
+          image: false
+        )
+
+      r
+    end
+
+    test "names the first dinner from today on that needs each ingredient" do
+      monday = ~D[2026-11-16]
+      plan = Tore.Streams.plan(home_scope(), monday)
+      tacos = dinner("Tacos", ["tortilla", "köttfärs"])
+      lasagne = dinner("Lasagne", ["köttfärs", "pasta"])
+      soup = dinner("Soppa", ["purjolök"])
+      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "mon_dinner", soup.id, 4)
+      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "tue_dinner", tacos.id, 4)
+      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "thu_dinner", lasagne.id, 4)
+
+      for_item = Shop.dinners_for(home_scope(), monday, ~D[2026-11-17])
+
+      key = &Tore.Recipes.Ingredient.to_key/1
+      assert for_item[key.("köttfärs")] == %{date: ~D[2026-11-17], title: "Tacos"}
+      assert for_item[key.("pasta")] == %{date: ~D[2026-11-19], title: "Lasagne"}
+      refute Map.has_key?(for_item, key.("purjolök"))
+    end
+  end
 end
