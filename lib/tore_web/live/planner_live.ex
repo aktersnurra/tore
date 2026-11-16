@@ -12,6 +12,9 @@ defmodule ToreWeb.PlannerLive do
 
   @days ~w[mon tue wed thu fri sat sun]
 
+  @plan_open_days "Plan dinners for the days of this week that are still open, from today on. " <>
+                    "Keep every day that already has a dinner, is skipped or is eating out."
+
   def mount(_params, _session, socket) do
     today = Tore.Clock.today()
     week_start = Tore.Streams.monday(today)
@@ -38,6 +41,7 @@ defmodule ToreWeb.PlannerLive do
        current_week_mode: Tore.WeekMode.get_current_mode(scope),
        current_run: current_run,
        quick_loading: false,
+       quick_label: nil,
        focused_slots: MapSet.new()
      )
      |> with_plan(plan_state)}
@@ -281,6 +285,14 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_event("slot_command", _params, socket), do: {:noreply, socket}
 
+  # Fills the days still open, as the chat's plan_week does; the receipt below offers Undo.
+  def handle_event("plan_week", _params, socket) do
+    start_command(socket, @plan_open_days, nil)
+
+    {:noreply,
+     assign(socket, quick_loading: true, quick_label: gettext("Planning the open days…"))}
+  end
+
   defp maybe_toast_reverted(socket, %KitchenRun{status: :reverted, surface: :plan}),
     do: put_flash(socket, :info, gettext("Undone."))
 
@@ -304,7 +316,7 @@ defmodule ToreWeb.PlannerLive do
   end
 
   def handle_info({:run_dispatched, {:ok, state}}, socket) do
-    {:noreply, assign(socket, current_run: state, quick_loading: false)}
+    {:noreply, assign(socket, current_run: state, quick_loading: false, quick_label: nil)}
   end
 
   def handle_info({:run_dispatched, {:error, reason}}, socket) do
@@ -315,7 +327,7 @@ defmodule ToreWeb.PlannerLive do
        Tore.LLM.refusal_text(reason) ||
          gettext("Tore couldn't finish that. Try again in a moment.")
      )
-     |> assign(quick_loading: false)}
+     |> assign(quick_loading: false, quick_label: nil)}
   end
 
   def handle_info({:run_changed, %KitchenRun{} = run}, socket) do
@@ -492,6 +504,21 @@ defmodule ToreWeb.PlannerLive do
         </header>
 
         <div class="scroll-quiet -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4">
+          <button
+            :if={open_days(@plan_state, @week_start, @today) > 0}
+            type="button"
+            phx-click="plan_week"
+            disabled={@quick_loading}
+            data-role="plan-week"
+            class="pill pill-lamp press"
+          >
+            <.icon name="hero-calendar-days" />
+            {ngettext(
+              "Plan the open day",
+              "Plan the %{count} open days",
+              open_days(@plan_state, @week_start, @today)
+            )}
+          </button>
           <.link navigate={~p"/prep"} data-role="prep-link" class="pill press">
             <.icon name="hero-squares-2x2" /> {gettext("Prep this week")}
           </.link>
@@ -511,7 +538,7 @@ defmodule ToreWeb.PlannerLive do
           role="status"
         >
           <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" />
-          {gettext("Changing the plan…")}
+          {@quick_label || gettext("Changing the plan…")}
         </p>
 
         <div :if={@current_run} class="mt-4">
@@ -593,32 +620,44 @@ defmodule ToreWeb.PlannerLive do
     <li
       id={"slot-#{@slot_key}"}
       class={[
-        "reveal rounded-[var(--r-xl)]",
+        "rounded-[var(--r-xl)]",
         @slot && @slot.skipped && !State.eating_out?(@slot) && "opacity-50",
         @focused && "ring-2 ring-[color:var(--accent)]"
       ]}
-      style={"--i: #{Date.day_of_week(@date) - 1}"}
     >
       <div
+        id={"day-#{@slot_key}-#{(@recipe && @recipe.id) || "open"}"}
         phx-click="open_slot"
         phx-value-slot_key={@slot_key}
         class={[
-          "press press-soft flex min-h-[84px] cursor-pointer items-center gap-3 rounded-[var(--r-xl)] p-2.5",
+          "reveal press press-soft flex min-h-[88px] cursor-pointer items-center gap-3.5 rounded-[var(--r-xl)] p-2",
           !@recipe && "pr-5",
           Date.compare(@date, @today) == :lt && "opacity-60",
           @recipe && "bg-[var(--surface)] hover:bg-[var(--sunken)]",
           !@recipe && "border border-dashed border-[color:var(--border)] hover:bg-[var(--surface)]"
         ]}
+        style={"--i: #{Date.day_of_week(@date) - 1}"}
         role="button"
         tabindex="0"
         aria-label={gettext("Edit %{label}", label: slot_label(@slot_key))}
       >
-        <%!-- The day, as on a calendar: today is the one lit --%>
-        <div class={[
-          "flex size-14 shrink-0 flex-col items-center justify-center rounded-[16px]",
-          @is_today && "bg-[color:var(--accent)] text-[color:var(--on-accent)]",
-          !@is_today && "text-[color:var(--text)]"
-        ]}>
+        <%!-- The dish leads; a day without one shows its date like a calendar, today lit --%>
+        <img
+          :if={@recipe && @recipe.image_path}
+          src={~p"/images/recipes/#{@recipe.id}"}
+          alt=""
+          loading="lazy"
+          class="size-[72px] shrink-0 rounded-[16px] object-cover"
+        />
+        <div
+          :if={!(@recipe && @recipe.image_path)}
+          class={[
+            "flex size-[72px] shrink-0 flex-col items-center justify-center rounded-[16px]",
+            @is_today && "bg-[color:var(--accent)] text-[color:var(--on-accent)]",
+            !@is_today && @recipe && "bg-[var(--sunken)] text-[color:var(--text)]",
+            !@is_today && !@recipe && "text-[color:var(--text)]"
+          ]}
+        >
           <span class={["text-[12px] font-semibold", !@is_today && "text-[color:var(--muted)]"]}>
             {ToreWeb.Dates.weekday(@date) |> String.slice(0, 3)}
           </span>
@@ -626,6 +665,18 @@ defmodule ToreWeb.PlannerLive do
         </div>
 
         <div class="min-w-0 flex-1">
+          <p
+            :if={@recipe && @recipe.image_path}
+            class={[
+              "num mb-0.5 text-[12px] font-semibold",
+              @is_today && "text-[color:var(--accent-ink)]",
+              !@is_today && "text-[color:var(--muted)]"
+            ]}
+          >
+            {if @is_today,
+              do: gettext("Today"),
+              else: "#{ToreWeb.Dates.weekday(@date)} #{@date.day}"}
+          </p>
           <%= cond do %>
             <% @recipe -> %>
               <p
@@ -657,19 +708,12 @@ defmodule ToreWeb.PlannerLive do
                 {gettext("Eating out")}
               </p>
             <% @slot && @slot.skipped -> %>
-              <p class="text-[color:var(--subtle)]" style="font-size: 17px;">{gettext("Skipped")}</p>
+              <p class="text-[color:var(--muted)]" style="font-size: 17px;">{gettext("Skipped")}</p>
             <% true -> %>
               <p class="text-[color:var(--muted)]" style="font-size: 17px;">{gettext("Open")}</p>
           <% end %>
         </div>
 
-        <img
-          :if={@recipe && @recipe.image_path}
-          src={~p"/images/recipes/#{@recipe.id}"}
-          alt=""
-          loading="lazy"
-          class="size-16 shrink-0 rounded-[14px] object-cover"
-        />
         <span
           :if={@pinned}
           data-pinned="true"
@@ -686,6 +730,17 @@ defmodule ToreWeb.PlannerLive do
       </div>
     </li>
     """
+  end
+
+  # Days from today on with nothing planned: no dinner, not skipped, not eating out.
+  defp open_days(plan_state, week_start, today) do
+    Enum.count(0..6, fn i ->
+      date = Date.add(week_start, i)
+      slot = plan_state.slots[Tore.Streams.slot_key(date)]
+
+      Date.compare(date, today) != :lt and
+        (slot == nil or (slot.recipe_id == nil and !slot.skipped))
+    end)
   end
 
   # If this day has a meal AND the next day(s) consume leftovers from it, show

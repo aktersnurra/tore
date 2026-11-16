@@ -233,6 +233,47 @@ defmodule ToreWeb.PlannerLiveTest do
     end
   end
 
+  describe "planning the open days" do
+    test "one button plans what's still open, named by how many, and says what it's doing", %{
+      conn: conn,
+      user: user
+    } do
+      test_pid = self()
+
+      Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, msgs, _tools, _opts ->
+        send(test_pid, {:llm_messages, msgs})
+        {:ok, {:message, "Planned."}, %{}}
+      end)
+
+      {:ok, view, _} = live(authed(conn, user), "/plan")
+      today = Tore.Clock.today()
+      open = 8 - Date.day_of_week(today)
+
+      button = view |> element(~s([data-role="plan-week"]))
+
+      assert render(button) =~
+               if(open == 1,
+                 do: "Planera den lediga dagen",
+                 else: "Planera de #{open} lediga dagarna"
+               )
+
+      html = render_click(button)
+      assert html =~ "Planerar de lediga dagarna…"
+
+      assert_receive {:llm_messages, [%{role: "user", content: content}]}, 1000
+      assert content =~ "still open"
+      assert eventually_renders(view, "Tore justerade planen")
+    end
+
+    test "a week with every day planned has no button", %{conn: conn, user: user, recipe: recipe} do
+      for day <- ~w(mon tue wed thu fri sat sun),
+          do: Planning.assign_recipe(home_scope(), this_plan_id(), "#{day}_dinner", recipe.id, 4)
+
+      {:ok, view, _} = live(authed(conn, user), "/plan")
+      refute has_element?(view, ~s([data-role="plan-week"]))
+    end
+  end
+
   describe "opening a day and closing it again" do
     setup %{conn: conn, user: user, recipe: recipe} do
       Planning.assign_with_leftovers(home_scope(), this_plan_id(), "mon_dinner", recipe.id, 4, [
