@@ -250,7 +250,7 @@ defmodule ToreWeb.PrepLive do
                 </p>
                 <div class="mt-5">
                   <.button variant={:primary} size={:lg} phx-click="generate_guide">
-                    <.icon name="hero-sparkles" class="size-4" /> {gettext("Generate guide")}
+                    <.icon name="hero-pencil-square" class="size-4" /> {gettext("Generate guide")}
                   </.button>
                 </div>
               </div>

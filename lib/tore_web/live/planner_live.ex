@@ -1017,7 +1017,7 @@ defmodule ToreWeb.PlannerLive do
                       class="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline disabled:opacity-40"
                       style="font-size: var(--t-meta);"
                     >
-                      <.icon name="hero-sparkles" class="size-3.5" /> {gettext("Surprise me")}
+                      <.icon name="hero-light-bulb" class="size-3.5" /> {gettext("Surprise me")}
                     </button>
                   </div>
 

@@ -32,6 +32,19 @@ defmodule ToreWeb.TabBarLiveTest do
     refute has_element?(bar(view), ~s(a[aria-current="page"]))
   end
 
+  test "every tab is named, the current one's icon is filled, and nothing sparkles", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/today")
+    render_hook(bar(view), "here", %{"path" => "/plan"})
+    html = render(bar(view))
+
+    for label <- ["Idag", "Plan", "Tore", "Inköp", "Recept"], do: assert(html =~ label)
+
+    assert bar(view) |> element(~s(a[aria-current="page"])) |> render() =~
+             "hero-calendar-days-solid"
+
+    refute html =~ "sparkles"
+  end
+
   test "Tore opens the chat over the page, which it returns to, query string and all", %{
     conn: conn
   } do

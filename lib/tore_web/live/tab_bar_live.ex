@@ -24,13 +24,14 @@ defmodule ToreWeb.TabBarLive do
   def handle_event("here", %{"path" => path} = here, socket) when is_binary(path),
     do: {:noreply, assign(socket, path: path, return_to: path <> (here["search"] || ""))}
 
+  # Icon names written out in full, outline and filled, so Tailwind builds both.
   defp tabs do
     [
-      {~p"/today", "hero-home", gettext("Today")},
-      {~p"/plan", "hero-calendar-days", gettext("Plan")},
+      {~p"/today", {"hero-home", "hero-home-solid"}, gettext("Today")},
+      {~p"/plan", {"hero-calendar-days", "hero-calendar-days-solid"}, gettext("Plan")},
       :tore,
-      {~p"/shop", "hero-shopping-cart", gettext("Shop")},
-      {~p"/recipes", "hero-book-open", gettext("Recipes")}
+      {~p"/shop", {"hero-shopping-cart", "hero-shopping-cart-solid"}, gettext("Shop")},
+      {~p"/recipes", {"hero-book-open", "hero-book-open-solid"}, gettext("Recipes")}
     ]
   end
 
@@ -51,31 +52,38 @@ defmodule ToreWeb.TabBarLive do
       aria-label={gettext("Tabs")}
       class="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[var(--bg)] from-60% to-transparent"
     >
-      <div class="mx-auto flex max-w-md items-center justify-between px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+      <div class="mx-auto flex max-w-md items-end justify-between px-3 pt-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)]">
         <%= for tab <- @tabs do %>
+          <%!-- Tore is asked, not visited: a dark button in the middle, named like the rest. --%>
           <.link
             :if={tab == :tore}
             navigate={~p"/capture?#{[return_to: @return_to]}"}
             aria-label={gettext("Ask Tore")}
             data-role="tab-tore"
-            class="flex size-12 items-center justify-center rounded-full bg-[var(--text)] text-[color:var(--bg)] transition-transform active:scale-95 motion-reduce:transition-none"
+            class="press group flex w-16 flex-col items-center gap-1"
           >
-            <.icon name="hero-sparkles-solid" class="size-5" />
+            <span class="flex size-11 items-center justify-center rounded-full bg-[var(--text)] text-[color:var(--bg)]">
+              <.icon name="hero-chat-bubble-oval-left-solid" class="size-5" />
+            </span>
+            <span class="tab-label text-[color:var(--muted)]">Tore</span>
           </.link>
           <.link
             :if={tab != :tore}
             navigate={elem(tab, 0)}
-            aria-label={elem(tab, 2)}
             aria-current={if current?(elem(tab, 0), @path), do: "page"}
             data-role="tab"
             class={[
-              "flex size-12 items-center justify-center rounded-full transition-colors active:bg-[var(--surface)]",
+              "press flex w-16 flex-col items-center gap-1 pt-1.5 transition-colors",
               current?(elem(tab, 0), @path) && "text-[color:var(--text)]",
               !current?(elem(tab, 0), @path) &&
                 "text-[color:var(--muted)] hover:text-[color:var(--text)]"
             ]}
           >
-            <.icon name={elem(tab, 1)} class="size-6" />
+            <.icon
+              name={elem(elem(tab, 1), if(current?(elem(tab, 0), @path), do: 1, else: 0))}
+              class="size-6"
+            />
+            <span class="tab-label">{elem(tab, 2)}</span>
           </.link>
         <% end %>
       </div>

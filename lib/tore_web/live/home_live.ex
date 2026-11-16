@@ -99,7 +99,7 @@ defmodule ToreWeb.HomeLive do
               <.icon name="hero-arrow-path" /> {gettext("Something else")}
             </button>
             <button type="button" phx-click="open_tonight_sheet" class="pill press">
-              <.icon name="hero-sparkles" /> {gettext("Ask")}
+              <.icon name="hero-chat-bubble-oval-left" /> {gettext("Ask")}
             </button>
           </div>
 
@@ -143,7 +143,7 @@ defmodule ToreWeb.HomeLive do
               <.icon name="hero-calendar-days" /> {gettext("Plan the week")}
             </.link>
             <.link navigate={~p"/capture?#{[return_to: "/today"]}"} class="pill press">
-              <.icon name="hero-sparkles" /> {gettext("Ask Tore")}
+              <.icon name="hero-chat-bubble-oval-left" /> {gettext("Ask Tore")}
             </.link>
           </div>
         </section>
