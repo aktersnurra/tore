@@ -667,7 +667,9 @@ defmodule ToreWeb.ShopLive do
     |> Enum.sort_by(fn i -> {i.checked, String.downcase(i.name || "")} end)
   end
 
-  @section_order ~w(produce meat fish dairy deli frozen bread dry_goods canned beverages herbs_spices condiments household other)a
+  # The walk through a typical Swedish store: fruit and veg at the door, bread, the meat, fish
+  # and deli counters, dairy, the aisles, and frozen last, by the tills, so it stays cold.
+  @section_order ~w(produce bread meat fish deli dairy dry_goods canned herbs_spices condiments beverages household frozen other)a
 
   defp group_by_section(items) do
     grouped = Enum.group_by(items, &(Map.get(&1, :section) || :other))

@@ -24,6 +24,46 @@ defmodule ToreWeb.ShopLiveTest do
     end
   end
 
+  test "sections follow a walk through the store: fruit and veg first, frozen last", %{
+    conn: conn
+  } do
+    week = Tore.Streams.monday(Tore.Clock.today())
+    list = Tore.Streams.shop_list(home_scope(), week)
+
+    items =
+      for {name, section} <- [
+            {"Glass", "frozen"},
+            {"Mjölk", "dairy"},
+            {"Limpa", "bread"},
+            {"Äpple", "produce"}
+          ] do
+        %{
+          "id" => Ecto.UUID.generate(),
+          "name" => name,
+          "quantity" => nil,
+          "unit" => nil,
+          "section" => section,
+          "checked" => false,
+          "basic" => false
+        }
+      end
+
+    {:ok, _} =
+      Tore.Shop.append(home_scope(), list, %Tore.Shop.Commands.BuildList{
+        week_start: week,
+        items: items
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/shop")
+
+    positions =
+      for label <- ["Frukt &amp; grönt", "Bröd", "Mejeri &amp; ägg", "Fryst"],
+          do: :binary.match(html, label)
+
+    assert Enum.all?(positions, &(&1 != :nomatch))
+    assert positions == Enum.sort(positions)
+  end
+
   describe "adding" do
     test "the add form has a submit button, so Enter adds, and it clears after each item", %{
       conn: conn
