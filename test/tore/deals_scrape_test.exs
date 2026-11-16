@@ -166,7 +166,7 @@ defmodule Tore.DealsScrapeTest do
   test "no scheduled job generates prep guides" do
     jobs = Application.fetch_env!(:tore, Tore.Scheduler)[:jobs]
 
-    assert Enum.any?(jobs, &match?({_, {Tore.Deals, :scrape_all, []}}, &1))
+    assert Enum.any?(jobs, &match?({_, {Tore.WeekAhead, :run, []}}, &1))
     refute Enum.any?(jobs, &match?({_, {Tore.Prep, _, _}}, &1))
     # A job given as a closure can't be inspected, which is how this one hid.
     assert Enum.all?(jobs, &match?({_, {_, _, _}}, &1))

@@ -605,7 +605,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 |---|---|
 | §1 Household memory | Built (2026-11-10). Replaced insight synthesis |
 | §2 Natural-language planner | Built |
-| Weekly planning (`:weekly_planning_run`) | Built. Runs Saturdays at 18:00 and fills open slots |
+| Weekly planning (`:weekly_planning_run`) | Built. Fills open slots once the coming week's offers are in, or Sunday at 18:00 (`Tore.WeekAhead`) |
 | §3 Anticipation | Removed, apart from the long-press object sheets |
 | §4 Pantry as belief, with shelf photos and shelf life | Built |
 | §5 Receipts for cost | Built |
@@ -613,7 +613,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
-| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan, the verdict and calibration, basics |
+| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan, the verdict and calibration, basics, timing |
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
@@ -825,7 +825,8 @@ Eating out is a state of a day in the plan, not a cost form. "Eating out" on the
 A store is added in Settings by pasting a link to its offers. `Tore.Deals.Parsers.for_url/1` picks a parser from the
 link's host, and each chain is one module implementing `Tore.Deals.Parsers.Parser`. Only https links on a parser's
 hosts get fetched, so a pasted link can't point Tore anywhere else. A link no parser handles gets "Tore can't read
-that store yet". A Saturday job scrapes every enabled store, and the planner reads the results through `active_deals`, which shows only
+that store yet". From Friday, `Tore.WeekAhead` fetches each enabled store once a day until its offers for the coming
+week appear, and the planner reads the results through `active_deals`, which shows only
 offers still running in the week being planned (`Deals.valid_in_week/2`).
 
 Each offer stores its price for `quantity` items per `price_unit` ("3 för 40 kr" is 40 for 3, per st), the usual
@@ -841,7 +842,7 @@ learned, matches for free; the rest go to the canonicaliser in one batch, and on
 wrong one only nudges a price. After each scrape, every household matches the offers it can use.
 
 **Known problem.** Tested on 2026-11-04 against one ICA store: `Req`, which the scrape uses, gets a 403 where plain
-`curl` gets a 200, so the Saturday scrape may return nothing (and now sends an alert). The limits when fetching
+`curl` gets a 200, so the fetch may return nothing (and now sends an alert). The limits when fetching
 works: one store, at most once a day and only until the new week's offers appear, with no retries on a 403.
 
 ### 9. Prep
@@ -900,6 +901,12 @@ someone names them in Capture (`set_basics`: "we have cereal and milk for breakf
 list learns first, then adds the basics due, marked as basics. Ticking one off records the purchase; taking one off
 the list lengthens its interval by half, and three in a row stop it. No model is asked. Until calibration exists, the
 due basics are priced into what the week is expected to cost; after, calibration covers them.
+
+**Timing** (`Tore.WeekAhead`, Friday to Sunday at 09:00 and Sunday at 18:00). Each run fetches the stores whose offers
+for the coming week haven't appeared (offers first seen this week that run past Sunday), so a store is fetched at most
+once a day and not again once they're in. A household with the model gets its coming week planned once: when all its
+stores' new offers are in, or at Sunday 18:00 with whatever prices exist. Later offers change the estimate and the
+alternatives, never the plan.
 
 ---
 

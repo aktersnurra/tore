@@ -64,8 +64,9 @@ config :tore, Tore.Scheduler,
     {"0 3 * * *", {Tore.Deals, :clear_expired, []}},
     {"0 4 * * 0", {Tore.Harness.InboxSweeper, :sweep_weekly, []}},
     {"0 6 * * 6", {Tore.Harness.Kinds.MemoryReview, :review_weekly, []}},
-    {"0 8 * * 6", {Tore.Deals, :scrape_all, []}},
-    {"0 18 * * 6", {Tore.Planning, :plan_upcoming_weeks, []}}
+    # The coming week's offers, then its plan: Friday to Sunday mornings, and Sunday's deadline.
+    {"0 9 * * 0,5,6", {Tore.WeekAhead, :run, []}},
+    {"0 18 * * 0", {Tore.WeekAhead, :run, []}}
   ]
 
 config :tore, Tore.Mailer, adapter: Swoosh.Adapters.Local

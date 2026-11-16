@@ -13,13 +13,6 @@ defmodule Tore.Planning do
     EventStore.load(scope, plan_id, Decider)
   end
 
-  @doc "Cron entry: plan the upcoming week for every household."
-  def plan_upcoming_weeks do
-    Tore.Household.each_scope(fn scope ->
-      if Tore.LLM.check(scope) == :ok, do: plan_upcoming_week(scope)
-    end)
-  end
-
   @doc """
   Plan the upcoming week (next Monday-Sunday) for the household through a
   `Kinds.WeeklyPlanning` run. `today` is the day the week is counted from.

@@ -380,7 +380,8 @@ defmodule Tore.PlanningTest do
          %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
       end)
 
-      assert :ok = Planning.plan_upcoming_weeks()
+      sunday = Tore.Clock.today() |> Tore.Streams.monday() |> Date.add(6)
+      assert :ok = Tore.WeekAhead.run(NaiveDateTime.new!(sunday, ~T[18:00:00]))
       runs = fn scope -> Tore.Repo.all(Tore.Harness.KitchenRun, Tore.Scope.repo_opts(scope)) end
       assert [%{status: :applied}] = runs.(home_scope())
       assert [%{status: :applied}] = runs.(other)

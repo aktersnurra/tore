@@ -132,17 +132,41 @@ defmodule Tore.Deals do
     end
   end
 
-  @doc "Fetches each store some household has switched on, once however many households use it."
-  @spec scrape_all() :: :ok
-  def scrape_all do
+  @doc """
+  Fetches each store some household has switched on, once however many households use it, unless
+  its offers for the week after `today`'s are already in (`coming_week?/2`).
+  """
+  @spec scrape_all(Date.t()) :: :ok
+  def scrape_all(%Date{} = today \\ Tore.Clock.today()) do
     scopes = Enum.map(Household.list_ids(), &Scope.for_household/1)
 
     scopes
     |> Enum.flat_map(&switched_on_stores/1)
     |> Enum.uniq_by(& &1.id)
+    |> Enum.reject(&coming_week?(&1, today))
     |> Enum.each(&scrape_store/1)
 
     Enum.each(scopes, &match_products/1)
+  end
+
+  @doc """
+  Whether every store the household has switched on has its offers for the week after `today`'s:
+  offers first seen this week that run past this Sunday. True with no stores, as nothing is coming.
+  """
+  @spec coming_week_in?(Scope.t(), Date.t()) :: boolean()
+  def coming_week_in?(%Scope{} = scope, %Date{} = today),
+    do: scope |> switched_on_stores() |> Enum.all?(&coming_week?(&1, today))
+
+  defp coming_week?(%Store{name: name}, today) do
+    monday = Streams.monday(today)
+    since = NaiveDateTime.new!(monday, ~T[00:00:00])
+
+    Repo.exists?(
+      from(d in Deal,
+        where:
+          d.store == ^name and d.valid_until > ^Date.add(monday, 6) and d.inserted_at >= ^since
+      )
+    )
   end
 
   # Each household matches the offers it can use to its ingredients, once per product name.
