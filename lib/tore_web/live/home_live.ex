@@ -150,41 +150,26 @@ defmodule ToreWeb.HomeLive do
       </.page>
 
       <%!-- Anything about tonight, asked in words (Ask, or a long press) --%>
-      <div
+      <.bottom_sheet
         :if={@tonight_sheet && @tonight_recipe}
         id="tonight-sheet"
-        class="fixed inset-0 z-50 flex items-end justify-center"
-        phx-window-keydown="close_tonight_sheet"
-        phx-key="Escape"
+        on_close="close_tonight_sheet"
+        class="px-5"
       >
-        <div class="scrim absolute inset-0 bg-black/50" phx-click="close_tonight_sheet"></div>
-        <div class="sheet relative w-full max-w-md rounded-t-[28px] bg-[var(--surface)] px-5 pt-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-          <div class="flex justify-center pb-3">
-            <button
-              type="button"
-              phx-click="close_tonight_sheet"
-              aria-label={gettext("Close")}
-              data-role="tonight-sheet-close"
-              class="p-2"
-            >
-              <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
-            </button>
-          </div>
-          <p class="t-eyebrow">{gettext("Tonight")}</p>
-          <p class="t-head mt-1">{@tonight_recipe.title}</p>
-          <form phx-submit="tonight_command" class="mt-4">
-            <input
-              type="text"
-              name="command"
-              autocomplete="off"
-              autofocus
-              placeholder={gettext("Anything about tonight…")}
-              class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-              style="font-size: 16px;"
-            />
-          </form>
-        </div>
-      </div>
+        <p class="t-eyebrow">{gettext("Tonight")}</p>
+        <p class="t-head mt-1">{@tonight_recipe.title}</p>
+        <form phx-submit="tonight_command" class="mt-4">
+          <input
+            type="text"
+            name="command"
+            autocomplete="off"
+            autofocus
+            placeholder={gettext("Anything about tonight…")}
+            class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+            style="font-size: 16px;"
+          />
+        </form>
+      </.bottom_sheet>
     </Layouts.app>
     """
   end

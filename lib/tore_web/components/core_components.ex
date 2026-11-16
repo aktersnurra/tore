@@ -611,24 +611,66 @@ defmodule ToreWeb.CoreComponents do
     do: "bg-transparent text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
 
   @doc ~S"""
-  Square 44px icon button.
+  Square 44px icon button. Variant: :ghost (default), or :filled for a header action that
+  stands on its own.
 
       <.icon_button icon="hero-x-mark" label="Close" phx-click="close" />
+      <.icon_button icon="hero-document-text" label="Show as text" variant={:filled} />
   """
   attr :icon, :string, required: true
   attr :label, :string, required: true
+  attr :variant, :atom, values: [:ghost, :filled], default: :ghost
   attr :rest, :global, include: ~w(phx-click phx-value-id href)
 
   def icon_button(assigns) do
     ~H"""
     <button
       type="button"
-      class="inline-flex items-center justify-center size-11 rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[var(--text)]"
+      class={[
+        "press inline-flex items-center justify-center size-11 shrink-0 rounded-[var(--r-pill)] hover:text-[var(--text)]",
+        @variant == :ghost && "text-[color:var(--muted)] hover:bg-[var(--sunken)]",
+        @variant == :filled && "bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+      ]}
       {@rest}
     >
       <.icon name={@icon} class="size-5" />
       <span class="sr-only">{@label}</span>
     </button>
+    """
+  end
+
+  @doc ~S"""
+  A sheet that rises from the bottom over a scrim. The handle, a tap on the scrim and Escape
+  all send `on_close`.
+
+      <.bottom_sheet id="item-sheet" on_close="close_item_sheet">…</.bottom_sheet>
+  """
+  attr :id, :string, required: true
+  attr :on_close, :string, required: true
+  attr :class, :any, default: nil, doc: "classes for the sheet's panel"
+  slot :inner_block, required: true
+
+  def bottom_sheet(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class="fixed inset-0 z-50 flex items-end justify-center"
+      phx-window-keydown={@on_close}
+      phx-key="Escape"
+    >
+      <div class="scrim absolute inset-0 bg-black/50" phx-click={@on_close}></div>
+      <div class={[
+        "sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1.25rem)]",
+        @class
+      ]}>
+        <div class="flex justify-center py-2">
+          <button type="button" phx-click={@on_close} aria-label={gettext("Close")} class="p-2">
+            <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
+          </button>
+        </div>
+        {render_slot(@inner_block)}
+      </div>
+    </div>
     """
   end
 

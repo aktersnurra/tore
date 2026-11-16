@@ -326,23 +326,19 @@ defmodule ToreWeb.ShopLive do
             </p>
           </div>
           <div class="mt-1 flex shrink-0 gap-2">
-            <button
-              type="button"
+            <.icon_button
+              icon="hero-viewfinder-circle"
+              label={gettext("Scan what you bought")}
+              variant={:filled}
               phx-click="open_scanner"
-              aria-label={gettext("Scan what you bought")}
-              class="press flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-            >
-              <.icon name="hero-viewfinder-circle" class="size-5" />
-            </button>
-            <button
+            />
+            <.icon_button
               :if={@total > 0}
-              type="button"
+              icon="hero-document-text"
+              label={gettext("Show as text")}
+              variant={:filled}
               phx-click="export_list"
-              aria-label={gettext("Show as text")}
-              class="press flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-            >
-              <.icon name="hero-document-text" class="size-5" />
-            </button>
+            />
           </div>
         </header>
 
@@ -446,57 +442,37 @@ defmodule ToreWeb.ShopLive do
       <.scanner :if={@scanner} scanner={@scanner} />
 
       <%!-- Grocery item object sheet (long-press) --%>
-      <div
-        :if={@item_sheet}
-        id="item-sheet"
-        class="fixed inset-0 z-50 flex items-end justify-center"
-        phx-window-keydown="close_item_sheet"
-        phx-key="Escape"
-      >
-        <div class="scrim absolute inset-0 bg-black/50" phx-click="close_item_sheet"></div>
-        <div class="sheet relative flex w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          <div class="flex justify-center py-2">
-            <button
-              type="button"
-              phx-click="close_item_sheet"
-              aria-label={gettext("Close")}
-              data-role="item-sheet-close"
-            >
-              <span class="w-10 h-1.5 rounded-full bg-[color:var(--border)] block"></span>
-            </button>
-          </div>
-
-          <div class="flex items-baseline gap-2 px-5 pb-1">
-            <span class="t-head">{@item_sheet.name}</span>
-            <span :if={qty_label(@item_sheet) != ""} class="num text-[15px] text-[color:var(--muted)]">
-              {qty_label(@item_sheet)}
-            </span>
-          </div>
-
-          <div class="px-5 pt-3">
-            <form phx-submit="item_command">
-              <input
-                type="text"
-                name="command"
-                autocomplete="off"
-                autofocus
-                placeholder={gettext("Anything about this item…")}
-                class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-                style="font-size: 16px;"
-              />
-            </form>
-            <button
-              type="button"
-              phx-click="remove_item"
-              phx-value-item_id={@item_sheet.id}
-              class="press mt-4 flex h-11 items-center gap-2 text-[15px] font-semibold text-[color:var(--danger)]"
-            >
-              <.icon name="hero-trash" class="size-4" />
-              {gettext("Remove from the list")}
-            </button>
-          </div>
+      <.bottom_sheet :if={@item_sheet} id="item-sheet" on_close="close_item_sheet">
+        <div class="flex items-baseline gap-2 px-5 pb-1">
+          <span class="t-head">{@item_sheet.name}</span>
+          <span :if={qty_label(@item_sheet) != ""} class="num text-[15px] text-[color:var(--muted)]">
+            {qty_label(@item_sheet)}
+          </span>
         </div>
-      </div>
+
+        <div class="px-5 pt-3">
+          <form phx-submit="item_command">
+            <input
+              type="text"
+              name="command"
+              autocomplete="off"
+              autofocus
+              placeholder={gettext("Anything about this item…")}
+              class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+              style="font-size: 16px;"
+            />
+          </form>
+          <button
+            type="button"
+            phx-click="remove_item"
+            phx-value-item_id={@item_sheet.id}
+            class="press mt-4 flex h-11 items-center gap-2 text-[15px] font-semibold text-[color:var(--danger)]"
+          >
+            <.icon name="hero-trash" class="size-4" />
+            {gettext("Remove from the list")}
+          </button>
+        </div>
+      </.bottom_sheet>
     </Layouts.app>
     """
   end
@@ -506,104 +482,94 @@ defmodule ToreWeb.ShopLive do
   # The camera fills the top of the sheet; each pack scanned gets a line under it, with Undo.
   defp scanner(assigns) do
     ~H"""
-    <div
-      class="fixed inset-0 z-50 flex items-end justify-center"
-      phx-window-keydown="close_scanner"
-      phx-key="Escape"
-    >
-      <div class="scrim absolute inset-0 bg-black/50" phx-click="close_scanner"></div>
-      <div class="sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-        <div class="flex items-center justify-between px-5 pt-4 pb-3">
-          <h2 class="t-head">{gettext("Scan what you unpack")}</h2>
-          <.icon_button icon="hero-x-mark" label={gettext("Close")} phx-click="close_scanner" />
+    <.bottom_sheet id="scanner-sheet" on_close="close_scanner">
+      <h2 class="t-head px-5 pb-3">{gettext("Scan what you unpack")}</h2>
+
+      <div
+        id="scanner"
+        phx-hook="Scanner"
+        phx-update="ignore"
+        data-state="starting"
+        class="scanner-view relative mx-5 aspect-[4/3] overflow-hidden rounded-[var(--r-xl)] bg-black"
+      >
+        <video class="size-full object-cover" playsinline muted autoplay></video>
+        <div class="scanner-frame pointer-events-none absolute inset-x-[12%] top-1/2 h-[34%] -translate-y-1/2 rounded-[var(--r-lg)]">
         </div>
-
-        <div
-          id="scanner"
-          phx-hook="Scanner"
-          phx-update="ignore"
-          data-state="starting"
-          class="scanner-view relative mx-5 aspect-[4/3] overflow-hidden rounded-[var(--r-xl)] bg-black"
-        >
-          <video class="size-full object-cover" playsinline muted autoplay></video>
-          <div class="scanner-frame pointer-events-none absolute inset-x-[12%] top-1/2 h-[34%] -translate-y-1/2 rounded-[var(--r-lg)]">
-          </div>
-        </div>
-
-        <p
-          class="mx-5 mt-3 min-h-[1.5em] text-[15px] text-[color:var(--muted)]"
-          role="status"
-          aria-live="polite"
-        >
-          <%= cond do %>
-            <% @scanner.camera == :failed -> %>
-              <span class="text-[color:var(--danger)]">
-                {gettext("Tore can't use the camera. Allow it for this site, or add items by name.")}
-              </span>
-            <% @scanner.busy -> %>
-              <span class="inline-flex items-center gap-2">
-                <span class="loading loading-spinner loading-xs"></span>
-                {gettext("Looking it up…")}
-              </span>
-            <% true -> %>
-              {gettext("Hold a barcode in the frame.")}
-          <% end %>
-        </p>
-
-        <form
-          :if={@scanner.asking}
-          id="scanner-name"
-          phx-submit="name_product"
-          class="rise-in mx-5 mt-3"
-        >
-          <label for="scanner-name-input" class="block text-[15px] font-semibold">
-            {gettext("Tore doesn't know this code. What is it?")}
-          </label>
-          <div class="mt-2 flex gap-2">
-            <input
-              id="scanner-name-input"
-              type="text"
-              name="name"
-              autocomplete="off"
-              required
-              placeholder={gettext("Name")}
-              class="h-12 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-              style="font-size: 16px;"
-            />
-            <button type="submit" class="pill pill-lamp press">{gettext("Save")}</button>
-          </div>
-        </form>
-
-        <ul id="scanner-lines" class="menu-lines mx-5 mt-2 overflow-y-auto">
-          <li
-            :for={line <- @scanner.lines}
-            id={"scan-#{line.id}"}
-            class={["rise-in flex min-h-[52px] items-center gap-3 py-2", line.undone && "opacity-50"]}
-          >
-            <.icon
-              name={if line.change == :failed, do: "hero-exclamation-circle", else: "hero-check"}
-              class={[
-                "size-5 shrink-0",
-                if(line.change == :failed,
-                  do: "text-[color:var(--danger)]",
-                  else: "text-[color:var(--done)]"
-                )
-              ]}
-            />
-            <span class="min-w-0 flex-1 text-[15px]">{scan_line(line)}</span>
-            <button
-              :if={line.change != :failed and not line.undone}
-              type="button"
-              phx-click="undo_scan"
-              phx-value-id={line.id}
-              class="press h-11 px-2 text-[15px] font-semibold text-[color:var(--accent-ink)]"
-            >
-              {gettext("Undo")}
-            </button>
-          </li>
-        </ul>
       </div>
-    </div>
+
+      <p
+        class="mx-5 mt-3 min-h-[1.5em] text-[15px] text-[color:var(--muted)]"
+        role="status"
+        aria-live="polite"
+      >
+        <%= cond do %>
+          <% @scanner.camera == :failed -> %>
+            <span class="text-[color:var(--danger)]">
+              {gettext("Tore can't use the camera. Allow it for this site, or add items by name.")}
+            </span>
+          <% @scanner.busy -> %>
+            <span class="inline-flex items-center gap-2">
+              <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" />
+              {gettext("Looking it up…")}
+            </span>
+          <% true -> %>
+            {gettext("Hold a barcode in the frame.")}
+        <% end %>
+      </p>
+
+      <form
+        :if={@scanner.asking}
+        id="scanner-name"
+        phx-submit="name_product"
+        class="rise-in mx-5 mt-3"
+      >
+        <label for="scanner-name-input" class="block text-[15px] font-semibold">
+          {gettext("Tore doesn't know this code. What is it?")}
+        </label>
+        <div class="mt-2 flex gap-2">
+          <input
+            id="scanner-name-input"
+            type="text"
+            name="name"
+            autocomplete="off"
+            required
+            placeholder={gettext("Name")}
+            class="h-12 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+            style="font-size: 16px;"
+          />
+          <button type="submit" class="pill pill-lamp press">{gettext("Save")}</button>
+        </div>
+      </form>
+
+      <ul id="scanner-lines" class="menu-lines mx-5 mt-2 overflow-y-auto">
+        <li
+          :for={line <- @scanner.lines}
+          id={"scan-#{line.id}"}
+          class={["rise-in flex min-h-[52px] items-center gap-3 py-2", line.undone && "opacity-50"]}
+        >
+          <.icon
+            name={if line.change == :failed, do: "hero-exclamation-circle", else: "hero-check"}
+            class={[
+              "size-5 shrink-0",
+              if(line.change == :failed,
+                do: "text-[color:var(--danger)]",
+                else: "text-[color:var(--done)]"
+              )
+            ]}
+          />
+          <span class="min-w-0 flex-1 text-[15px]">{scan_line(line)}</span>
+          <button
+            :if={line.change != :failed and not line.undone}
+            type="button"
+            phx-click="undo_scan"
+            phx-value-id={line.id}
+            class="press h-11 px-2 text-[15px] font-semibold text-[color:var(--accent-ink)]"
+          >
+            {gettext("Undo")}
+          </button>
+        </li>
+      </ul>
+    </.bottom_sheet>
     """
   end
 
