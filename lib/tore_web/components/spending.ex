@@ -127,19 +127,23 @@ defmodule ToreWeb.Spending do
           {Calendar.strftime(@date, "%-d/%-m")}
         </span>
       </span>
+      <%!-- Quiet: which week it counts towards is a detail; the amount is the row's value. --%>
       <button
         :if={@receipt}
+        id={"receipt-week-#{@receipt.id}-#{@receipt.week_start}"}
         type="button"
         phx-click="move_receipt_week"
         phx-value-id={@receipt.id}
         data-role="receipt-week"
-        class="pill press num shrink-0"
+        class="settle press num inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 font-medium text-[color:var(--muted)] hover:text-[color:var(--text)]"
+        style="font-size: var(--t-meta);"
         aria-label={
           gettext("Counts towards week %{week}. Tap to move it.",
             week: Tore.Streams.week_number(@receipt.week_start)
           )
         }
       >
+        <.icon name="hero-arrows-right-left" class="size-3.5" />
         {gettext("Week %{week}", week: Tore.Streams.week_number(@receipt.week_start))}
       </button>
       <span :if={@amount} class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">

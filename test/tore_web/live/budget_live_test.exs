@@ -149,9 +149,14 @@ defmodule ToreWeb.BudgetLiveTest do
       html = view |> form("#budget form", %{amount: "2 000"}) |> render_submit()
       assert html =~ "Sparat."
       assert Budget.amount(home_scope(), week_start()) == Decimal.new(2000)
+      send(view.pid, :budget_saved_shown)
+      refute render(view) =~ "Sparat."
 
       html = view |> form("#budget form", %{amount: "tvåtusen"}) |> render_submit()
       assert html =~ "Skriv ett belopp i kronor."
+      # The field keeps what was typed, so the error sits next to its cause.
+      assert view |> element(~s(#budget input[name="amount"])) |> render() =~ ~s(value="tvåtusen")
+      assert has_element?(view, ~s(#budget input[aria-invalid="true"]))
       assert Budget.amount(home_scope(), week_start()) == Decimal.new(2000)
 
       view |> form("#budget form", %{amount: ""}) |> render_submit()

@@ -273,6 +273,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .reveal { animation: rise var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 55ms); }
 
+/* A value that changed in place settles in rather than snapping. Key the element's id on the
+   value, so a new value is a new element and the animation runs again. */
+@keyframes settle { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.settle { animation: settle var(--dur-base) var(--ease-out) both; }
+
 @keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
 .pop { animation: pop var(--dur-base) var(--ease-spring) both; }
 

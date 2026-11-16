@@ -33,7 +33,8 @@ defmodule ToreWeb.SettingsLive do
        prefs: Household.get_preferences(scope),
        budget_saved: false,
        budget_error: nil
-     )}
+     )
+     |> assign_budget_text()}
   end
 
   @dietary_restrictions ~w(vegetarian vegan gluten_free lactose_free low_carb high_protein nut_free)
@@ -158,16 +159,23 @@ defmodule ToreWeb.SettingsLive do
          prefs: Household.get_preferences(socket.assigns.current_scope),
          budget_saved: true,
          budget_error: nil
-       )}
+       )
+       |> assign_budget_text()
+       |> tap(fn _ -> Process.send_after(self(), :budget_saved_shown, 2000) end)}
     else
       _ ->
         {:noreply,
-         assign(socket, budget_saved: false, budget_error: gettext("Enter an amount in kronor."))}
+         assign(socket,
+           budget_saved: false,
+           budget_error: gettext("Enter an amount in kronor."),
+           budget_text: text
+         )}
     end
   end
 
-  def handle_event("budget_changed", _params, socket),
-    do: {:noreply, assign(socket, budget_saved: false, budget_error: nil)}
+  # What's typed stays in the field until it's saved, so an error is shown next to its cause.
+  def handle_event("budget_changed", %{"amount" => text}, socket),
+    do: {:noreply, assign(socket, budget_saved: false, budget_error: nil, budget_text: text)}
 
   def handle_event("rename_household", %{"name" => name}, socket) do
     case Household.rename(socket.assigns.current_scope, name) do
@@ -182,6 +190,10 @@ defmodule ToreWeb.SettingsLive do
     _ = Memory.forget(scope, String.to_integer(id))
     {:noreply, assign(socket, memory: Memory.stores(scope))}
   end
+
+  # "Saved." has been seen; it goes, so the next save says it again.
+  def handle_info(:budget_saved_shown, socket),
+    do: {:noreply, assign(socket, budget_saved: false)}
 
   defp assign_members(socket) do
     scope = socket.assigns.current_scope
@@ -465,10 +477,16 @@ defmodule ToreWeb.SettingsLive do
                 type="text"
                 name="amount"
                 inputmode="decimal"
-                value={@prefs.weekly_budget && Tore.Money.format(@prefs.weekly_budget)}
+                value={@budget_text}
                 placeholder={gettext("No budget")}
                 aria-label={gettext("Weekly budget in kronor")}
-                class="num flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
+                aria-invalid={@budget_error && "true"}
+                aria-describedby={@budget_error && "budget-error"}
+                class={[
+                  "num flex-1 min-w-0 rounded-[var(--r-md)] border bg-[color:var(--surface)] px-3 py-2 transition-colors duration-[var(--dur-fast)]",
+                  @budget_error && "border-[color:var(--warn)]",
+                  !@budget_error && "border-[color:var(--hairline)]"
+                ]}
                 style="font-size: var(--t-body);"
               />
               <span class="text-[color:var(--muted)]" style="font-size: var(--t-body);">kr</span>
@@ -483,13 +501,14 @@ defmodule ToreWeb.SettingsLive do
             <p
               :if={@budget_saved}
               role="status"
-              class="reveal mt-2 text-[color:var(--done)]"
+              class="settle mt-2 text-[color:var(--done)]"
               style="font-size: var(--t-meta);"
             >
               {gettext("Saved.")}
             </p>
             <p
               :if={@budget_error}
+              id="budget-error"
               role="alert"
               class="mt-2 text-[color:var(--warn)]"
               style="font-size: var(--t-meta);"
@@ -728,6 +747,11 @@ defmodule ToreWeb.SettingsLive do
       </.page>
     </Layouts.app>
     """
+  end
+
+  defp assign_budget_text(socket) do
+    budget = socket.assigns.prefs.weekly_budget
+    assign(socket, budget_text: budget && Tore.Money.format(budget))
   end
 
   defp parse_amount(text) do

@@ -157,6 +157,7 @@ defmodule ToreWeb.ShopLive do
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
   def handle_event("move_receipt_week", %{"id" => id}, socket) do
+    # The chip's id carries the week, so the moved receipt's chip settles in with its new one.
     _ = Tore.Costs.move_receipt_week(socket.assigns.current_scope, String.to_integer(id))
     {:noreply, reload_spending(socket)}
   end
@@ -632,7 +633,7 @@ defmodule ToreWeb.ShopLive do
         <p
           :if={Map.get(@item, :basic) && !Map.get(@item, :pantry_belief)}
           data-role="basic"
-          class="text-[color:var(--subtle)] mt-0.5"
+          class="text-[color:var(--muted)] mt-0.5"
           style="font-size: var(--t-micro);"
         >
           {gettext("Basic")}

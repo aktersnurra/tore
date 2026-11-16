@@ -444,9 +444,10 @@ defmodule ToreWeb.PlannerLive do
             </p>
             <p
               :if={@verdict}
+              id={"week-verdict-#{@week_start}-#{@verdict.spent}-#{@verdict.budget}"}
               data-role="week-verdict"
               class={[
-                "num mt-1 font-semibold",
+                "settle num mt-1 font-semibold",
                 @verdict.budget && Decimal.gt?(@verdict.spent, @verdict.budget) &&
                   "text-[color:var(--warn)]",
                 !(@verdict.budget && Decimal.gt?(@verdict.spent, @verdict.budget)) &&
@@ -458,9 +459,10 @@ defmodule ToreWeb.PlannerLive do
             </p>
             <p
               :if={!@verdict and (@budget.estimate.total > 0 or @budget.budget)}
+              id={"week-estimate-#{@week_start}-#{@budget.expected}-#{@budget.budget}"}
               data-role="week-estimate"
               class={[
-                "num mt-1 transition-colors duration-200",
+                "settle num mt-1",
                 @budget.over && "text-[color:var(--warn)] font-semibold",
                 !@budget.over && "text-[color:var(--muted)]"
               ]}
@@ -1112,7 +1114,13 @@ defmodule ToreWeb.PlannerLive do
         <span
           :if={@price}
           data-role="price-diff"
-          class="num shrink-0 self-center text-[color:var(--muted)]"
+          class={[
+            "num shrink-0 self-center",
+            if(String.starts_with?(@price, "−"),
+              do: "text-[color:var(--done)] font-medium",
+              else: "text-[color:var(--muted)]"
+            )
+          ]}
           style="font-size: var(--t-meta);"
         >
           {@price}
