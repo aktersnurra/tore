@@ -16,7 +16,20 @@ defmodule Tore.Mcp do
     Tools.SearchRecipes,
     Tools.GetRecipe,
     Tools.ListReceipts,
-    Tools.ListDeals
+    Tools.ListDeals,
+    Tools.SetDinner,
+    Tools.ChangeDay,
+    Tools.AddToList,
+    Tools.CheckOff,
+    Tools.RemoveFromList,
+    Tools.MakeList,
+    Tools.AddToPantry,
+    Tools.RemoveFromPantry,
+    Tools.UpdateMemory,
+    Tools.MarkCooked,
+    Tools.DeleteRecipe,
+    Tools.DeleteReceipt,
+    Tools.Undo
   ]
 
   def tools, do: @tools

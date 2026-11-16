@@ -25,7 +25,7 @@ defmodule Tore.Capture.Dispatch do
   @default_servings 4
   @suggestion_limit 4
 
-  @type ctx :: %{required(:scope) => Tore.Scope.t()}
+  @type ctx :: %{required(:scope) => Tore.Scope.t(), optional(:actor) => :mcp}
   @type bubble :: map()
 
   # ── receipt ────────────────────────────────────────────────────────────
@@ -242,7 +242,8 @@ defmodule Tore.Capture.Dispatch do
       when is_integer(recipe_id) and is_map(ctx) do
     with {:ok, diff, run_ctx} <-
            Kinds.SetPlanSlot.proposal(ctx.scope, date, recipe_id, servings || @default_servings),
-         {:ok, %KitchenRun{} = run} <- Runs.submit(ctx.scope, Kinds.SetPlanSlot, diff, run_ctx) do
+         {:ok, %KitchenRun{} = run} <-
+           Runs.submit(ctx.scope, Kinds.SetPlanSlot, diff, as_actor(run_ctx, ctx)) do
       slot_bubble(run, date, diff)
     else
       {:error, reason} -> error_bubble(:plan, reason)
@@ -327,7 +328,7 @@ defmodule Tore.Capture.Dispatch do
 
   # A shop change through a shop edit run. The reply offers Undo when the change has one.
   defp edit_shop(ctx, change, undoable?, applied_text) do
-    case Runs.submit(ctx.scope, Kinds.ShopEdit, change, %{change: change}) do
+    case Runs.submit(ctx.scope, Kinds.ShopEdit, change, as_actor(%{change: change}, ctx)) do
       {:ok, %KitchenRun{status: :applied, id: id}} ->
         bubble = %{role: :assistant, shop_link: true, text: applied_text.()}
         if undoable?, do: Map.put(bubble, :run_stream_id, id), else: bubble
@@ -456,7 +457,11 @@ defmodule Tore.Capture.Dispatch do
   def add_to_pantry(name, quantity, unit, ctx) when is_binary(name) do
     item = %{name: name, quantity: Tore.Types.decimal(quantity), unit: unit}
 
-    case Runs.start(ctx.scope, Kinds.PantryUpdate, %{channel: :manual, items: [item]}) do
+    case Runs.start(
+           ctx.scope,
+           Kinds.PantryUpdate,
+           as_actor(%{channel: :manual, items: [item]}, ctx)
+         ) do
       {:ok, %KitchenRun{status: :applied, id: id, undo: {:steps, [step]}}} ->
         text =
           case step do
@@ -483,7 +488,11 @@ defmodule Tore.Capture.Dispatch do
       {:ok, item} ->
         removal = %{name: item.name, item_id: item.id}
 
-        case Runs.start(ctx.scope, Kinds.PantryUpdate, %{channel: :manual, items: [removal]}) do
+        case Runs.start(
+               ctx.scope,
+               Kinds.PantryUpdate,
+               as_actor(%{channel: :manual, items: [removal]}, ctx)
+             ) do
           {:ok, %KitchenRun{status: :applied, id: id}} ->
             %{
               role: :assistant,
@@ -629,7 +638,8 @@ defmodule Tore.Capture.Dispatch do
     command = command.(Streams.slot_key(date))
 
     with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(ctx.scope, plan_id, command),
-         {:ok, %KitchenRun{} = run} <- Runs.submit(ctx.scope, Kinds.PlanEdit, diff, run_ctx) do
+         {:ok, %KitchenRun{} = run} <-
+           Runs.submit(ctx.scope, Kinds.PlanEdit, diff, as_actor(run_ctx, ctx)) do
       case run do
         %KitchenRun{status: :applied, id: id} ->
           %{role: :assistant, text: applied_text.(), run_stream_id: id}
@@ -767,7 +777,7 @@ defmodule Tore.Capture.Dispatch do
 
     case Kinds.MemoryReview.check(ctx.scope, [batch]) do
       :ok ->
-        case Runs.submit(ctx.scope, Kinds.MemoryUpdate, [batch], %{batch: batch}) do
+        case Runs.submit(ctx.scope, Kinds.MemoryUpdate, [batch], as_actor(%{batch: batch}, ctx)) do
           {:ok, %KitchenRun{status: :applied} = run} ->
             run |> memory_bubble() |> Map.put(:memory, Memory.snapshot(ctx.scope))
 
@@ -898,8 +908,12 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
+  # The reason rides along for a caller that can act on it (MCP); Capture shows only the text.
   defp error_bubble(kind, reason),
-    do: %{role: :assistant, error: true, text: error_text(kind, reason)}
+    do: %{role: :assistant, error: true, text: error_text(kind, reason), reason: reason}
+
+  # A run opened for MCP is recorded as MCP's, not the person's in the app.
+  defp as_actor(run_ctx, ctx), do: Map.merge(run_ctx, Map.take(ctx, [:actor]))
 
   defp error_text(kind, reason) do
     require Logger

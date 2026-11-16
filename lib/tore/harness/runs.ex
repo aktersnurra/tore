@@ -298,6 +298,8 @@ defmodule Tore.Harness.Runs do
     # A kind missing from the registry couldn't be confirmed, discarded or reverted later.
     ^kind = Kinds.fetch!(kind.kind())
     %{input: input, actor: actor} = kind.open(ctx)
+    # Who asked, when the caller says (`:mcp`); otherwise the kind's own.
+    actor = Map.get(ctx, :actor, actor)
 
     run =
       scope

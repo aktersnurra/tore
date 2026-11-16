@@ -22,6 +22,8 @@ defmodule ToreWeb.McpAuth do
          true <- token != "",
          {:ok, sub} <- Token.impl().verify(token),
          {_user, scope} <- Accounts.get_session_by_sub(sub) do
+      # Replies are written in the household's language, as everything it stores is.
+      Gettext.put_locale(ToreWeb.Gettext, Tore.Household.locale(scope) || "sv")
       assign(conn, :current_scope, scope)
     else
       {:enabled, false} ->

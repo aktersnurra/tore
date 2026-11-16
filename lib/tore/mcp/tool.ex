@@ -11,4 +11,32 @@ defmodule Tore.Mcp.Tool do
   @callback description() :: String.t()
   @callback schema() :: map()
   @callback call(Scope.t(), map()) :: {:ok, map()} | {:error, String.t()}
+
+  @doc "What `Tore.Capture.Dispatch` needs to act for MCP: the household, and who asked."
+  @spec ctx(Scope.t()) :: Tore.Capture.Dispatch.ctx()
+  def ctx(%Scope{} = scope), do: %{scope: scope, actor: :mcp}
+
+  @doc """
+  A Dispatch reply as a tool's answer: what was done and the run to undo it with, or why not.
+  The text is the same Capture shows, in the household's language.
+  """
+  @spec reply(map()) :: {:ok, map()} | {:error, String.t()}
+  def reply(%{error: true, text: text} = reply),
+    do: {:error, "#{text} (#{inspect(reply[:reason])})"}
+
+  def reply(%{rejection: rejection} = reply),
+    do: {:error, String.trim("#{reply[:text]} Refused: #{inspect(rejection)}")}
+
+  def reply(%{text: text} = reply), do: {:ok, %{done: text, run_id: reply[:run_stream_id]}}
+
+  @doc "An ISO date argument, or a message saying what was expected."
+  @spec date(term()) :: {:ok, Date.t()} | {:error, String.t()}
+  def date(value) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> {:ok, date}
+      _ -> {:error, "date must be an ISO date, like 2026-11-18, not #{inspect(value)}."}
+    end
+  end
+
+  def date(_value), do: {:error, "date is required, as an ISO date like 2026-11-18."}
 end
