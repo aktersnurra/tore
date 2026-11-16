@@ -18,8 +18,10 @@ defmodule Tore.Mcp.Tools.GetContext do
     do: """
     Start here. The household's language (write every name, recipe and memory entry in it), \
     today's date, diet and allergies (hard limits), what the household has told Tore (memory), \
-    this week's and next week's dinners by date, the shopping list, the pantry with best-before \
-    dates (approximate), and what's due.\
+    this week's and next week's dinners by date, each week's budget against its estimate in \
+    kronor (`priced` of `total` ingredients have a real price, the rest are guesses), the basics \
+    added to every list, the shopping list, the pantry with best-before dates (approximate), and \
+    what's due.\
     """
 
   @impl true
@@ -42,6 +44,8 @@ defmodule Tore.Mcp.Tools.GetContext do
        memory: Household.Memory.snapshot(scope),
        this_week: week(scope, monday),
        next_week: next_week,
+       budget: %{this_week: budget(scope, monday), next_week: budget(scope, next_monday)},
+       basics: Enum.map(Tore.Basics.list(scope), & &1.name),
        shopping_list: shopping_list(scope, monday),
        pantry: pantry(scope, today),
        due: due(next_week, pantry)
@@ -76,13 +80,25 @@ defmodule Tore.Mcp.Tools.GetContext do
     end
   end
 
+  defp budget(scope, monday) do
+    status = Tore.Budget.status(scope, monday)
+
+    %{
+      budget: status.budget,
+      expected: status.expected,
+      over: status.over,
+      priced: status.estimate.priced,
+      total: status.estimate.total
+    }
+  end
+
   defp shopping_list(scope, monday) do
     {:ok, state} = Shop.load_list(scope, Streams.shop_list(scope, monday))
 
     state.items
     |> Map.values()
     |> Enum.sort_by(&{&1.checked, &1.name})
-    |> Enum.map(&Map.take(&1, [:id, :name, :quantity, :unit, :section, :checked]))
+    |> Enum.map(&Map.take(&1, [:id, :name, :quantity, :unit, :section, :checked, :basic]))
   end
 
   defp pantry(scope, today) do

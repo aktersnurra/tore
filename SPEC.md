@@ -613,7 +613,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §7 Eating out | Built |
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
-| §10 Weekly budget | Being built (2026-11-16): prices, a budget on the plan, the verdict and calibration, basics, timing |
+| §10 Weekly budget | Built (2026-11-16), not yet tried on live ICA offers or receipts |
 | Recipe import from a link or photo | Built, through `:recipe_ingestion_run`: Capture reads it and saves it, with undo |
 | Recipe proposals from the planner: find on the web, import, adapt (§2) | Built |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
@@ -625,9 +625,8 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
-1. Weekly budget: plan to a budget using deals, then a verdict and a learned estimate at week's end.
-2. Instagram recipes.
-3. A prep upgrade.
+1. Instagram recipes.
+2. A prep upgrade.
 
 Several households on one server, with a gate on who may use the server's LLM, landed on 2026-11-09 (§Auth and Multi-Tenancy).
 Run core and household memory landed on 2026-11-10 (§A.2, §1).
@@ -855,7 +854,7 @@ Plan links to "Prep this week". The page generates a guide from the week's plan 
 
 ### 10. Weekly budget
 
-**Status: being built.** Spec `.docs/specs/weekly-budget.md`, plan `.docs/plans/weekly-budget.md`.
+**Status: built (2026-11-16).** Not yet tried against live ICA offers, which `Req` can't fetch (§8). Spec `.docs/specs/weekly-budget.md`, plan `.docs/plans/weekly-budget.md`.
 
 A week's budget covers the whole shop. It is the week's own, set when someone asks to plan to one, or the household's
 default from Settings (`Tore.Budget`). The plan is aimed at it and never refused for it: a dinner someone chose is never
@@ -1143,11 +1142,14 @@ model, so a household nobody sponsors gets the whole loop. Setup: `docs/guides/m
   `/.well-known/oauth-protected-resource`; a 401 points there. Unset audience means `/mcp` is a 404.
 - **Who.** The token's `sub` is a user who has signed in once; calls run as their active household's
   scope, in its language.
-- **Tools.** Reads: `get_context` (language, today, diet, memory, both weeks' plan, the list, the pantry,
-  what's due), `search_recipes`, `get_recipe`, `list_receipts`, `list_deals`. Writes call the same
-  `Capture.Dispatch` functions Capture's tools do, with `actor: :mcp`: `set_dinner`, `change_day`,
-  `add_to_list`, `check_off`, `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`,
-  `update_memory`, `mark_cooked`, `delete_recipe`, `delete_receipt`. `save_recipe` and `log_receipt`
+- **Tools.** Reads: `get_context` (language, today, diet, memory, both weeks' plan and their budget against
+  the estimate, the basics, the list, the pantry, what's due), `search_recipes`, `get_recipe`, `list_receipts`,
+  `list_deals` (with the ingredient each offer matched). Writes call the same `Capture.Dispatch` functions
+  Capture's tools do, with `actor: :mcp`: `set_dinner`, `change_day`, `add_to_list`, `check_off`,
+  `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`, `update_memory`, `mark_cooked`,
+  `delete_recipe`, `delete_receipt`, `set_budget`, `set_basics`. `match_deals` stores Claude's own matches of
+  offers to ingredients (`Tore.Prices.Products.put/3`), so a household without the server's model still gets
+  offer prices. `save_recipe` and `log_receipt`
   submit Claude's reading as the run's proposal, so the same verifiers decide. Each write answers with
   its run id, and `undo` reverts any run. A bad argument or a refusal is a tool error Claude can read.
 - **One prompt**, `plan_week`: the weekly planner's own instruction and the household's week mode, then

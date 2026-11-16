@@ -7,6 +7,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Weekly budget (2026-11-16)
+
+- Tore knows what an ingredient costs: an offer running that week, the price paid on an earlier receipt, the usual price seen on an offer, or a guess. Every estimate says how much of it is real prices ("14 of 18 ingredients priced"). Offers and receipt lines are matched to ingredients once per product.
+- Offers keep their real prices now: decimals, "3 för 40 kr" per item, the comparison price per kg or litre, and half a year of history. A failed fetch sends an alert.
+- Set a weekly budget in Settings, or for one week in Capture ("plan next week, budget 2 000"). The planner aims at it, sees each recipe's cost, and plans once more when its own picks go over, keeping the cheaper plan. It never changes a dinner someone chose.
+- The plan screen shows the week's estimate against the budget, and a day's alternatives show what they'd change ("−35 kr"). After the week it gives the verdict: what was spent against the budget and the estimate.
+- Receipts count towards a week, a weekend shop towards the coming one; a tap on the receipt moves it. "We spent 1 900 this week" in Capture works without a receipt.
+- The estimate learns: the average gap between paid and estimated over recent weeks is added to the next one.
+- Basics: what the household buys every week beyond its dinners is learned from what gets ticked off and bought, or named in Capture ("we have cereal and milk for breakfast"). They're added to the list when due, and taking one off makes it come less often.
+- From Friday Tore fetches offers once a day until the new week's appear, then plans the week; at the latest Sunday at 18:00.
+- Over MCP: `set_budget`, `set_basics`, and `match_deals`, so a household without the server's model still gets offer prices. `get_context` shows both weeks' budget and estimate.
+- Not yet tried on live ICA offers: the fetch gets a 403 (SPEC §8).
+
 ### Tore from your own Claude (2026-11-16)
 
 - Tore is an MCP server at `/mcp`. Add it to Claude as a custom connector and sign in through Pocket ID; Claude then works on your active household, in its language.
