@@ -118,6 +118,27 @@ defmodule Tore.Mcp.ReadToolsTest do
              ok(home_scope(), "list_receipts")
   end
 
+  test "get_planning_history gives the last six weeks the memory review reads" do
+    scope = home_scope()
+    assert %{"history" => nil} = ok(scope, "get_planning_history")
+
+    pasta = recipe("Pasta")
+    plan = Tore.Streams.plan(scope, Tore.Streams.monday(Tore.Clock.today()))
+    {:ok, _} = Planning.assign_recipe(scope, plan, "mon_dinner", pasta.id, 4)
+    {:ok, _} = Planning.remove_recipe(scope, plan, "mon_dinner")
+    {:ok, _} = Planning.assign_recipe(scope, plan, "thu_dinner", pasta.id, 4)
+    {:ok, _} = Planning.skip_meal(scope, plan, "thu_dinner")
+
+    %{"history" => history} = ok(scope, "get_planning_history")
+
+    assert history =~ "2 meals planned, 1 skipped"
+    assert history =~ "Skip-heavy days: thu (1)"
+    assert history =~ "Pasta"
+
+    other = Tore.AccountsFixtures.household_fixture() |> Tore.AccountsFixtures.scope_fixture()
+    assert %{"history" => nil} = ok(other, "get_planning_history")
+  end
+
   test "list_deals answers with the household's current deals" do
     assert %{"deals" => []} = ok(home_scope(), "list_deals")
   end

@@ -13,6 +13,7 @@ defmodule Tore.Mcp do
 
   @tools [
     Tools.GetContext,
+    Tools.GetPlanningHistory,
     Tools.SearchRecipes,
     Tools.GetRecipe,
     Tools.ListReceipts,

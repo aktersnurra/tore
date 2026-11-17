@@ -2,7 +2,8 @@ import Config
 
 # Configure your database
 config :tore, Tore.Repo,
-  database: Path.expand("../tore_dev.db", __DIR__),
+  # TORE_DEV_DB runs a second server on a copy, as the harness experiment does.
+  database: System.get_env("TORE_DEV_DB") || Path.expand("../tore_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
@@ -99,6 +100,13 @@ config :tore, :oidc,
 
 # MCP for someone's own Claude. Unset means /mcp is off.
 config :tore, :mcp, audience: System.get_env("MCP_OIDC_AUDIENCE")
+
+# A fixed /mcp token in place of Pocket ID, for running a harness against this machine.
+if token = System.get_env("MCP_DEV_TOKEN") do
+  config :tore, :mcp, audience: "http://localhost/mcp"
+  config :tore, :mcp_token_module, Tore.Mcp.DevToken
+  config :tore, :mcp_dev, token: token, sub: System.get_env("MCP_DEV_SUB", "dev")
+end
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
