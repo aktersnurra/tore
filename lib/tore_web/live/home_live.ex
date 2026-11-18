@@ -10,32 +10,18 @@ defmodule ToreWeb.HomeLive do
     plan_id = Tore.Streams.plan(scope, week_start)
     today_key = Tore.Streams.slot_key(today)
 
-    {:ok, plan_state} = Planning.load_plan(scope, plan_id)
-
-    recipes = Recipes.list(socket.assigns.current_scope)
-    recipes_by_id = Map.new(recipes, &{&1.id, &1})
-
-    tonight_slot = Map.get(plan_state.slots, today_key)
-
-    tonight_recipe =
-      if tonight_slot && tonight_slot.recipe_id && !tonight_slot.skipped do
-        Map.get(recipes_by_id, tonight_slot.recipe_id)
-      end
-
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        today: today,
        plan_id: plan_id,
        week_start: week_start,
        today_key: today_key,
-       tonight_recipe: tonight_recipe,
-       tonight_servings: tonight_slot && tonight_slot[:servings],
-       eating_out_tonight: Tore.Planning.State.eating_out?(tonight_slot),
-       recipes_by_id: recipes_by_id,
        tonight_sheet: false,
        choices: nil,
        changed: nil
-     )}
+     )
+     |> reload_tonight()}
   end
 
   def render(assigns) do
@@ -43,7 +29,25 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <.page max_width={:sm}>
         <div class="relative z-10 h-0">
-          <.top_bar on_photo={@tonight_recipe != nil} class="absolute inset-x-0 -top-2" />
+          <.top_bar on_photo={@tonight_recipe != nil} class="absolute inset-x-0 -top-2">
+            <:actions :if={@tonight_recipe}>
+              <.page_menu id="today-menu" on_photo>
+                <.menu_item
+                  menu="today-menu"
+                  icon="ph-book-open"
+                  navigate={~p"/recipes?#{[id: @tonight_recipe.id]}"}
+                >
+                  {gettext("Open the recipe")}
+                </.menu_item>
+                <.menu_item menu="today-menu" icon="ph-chat-circle" event="open_tonight_sheet">
+                  {gettext("Ask about tonight")}
+                </.menu_item>
+                <.menu_item menu="today-menu" icon="ph-x-circle" event="skip_tonight">
+                  {gettext("No dinner tonight")}
+                </.menu_item>
+              </.page_menu>
+            </:actions>
+          </.top_bar>
         </div>
 
         <%!-- Tonight: the dish is the screen --%>
@@ -53,7 +57,8 @@ defmodule ToreWeb.HomeLive do
           phx-hook="LongPress"
           data-long-press-event="open_tonight_sheet"
         >
-          <div class="relative -mx-4 -mt-4 h-[64svh] min-h-[400px] max-h-[620px] overflow-hidden bg-[var(--sunken)] md:mx-0 md:mt-0 md:rounded-[28px]">
+          <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn --%>
+          <div class="relative -mx-4 -mt-4 h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)]">
             <img
               :if={photo?(@tonight_recipe)}
               src={~p"/images/recipes/#{@tonight_recipe.id}"}
@@ -61,35 +66,92 @@ defmodule ToreWeb.HomeLive do
               class="absolute inset-0 size-full object-cover"
               style={"view-transition-name: dish-#{@tonight_recipe.id}"}
             />
-            <.blank_cover :if={!photo?(@tonight_recipe)} dish={@tonight_recipe} icon_class="size-24" />
-            <div class="photo-foot absolute inset-x-0 bottom-0 h-3/5" aria-hidden="true"></div>
-            <div class="absolute inset-x-0 bottom-0 px-4 pb-1 md:px-5">
-              <p class="reveal t-eyebrow num" style="--i: 0">
-                {gettext("Dinner")} · {ToreWeb.Dates.long(@today)}
-              </p>
-              <h1 class="reveal t-display mt-2" style="--i: 1">{@tonight_recipe.title}</h1>
-            </div>
+            <.blank_cover :if={!photo?(@tonight_recipe)} dish={@tonight_recipe} icon_class="size-20" />
           </div>
 
-          <div
-            class="reveal scroll-quiet -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0"
-            style="--i: 2"
-          >
+          <div class="reveal relative -mt-9" style="--i: 0">
+            <.page_icon
+              icon={ToreWeb.Look.icon(@tonight_recipe)}
+              tint={ToreWeb.Look.tint(@tonight_recipe.recipe_type)}
+              class="size-[72px] rounded-[var(--r-xl)] ring-4 ring-[var(--bg)]"
+            />
+          </div>
+          <h1 class="reveal t-display mt-3" style="--i: 1">{@tonight_recipe.title}</h1>
+
+          <dl class="props reveal mt-4" style="--i: 2">
+            <div>
+              <dt><.icon name="ph-calendar-blank" /> {gettext("Day")}</dt>
+              <dd class="flex items-center gap-2">
+                <span class="tag tag-red">{gettext("Tonight")}</span>
+                <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@today)}</span>
+              </dd>
+            </div>
+            <div>
+              <dt><.icon name="ph-tag" /> {gettext("Collection")}</dt>
+              <dd>
+                <span class={["tag", "tag-#{ToreWeb.Look.tint(@tonight_recipe.recipe_type)}"]}>
+                  <.icon name={ToreWeb.Look.collection_icon(@tonight_recipe.recipe_type)} />
+                  {collection_label(@tonight_recipe.recipe_type)}
+                </span>
+              </dd>
+            </div>
+            <div :if={minutes(@tonight_recipe) > 0}>
+              <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
+              <dd class="num">
+                {gettext("%{minutes} min", minutes: minutes(@tonight_recipe))}
+                <span class="text-[color:var(--muted)]">
+                  · {gettext("ready by %{time}", time: ready_by(minutes(@tonight_recipe)))}
+                </span>
+              </dd>
+            </div>
+            <div :if={@tonight_servings}>
+              <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
+              <dd class="num">{@tonight_servings}</dd>
+            </div>
+            <div :if={@tonight_recipe.recipe_ingredients != []} data-role="at-home">
+              <dt><.icon name="ph-jar" /> {gettext("At home")}</dt>
+              <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
+                {gettext("All of it")}
+              </dd>
+              <dd :if={@home.missing != []} class="flex flex-wrap items-center gap-1.5 py-1.5">
+                <span class="sr-only">
+                  {gettext("Missing: %{things}", things: Enum.join(@home.missing, ", "))}
+                </span>
+                <span :for={thing <- @home.missing} class="tag tag-red" aria-hidden="true">
+                  {thing}
+                </span>
+                <button
+                  :if={!@home_added}
+                  type="button"
+                  phx-click="add_missing"
+                  class="press text-[color:var(--muted)] underline decoration-[color:var(--subtle)] underline-offset-4 hover:text-[color:var(--text)]"
+                  style="font-size: 14px;"
+                >
+                  {gettext("Put on the list")}
+                </button>
+                <.link
+                  :if={@home_added}
+                  id="home-added"
+                  navigate={~p"/shop"}
+                  class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
+                  style="font-size: 14px;"
+                >
+                  <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
+                </.link>
+              </dd>
+            </div>
+          </dl>
+
+          <div class="reveal mt-5 flex gap-2" style="--i: 3">
             <.link
               navigate={~p"/recipes/#{@tonight_recipe.id}/cook?from=/today"}
               class="pill pill-lamp press"
               data-role="start-cooking"
             >
-              <.icon name="ph-fire-fill" /> {gettext("Cook")}
-            </.link>
-            <.link navigate={~p"/recipes?id=#{@tonight_recipe.id}"} class="pill press">
-              <.icon name="ph-book-open" /> {gettext("Recipe")}
+              <.icon name="ph-fire-fill" /> {gettext("Cook now")}
             </.link>
             <button type="button" phx-click="something_else" class="pill press">
-              <.icon name="ph-arrows-clockwise" /> {gettext("Something else")}
-            </button>
-            <button type="button" phx-click="open_tonight_sheet" class="pill press">
-              <.icon name="ph-chat-circle" /> {gettext("Ask")}
+              <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
             </button>
           </div>
 
@@ -109,24 +171,22 @@ defmodule ToreWeb.HomeLive do
             </button>
           </p>
 
-          <p
-            :if={@tonight_recipe.description not in [nil, ""]}
-            class="reveal mt-5 line-clamp-3 text-[color:var(--muted)]"
-            style="--i: 3; font-size: 15px; line-height: 1.5;"
-          >
-            {@tonight_recipe.description}
-          </p>
-
-          <dl
-            :if={tonight_facts(@tonight_recipe, @tonight_servings) != []}
-            class="facts reveal mt-5 border-t border-[color:var(--hairline)] pt-4"
-            style="--i: 4"
-          >
-            <div :for={{label, value} <- tonight_facts(@tonight_recipe, @tonight_servings)}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          </dl>
+          <section :if={@tonight_recipe.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
+            <h2 class="t-head mb-1">{gettext("Ingredients")}</h2>
+            <ul class="menu-lines">
+              <li
+                :for={ri <- @tonight_recipe.recipe_ingredients}
+                class="flex items-baseline justify-between gap-4 py-3"
+              >
+                <span class="text-[color:var(--text)]" style="font-size: 16px;">
+                  {ri.ingredient.name}
+                </span>
+                <span class="num shrink-0 text-[color:var(--muted)]" style="font-size: 15px;">
+                  {amount(ri, @tonight_recipe.base_servings, @tonight_servings)}
+                </span>
+              </li>
+            </ul>
+          </section>
         </section>
 
         <%!-- Nothing tonight: say so plainly, and offer the way forward --%>
@@ -250,16 +310,29 @@ defmodule ToreWeb.HomeLive do
     slot = Map.get(state.slots, key)
 
     tonight =
-      if slot && slot.recipe_id && !slot.skipped, do: Recipes.get(scope, slot.recipe_id)
+      if slot && slot.recipe_id && !slot.skipped,
+        do: scope |> Recipes.get_many([slot.recipe_id]) |> List.first()
 
     assign(socket,
       tonight_recipe: tonight,
       tonight_servings: slot && slot[:servings],
-      eating_out_tonight: Tore.Planning.State.eating_out?(slot)
+      eating_out_tonight: Tore.Planning.State.eating_out?(slot),
+      home:
+        tonight &&
+          Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name)),
+      home_added: false
     )
   end
 
-  defp photo?(recipe), do: recipe != nil and recipe.image_path != nil
+  # What tonight needs and the house doesn't have goes on this week's list.
+  def handle_event("add_missing", _params, %{assigns: %{home_added: false, home: %{}}} = socket) do
+    %{current_scope: scope, current_user: user, home: home, week_start: monday} = socket.assigns
+    list_id = Tore.Streams.shop_list(scope, monday)
+    for name <- home.missing, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
+    {:noreply, assign(socket, home_added: true)}
+  end
+
+  def handle_event("add_missing", _params, socket), do: {:noreply, socket}
 
   # A few other dishes for tonight, ranked from the library (no model is asked).
   def handle_event("something_else", _params, socket) do
@@ -344,18 +417,9 @@ defmodule ToreWeb.HomeLive do
   def handle_info({:choices, _suggestions}, socket), do: {:noreply, socket}
 
   def handle_info({:run_dispatched, result}, socket) do
-    %{plan_id: plan_id, today_key: today_key, recipes_by_id: recipes_by_id} = socket.assigns
-    {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, plan_id)
-    tonight_slot = Map.get(plan_state.slots, today_key)
-
-    tonight_recipe =
-      if tonight_slot && tonight_slot.recipe_id && !tonight_slot.skipped do
-        Map.get(recipes_by_id, tonight_slot.recipe_id)
-      end
-
     socket =
       socket
-      |> assign(tonight_recipe: tonight_recipe)
+      |> reload_tonight()
       |> then(fn socket ->
         case result do
           {:ok, _} ->
@@ -374,16 +438,19 @@ defmodule ToreWeb.HomeLive do
     {:noreply, socket}
   end
 
-  # The few facts worth a glance before starting: how long, for how many, when it's on the table.
-  defp tonight_facts(recipe, servings) do
-    minutes = (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
+  defp photo?(recipe), do: recipe != nil and recipe.image_path != nil
 
-    [
-      minutes > 0 && {gettext("Time"), gettext("%{minutes} min", minutes: minutes)},
-      servings && {gettext("Servings"), to_string(servings)},
-      minutes > 0 && {gettext("Ready by"), ready_by(minutes)}
-    ]
-    |> Enum.filter(& &1)
+  defp minutes(recipe), do: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
+
+  defp collection_label(:meal), do: gettext("Dinner")
+  defp collection_label(:baking), do: gettext("Baking")
+  defp collection_label(:component), do: gettext("Sauces & sides")
+  defp collection_label(:assembly), do: gettext("Assemblies")
+
+  defp amount(ri, base, servings) do
+    quantity = Recipes.scale_quantity(ri.quantity, base, servings || base)
+    unit = if ri.unit not in [nil, ""], do: " #{ri.unit}"
+    "#{quantity}#{unit}"
   end
 
   defp ready_by(minutes),

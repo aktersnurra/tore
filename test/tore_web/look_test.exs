@@ -10,7 +10,10 @@ defmodule ToreWeb.LookTest do
       assert Look.icon(%{title: "Kycklinggryta", recipe_type: :meal}) == "ph-cooking-pot-duotone"
       assert Look.icon(%{title: "Räksmörgås", recipe_type: :assembly}) == "ph-shrimp-duotone"
       assert Look.icon(%{title: "Surdegsbröd", recipe_type: :baking}) == "ph-bread-duotone"
-      assert Look.icon(%{title: "Bearnaisesås", recipe_type: :component}) == "ph-jar-label-duotone"
+
+      assert Look.icon(%{title: "Bearnaisesås", recipe_type: :component}) ==
+               "ph-jar-label-duotone"
+
       assert Look.icon(%{title: "Tomato soup"}) == "ph-bowl-steam-duotone"
     end
 

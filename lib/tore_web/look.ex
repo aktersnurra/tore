@@ -64,7 +64,9 @@ defmodule ToreWeb.Look do
 
   @doc "A collection's icon class."
   @spec collection_icon(atom() | String.t()) :: String.t()
-  def collection_icon(type) when is_binary(type), do: collection_icon(String.to_existing_atom(type))
+  def collection_icon(type) when is_binary(type),
+    do: collection_icon(String.to_existing_atom(type))
+
   def collection_icon(:meal), do: "ph-cooking-pot-duotone"
   def collection_icon(:baking), do: "ph-bread-duotone"
   def collection_icon(:component), do: "ph-jar-label-duotone"

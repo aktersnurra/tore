@@ -495,6 +495,97 @@ defmodule ToreWeb.CoreComponents do
     """
   end
 
+  @doc ~S"""
+  A page's own actions behind ⋯, for the right of `<.top_bar>`. It opens and closes in the
+  browser; each `<.menu_item>` closes it as it acts.
+
+      <.page_menu id="today-menu">
+        <.menu_item menu="today-menu" icon="ph-book-open" navigate={~p"/recipes"}>Recipe</.menu_item>
+        <.menu_item menu="today-menu" icon="ph-chat-circle" event="ask">Ask</.menu_item>
+      </.page_menu>
+  """
+  attr :id, :string, required: true
+  attr :on_photo, :boolean, default: false
+  slot :inner_block, required: true
+
+  def page_menu(assigns) do
+    ~H"""
+    <div class="relative" id={@id}>
+      <button
+        type="button"
+        phx-click={toggle_menu(@id)}
+        aria-label={gettext("More")}
+        aria-haspopup="menu"
+        data-role="page-menu"
+        class={["press", if(@on_photo, do: "on-photo", else: "icon-btn")]}
+      >
+        <.icon name="ph-dots-three" class="size-5" />
+      </button>
+      <div
+        id={"#{@id}-pop"}
+        role="menu"
+        phx-click-away={JS.hide(to: "##{@id}-pop")}
+        phx-window-keydown={JS.hide(to: "##{@id}-pop")}
+        phx-key="Escape"
+        class="absolute top-11 right-0 z-30 hidden w-60 origin-top-right overflow-hidden rounded-[var(--r-lg)] bg-[var(--bg)] py-1 shadow-[var(--shadow-pop)] ring-1 ring-[color:var(--border)]"
+      >
+        {render_slot(@inner_block)}
+      </div>
+    </div>
+    """
+  end
+
+  defp toggle_menu(id) do
+    JS.toggle(
+      to: "##{id}-pop",
+      in: {"ease-out duration-150", "opacity-0 scale-95", "opacity-100 scale-100"},
+      out: {"ease-in duration-100", "opacity-100 scale-100", "opacity-0 scale-95"}
+    )
+  end
+
+  @doc "One action in a `<.page_menu>`: a link (`navigate`) or an event sent to the page."
+  attr :menu, :string, required: true, doc: "the page menu's id, so it closes"
+  attr :icon, :string, required: true
+  attr :navigate, :string, default: nil
+  attr :event, :string, default: nil
+  attr :danger, :boolean, default: false
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def menu_item(assigns) do
+    ~H"""
+    <.link
+      :if={@navigate}
+      navigate={@navigate}
+      role="menuitem"
+      class="row-hover flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[color:var(--text)]"
+      style="font-size: 15px;"
+      {@rest}
+    >
+      <.icon name={@icon} class="size-[18px] text-[color:var(--muted)]" />
+      {render_slot(@inner_block)}
+    </.link>
+    <button
+      :if={!@navigate}
+      type="button"
+      role="menuitem"
+      phx-click={JS.push(@event) |> JS.hide(to: "##{@menu}-pop")}
+      class={[
+        "row-hover flex w-full items-center gap-3 px-3.5 py-2.5 text-left",
+        if(@danger, do: "text-[color:var(--danger)]", else: "text-[color:var(--text)]")
+      ]}
+      style="font-size: 15px;"
+      {@rest}
+    >
+      <.icon
+        name={@icon}
+        class={["size-[18px]", !@danger && "text-[color:var(--muted)]"]}
+      />
+      {render_slot(@inner_block)}
+    </button>
+    """
+  end
+
   defp page_max_class(:sm), do: "max-w-md"
   defp page_max_class(:md), do: "max-w-2xl"
   defp page_max_class(:lg), do: "max-w-4xl"

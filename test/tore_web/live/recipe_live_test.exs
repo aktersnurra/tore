@@ -313,7 +313,10 @@ defmodule ToreWeb.RecipeLiveTest do
       assert id == recipe.id
 
       render_click(lv, "toggle_recipe_menu")
-      assert lv |> element(~s([data-role="toggle-favorite"])) |> render() =~ "Ta bort från favoriter"
+
+      assert lv |> element(~s([data-role="toggle-favorite"])) |> render() =~
+               "Ta bort från favoriter"
+
       lv |> element(~s([data-role="toggle-favorite"])) |> render_click()
       assert Recipes.list_favorites(home_scope()) == []
     end

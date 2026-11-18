@@ -342,7 +342,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* ── Properties: a page's facts as quiet rows, a label on the left and its value. ── */
 .props { display: grid; gap: 2px; }
 .props > div {
-  display: grid; grid-template-columns: 9.5rem 1fr; align-items: center; min-height: 40px;
+  display: grid; grid-template-columns: 7.5rem 1fr; align-items: center; min-height: 40px;
   padding-inline: 8px; margin-inline: -8px; border-radius: var(--r-sm);
   transition: background-color var(--dur-fast) var(--ease-out);
 }

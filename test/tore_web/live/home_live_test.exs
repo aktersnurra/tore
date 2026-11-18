@@ -73,6 +73,42 @@ defmodule ToreWeb.HomeLiveTest do
     recipe
   end
 
+  describe "tonight's page" do
+    test "shows the dish's properties and ingredients, and puts what's missing on the list", %{
+      conn: conn
+    } do
+      Mox.set_mox_global()
+      Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
+
+      {:ok, buns} =
+        Tore.Recipes.create(
+          home_scope(),
+          %{
+            title: "Kanelbullar",
+            recipe_type: :baking,
+            base_servings: 4,
+            ingredients: [%{name: "smör", quantity: "100", unit: "g"}, %{name: "kanel"}]
+          },
+          image: false
+        )
+
+      Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), buns.id, 8)
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
+      {:ok, view, html} = live(conn, ~p"/today")
+
+      assert html =~ "Bakning"
+      assert html =~ "200 g"
+      assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
+
+      view |> element(~s([data-role="at-home"] button)) |> render_click()
+      assert has_element?(view, "#home-added")
+
+      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
+      {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
+      assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
+    end
+  end
+
   describe "tonight object sheet" do
     test "long-pressing the tonight card opens a sheet scoped to today with a scoped input",
          %{conn: conn} do
@@ -205,7 +241,13 @@ defmodule ToreWeb.HomeLiveTest do
       {:ok, view, _html} = live(conn, ~p"/today")
       view |> element("button", "Något annat") |> render_click()
 
-      html = view |> element("button", "Ingen middag ikväll") |> render_click()
+      html = view |> element("#choices-sheet button", "Ingen middag ikväll") |> render_click()
+      assert html =~ "Ikväll är öppen"
+
+      html = view |> element("button", "Ångra") |> render_click()
+      assert html =~ "Oxfilé"
+
+      html = view |> element("#today-menu button", "Ingen middag ikväll") |> render_click()
       assert html =~ "Ikväll är öppen"
 
       html = view |> element("button", "Ångra") |> render_click()
