@@ -34,7 +34,7 @@ defmodule Tore.LLM.OpenAIChatWithToolsTest do
       assert ["Tore Test"] = Plug.Conn.get_req_header(conn, "x-title")
 
       assert %{
-               "model" => "openai/gpt-5-mini",
+               "model" => "anthropic/claude-haiku-5.5",
                "stream" => false,
                "tool_choice" => "auto",
                "tools" => [%{"type" => "function"}],
@@ -88,7 +88,7 @@ defmodule Tore.LLM.OpenAIChatWithToolsTest do
       assert ["Bearer test-key"] = Plug.Conn.get_req_header(conn, "authorization")
 
       assert %{
-               "model" => "openai/gpt-5-mini",
+               "model" => "anthropic/claude-haiku-5.5",
                "stream" => false,
                "tool_choice" => "auto",
                "tools" => [%{"type" => "function"}],

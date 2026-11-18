@@ -227,7 +227,7 @@ defmodule Tore.LLM.OpenAI do
     client
   end
 
-  defp model, do: Application.get_env(:tore, :openrouter_model, "openai/gpt-5-mini")
+  defp model, do: Application.get_env(:tore, :openrouter_model, "anthropic/claude-haiku-5.5")
 
   defp decisions_model, do: Application.get_env(:tore, :decisions_model, "typesafe/jev-1.14")
 
