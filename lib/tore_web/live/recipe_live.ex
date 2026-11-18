@@ -33,9 +33,6 @@ defmodule ToreWeb.RecipeLive do
        show_more_filters: false,
        ingredient_rows: [],
        show_recipe_menu: false,
-       show_substitution: false,
-       substitution: nil,
-       substitution_loading: false,
        servings: nil,
        week: nil,
        put: nil
@@ -312,27 +309,6 @@ defmodule ToreWeb.RecipeLive do
      |> put_flash(:info, gettext("Making a picture. It shows up here when it's ready."))}
   end
 
-  def handle_event("toggle_substitution", _params, socket) do
-    {:noreply,
-     assign(socket, show_substitution: !socket.assigns.show_substitution, substitution: nil)}
-  end
-
-  def handle_event("get_substitution", %{"missing" => missing}, socket) when missing != "" do
-    recipe_title = (socket.assigns.selected && socket.assigns.selected.title) || "current recipe"
-    scope = socket.assigns.current_scope
-
-    ToreWeb.Background.run(
-      fn -> Recipes.suggest_substitution(scope, missing, recipe_title) end,
-      &{:substitution, &1}
-    )
-
-    {:noreply, assign(socket, substitution_loading: true)}
-  end
-
-  def handle_event("get_substitution", %{"missing" => ""}, socket) do
-    {:noreply, socket}
-  end
-
   def handle_event("validate", _params, socket), do: {:noreply, socket}
 
   def handle_event("add_ingredient_row", _, socket) do
@@ -376,23 +352,6 @@ defmodule ToreWeb.RecipeLive do
       end
 
     {:noreply, assign(socket, recipes: recipes, selected: selected)}
-  end
-
-  # The answer comes from the model, so it's asked for off the screen's own process.
-  def handle_info({:substitution, result}, socket) do
-    substitution =
-      case result do
-        {:ok, substitution} ->
-          substitution
-
-        {:error, _} ->
-          %{
-            suggestion: gettext("Couldn't find a substitution — try a web search."),
-            updated_steps: nil
-          }
-      end
-
-    {:noreply, assign(socket, substitution: substitution, substitution_loading: false)}
   end
 
   # An import still running when the sheet closes lands in the list without opening.
@@ -453,10 +412,7 @@ defmodule ToreWeb.RecipeLive do
       opened: id,
       form: nil,
       error: nil,
-      show_recipe_menu: false,
-      show_substitution: false,
-      substitution: nil,
-      substitution_loading: false
+      show_recipe_menu: false
     )
   end
 
@@ -470,10 +426,7 @@ defmodule ToreWeb.RecipeLive do
       importing: false,
       import_error: nil,
       error: nil,
-      show_recipe_menu: false,
-      show_substitution: false,
-      substitution: nil,
-      substitution_loading: false
+      show_recipe_menu: false
     )
   end
 
@@ -813,6 +766,17 @@ defmodule ToreWeb.RecipeLive do
               phx-click-away="toggle_recipe_menu"
               class="rise-in absolute right-0 top-12 z-10 w-48 origin-top-right overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] py-1 shadow-[var(--shadow-pop)]"
             >
+              <.link
+                navigate={
+                  ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", q: gettext("About %{dish}: ", dish: @selected.title)]}"
+                }
+                data-role="ask-tore"
+                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+                style="font-size: 15px;"
+              >
+                <.icon name="ph-chat-circle" class="size-4 text-[color:var(--muted)]" />
+                {gettext("Ask Tore")}
+              </.link>
               <button
                 type="button"
                 phx-click="toggle_favorite"
@@ -983,18 +947,6 @@ defmodule ToreWeb.RecipeLive do
           >
             <.icon name="ph-calendar-blank" /> {gettext("Put on the week")}
           </button>
-          <button type="button" phx-click="toggle_substitution" class="pill press">
-            <.icon name="ph-arrows-left-right" /> {gettext("Missing something?")}
-          </button>
-          <.link
-            navigate={
-              ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", q: gettext("About %{dish}: ", dish: @selected.title)]}"
-            }
-            data-role="ask-tore"
-            class="pill press"
-          >
-            <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
-          </.link>
         </div>
 
         <%!-- Which day: the next seven, each with what it has now. --%>
@@ -1032,44 +984,6 @@ defmodule ToreWeb.RecipeLive do
               </button>
             </li>
           </ul>
-        </div>
-
-        <div :if={@show_substitution} class="reveal mt-4">
-          <form phx-submit="get_substitution" class="flex gap-2">
-            <input
-              type="text"
-              name="missing"
-              placeholder={gettext("e.g. crème fraîche")}
-              autocomplete="off"
-              autofocus
-              class="h-11 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-4 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-              style="font-size: 16px;"
-            />
-            <button type="submit" class="pill press" phx-disable-with={gettext("Asking…")}>
-              {gettext("Ask")}
-            </button>
-          </form>
-          <p
-            :if={@substitution_loading}
-            role="status"
-            class="mt-3 flex items-center gap-2 text-[color:var(--muted)]"
-            style="font-size: 14px;"
-          >
-            <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
-            {gettext("Finding a swap…")}
-          </p>
-          <div :if={@substitution} class="reveal mt-3 rounded-[var(--r-lg)] bg-[var(--surface)] p-4">
-            <p class="text-[color:var(--text)]" style="font-size: 15px; line-height: 1.5;">
-              {@substitution.suggestion}
-            </p>
-            <p
-              :if={@substitution.updated_steps}
-              class="mt-2 text-[color:var(--muted)]"
-              style="font-size: 14px; line-height: 1.5;"
-            >
-              {@substitution.updated_steps}
-            </p>
-          </div>
         </div>
 
         <p
