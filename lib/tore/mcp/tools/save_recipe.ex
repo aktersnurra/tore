@@ -18,7 +18,9 @@ defmodule Tore.Mcp.Tools.SaveRecipe do
   def description,
     do: """
     Saves a recipe you read from a page or a photo, in the household's language. Ingredients \
-    are `item`, `quantity` and `unit`; steps are single actions in cooking order, grouped by a \
+    are `item`, `quantity` and `unit`; `item` is only what you buy (parmesanost, not "parmesanost, \
+    riven"), since the shopping list and pantry match on it; how it's cut or served belongs in a \
+    step. Steps are single actions in cooking order, grouped by a \
     `phase` in capitals (MISE EN PLACE, SAUCE, …), with `duration_minutes` for a step that waits. \
     `recipe_type` puts it in a collection: meal (a dinner, the only kind that's planned), baking, \
     component (sauces, dressings, sides) or assembly. \
