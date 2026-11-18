@@ -25,6 +25,15 @@ defmodule Tore.Accounts do
     end
   end
 
+  @doc "Remembers one of the user's choices, like the view Recipes opens in."
+  @spec put_preference(User.t(), String.t(), term()) ::
+          {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def put_preference(%User{} = user, key, value) when is_binary(key) do
+    user
+    |> User.preferences_changeset(%{preferences: Map.put(user.preferences, key, value)})
+    |> Repo.update()
+  end
+
   @doc "The session of the person Pocket ID knows as `sub`, as `get_session/1` gives it."
   @spec get_session_by_sub(String.t()) :: {User.t(), Scope.t()} | nil
   def get_session_by_sub(sub) when is_binary(sub) do

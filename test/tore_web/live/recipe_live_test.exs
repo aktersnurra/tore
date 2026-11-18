@@ -255,6 +255,37 @@ defmodule ToreWeb.RecipeLiveTest do
     end
   end
 
+  describe "views" do
+    test "the gallery groups by collection, and the list is remembered", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      {:ok, _} =
+        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)
+
+      {:ok, lv, html} = live(authed(conn, user), "/recipes")
+      assert has_element?(lv, ~s([data-view="gallery"][aria-selected="true"]))
+      assert has_element?(lv, ~s([data-collection="meal"]))
+      assert has_element?(lv, ~s([data-collection="baking"]))
+      assert html =~ recipe.title
+
+      lv |> element(~s([data-view="list"])) |> render_click()
+      assert has_element?(lv, ~s([data-view="list"][aria-selected="true"]))
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      assert has_element?(lv, ~s([data-view="list"][aria-selected="true"]))
+      assert render(lv) =~ "Kanelbullar"
+    end
+
+    test "search opens from the toolbar", %{conn: conn, user: user} do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      refute has_element?(lv, ~s(form[phx-change="search"]))
+      render_click(lv, "toggle_search")
+      assert has_element?(lv, ~s(form[phx-change="search"]))
+    end
+  end
+
   describe "toggle_more_filters" do
     test "expands and collapses filter panel", %{conn: conn, user: user} do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")

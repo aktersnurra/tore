@@ -3,7 +3,6 @@ defmodule ToreWeb.RecipeLive do
   alias Tore.Recipes
 
   @sorts [:recently_added, :last_used, :alphabetical]
-  @types [:all, :meal, :baking, :component, :assembly]
   @time_filters [:any, 30, 45, 60]
 
   def mount(_params, _session, socket) do
@@ -28,7 +27,8 @@ defmodule ToreWeb.RecipeLive do
        import_error: nil,
        import_url: "",
        sorts: @sorts,
-       types: @types,
+       view: recipes_view(socket.assigns.current_user),
+       show_search: false,
        time_filters: @time_filters,
        show_more_filters: false,
        ingredient_rows: [],
@@ -118,6 +118,15 @@ defmodule ToreWeb.RecipeLive do
   def handle_event("sort", %{"by" => by}, socket) do
     {:noreply, socket |> assign(sort: parse_sort(by)) |> reload_recipes()}
   end
+
+  # Gallery or list; the choice is remembered for next time.
+  def handle_event("set_view", %{"view" => view}, socket) when view in ~w(gallery list) do
+    {:ok, user} = Tore.Accounts.put_preference(socket.assigns.current_user, "recipes_view", view)
+    {:noreply, assign(socket, view: String.to_existing_atom(view), current_user: user)}
+  end
+
+  def handle_event("toggle_search", _, socket),
+    do: {:noreply, assign(socket, show_search: !socket.assigns.show_search)}
 
   def handle_event("toggle_more_filters", _, socket) do
     {:noreply, assign(socket, show_more_filters: !socket.assigns.show_more_filters)}
@@ -477,27 +486,78 @@ defmodule ToreWeb.RecipeLive do
     >
       <.page max_width={:md}>
         <.top_bar />
-        <div class="mb-6">
-          <header class="flex items-start justify-between gap-4 pt-1">
-            <div>
-              <h1 class="t-display">{gettext("Recipes")}</h1>
-              <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
-                {recipe_count_label(@recipes)}
-              </p>
+        <div class="mb-5">
+          <header class="pt-1">
+            <.page_icon icon="ph-book-open-duotone" tint="grey" />
+            <h1 class="t-display mt-3">{gettext("Recipes")}</h1>
+            <p class="num mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
+              {recipe_count_label(@recipes)}
+            </p>
+          </header>
+
+          <%!-- The toolbar: the two views, then search, filters and New --%>
+          <div class="mt-4 flex items-center gap-1 border-b border-[color:var(--hairline)] pb-1.5">
+            <div class="flex gap-1" role="tablist">
+              <button
+                :for={
+                  {view, icon, label} <- [
+                    {:gallery, "ph-squares-four", gettext("Gallery")},
+                    {:list, "ph-list-bullets", gettext("List")}
+                  ]
+                }
+                type="button"
+                phx-click="set_view"
+                phx-value-view={view}
+                role="tab"
+                aria-selected={to_string(@view == view)}
+                data-view={view}
+                class={[
+                  "view-tab press inline-flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-2",
+                  @view == view && "is-open text-[color:var(--text)]",
+                  @view != view && "text-[color:var(--muted)]"
+                ]}
+                style="font-size: 14px; font-weight: 600;"
+              >
+                <.icon name={icon} class="size-4" />
+                {label}
+              </button>
             </div>
+            <span class="flex-1"></span>
+            <button
+              type="button"
+              phx-click="toggle_search"
+              aria-label={gettext("Search recipes")}
+              aria-expanded={to_string(@show_search or @search != "")}
+              class="icon-btn press"
+            >
+              <.icon name="ph-magnifying-glass" class="size-5" />
+            </button>
+            <button
+              type="button"
+              phx-click="toggle_more_filters"
+              aria-label={gettext("More filters")}
+              aria-expanded={to_string(@show_more_filters)}
+              class={[
+                "icon-btn press",
+                @show_more_filters && "bg-[var(--sunken)] text-[color:var(--text)]"
+              ]}
+            >
+              <.icon name="ph-sliders-horizontal" class="size-5" />
+            </button>
             <button
               type="button"
               phx-click="new_recipe"
               aria-label={gettext("New recipe")}
-              class="press flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+              data-role="new-recipe"
+              class="pill pill-lamp press ml-1 h-8 px-3"
             >
-              <.icon name="ph-plus" class="size-5" />
+              <.icon name="ph-plus" /> {gettext("New")}
             </button>
-          </header>
+          </div>
 
-          <div class="mt-6 space-y-4">
-            <%!-- Search --%>
-            <form phx-change="search" class="relative">
+          <div class="mt-3 space-y-4">
+            <%!-- Search, once asked for --%>
+            <form :if={@show_search or @search != ""} phx-change="search" class="settle relative">
               <.icon
                 name="ph-magnifying-glass"
                 class="size-5 absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--muted)]"
@@ -507,48 +567,11 @@ defmodule ToreWeb.RecipeLive do
                 name="query"
                 value={@search}
                 placeholder={gettext("Search recipes, ingredients, or meals…")}
-                class="w-full h-12 pl-11 pr-4 bg-[var(--sunken)] rounded-full text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[color:var(--accent)]"
+                autofocus
+                class="w-full h-11 pl-11 pr-4 bg-[var(--surface)] rounded-[var(--r-md)] text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[color:var(--accent)]"
                 style="font-size: var(--t-body);"
               />
             </form>
-
-            <%!-- Type filters + More filters toggle --%>
-            <div class="flex items-center justify-between gap-2">
-              <%!-- Collections, as views of one library: the open one is underlined. --%>
-              <div class="scroll-quiet -ml-4 flex gap-1 overflow-x-auto pl-4" role="tablist">
-                <button
-                  :for={type <- @types}
-                  phx-click="filter_type"
-                  phx-value-type={type}
-                  role="tab"
-                  aria-selected={to_string(@filter_type == type)}
-                  data-collection={type}
-                  class={[
-                    "view-tab press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--r-sm)] px-2.5 whitespace-nowrap",
-                    @filter_type == type && "is-open text-[color:var(--text)]",
-                    @filter_type != type && "text-[color:var(--muted)]"
-                  ]}
-                  style="font-size: 14px; font-weight: 600;"
-                >
-                  <.icon :if={type_icon(type)} name={type_icon(type)} class="size-4" />
-                  {type_label(type)}
-                </button>
-              </div>
-              <button
-                type="button"
-                phx-click="toggle_more_filters"
-                aria-label={gettext("More filters")}
-                aria-expanded={to_string(@show_more_filters)}
-                class={[
-                  "press shrink-0 inline-flex items-center justify-center size-9 rounded-full",
-                  @show_more_filters && "bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)]",
-                  !@show_more_filters &&
-                    "text-[color:var(--muted)] hover:text-[var(--text)] hover:bg-[var(--sunken)]"
-                ]}
-              >
-                <.icon name="ph-sliders-horizontal" class="size-5" />
-              </button>
-            </div>
 
             <%!-- Expanded filters --%>
             <div :if={@show_more_filters} class="reveal space-y-3 pt-1">
@@ -614,58 +637,115 @@ defmodule ToreWeb.RecipeLive do
           </p>
         </div>
 
-        <%!-- A cookbook's contents page: the picture is the entry, with its name on it --%>
-        <ul :if={@recipes != []} class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <li
-            :for={{recipe, i} <- Enum.with_index(@recipes)}
-            class="reveal"
-            style={"--i: #{min(i, 8)}"}
-          >
-            <.link
-              patch={~p"/recipes?#{[id: recipe.id]}"}
-              data-dish={recipe.id}
-              class="press-soft press group relative block aspect-[3/4] w-full overflow-hidden rounded-[var(--r-xl)] text-left"
+        <%!-- The library by collection. A group's tag shows that collection alone; tapped again,
+             all of them. --%>
+        <section :for={{type, recipes} <- groups(@recipes, @filter_type)} class="mb-7">
+          <div class="mb-2.5 flex items-center gap-2">
+            <button
+              type="button"
+              phx-click="filter_type"
+              phx-value-type={if @filter_type == type, do: "all", else: type}
+              aria-selected={to_string(@filter_type == type)}
+              data-collection={type}
+              class={["tag press", "tag-#{ToreWeb.Look.tint(type)}"]}
             >
-              <.blank_cover :if={!recipe.image_path} dish={recipe} />
-              <img
-                :if={recipe.image_path}
-                src={~p"/images/recipes/#{recipe.id}"}
-                alt=""
-                loading="lazy"
-                class="absolute inset-0 size-full object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.04]"
-                style={
-                  if @selected == nil and @opened == recipe.id,
-                    do: "view-transition-name: dish-#{recipe.id}"
-                }
-              />
-              <span :if={recipe.image_path} class="photo-shade absolute inset-0" aria-hidden="true">
-              </span>
-              <span class="absolute inset-x-0 bottom-0 p-3.5">
+              <.icon name={type_icon(type)} />
+              {type_label(type)}
+              <.icon :if={@filter_type == type} name="ph-x" class="opacity-70" />
+            </button>
+            <span class="num text-[13px] text-[color:var(--muted)]">{length(recipes)}</span>
+          </div>
+
+          <%!-- Gallery: two to a row, 4:5 pictures, the name underneath --%>
+          <ul :if={@view == :gallery} class="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
+            <li
+              :for={{recipe, i} <- Enum.with_index(recipes)}
+              class="reveal"
+              style={"--i: #{min(i, 8)}"}
+            >
+              <.link
+                patch={~p"/recipes?#{[id: recipe.id]}"}
+                data-dish={recipe.id}
+                class="press-soft group block text-left"
+              >
+                <span class="relative block aspect-[4/5] w-full overflow-hidden rounded-[var(--r-lg)]">
+                  <.blank_cover :if={!recipe.image_path} dish={recipe} />
+                  <img
+                    :if={recipe.image_path}
+                    src={~p"/images/recipes/#{recipe.id}"}
+                    alt=""
+                    loading="lazy"
+                    class="absolute inset-0 size-full object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.03]"
+                    style={
+                      if @selected == nil and @opened == recipe.id,
+                        do: "view-transition-name: dish-#{recipe.id}"
+                    }
+                  />
+                </span>
                 <span
-                  class={[
-                    "line-clamp-3 block font-bold",
-                    recipe.image_path && "text-white",
-                    !recipe.image_path && "text-[color:var(--text)]"
-                  ]}
-                  style="font-size: 17px; line-height: 1.15; letter-spacing: -0.015em;"
+                  class="mt-2 line-clamp-2 block font-semibold text-[color:var(--text)]"
+                  style="font-size: 14.5px; line-height: 1.25;"
                 >
+                  <.icon
+                    :if={recipe.favorite}
+                    name="ph-star-fill"
+                    class="-mt-0.5 mr-0.5 size-3.5 text-[color:var(--tag-yellow-ink)]"
+                  />
                   {recipe.title}
                 </span>
                 <span
                   :if={recipe_meta(recipe) != ""}
-                  class={[
-                    "num mt-1 block truncate",
-                    recipe.image_path && "text-white/75",
-                    !recipe.image_path && "text-[color:var(--muted)]"
-                  ]}
-                  style="font-size: var(--t-micro);"
+                  class="num mt-0.5 block truncate text-[color:var(--muted)]"
+                  style="font-size: 12.5px;"
                 >
                   {recipe_meta(recipe)}
                 </span>
-              </span>
-            </.link>
-          </li>
-        </ul>
+              </.link>
+            </li>
+          </ul>
+
+          <%!-- List: one line each, for scanning and searching --%>
+          <ul :if={@view == :list} class="border-t border-[color:var(--hairline)]">
+            <li :for={recipe <- recipes} class="border-b border-[color:var(--hairline)]">
+              <.link
+                patch={~p"/recipes?#{[id: recipe.id]}"}
+                data-dish={recipe.id}
+                class="row-hover press-soft -mx-2 flex items-center gap-3 rounded-[var(--r-md)] px-2 py-2"
+              >
+                <span class="relative size-11 shrink-0 overflow-hidden rounded-[var(--r-md)]">
+                  <.blank_cover :if={!recipe.image_path} dish={recipe} icon_class="size-6" />
+                  <img
+                    :if={recipe.image_path}
+                    src={~p"/images/recipes/#{recipe.id}"}
+                    alt=""
+                    loading="lazy"
+                    class="size-full object-cover"
+                  />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span
+                    class="block truncate font-semibold text-[color:var(--text)]"
+                    style="font-size: 15.5px;"
+                  >
+                    {recipe.title}
+                  </span>
+                  <span
+                    :if={recipe_meta(recipe) != ""}
+                    class="num block truncate text-[color:var(--muted)]"
+                    style="font-size: 13px;"
+                  >
+                    {recipe_meta(recipe)}
+                  </span>
+                </span>
+                <.icon
+                  :if={recipe.favorite}
+                  name="ph-star-fill"
+                  class="size-4 shrink-0 text-[color:var(--tag-yellow-ink)]"
+                />
+              </.link>
+            </li>
+          </ul>
+        </section>
 
         <div
           :if={@selected != nil or @form != nil or @adding}
@@ -1494,6 +1574,19 @@ defmodule ToreWeb.RecipeLive do
       "assembly" -> gettext("Assemblies")
     end
   end
+
+  # The recipes by collection, in the collections' order; only the chosen one when one is.
+  defp groups(recipes, filter) do
+    by_type = Enum.group_by(recipes, & &1.recipe_type)
+
+    for type <- ToreWeb.Look.collections(),
+        filter in [:all, type],
+        Map.has_key?(by_type, type),
+        do: {type, by_type[type]}
+  end
+
+  defp recipes_view(%{preferences: %{"recipes_view" => "list"}}), do: :list
+  defp recipes_view(_user), do: :gallery
 
   defp type_icon(type) when type in [:all, "all"], do: nil
   defp type_icon(type), do: ToreWeb.Look.collection_icon(type)
