@@ -273,27 +273,34 @@ defmodule ToreWeb.RecipeLive do
   end
 
   # Puts the recipe on a day for the servings shown; what the day had is kept for Undo.
+  # The same day again takes it back off; another day moves it there, and the first day gets
+  # back what it had. Undo puts the day back.
   def handle_event("put_on", %{"date" => iso}, socket) do
-    %{current_scope: scope, selected: recipe, servings: servings} = socket.assigns
     date = Date.from_iso8601!(iso)
-    plan_id = Tore.Streams.plan(scope, Tore.Streams.monday(date))
-    key = Tore.Streams.slot_key(date)
-    {:ok, state} = Tore.Planning.load_plan(scope, plan_id)
-    before = Tore.Planning.slots_before(state, [key])
 
-    {:ok, _} = Tore.Planning.assign_recipe(scope, plan_id, key, recipe.id, servings)
+    case socket.assigns.put do
+      %{date: ^date} ->
+        {:noreply, undo_put(socket)}
 
-    {:noreply,
-     assign(socket,
-       week: week_days(scope),
-       put: %{date: date, plan_id: plan_id, before: before}
-     )}
+      _other ->
+        %{current_scope: scope, selected: recipe, servings: servings} = socket.assigns
+        socket = undo_put(socket)
+        plan_id = Tore.Streams.plan(scope, Tore.Streams.monday(date))
+        key = Tore.Streams.slot_key(date)
+        {:ok, state} = Tore.Planning.load_plan(scope, plan_id)
+        before = Tore.Planning.slots_before(state, [key])
+
+        {:ok, _} = Tore.Planning.assign_recipe(scope, plan_id, key, recipe.id, servings)
+
+        {:noreply,
+         assign(socket,
+           week: week_days(scope),
+           put: %{date: date, plan_id: plan_id, before: before}
+         )}
+    end
   end
 
-  def handle_event("undo_put", _, %{assigns: %{put: %{} = put}} = socket) do
-    :ok = Tore.Planning.restore_slots(socket.assigns.current_scope, put.plan_id, put.before)
-    {:noreply, assign(socket, week: week_days(socket.assigns.current_scope), put: nil)}
-  end
+  def handle_event("undo_put", _, socket), do: {:noreply, undo_put(socket)}
 
   def handle_event("toggle_recipe_menu", _, socket) do
     {:noreply, assign(socket, show_recipe_menu: !socket.assigns.show_recipe_menu)}
@@ -404,6 +411,13 @@ defmodule ToreWeb.RecipeLive do
       )
     end
   end
+
+  defp undo_put(%{assigns: %{put: %{} = put}} = socket) do
+    :ok = Tore.Planning.restore_slots(socket.assigns.current_scope, put.plan_id, put.before)
+    assign(socket, week: week_days(socket.assigns.current_scope), put: nil)
+  end
+
+  defp undo_put(socket), do: socket
 
   defp select(socket, id) do
     recipe = Recipes.get!(socket.assigns.current_scope, id)
@@ -990,7 +1004,8 @@ defmodule ToreWeb.RecipeLive do
                 type="button"
                 phx-click="put_on"
                 phx-value-date={Date.to_iso8601(day.date)}
-                disabled={day.recipe_id == @selected.id}
+                disabled={day.recipe_id == @selected.id and !(@put && @put.date == day.date)}
+                aria-pressed={to_string(@put != nil and @put.date == day.date)}
                 data-day={Date.to_iso8601(day.date)}
                 class="row-hover press-soft flex min-h-12 flex-1 items-center justify-between gap-3 rounded-[var(--r-md)] px-2 text-left"
               >
@@ -1006,16 +1021,24 @@ defmodule ToreWeb.RecipeLive do
                   {day.title || gettext("Free")}
                 </span>
               </button>
-              <button
-                :if={@put && @put.date == day.date}
-                type="button"
-                phx-click="undo_put"
-                class="settle press shrink-0 px-2 font-semibold text-[color:var(--accent-ink)]"
-              >
-                {gettext("Undo")}
-              </button>
             </li>
           </ul>
+          <p
+            :if={@put}
+            class="settle mt-2 flex items-center gap-3 px-2 text-[color:var(--muted)]"
+            style="font-size: 15px;"
+            data-role="put-done"
+          >
+            <.icon name="ph-check" class="size-4 text-[color:var(--done)]" />
+            {gettext("On %{day}", day: ToreWeb.Dates.weekday_in_sentence(@put.date))}
+            <button
+              type="button"
+              phx-click="undo_put"
+              class="press ml-auto font-semibold text-[color:var(--accent-ink)]"
+            >
+              {gettext("Undo")}
+            </button>
+          </p>
         </div>
 
         <p

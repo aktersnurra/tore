@@ -230,6 +230,36 @@ defmodule ToreWeb.RecipeLiveTest do
       assert state.slots[key] in [nil] or state.slots[key].recipe_id == nil
     end
 
+    test "another day moves it there, and the same day again takes it off", %{
+      conn: conn,
+      user: user,
+      pasta: pasta
+    } do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes?id=#{pasta.id}")
+      lv |> element(~s([data-role="put-on-week"])) |> render_click()
+
+      [first, second] = for n <- [1, 2], do: Date.add(Tore.Clock.today(), n)
+
+      on = fn date ->
+        plan = Tore.Streams.plan(home_scope(), Tore.Streams.monday(date))
+        {:ok, state} = Tore.Planning.load_plan(home_scope(), plan)
+        get_in(state.slots, [Tore.Streams.slot_key(date), :recipe_id])
+      end
+
+      lv |> element(~s([data-day="#{Date.to_iso8601(first)}"])) |> render_click()
+      lv |> element(~s([data-day="#{Date.to_iso8601(second)}"])) |> render_click()
+      assert on.(first) == nil
+      assert on.(second) == pasta.id
+      assert has_element?(lv, ~s([data-day="#{Date.to_iso8601(second)}"][aria-pressed="true"]))
+
+      assert lv |> element(~s([data-role="put-done"])) |> render() =~
+               "Lagd på #{String.downcase(ToreWeb.Dates.weekday(second))}"
+
+      lv |> element(~s([data-day="#{Date.to_iso8601(second)}"])) |> render_click()
+      assert on.(second) == nil
+      refute has_element?(lv, ~s([data-role="put-done"]))
+    end
+
     test "baking is started, not planned", %{conn: conn, user: user} do
       {:ok, buns} =
         Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)

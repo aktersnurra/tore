@@ -17,6 +17,14 @@ defmodule ToreWeb.Dates do
     end
   end
 
+  @doc "The weekday mid-sentence: \"Wednesday\", but \"onsdag\" in Swedish."
+  @spec weekday_in_sentence(Date.t()) :: String.t()
+  def weekday_in_sentence(%Date{} = date) do
+    if Gettext.get_locale(ToreWeb.Gettext) == "sv",
+      do: String.downcase(weekday(date)),
+      else: weekday(date)
+  end
+
   @doc "The weekday as an owner, before a noun: \"Wednesday's\" (\"onsdagens\")."
   @spec weekday_possessive(Date.t()) :: String.t()
   def weekday_possessive(%Date{} = date) do
