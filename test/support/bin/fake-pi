@@ -1,18 +1,51 @@
 #!/bin/sh
-# Stands in for harness/pi-session in tests. Keeps its header in $FAKE_PI_LOG, then answers each
-# RPC prompt as pi would: accepted, a text delta, the assistant message with what it cost
-# ($FAKE_PI_COST), settled. The reply is $FAKE_PI_REPLY, or "echo: <the prompt>".
+# Stands in for harness/pi-session in tests. Keeps its header and every command in $FAKE_PI_LOG,
+# then answers as pi would. A prompt: accepted, the tool call in $FAKE_PI_TOOL if set (JSON
+# {"name", "args", "result"}, the result as the tool's text), a text delta, the assistant message
+# with what it cost ($FAKE_PI_COST), settled. The reply is $FAKE_PI_REPLY, or "echo: <the
+# prompt>". get_messages answers the conversation so far, which starts as $FAKE_PI_HISTORY.
 set -eu
 IFS= read -r header
 printf '%s\n' "$header" >"$FAKE_PI_LOG"
+history="$FAKE_PI_LOG.messages"
+printf '%s\n' "${FAKE_PI_HISTORY:-[]}" >"$history"
+
+remember() { jq -c --argjson m "$1" '. + [$m]' "$history" >"$history.new" && mv "$history.new" "$history"; }
+
 while IFS= read -r line; do
   printf '%s\n' "$line" >>"$FAKE_PI_LOG"
-  [ "$(printf '%s' "$line" | jq -r .type)" = prompt ] || continue
-  reply=${FAKE_PI_REPLY:-"echo: $(printf '%s' "$line" | jq -r .message)"}
-  jq -cn '{type: "response", command: "prompt", success: true, data: {disposition: "started"}}'
-  jq -cn '{type: "agent_start"}'
-  jq -cn --arg d "$reply" '{type: "message_update", assistantMessageEvent: {type: "text_delta", contentIndex: 0, delta: $d}}'
-  jq -cn --arg t "$reply" --argjson c "${FAKE_PI_COST:-0.01}" \
-    '{type: "message_end", message: {role: "assistant", content: [{type: "text", text: $t}], usage: {cost: {total: $c}}}}'
-  jq -cn '{type: "agent_settled", aborted: false}'
+  id=$(printf '%s' "$line" | jq -r '.id // empty')
+
+  case $(printf '%s' "$line" | jq -r .type) in
+  get_messages)
+    jq -cn --arg id "$id" --slurpfile m "$history" \
+      '{id: $id, type: "response", command: "get_messages", success: true, data: {messages: $m[0]}}'
+    ;;
+  prompt)
+    message=$(printf '%s' "$line" | jq -r .message)
+    reply=${FAKE_PI_REPLY:-"echo: $message"}
+    jq -cn '{type: "response", command: "prompt", success: true, data: {disposition: "started"}}'
+    jq -cn '{type: "agent_start"}'
+    remember "$(jq -cn --arg t "$message" '{role: "user", content: [{type: "text", text: $t}]}')"
+
+    if [ -n "${FAKE_PI_TOOL:-}" ]; then
+      printf '%s' "$FAKE_PI_TOOL" |
+        jq -c '{type: "tool_execution_start", toolCallId: "call-1", toolName: .name, args: .args}'
+      printf '%s' "$FAKE_PI_TOOL" |
+        jq -c '{type: "tool_execution_end", toolCallId: "call-1", toolName: .name,
+          result: {content: [{type: "text", text: .result}]}, isError: false}'
+      remember "$(printf '%s' "$FAKE_PI_TOOL" |
+        jq -c '{role: "assistant", content: [{type: "toolCall", id: "call-1", name: .name, arguments: .args}]}')"
+      remember "$(printf '%s' "$FAKE_PI_TOOL" |
+        jq -c '{role: "toolResult", toolCallId: "call-1", toolName: .name,
+          content: [{type: "text", text: .result}], isError: false}')"
+    fi
+
+    jq -cn --arg d "$reply" '{type: "message_update", assistantMessageEvent: {type: "text_delta", contentIndex: 0, delta: $d}}'
+    jq -cn --arg t "$reply" --argjson c "${FAKE_PI_COST:-0.01}" \
+      '{type: "message_end", message: {role: "assistant", content: [{type: "text", text: $t}], usage: {cost: {total: $c}}}}'
+    remember "$(jq -cn --arg t "$reply" '{role: "assistant", content: [{type: "text", text: $t}]}')"
+    jq -cn '{type: "agent_settled", aborted: false}'
+    ;;
+  esac
 done

@@ -345,7 +345,7 @@ defmodule ToreWeb.PlannerLiveTest do
       assert eventually(fn -> not (render(view) =~ "Planerar de lediga dagarna…") end)
 
       [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
-      assert header["session"] == "chat"
+      assert header["session"] == "chat-#{user.id}"
       assert message =~ "open days from #{Date.to_iso8601(today)}"
     end
 

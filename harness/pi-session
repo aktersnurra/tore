@@ -29,7 +29,8 @@ token=$(field .token)
 model=$(field .model)
 
 case $household in '' | *[!0-9]*) fail "bad household" ;; esac
-case $session in '' | *[!A-Za-z0-9_-]*) fail "bad session" ;; esac
+# Also pi's session id, which starts and ends with a letter or digit.
+case $session in '' | *[!A-Za-z0-9_-]* | [!A-Za-z0-9]* | *[!A-Za-z0-9]) fail "bad session" ;; esac
 [ -n "$mcp_url" ] && [ -n "$token" ] || fail "no mcp_url or token"
 
 export PI_CODING_AGENT_DIR="$state/pi"
@@ -45,10 +46,12 @@ export TORE_MCP_TOKEN="$token"
 
 # An empty working directory: no AGENTS.md or .pi of anyone's to find. The rest of stdin is
 # pi's. --no-extensions turns off pi's built-in MCP support too, so it is loaded again by name.
+# --session-id opens the session with that id or starts it, so a chat goes on where it left off
+# after its process stopped.
 mkdir -p "$state/cwd" && cd "$state/cwd"
 exec pi --mode rpc \
   --no-extensions -e builtin:mcp -e "npm:pi-web-access" \
   --no-tools --tools 'mcp__tore__*,web_search,fetch_content' \
   --append-system-prompt "$dir/AGENTS.md" \
   ${model:+--model "$model"} \
-  --session-dir "$sessions" --name "$session"
+  --session-dir "$sessions" --session-id "$session"

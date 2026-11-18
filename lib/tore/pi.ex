@@ -4,10 +4,12 @@ defmodule Tore.Pi do
   its own (image generation aside): it hands pi a prompt for a household, and pi reaches Tore
   through `/mcp` with a token for that household only (`Tore.Mcp.SessionToken`).
 
-  A household has named sessions, each its own pi process (`Tore.Pi.Session`): its `"chat"`, which
-  people talk to and watch, and one per background job, so a job never lands in someone's
-  conversation. Everything pi writes is broadcast on `topic/2` as `{:pi, session, event}`, with
-  pi's own event shapes (`message_update`, `tool_execution_start`, `agent_settled`, …).
+  A household has named sessions, each its own pi process (`Tore.Pi.Session`) and pi's own
+  session of that id, kept across processes: a chat per person (`chat_session/1`), which they talk
+  to and watch, and one per background job, so a job never lands in someone's conversation. A
+  name is `<kind>-<id>`; the kind is what its cost is counted as. Everything pi writes is
+  broadcast on `topic/2` as `{:pi, session, event}`, with pi's own event shapes
+  (`message_update`, `tool_execution_start`, `agent_settled`, …).
 
   The command is `config :tore, :pi, command: [...]` (`TORE_PI_COMMAND`): `harness/pi-session`
   on this machine, or ssh to the harness machine, where a forced command runs it. A household
@@ -40,6 +42,10 @@ defmodule Tore.Pi do
     end
   end
 
+  @doc "The signed-in person's chat with pi."
+  @spec chat_session(Scope.t()) :: session()
+  def chat_session(%Scope{user_id: user_id}) when is_integer(user_id), do: "chat-#{user_id}"
+
   @spec topic(Scope.t(), session()) :: String.t()
   def topic(%Scope{household_id: id}, session), do: "pi:#{id}:#{session}"
 
@@ -58,6 +64,26 @@ defmodule Tore.Pi do
          {:ok, pid} <- ensure_started(scope, session) do
       GenServer.call(pid, {:prompt, message, Keyword.get(opts, :images, [])})
     end
+  end
+
+  @doc """
+  The session's conversation so far, as pi keeps it (`user`, `assistant` and `toolResult`
+  messages, in pi's shapes). Starts the session's process to ask, which costs no model call.
+  """
+  @spec messages(Scope.t(), session()) :: {:ok, [map()]} | {:error, term()}
+  def messages(%Scope{} = scope, session) do
+    with :ok <- check(scope),
+         {:ok, pid} <- ensure_started(scope, session),
+         {:ok, %{"messages" => messages}} <- command(pid, %{type: "get_messages"}) do
+      {:ok, messages}
+    end
+  end
+
+  # pi takes a moment to start, so a command waits longer than a GenServer call does by default.
+  defp command(pid, command) do
+    GenServer.call(pid, {:command, command}, :timer.seconds(20))
+  catch
+    :exit, _ -> {:error, :pi_unavailable}
   end
 
   @doc "Stops what the session is doing now."

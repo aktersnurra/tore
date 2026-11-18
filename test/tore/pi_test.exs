@@ -73,6 +73,44 @@ defmodule Tore.PiTest do
     assert GenServer.whereis(Tore.Pi.Session.via(scope, "job-1")) == nil
   end
 
+  test "each person has a chat of their own, counted as chat" do
+    scope = scope_fixture()
+    session = Pi.chat_session(scope)
+    assert session == "chat-#{scope.user_id}"
+
+    :ok = Pi.subscribe(scope, session)
+    assert :ok = Pi.ask(scope, session, "hej")
+    assert_receive {:pi, ^session, %{"type" => "agent_settled"}}, 5_000
+
+    assert [{"pi_chat", 1, _}] = Costs.llm_calls_this_month_by_feature(scope)
+  end
+
+  test "messages is the conversation pi has kept, with what was said since" do
+    earlier = [
+      %{"role" => "user", "content" => [%{"type" => "text", "text" => "Vad blir det ikväll?"}]},
+      %{"role" => "assistant", "content" => [%{"type" => "text", "text" => "Tacos."}]}
+    ]
+
+    System.put_env("FAKE_PI_HISTORY", Jason.encode!(earlier))
+    scope = home_scope()
+
+    assert {:ok, ^earlier} = Pi.messages(scope, "chat-1")
+
+    :ok = Pi.subscribe(scope, "chat-1")
+    :ok = Pi.ask(scope, "chat-1", "Och imorgon?")
+    assert_receive {:pi, "chat-1", %{"type" => "agent_settled"}}, 5_000
+
+    assert {:ok, messages} = Pi.messages(scope, "chat-1")
+
+    assert Enum.map(messages, &{&1["role"], Pi.assistant_text(&1)}) ==
+             [
+               {"user", "Vad blir det ikväll?"},
+               {"assistant", "Tacos."},
+               {"user", "Och imorgon?"},
+               {"assistant", "echo: Och imorgon?"}
+             ]
+  end
+
   test "no session without a sponsor or with pi not configured" do
     unsponsored = scope_fixture(household_fixture())
     assert {:error, :ai_unavailable} = Pi.ask(unsponsored, "chat", "hej")

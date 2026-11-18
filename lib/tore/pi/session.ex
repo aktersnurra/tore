@@ -5,9 +5,13 @@ defmodule Tore.Pi.Session do
   the header with a fresh session token, then pi's RPC commands, and broadcasts every record pi
   writes to `Tore.Pi.topic/2` as `{:pi, session, event}`.
 
-  When a run settles, what its assistant messages cost goes into `llm_usage` as `pi_<session>`,
-  so the household's monthly limit sees it. An idle session stops after a while, and a session
-  whose token is getting old is started afresh before its next prompt.
+  When a run settles, what its assistant messages cost goes into `llm_usage` as `pi_<kind>`, the
+  session name up to its first `-` (`chat-7` is `pi_chat`), so the household's monthly limit
+  sees it. An idle session stops after a while, and a session whose token is getting old is
+  started afresh before its next prompt.
+
+  A command with an answer (`get_messages`) goes with an id; pi's response with that id is the
+  caller's reply, and every other record is broadcast.
   """
   use GenServer, restart: :temporary
 
@@ -30,7 +34,17 @@ defmodule Tore.Pi.Session do
 
   @impl true
   def init({scope, name}) do
-    state = %{scope: scope, name: name, cost: 0.0, busy: false, buffer: "", idle: nil}
+    state = %{
+      scope: scope,
+      name: name,
+      cost: 0.0,
+      busy: false,
+      buffer: "",
+      idle: nil,
+      pending: %{},
+      next_id: 1
+    }
+
     {:ok, state |> open() |> schedule_idle()}
   end
 
@@ -52,6 +66,14 @@ defmodule Tore.Pi.Session do
     {:reply, :ok, state}
   end
 
+  def handle_call({:command, command}, from, state) do
+    id = "tore-#{state.next_id}"
+    send_record(state, Map.put(command, :id, id))
+
+    {:noreply,
+     %{state | next_id: state.next_id + 1, pending: Map.put(state.pending, id, from)}}
+  end
+
   @impl true
   def handle_info({port, {:data, {:noeol, chunk}}}, %{port: port} = state),
     do: {:noreply, %{state | buffer: state.buffer <> chunk}}
@@ -68,6 +90,7 @@ defmodule Tore.Pi.Session do
 
   def handle_info({port, {:exit_status, status}}, %{port: port} = state) do
     Logger.info("pi_session_exit household=#{state.scope.household_id} status=#{status}")
+    for {_id, from} <- state.pending, do: GenServer.reply(from, {:error, :exited})
     broadcast(state, %{"type" => "exited", "status" => status})
     {:stop, :normal, state}
   end
@@ -79,6 +102,18 @@ defmodule Tore.Pi.Session do
   def terminate(_reason, %{port: port}) do
     if Port.info(port), do: Port.close(port)
     :ok
+  end
+
+  defp handle_event(%{"type" => "response", "id" => id} = response, state)
+       when is_map_key(state.pending, id) do
+    {from, pending} = Map.pop!(state.pending, id)
+
+    GenServer.reply(
+      from,
+      if(response["success"], do: {:ok, response["data"]}, else: {:error, response["error"]})
+    )
+
+    %{state | pending: pending}
   end
 
   defp handle_event(%{"type" => "message_end", "message" => %{"role" => "assistant"} = m}, state) do
@@ -101,7 +136,10 @@ defmodule Tore.Pi.Session do
 
   defp record_cost(state) do
     {:ok, _} =
-      Costs.log_llm_usage(state.scope, %{feature: "pi_#{state.name}", cost_usd: state.cost / 1})
+      Costs.log_llm_usage(state.scope, %{
+        feature: "pi_" <> (state.name |> String.split("-") |> hd()),
+        cost_usd: state.cost / 1
+      })
 
     :ok
   end
@@ -132,7 +170,8 @@ defmodule Tore.Pi.Session do
 
   defp reopen(state) do
     Port.close(state.port)
-    open(%{state | buffer: ""})
+    for {_id, from} <- state.pending, do: GenServer.reply(from, {:error, :exited})
+    open(%{state | buffer: "", pending: %{}})
   end
 
   defp age_s(state), do: System.monotonic_time(:second) - state.opened_at

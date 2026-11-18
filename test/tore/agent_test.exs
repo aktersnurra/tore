@@ -22,7 +22,7 @@ defmodule Tore.AgentTest do
     assert job.cost_usd == 0.05 and job.week == week and job.finished_at
 
     [header, prompt] = log |> File.read!() |> String.split("\n", trim: true)
-    assert Jason.decode!(header)["session"] == "plan_week"
+    assert Jason.decode!(header)["session"] == "plan_week-#{job.id}"
 
     assert Jason.decode!(prompt)["message"] =~
              ~r/\ABackground job: plan_week\.\n\n# Plan next week/

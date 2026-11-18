@@ -56,7 +56,8 @@ defmodule Tore.Agent do
         })
 
       prompt = "Background job: #{task}.\n\n" <> Map.fetch!(@tasks, task)
-      {:ok, finish(job, Pi.run(scope, task, prompt, timeout: @timeout))}
+      # A session of its own: a fresh conversation, counted as the task.
+      {:ok, finish(job, Pi.run(scope, "#{task}-#{job.id}", prompt, timeout: @timeout))}
     end
   end
 

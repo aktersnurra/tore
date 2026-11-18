@@ -12,9 +12,6 @@ defmodule ToreWeb.PlannerLive do
 
   @days ~w[mon tue wed thu fri sat sun]
 
-  # The household's pi session the Plan screen talks in: the same conversation as its chat.
-  @pi_session "chat"
-
   def mount(_params, _session, socket) do
     today = Tore.Clock.today()
     week_start = Tore.Streams.monday(today)
@@ -24,7 +21,8 @@ defmodule ToreWeb.PlannerLive do
     if connected?(socket) do
       # Run changes come through ToreWeb.Live.Auth, which subscribes for every view.
       PubSub.subscribe(Tore.PubSub, Tore.Planning.topic(scope))
-      Tore.Pi.subscribe(scope, @pi_session)
+      # What the Plan screen asks goes in the person's chat with pi.
+      Tore.Pi.subscribe(scope, Tore.Pi.chat_session(scope))
     end
 
     {:ok, plan_state} = Planning.load_plan(scope, plan_id)
@@ -336,7 +334,7 @@ defmodule ToreWeb.PlannerLive do
     is skipped or is eating out. Then say in a sentence or two what you planned.\
     """
 
-    case Tore.Pi.ask(scope, @pi_session, message) do
+    case Tore.Pi.ask(scope, Tore.Pi.chat_session(scope), message) do
       :ok ->
         {:noreply,
          assign(socket,

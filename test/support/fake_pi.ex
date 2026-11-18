@@ -2,7 +2,8 @@ defmodule Tore.FakePi do
   @moduledoc """
   Points `Tore.Pi` at `test/support/bin/fake-pi` for a test, as `setup :fake_pi`. The fake keeps
   what Tore wrote to it in the file at `:pi_log`; `pi_records/1` reads it back. Set
-  `FAKE_PI_REPLY` and `FAKE_PI_COST` to choose its answer.
+  `FAKE_PI_REPLY` and `FAKE_PI_COST` to choose its answer, `FAKE_PI_TOOL` for a tool call it
+  makes first, and `FAKE_PI_HISTORY` for the conversation it already has.
   """
 
   import ExUnit.Callbacks
@@ -29,8 +30,11 @@ defmodule Tore.FakePi do
       for {_, pid, _, _} <- DynamicSupervisor.which_children(Tore.Pi.Sessions),
           do: DynamicSupervisor.terminate_child(Tore.Pi.Sessions, pid)
 
-      for var <- ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST), do: System.delete_env(var)
+      for var <- ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST FAKE_PI_TOOL FAKE_PI_HISTORY),
+          do: System.delete_env(var)
+
       File.rm(log)
+      File.rm(log <> ".messages")
     end)
 
     %{pi_log: log}
