@@ -11,6 +11,13 @@ config :tore,
   ecto_repos: [Tore.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# SQLite has one writer at a time. A write transaction takes the write lock when it begins, so
+# concurrent writers queue for it instead of failing when a deferred one tries to upgrade a read.
+# Writers wait up to the busy timeout for their turn.
+config :tore, Tore.Repo,
+  default_transaction_mode: :immediate,
+  busy_timeout: 5_000
+
 # Configure the endpoint
 config :tore, ToreWeb.Endpoint,
   url: [host: "localhost"],
