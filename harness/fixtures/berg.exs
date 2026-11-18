@@ -54,7 +54,8 @@ recipe = fn title, minutes, ingredients ->
         prep_time_minutes: 10,
         cook_time_minutes: minutes,
         steps: Jason.encode!(["Förbered.", "Laga.", "Servera."]),
-        ingredients: for({name, q, unit} <- ingredients, do: %{name: name, quantity: q, unit: unit})
+        ingredients:
+          for({name, q, unit} <- ingredients, do: %{name: name, quantity: q, unit: unit})
       },
       image: false
     )
@@ -63,20 +64,32 @@ recipe = fn title, minutes, ingredients ->
 end
 
 r = %{
-  tacos: recipe.("Tacos", 20, [{"nötfärs", 500, "g"}, {"tortillas", 8, "st"}, {"tomat", 3, "st"}]),
+  tacos:
+    recipe.("Tacos", 20, [{"nötfärs", 500, "g"}, {"tortillas", 8, "st"}, {"tomat", 3, "st"}]),
   lax: recipe.("Ugnsbakad lax med potatis", 30, [{"laxfilé", 500, "g"}, {"potatis", 800, "g"}]),
   carbonara:
-    recipe.("Pasta carbonara", 20, [{"spaghetti", 500, "g"}, {"bacon", 140, "g"}, {"ägg", 3, "st"}]),
+    recipe.("Pasta carbonara", 20, [
+      {"spaghetti", 500, "g"},
+      {"bacon", 140, "g"},
+      {"ägg", 3, "st"}
+    ]),
   kottfarssas:
-    recipe.("Köttfärssås med spaghetti", 40, [{"nötfärs", 500, "g"}, {"krossade tomater", 1, "burk"}]),
+    recipe.("Köttfärssås med spaghetti", 40, [
+      {"nötfärs", 500, "g"},
+      {"krossade tomater", 1, "burk"}
+    ]),
   linssoppa: recipe.("Röd linssoppa", 30, [{"röda linser", 300, "g"}, {"kokosmjölk", 1, "burk"}]),
   kyckling: recipe.("Kycklinggryta med ris", 35, [{"kycklingfilé", 600, "g"}, {"ris", 4, "dl"}]),
-  pannkakor: recipe.("Pannkakor med sylt", 25, [{"mjöl", 2.5, "dl"}, {"mjölk", 6, "dl"}, {"ägg", 3, "st"}]),
-  korv: recipe.("Korv stroganoff", 25, [{"falukorv", 600, "g"}, {"grädde", 2, "dl"}, {"ris", 4, "dl"}]),
-  fiskpinnar: recipe.("Fiskpinnar med potatismos", 25, [{"fiskpinnar", 20, "st"}, {"potatis", 800, "g"}]),
+  pannkakor:
+    recipe.("Pannkakor med sylt", 25, [{"mjöl", 2.5, "dl"}, {"mjölk", 6, "dl"}, {"ägg", 3, "st"}]),
+  korv:
+    recipe.("Korv stroganoff", 25, [{"falukorv", 600, "g"}, {"grädde", 2, "dl"}, {"ris", 4, "dl"}]),
+  fiskpinnar:
+    recipe.("Fiskpinnar med potatismos", 25, [{"fiskpinnar", 20, "st"}, {"potatis", 800, "g"}]),
   pizza: recipe.("Hemmagjord pizza", 45, [{"vetemjöl", 6, "dl"}, {"mozzarella", 250, "g"}]),
   falafel: recipe.("Falafel i pitabröd", 20, [{"falafel", 16, "st"}, {"pitabröd", 4, "st"}]),
-  soppa: recipe.("Potatis- och purjolökssoppa", 35, [{"potatis", 600, "g"}, {"purjolök", 2, "st"}])
+  soppa:
+    recipe.("Potatis- och purjolökssoppa", 35, [{"potatis", 600, "g"}, {"purjolök", 2, "st"}])
 }
 
 this_monday = Streams.monday(Tore.Clock.today())
@@ -124,6 +137,7 @@ week.(6, [
 ])
 
 week.(5, [
+  assign.("mon_dinner", r.kottfarssas),
   leftover.("mon_dinner"),
   assign.("tue_dinner", r.fiskpinnar),
   assign.("wed_dinner", r.linssoppa),
@@ -146,6 +160,7 @@ week.(4, [
 ])
 
 week.(3, [
+  assign.("mon_dinner", r.kottfarssas),
   leftover.("mon_dinner"),
   assign.("tue_dinner", r.kyckling),
   assign.("wed_dinner", r.fiskpinnar),
@@ -169,6 +184,7 @@ week.(2, [
 ])
 
 week.(1, [
+  assign.("mon_dinner", r.kottfarssas),
   leftover.("mon_dinner"),
   assign.("tue_dinner", r.kyckling),
   assign.("wed_dinner", r.fiskpinnar),
@@ -185,7 +201,13 @@ plan = Streams.plan(scope, this_monday)
 {:ok, _} = Planning.assign_recipe(scope, plan, "fri_dinner", r.tacos.id, 4)
 
 today = Tore.Clock.today()
-{:ok, _} = Tore.Pantry.add_item(scope, %{name: "laxfilé", expires_at: Date.add(today, 2)})
+# The salmon has to go by next Tuesday, so the plan has to decide what to do with it.
+{:ok, _} =
+  Tore.Pantry.add_item(scope, %{
+    name: "laxfilé",
+    expires_at: Date.add(Date.beginning_of_week(today), 8)
+  })
+
 {:ok, _} = Tore.Pantry.add_item(scope, %{name: "potatis", expires_at: Date.add(today, 14)})
 {:ok, _} = Tore.Pantry.add_item(scope, %{name: "ris", expires_at: nil})
 
