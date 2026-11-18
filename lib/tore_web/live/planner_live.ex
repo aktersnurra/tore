@@ -4,7 +4,7 @@ defmodule ToreWeb.PlannerLive do
   on_mount {ToreWeb.Live.Auth, :hears_runs}
 
   alias Tore.Harness.{KitchenRun, Runs}
-  alias Tore.Harness.Kinds.PlannerCommand
+  alias ToreWeb.PiReply
 
   alias Tore.{Recipes, Planning}
   alias Tore.Planning.State
@@ -21,8 +21,6 @@ defmodule ToreWeb.PlannerLive do
     if connected?(socket) do
       # Run changes come through ToreWeb.Live.Auth, which subscribes for every view.
       PubSub.subscribe(Tore.PubSub, Tore.Planning.topic(scope))
-      # What the Plan screen asks goes in the person's chat with pi.
-      Tore.Pi.subscribe(scope, Tore.Pi.chat_session(scope))
     end
 
     {:ok, plan_state} = Planning.load_plan(scope, plan_id)
@@ -45,15 +43,12 @@ defmodule ToreWeb.PlannerLive do
        slot_action: nil,
        current_week_mode: Tore.WeekMode.get_current_mode(scope),
        current_run: current_run,
-       quick_loading: false,
-       quick_label: nil,
-       # What pi says while it plans from this screen; nil when it wasn't asked here.
-       pi_reply: nil,
        focused_slots: MapSet.new(),
        view: :week,
        month: nil,
        month_weeks: nil
      )
+     |> PiReply.init()
      |> with_plan(plan_state)}
   end
 
@@ -312,12 +307,17 @@ defmodule ToreWeb.PlannerLive do
   def handle_event("slot_command", %{"command" => command}, socket) when command != "" do
     %{slot_key: slot_key} = socket.assigns.slot_action
 
-    # Save pending sheet edits before the run starts, so the agent plans
-    # against what the user sees and the save can't land after the run applies.
-    socket = auto_save_slot(socket)
-    start_command(socket, command, slot_key)
+    # Save pending sheet edits before pi is asked, so it changes the day as the person sees it.
+    date = socket |> auto_save_slot() |> slot_date(slot_key)
 
-    {:noreply, assign(socket, slot_action: nil, quick_loading: true)}
+    message =
+      "From the Plan screen, about the dinner on #{Calendar.strftime(date, "%A")} " <>
+        "#{Date.to_iso8601(date)}: #{command}"
+
+    {:noreply,
+     socket
+     |> assign(slot_action: nil)
+     |> PiReply.ask(message, gettext("Changing the plan…"))}
   end
 
   def handle_event("slot_command", _params, socket), do: {:noreply, socket}
@@ -325,7 +325,7 @@ defmodule ToreWeb.PlannerLive do
   # pi fills the days still open; they change on screen as it sets each one, and what it says
   # streams in below the buttons.
   def handle_event("plan_week", _params, socket) do
-    %{current_scope: scope, week_start: week_start, today: today} = socket.assigns
+    %{week_start: week_start, today: today} = socket.assigns
     from = Enum.max([week_start, today], Date)
 
     message = """
@@ -334,66 +334,22 @@ defmodule ToreWeb.PlannerLive do
     is skipped or is eating out. Then say in a sentence or two what you planned.\
     """
 
-    case Tore.Pi.ask(scope, Tore.Pi.chat_session(scope), message) do
-      :ok ->
-        {:noreply,
-         assign(socket,
-           quick_loading: true,
-           quick_label: gettext("Planning the open days…"),
-           pi_reply: ""
-         )}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, refusal(reason))}
-    end
+    {:noreply, PiReply.ask(socket, message, gettext("Planning the open days…"))}
   end
 
-  def handle_event("dismiss_pi_reply", _params, socket),
-    do: {:noreply, assign(socket, pi_reply: nil)}
-
-  defp refusal(reason),
-    do:
-      Tore.LLM.refusal_text(reason) ||
-        gettext("Tore couldn't finish that. Try again in a moment.")
+  def handle_event("dismiss_pi_reply", _params, socket), do: {:noreply, PiReply.dismiss(socket)}
 
   defp maybe_toast_reverted(socket, %KitchenRun{status: :reverted, surface: :plan}),
     do: put_flash(socket, :info, gettext("Undone."))
 
   defp maybe_toast_reverted(socket, _run), do: socket
 
-  # The run's own process ends it failed if it crashes, so the reply always comes.
-  defp start_command(socket, command, scoped_slot) do
-    scope = socket.assigns.current_scope
-
-    ctx = %{
-      command: command,
-      plan_stream_id: socket.assigns.plan_id,
-      week_start: socket.assigns.week_start,
-      scoped_slot: scoped_slot
-    }
-
-    ToreWeb.Background.run(
-      fn -> Runs.start(scope, PlannerCommand, ctx) end,
-      &{:run_dispatched, &1}
-    )
+  defp slot_date(socket, slot_key) do
+    [day, _meal] = String.split(slot_key, "_", parts: 2)
+    Date.add(socket.assigns.week_start, Enum.find_index(@days, &(&1 == day)))
   end
 
-  def handle_info({:run_dispatched, {:ok, state}}, socket) do
-    {:noreply, assign(socket, current_run: state, quick_loading: false, quick_label: nil)}
-  end
-
-  def handle_info({:run_dispatched, {:error, reason}}, socket) do
-    {:noreply,
-     socket
-     |> put_flash(:error, refusal(reason))
-     |> assign(quick_loading: false, quick_label: nil)}
-  end
-
-  # pi's events, heard only while it is answering something asked from this screen.
-  def handle_info({:pi, _session, _event}, %{assigns: %{pi_reply: nil}} = socket),
-    do: {:noreply, socket}
-
-  def handle_info({:pi, _session, event}, socket), do: {:noreply, pi_event(socket, event)}
+  def handle_info({:pi, _session, event}, socket), do: {:noreply, PiReply.event(socket, event)}
 
   def handle_info({:run_changed, %KitchenRun{} = run}, socket) do
     current = socket.assigns[:current_run]
@@ -458,31 +414,6 @@ defmodule ToreWeb.PlannerLive do
         {:noreply, socket}
     end
   end
-
-  defp pi_event(socket, %{
-         "type" => "message_update",
-         "assistantMessageEvent" => %{"type" => "text_delta", "delta" => delta}
-       }),
-       do: update(socket, :pi_reply, &(&1 <> delta))
-
-  # Each new message replaces the last: what's shown is what pi says now, and at the end its
-  # summary.
-  defp pi_event(socket, %{"type" => "message_start", "message" => %{"role" => "assistant"}}),
-    do: assign(socket, pi_reply: "")
-
-  defp pi_event(socket, %{"type" => "message_end", "message" => %{"role" => "assistant"} = m}),
-    do: assign(socket, pi_reply: Tore.Pi.assistant_text(m) || socket.assigns.pi_reply)
-
-  defp pi_event(socket, %{"type" => "agent_settled"}),
-    do: assign(socket, quick_loading: false, quick_label: nil)
-
-  defp pi_event(socket, %{"type" => "exited"}) do
-    socket
-    |> put_flash(:error, refusal(:exited))
-    |> assign(quick_loading: false, quick_label: nil, pi_reply: nil)
-  end
-
-  defp pi_event(socket, _event), do: socket
 
   defp update_slot(socket, fun) do
     case socket.assigns.slot_action do
@@ -657,7 +588,7 @@ defmodule ToreWeb.PlannerLive do
             :if={@view == :week and open_days(@plan_state, @week_start, @today) > 0}
             type="button"
             phx-click="plan_week"
-            disabled={@quick_loading}
+            disabled={@pi_working != nil}
             data-role="plan-week"
             class="pill pill-lamp press h-8 px-3"
           >
@@ -669,32 +600,7 @@ defmodule ToreWeb.PlannerLive do
           </button>
         </div>
 
-        <p
-          :if={@quick_loading}
-          class="mt-4 flex items-center gap-2 text-[14px] text-[color:var(--muted)]"
-          role="status"
-        >
-          <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
-          {@quick_label || gettext("Changing the plan…")}
-        </p>
-
-        <div
-          :if={@pi_reply not in [nil, ""]}
-          data-role="pi-reply"
-          class="mt-4 flex items-start gap-3 rounded-2xl bg-[var(--sunken)] px-4 py-3"
-          aria-live="polite"
-        >
-          <p class="min-w-0 flex-1 whitespace-pre-line text-[15px] leading-snug">{@pi_reply}</p>
-          <button
-            :if={not @quick_loading}
-            type="button"
-            phx-click="dismiss_pi_reply"
-            class="press -mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--border)] hover:text-[var(--text)]"
-            aria-label={gettext("Close")}
-          >
-            <.icon name="ph-x" class="size-4" />
-          </button>
-        </div>
+        <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
 
         <div :if={@current_run} class="mt-4">
           <.live_component

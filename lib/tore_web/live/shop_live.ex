@@ -27,13 +27,13 @@ defmodule ToreWeb.ShopLive do
        user_id: user_id,
        export_text: nil,
        item_sheet: nil,
-       item_command_loading: false,
        spending: ToreWeb.Spending.load(scope),
        section_order: Shop.Walk.order(scope),
        scanning: false,
        scanner: nil,
        making_list: false
      )
+     |> ToreWeb.PiReply.init()
      |> assign_dinners()
      |> allow_upload(:receipt_photo,
        accept: ~w(.jpg .jpeg .png .webp .heic),
@@ -146,24 +146,19 @@ defmodule ToreWeb.ShopLive do
   def handle_event("item_command", %{"command" => command}, socket) when command != "" do
     item = socket.assigns.item_sheet
 
-    ctx = %{
-      scope: socket.assigns.current_scope,
-      locale: socket.assigns.current_user && socket.assigns.current_user.locale
-    }
+    message =
+      "From the Shop screen, about \"#{item.name}\" on this week's shopping list: #{command}"
 
-    prefixed =
-      "[The user is referring to the grocery item \"#{item.name}\" on the shopping list.] " <>
-        command
-
-    ToreWeb.Background.run(
-      fn -> Tore.Capture.Router.route(prefixed, [], ctx, []) end,
-      &{:item_command_complete, &1}
-    )
-
-    {:noreply, assign(socket, item_sheet: nil, item_command_loading: true)}
+    {:noreply,
+     socket
+     |> assign(item_sheet: nil)
+     |> ToreWeb.PiReply.ask(message, gettext("Going through the list…"))}
   end
 
   def handle_event("item_command", _params, socket), do: {:noreply, socket}
+
+  def handle_event("dismiss_pi_reply", _params, socket),
+    do: {:noreply, ToreWeb.PiReply.dismiss(socket)}
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
@@ -209,25 +204,8 @@ defmodule ToreWeb.ShopLive do
   def handle_event("scanner_failed", _params, socket),
     do: {:noreply, update(socket, :scanner, &(&1 && %{&1 | camera: :failed}))}
 
-  def handle_info({:item_command_complete, result}, socket) do
-    flash =
-      case result do
-        {:ok, bubbles} ->
-          {:info, bubble_text(bubbles)}
-
-        {:error, reason} ->
-          {:error,
-           Tore.LLM.refusal_text(reason) ||
-             gettext("Tore couldn't finish that. Try again in a moment.")}
-      end
-
-    {kind, text} = flash
-
-    {:noreply,
-     socket
-     |> assign(item_command_loading: false)
-     |> put_flash(kind, text)}
-  end
+  def handle_info({:pi, _session, event}, socket),
+    do: {:noreply, ToreWeb.PiReply.event(socket, event)}
 
   def handle_info({:list_made, %{error: true, text: text}}, socket),
     do: {:noreply, socket |> assign(making_list: false) |> put_flash(:error, text)}
@@ -359,6 +337,8 @@ defmodule ToreWeb.ShopLive do
             {gettext("%{count} left · week %{week}", count: @unchecked_count, week: @week_number)}
           </p>
         </header>
+
+        <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
 
         <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
              (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end. --%>
@@ -729,17 +709,6 @@ defmodule ToreWeb.ShopLive do
   # A dish named inside a sentence: "Tacos" reads "tacos" there.
   defp lowercase_first(<<first::utf8, rest::binary>>),
     do: String.downcase(<<first::utf8>>) <> rest
-
-  defp bubble_text(bubbles) do
-    bubbles
-    |> Enum.map(&Map.get(&1, :text, ""))
-    |> Enum.reject(&(&1 == ""))
-    |> List.last()
-    |> case do
-      nil -> gettext("Done.")
-      text -> text
-    end
-  end
 
   defp sorted_items(items) do
     items

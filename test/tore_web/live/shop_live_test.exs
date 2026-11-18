@@ -2,6 +2,7 @@ defmodule ToreWeb.ShopLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
   import Mox
+  import Tore.FakePi
 
   setup :verify_on_exit!
   setup :set_mox_from_context
@@ -165,8 +166,11 @@ defmodule ToreWeb.ShopLiveTest do
   end
 
   describe "grocery item object sheet" do
-    test "long-pressing a grocery row opens an item sheet whose input routes a scoped command",
-         %{conn: conn} do
+    setup :fake_pi
+
+    test "long-pressing a grocery row opens an item sheet whose words go to pi about the item",
+         %{conn: conn, user: user, pi_log: log} do
+      System.put_env("FAKE_PI_REPLY", "Bytte till Apetina.")
       stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "dairy"}, %{}} end)
 
       {:ok, view, _} = live(conn, ~p"/shop")
@@ -184,23 +188,17 @@ defmodule ToreWeb.ShopLiveTest do
       assert render(view) =~ ~s(phx-submit="item_command")
       assert render(view) =~ "feta"
 
-      expect(Tore.MockLLM, :chat_with_tools, fn _sys, msgs, _tools, _opts ->
-        content = msgs |> List.last() |> Map.fetch!(:content)
-        assert content =~ "The user is referring to the grocery item"
-        assert content =~ "feta"
-        assert content =~ "byt till Apetina 200 g"
-
-        {:ok, {:message, "Done."},
-         %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-      end)
-
       view
       |> form(~s(form[phx-submit="item_command"]), %{command: "byt till Apetina 200 g"})
       |> render_submit()
 
       refute render(view) =~ ~s(phx-submit="item_command")
+      assert eventually(fn -> has_element?(view, ~s([data-role="pi-reply"]), "Bytte") end)
 
-      eventually(fn -> render(view) =~ "Done" end)
+      [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
+      assert header["session"] == "chat-#{user.id}"
+      assert message =~ ~s(From the Shop screen, about "feta")
+      assert message =~ "byt till Apetina 200 g"
     end
 
     test "escape closes the item sheet without routing", %{conn: conn} do

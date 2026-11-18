@@ -2,6 +2,7 @@ defmodule ToreWeb.HomeLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
   import Mox
+  import Tore.FakePi
 
   setup :verify_on_exit!
   setup :set_mox_from_context
@@ -234,8 +235,11 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   describe "tonight object sheet" do
-    test "long-pressing the tonight card opens a sheet scoped to today with a scoped input",
-         %{conn: conn} do
+    setup :fake_pi
+
+    test "long-pressing the tonight card opens a sheet whose words go to pi about tonight",
+         %{conn: conn, user: user, pi_log: log} do
+      System.put_env("FAKE_PI_REPLY", "Klart.")
       seed_tonight_recipe()
       {:ok, view, _html} = live(conn, ~p"/today")
 
@@ -246,28 +250,18 @@ defmodule ToreWeb.HomeLiveTest do
       html = render(view)
       assert html =~ ~s(phx-submit="tonight_command")
 
-      test_pid = self()
-
-      expect(Tore.MockLLM, :chat_with_tools, fn _sys, msgs, _tools, _opts ->
-        [%{role: "user", content: content}] = msgs
-        assert content =~ "The user is referring to"
-        assert content =~ today_slot_key()
-        send(test_pid, :tonight_command_dispatched)
-
-        {:ok, {:message, "done"},
-         %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-      end)
-
       view
       |> form(~s(form[phx-submit="tonight_command"]), %{command: "make it vegetarian"})
       |> render_submit()
 
       refute render(view) =~ ~s(phx-submit="tonight_command")
+      assert eventually(fn -> has_element?(view, ~s([data-role="pi-reply"]), "Klart.") end)
 
-      assert_receive :tonight_command_dispatched, 2_000
-
-      # Wait for the run to finish, or it keeps writing after the test's database is gone.
-      eventually(fn -> render(view) =~ "Klar" end)
+      [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
+      assert header["session"] == "chat-#{user.id}"
+      assert message =~ "From the Today screen, about tonight's dinner"
+      assert message =~ Date.to_iso8601(Tore.Clock.today())
+      assert message =~ "make it vegetarian"
     end
 
     test "escape closes the tonight sheet without dispatching", %{conn: conn} do

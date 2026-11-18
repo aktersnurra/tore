@@ -2,6 +2,7 @@ defmodule ToreWeb.HomeLive do
   use ToreWeb, :live_view
 
   alias Tore.{Recipes, Planning}
+  alias ToreWeb.PiReply
 
   def mount(_params, _session, socket) do
     scope = socket.assigns.current_scope
@@ -9,6 +10,9 @@ defmodule ToreWeb.HomeLive do
     week_start = Tore.Streams.monday(date)
     pick = Tore.Home.current(scope)
     if connected?(socket) and pick.stale?, do: Tore.Home.refresh(scope)
+
+    # Tonight follows the plan, whoever changes it: pi asked from here, or anyone elsewhere.
+    if connected?(socket), do: Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(scope))
 
     {:ok,
      socket
@@ -26,6 +30,7 @@ defmodule ToreWeb.HomeLive do
        choices: nil,
        changed: nil
      )
+     |> PiReply.init()
      |> reload_tonight()}
   end
 
@@ -223,6 +228,8 @@ defmodule ToreWeb.HomeLive do
             </button>
           </p>
 
+          <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
+
           <section :if={@dish.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
             <h2 class="t-head mb-1">{gettext("Ingredients")}</h2>
             <ul class="menu-lines">
@@ -267,6 +274,7 @@ defmodule ToreWeb.HomeLive do
             </button>
           </p>
           <.note :if={@note} note={@note} added={@note_added} class="mt-6" />
+          <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
           <div :if={!@eating_out} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
             <button type="button" phx-click="something_else" class="pill pill-lamp press">
               <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
@@ -508,24 +516,22 @@ defmodule ToreWeb.HomeLive do
   end
 
   def handle_event("tonight_command", %{"command" => command}, socket) when command != "" do
-    scope = socket.assigns.current_scope
+    %{dish: dish, date: date, day: day} = socket.assigns
+    which = if day == :tomorrow, do: "tomorrow's", else: "tonight's"
 
-    ctx = %{
-      command: command,
-      plan_stream_id: socket.assigns.plan_id,
-      week_start: socket.assigns.week_start,
-      scoped_slot: socket.assigns.day_key
-    }
+    message =
+      "From the Today screen, about #{which} dinner (#{dish && dish.title}, " <>
+        "#{Date.to_iso8601(date)}): #{command}"
 
-    ToreWeb.Background.run(
-      fn -> Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.PlannerCommand, ctx) end,
-      &{:run_dispatched, &1}
-    )
-
-    {:noreply, assign(socket, tonight_sheet: false)}
+    {:noreply,
+     socket
+     |> assign(tonight_sheet: false)
+     |> PiReply.ask(message, gettext("Changing the plan…"))}
   end
 
   def handle_event("tonight_command", _params, socket), do: {:noreply, socket}
+
+  def handle_event("dismiss_pi_reply", _params, socket), do: {:noreply, PiReply.dismiss(socket)}
 
   def handle_info({:choices, suggestions}, %{assigns: %{choices: %{} = choices}} = socket) do
     list = suggestions |> Enum.reject(&(&1.recipe.id == choices.without)) |> Enum.take(3)
@@ -534,27 +540,9 @@ defmodule ToreWeb.HomeLive do
 
   def handle_info({:choices, _suggestions}, socket), do: {:noreply, socket}
 
-  def handle_info({:run_dispatched, result}, socket) do
-    socket =
-      socket
-      |> reload_tonight()
-      |> then(fn socket ->
-        case result do
-          {:ok, _} ->
-            put_flash(socket, :info, gettext("Done."))
+  def handle_info({:events, _events}, socket), do: {:noreply, reload_tonight(socket)}
 
-          {:error, reason} ->
-            put_flash(
-              socket,
-              :error,
-              Tore.LLM.refusal_text(reason) ||
-                gettext("Tore couldn't finish that. Try again in a moment.")
-            )
-        end
-      end)
-
-    {:noreply, socket}
-  end
+  def handle_info({:pi, _session, event}, socket), do: {:noreply, PiReply.event(socket, event)}
 
   attr :note, :map, required: true
   attr :added, :boolean, required: true
