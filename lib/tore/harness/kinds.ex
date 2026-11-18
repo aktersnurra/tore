@@ -4,7 +4,6 @@ defmodule Tore.Harness.Kinds do
   # Tests add kinds of their own through config.
   @modules [
              Tore.Harness.Kinds.HomePick,
-             Tore.Harness.Kinds.MemoryReview,
              Tore.Harness.Kinds.MemoryUpdate,
              Tore.Harness.Kinds.PantryUpdate,
              Tore.Harness.Kinds.PlanEdit,
@@ -12,8 +11,7 @@ defmodule Tore.Harness.Kinds do
              Tore.Harness.Kinds.Receipt,
              Tore.Harness.Kinds.RecipeIngestion,
              Tore.Harness.Kinds.SetPlanSlot,
-             Tore.Harness.Kinds.ShopEdit,
-             Tore.Harness.Kinds.WeeklyPlanning
+             Tore.Harness.Kinds.ShopEdit
            ] ++
              Application.compile_env(:tore, :extra_run_kinds, [])
 

@@ -24,7 +24,7 @@ defmodule Tore.Household.MemoryTest do
     # Entries name the run that wrote them, so the run row must exist.
     home_scope()
     |> Tore.Harness.KitchenRun.open(
-      %{id: @run_id, kind: "memory_review_run", actor: :system, input: %{}},
+      %{id: @run_id, kind: "memory_update_run", actor: :system, input: %{}},
       DateTime.utc_now()
     )
     |> Repo.insert!()

@@ -1082,7 +1082,7 @@ defmodule Tore.Capture.Dispatch do
   def memory(target, operations, ctx) do
     batch = %MemoryBatch{target: target, operations: operations}
 
-    case Kinds.MemoryReview.check(ctx.scope, [batch]) do
+    case Kinds.MemoryUpdate.check(ctx.scope, [batch]) do
       :ok ->
         case Runs.submit(ctx.scope, Kinds.MemoryUpdate, [batch], as_actor(%{batch: batch}, ctx)) do
           {:ok, %KitchenRun{status: :applied} = run} ->

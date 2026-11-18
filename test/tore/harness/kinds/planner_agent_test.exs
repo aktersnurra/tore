@@ -6,7 +6,7 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
   alias Tore.{Planning, Recipes}
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.RecipeProposal
-  alias Tore.Harness.Kinds.{PlannerCommand, WeeklyPlanning}
+  alias Tore.Harness.Kinds.PlannerCommand
 
   setup :verify_on_exit!
 
@@ -73,28 +73,6 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
     refute sys =~ "friendly and practical AI cooking and meal planning assistant"
   end
 
-  test "the weekly planner fills dinners: it sees a lunch and is told to leave lunches be", %{
-    plan: plan
-  } do
-    {:ok, soup} = recipe(%{title: "Ärtsoppa"})
-    {:ok, _} = Planning.assign_recipe(home_scope(), plan, "sat_lunch", soup.id, 4)
-    test_pid = self()
-
-    expect(Tore.MockLLM, :chat_with_tools, fn sys, msgs, _, _ ->
-      send(test_pid, {:prompt, sys <> Enum.map_join(msgs, "\n", &inspect/1)})
-      {:ok, {:message, "Done."}, @usage}
-    end)
-
-    Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
-
-    assert_receive {:prompt, prompt}
-    assert prompt =~ "Saturday 2026-08-22 (sat_dinner): empty; lunch (sat_lunch): Ärtsoppa"
-    assert prompt =~ "Plan no lunches"
-
-    {:ok, state} = Planning.load_plan(home_scope(), plan)
-    assert Map.keys(state.slots) == ["sat_lunch"]
-  end
-
   describe "a variant the agent generates" do
     setup do
       {:ok, ramen} =
@@ -146,33 +124,6 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       assert {:ok, %KitchenRun{status: :failed, failure_code: :no_ingredients}} =
                Runs.start(home_scope(), PlannerCommand, command(plan, "simpler ramen"))
     end
-  end
-
-  test "the weekly planner fills an empty day and leaves pinned and planned days", %{plan: plan} do
-    {:ok, stew} = recipe(%{title: "Lentil stew", recipe_type: :meal})
-    {:ok, pasta} = recipe(%{title: "Pinned pasta", recipe_type: :meal})
-    {:ok, _} = Planning.assign_recipe(home_scope(), plan, "mon_dinner", pasta.id, 4)
-    {:ok, _} = Planning.pin_slot(home_scope(), plan, "mon_dinner", true)
-    {:ok, _} = Planning.assign_recipe(home_scope(), plan, "tue_dinner", stew.id, 4)
-
-    resolve_then(
-      "Lentil stew",
-      {"assign_recipe",
-       &%{"slot_key" => "wed_dinner", "recipe_ref" => &1, "servings" => 4, "rationale" => "empty"}}
-    )
-
-    expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
-      {:ok, {:message, "Filled."}, @usage}
-    end)
-
-    assert {:ok, %KitchenRun{status: :applied}} =
-             Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
-
-    {:ok, state} = Planning.load_plan(home_scope(), plan)
-    assert state.slots["wed_dinner"].recipe_id == stew.id
-    assert state.slots["mon_dinner"].recipe_id == pasta.id
-    assert Map.has_key?(state.pins, "mon_dinner")
-    assert state.slots["tue_dinner"].recipe_id == stew.id
   end
 
   describe "a budget" do
@@ -236,7 +187,7 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Cheaper."}, @usage} end)
 
       assert {:ok, %KitchenRun{status: :applied}} =
-               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+               Runs.start(home_scope(), PlannerCommand, command(plan, "Planera veckan"))
 
       # The steak, 400 kr, and six open days at a typical dinner, the same.
       assert_received {:retry, text}
@@ -251,7 +202,7 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       assigns("Oxfilé")
 
       assert {:ok, %KitchenRun{status: :applied}} =
-               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+               Runs.start(home_scope(), PlannerCommand, command(plan, "Planera veckan"))
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
       assert state.slots["mon_dinner"].recipe_id == steak.id
@@ -270,7 +221,7 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       assigns("Linsgryta", "mon_dinner")
 
       assert {:ok, %KitchenRun{status: :applied}} =
-               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+               Runs.start(home_scope(), PlannerCommand, command(plan, "Planera veckan"))
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
       assert state.slots["mon_dinner"].recipe_id == steak.id
@@ -283,7 +234,7 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       assigns("Oxfilé")
 
       assert {:ok, %KitchenRun{status: :applied}} =
-               Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+               Runs.start(home_scope(), PlannerCommand, command(plan, "Planera veckan"))
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
       assert state.slots["mon_dinner"].recipe_id == steak.id

@@ -8,7 +8,7 @@ defmodule Tore.Mcp.ReadToolsTest do
   # No expectations: any call to the model fails the test.
   setup :verify_on_exit!
 
-  defp call(scope, name, args \\ %{}) do
+  defp call(scope, name, args) do
     request = %{
       "jsonrpc" => "2.0",
       "id" => 1,
@@ -82,6 +82,10 @@ defmodule Tore.Mcp.ReadToolsTest do
     assert [%{"name" => "ägg", "expires_on" => _}] = context["pantry"]
     assert "next week has no dinners planned" in context["due"]
     assert Enum.any?(context["due"], &(&1 =~ "ägg"))
+    assert context["week_mode"] == nil
+
+    Tore.WeekMode.set_mode(scope, "low_effort")
+    assert ok(scope, "get_context")["week_mode"] =~ "Low effort"
   end
 
   test "search_recipes finds by title or ingredient, and lists all without a query" do

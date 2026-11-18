@@ -6,7 +6,7 @@ defmodule Tore.Harness.Kinds.PlannerTest do
   alias Tore.{Planning, Recipes}
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.{PlanDiff, RecipeProposal}
-  alias Tore.Harness.Kinds.{PlannerCommand, SetPlanSlot, WeeklyPlanning}
+  alias Tore.Harness.Kinds.{PlannerCommand, SetPlanSlot}
   alias Tore.Planning.{Commands, Decider, State}
 
   setup :verify_on_exit!
@@ -258,20 +258,6 @@ defmodule Tore.Harness.Kinds.PlannerTest do
     test "refuses a recipe the household doesn't have" do
       assert {:error, :recipe_not_found} = SetPlanSlot.proposal(home_scope(), @week, -1, 4)
     end
-  end
-
-  test "the weekly planner fills the week as the system", %{plan: plan, recipe: stew} do
-    tool_call("assign_recipe", %{
-      "slot_key" => "wed_dinner",
-      "recipe_id" => stew.id,
-      "servings" => 4,
-      "rationale" => "fits"
-    })
-
-    done()
-
-    assert {:ok, %KitchenRun{status: :applied, actor: :system, kind: "weekly_planning_run"}} =
-             Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
   end
 
   test "restoring slots puts back exactly what was there, over generated plans" do

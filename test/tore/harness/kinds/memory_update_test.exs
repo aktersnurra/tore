@@ -3,6 +3,8 @@ defmodule Tore.Harness.Kinds.MemoryUpdateTest do
 
   alias Tore.Capture.Dispatch
   alias Tore.Harness.{KitchenRun, Runs}
+  alias Tore.Harness.Artifact.MemoryBatch
+  alias Tore.Harness.Kinds.MemoryUpdate
   alias Tore.Household.Memory
 
   setup do
@@ -84,5 +86,108 @@ defmodule Tore.Harness.Kinds.MemoryUpdateTest do
     assert again.text == "Redan noterat."
     refute Map.has_key?(again, :run_stream_id)
     assert notes() == ["Pizza på fredagar."]
+  end
+
+  # One batch on the notes through a run, as an MCP or Capture write submits it.
+  defp write(operations) do
+    batch = %MemoryBatch{target: "notes", operations: operations}
+    Runs.submit(home_scope(), MemoryUpdate, [batch], %{batch: batch})
+  end
+
+  defp texts, do: home_scope() |> Memory.list() |> Enum.map(& &1.text)
+
+  defp seed(entries) do
+    {:ok, %KitchenRun{status: :applied}} = write(Enum.map(entries, &add/1))
+    {:ok, texts()}
+  end
+
+  test "undo restores memory after an add, a patch and a remove" do
+    {:ok, seeded} = seed(["Friday pizza", "Skips dinner most Thursdays"])
+
+    {:ok, run} =
+      write([
+        add("Taco Tuesdays"),
+        %{"action" => "patch", "old_text" => "most Thursdays", "content" => "Thursdays in term"},
+        %{"action" => "remove", "old_text" => "Friday pizza"}
+      ])
+
+    assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(home_scope(), run.id)
+    assert texts() == seeded
+  end
+
+  test "undoing chained patches oldest first still ends where they started" do
+    {:ok, seeded} = seed(["Skips dinner most Thursdays"])
+
+    patch = fn old, new ->
+      write([%{"action" => "patch", "old_text" => old, "content" => new}])
+    end
+
+    {:ok, %KitchenRun{status: :applied} = a} = patch.("most Thursdays", "Thursdays in term time")
+    {:ok, %KitchenRun{status: :applied} = b} = patch.("in term time", "in spring term")
+
+    assert {:ok, _} = Runs.revert(home_scope(), a.id)
+    assert {:ok, _} = Runs.revert(home_scope(), b.id)
+    assert texts() == seeded
+  end
+
+  test "a batch that no longer fits when applied fails as rejected and changes nothing" do
+    {:ok, _} = seed(["Friday pizza"])
+    [entry] = Memory.list(home_scope())
+
+    batch = %MemoryBatch{
+      target: "notes",
+      operations: [%{"action" => "remove", "old_text" => "Friday pizza"}]
+    }
+
+    # Removed in Settings between verify and apply.
+    :ok = Memory.forget(home_scope(), entry.id)
+
+    assert {:fail, :memory_rejected, :reject} =
+             MemoryUpdate.apply_proposal([batch], %{
+               scope: home_scope(),
+               run: %KitchenRun{id: "run-x"}
+             })
+  end
+
+  test "undo restores memory across many generated batches" do
+    :rand.seed(:exsss, {4, 5, 6})
+    {:ok, before} = seed(["Friday pizza", "Taco Tuesdays", "Shops on Saturdays"])
+
+    outcomes =
+      for _ <- 1..25 do
+        operations =
+          for _ <- 1..Enum.random(1..4) do
+            case Enum.random([:add, :remove, :patch]) do
+              :add ->
+                add("Note #{System.unique_integer([:positive])}")
+
+              :remove ->
+                %{"action" => "remove", "old_text" => Enum.random(texts())}
+
+              :patch ->
+                %{
+                  "action" => "patch",
+                  "old_text" => Enum.random(texts()),
+                  "content" => "Changed #{System.unique_integer([:positive])}"
+                }
+            end
+          end
+
+        outcome =
+          case write(operations) do
+            {:ok, %KitchenRun{status: :applied} = run} ->
+              assert {:ok, _} = Runs.revert(home_scope(), run.id)
+              :applied
+
+            {:ok, %KitchenRun{status: :failed}} ->
+              :failed
+          end
+
+        assert Enum.sort(texts()) == Enum.sort(before)
+        outcome
+      end
+
+    # Both paths ran, so the loop proved something about applied runs.
+    assert :applied in outcomes and :failed in outcomes
   end
 end

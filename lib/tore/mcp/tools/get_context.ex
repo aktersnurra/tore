@@ -17,7 +17,9 @@ defmodule Tore.Mcp.Tools.GetContext do
   def description,
     do: """
     Start here. The household's language (write every name, recipe and memory entry in it), \
-    today's date, diet and allergies (hard limits), what the household has told Tore (memory), \
+    today's date, diet and allergies (hard limits), this week's mode when it isn't a normal week \
+    (how to plan: low effort, budget, use the pantry, more leftovers), what the household has told \
+    Tore (memory), \
     this week's and next week's dinners by date (with a planned `lunch`, and `lunch_day` on \
     weekends, holidays and `day_off` days, where a lunch could be offered), each week's budget against its estimate in \
     kronor (`priced` of `total` ingredients have a real price, the rest are guesses), the basics \
@@ -42,6 +44,8 @@ defmodule Tore.Mcp.Tools.GetContext do
        today: today,
        weekday: Calendar.strftime(today, "%A"),
        diet: scope |> Household.get_preferences() |> Household.prefs_to_dietary_guidance(),
+       week_mode:
+         scope |> Tore.WeekMode.get_current_mode() |> Tore.WeekMode.mode_prompt_fragment(),
        memory: Household.Memory.snapshot(scope),
        this_week: week(scope, monday),
        next_week: next_week,

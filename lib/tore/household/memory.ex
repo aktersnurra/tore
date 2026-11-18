@@ -6,7 +6,7 @@ defmodule Tore.Household.Memory do
     * `profile`: who you cook for: names, ages, schedules, tastes, how you shop and cook.
     * `notes`: what has been learned: what gets skipped or swapped, what worked, agreements.
 
-  AI writes go through runs (`Kinds.MemoryReview`), so each entry names the run that wrote it and
+  AI writes go through runs (`Kinds.MemoryUpdate`), so each entry names the run that wrote it and
   can be undone. A person removes an entry directly, from Settings. Forgotten entries stay stored
   with the time they were forgotten. Prompts read both parts once per turn, through `snapshot/1`.
   """

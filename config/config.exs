@@ -65,7 +65,7 @@ config :tore, Tore.Scheduler,
     # Recipes still without a photo get one drawn (off in dev and test).
     {"30 3 * * *", {Tore.Recipes, :draw_missing_pictures, []}},
     {"0 4 * * 0", {Tore.Harness.InboxSweeper, :sweep_weekly, []}},
-    {"0 6 * * 6", {Tore.Harness.Kinds.MemoryReview, :review_weekly, []}},
+    {"0 6 * * 6", {Tore.Agent, :run_weekly, ["weekly_reflection"]}},
     # The coming week's offers, then its plan: Friday to Sunday mornings, and Sunday's deadline.
     {"0 9 * * 0,5,6", {Tore.WeekAhead, :run, []}},
     {"0 18 * * 0", {Tore.WeekAhead, :run, []}}

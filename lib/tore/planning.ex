@@ -15,19 +15,6 @@ defmodule Tore.Planning do
     EventStore.load(scope, plan_id, Decider, as_of)
   end
 
-  @doc """
-  Plan the upcoming week (next Monday-Sunday) for the household through a
-  `Kinds.WeeklyPlanning` run. `today` is the day the week is counted from.
-  """
-  def plan_upcoming_week(%Scope{} = scope, %Date{} = today \\ Tore.Clock.today()) do
-    week_start = today |> Streams.monday() |> Date.add(7)
-
-    Tore.Harness.Runs.start(scope, Tore.Harness.Kinds.WeeklyPlanning, %{
-      plan_stream_id: Streams.plan(scope, week_start),
-      week_start: week_start
-    })
-  end
-
   def assign_recipe(%Scope{} = scope, plan_id, slot_key, recipe_id, servings) do
     with :ok <- own_recipe(scope, recipe_id) do
       run(scope, plan_id, %Commands.AssignRecipe{

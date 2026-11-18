@@ -235,23 +235,6 @@ defmodule Tore.PlanningTest do
     end
   end
 
-  test "plan_upcoming_week dispatches a weekly run for the upcoming Monday-start week" do
-    Tore.MockLLM
-    |> Mox.expect(:chat_with_tools, fn _sys, _msgs, _tools, _opts ->
-      {:ok, {:message, "Nothing to do."},
-       %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
-    end)
-
-    expected_stream = Tore.Streams.plan(home_scope(), ~D[2026-06-15])
-
-    assert {:ok,
-            %Tore.Harness.KitchenRun{status: :applied, kind: "weekly_planning_run", input: input}} =
-             Planning.plan_upcoming_week(home_scope(), ~D[2026-06-10])
-
-    assert input["plan_stream_id"] == expected_stream
-    assert {:ok, _plan} = Planning.load_plan(home_scope(), expected_stream)
-  end
-
   describe "swap_events/3 (pure)" do
     alias Tore.Planning.{Decider, State}
 
@@ -397,33 +380,6 @@ defmodule Tore.PlanningTest do
   end
 
   describe "households" do
-    test "the weekly cron plans every household that can use AI, and no other" do
-      other = scope_fixture(sponsored_household())
-      unsponsored = scope_fixture(household_fixture())
-
-      Tore.MockLLM
-      |> Mox.expect(:chat_with_tools, 2, fn _sys, _msgs, _tools, _opts ->
-        {:ok, {:message, "Nothing to do."},
-         %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
-      end)
-
-      sunday = Tore.Clock.today() |> Tore.Streams.monday() |> Date.add(6)
-      assert :ok = Tore.WeekAhead.run(NaiveDateTime.new!(sunday, ~T[18:00:00]))
-      runs = fn scope -> Tore.Repo.all(Tore.Harness.KitchenRun, Tore.Scope.repo_opts(scope)) end
-      assert [%{status: :applied}] = runs.(home_scope())
-      assert [%{status: :applied}] = runs.(other)
-      # No run opened at all, not just none applied: the cron skipped the household.
-      assert runs.(unsponsored) == []
-    end
-
-    defp sponsored_household do
-      household = household_fixture()
-      sponsor = user_fixture(household: household)
-      sponsor |> Ecto.Changeset.change(ai_enabled: true) |> Tore.Repo.update!()
-
-      household |> Ecto.Changeset.change(ai_sponsor_id: sponsor.id) |> Tore.Repo.update!()
-    end
-
     test "a plan change is broadcast only to its own household" do
       other = scope_fixture(household_fixture())
       Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(other))

@@ -5,16 +5,13 @@ defmodule Tore.WeekAhead do
 
   Each morning run fetches the stores whose offers for the coming week haven't appeared yet
   (`Tore.Deals.scrape_all/1`), so a store is fetched at most once a day and not again once its new
-  offers are in. The deadline run doesn't fetch. A household that can use the server's model gets its coming week planned once
-  (`Tore.Planning.plan_upcoming_week/2`): as soon as all its stores' new offers are in, or at the
-  Sunday deadline with whatever prices there are. Offers arriving after that change the estimate
-  and the alternatives, never the plan.
+  offers are in. The deadline run doesn't fetch. A household that can use pi gets its coming week
+  planned once, by the `plan_week` job (`Tore.Agent`): as soon as all its stores' new offers are
+  in, or at the Sunday deadline with whatever prices there are. Offers arriving after that change
+  the estimate and the alternatives, never the plan.
   """
 
-  import Ecto.Query
-
-  alias Tore.{Deals, Household, Planning, Repo, Scope, Streams}
-  alias Tore.Harness.KitchenRun
+  alias Tore.{Agent, Deals, Household, Pi, Streams}
 
   @from_weekday 5
   @deadline ~T[18:00:00]
@@ -31,25 +28,15 @@ defmodule Tore.WeekAhead do
       # The deadline run plans with what the morning fetched: once a day per store, at most.
       unless deadline?, do: :ok = Deals.scrape_all(today)
 
+      week = today |> Streams.monday() |> Date.add(7)
+
       Household.each_scope(fn scope ->
-        if Tore.LLM.check(scope) == :ok and not planned?(scope, today) and
+        if Pi.check(scope) == :ok and not Agent.ran?(scope, "plan_week", week) and
              (deadline? or Deals.coming_week_in?(scope, today)),
-           do: Planning.plan_upcoming_week(scope, today)
+           do: Agent.run(scope, "plan_week", week)
       end)
     end
 
     :ok
-  end
-
-  # A weekly plan for the coming week has run, or is running. A failed one is tried again.
-  defp planned?(scope, today) do
-    week = today |> Streams.monday() |> Date.add(7) |> Date.to_iso8601()
-
-    from(r in KitchenRun,
-      where:
-        r.kind == "weekly_planning_run" and r.status != :failed and
-          fragment("json_extract(?, '$.week_start')", r.input) == ^week
-    )
-    |> Repo.exists?(Scope.repo_opts(scope))
   end
 end

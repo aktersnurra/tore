@@ -50,7 +50,7 @@ defmodule Tore.Harness.CapsulesTest do
     run =
       home_scope()
       |> Tore.Harness.KitchenRun.open(
-        %{kind: "memory_review_run", actor: :system, input: %{}},
+        %{kind: "memory_update_run", actor: :system, input: %{}},
         DateTime.utc_now()
       )
       |> Tore.Repo.insert!()

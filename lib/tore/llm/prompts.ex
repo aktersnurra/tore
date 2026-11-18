@@ -712,54 +712,6 @@ defmodule Tore.LLM.Prompts do
     """
   end
 
-  @doc """
-  The weekly memory review. `memory` is the household's snapshot (nil when empty), `history` the
-  planning summary, and `rejection` the previous answer's rejection, when retrying.
-  """
-  def memory_review(memory, history, locale, rejection \\ nil) do
-    language = Map.get(@locale_names, locale, "English")
-
-    system = """
-    You keep a household's kitchen memory for Tore, a meal planner. It has two parts:
-    PROFILE is who the household cooks for: names, ages, schedules, tastes, how they like to shop
-    and cook. NOTES is what has been learned: what gets skipped or swapped, what worked,
-    agreements made.
-
-    Read the memory and the last six weeks of planning, and keep what will still matter next
-    week. Skip what is only true this week and what is vague. When a fact changes, patch its entry
-    rather than adding another; remove what is no longer true. Past 80% full, merge entries in the
-    same batch you add to. Most weeks nothing needs to change: then return no batches.
-
-    Never record an allergy or intolerance; those belong in the household's preferences.
-    Write each entry as one short, specific fact in plain words, in #{language}, with no internal
-    ids (write "Monday dinner", not mon_dinner).
-
-    Return JSON only:
-    {"batches": [{"target": "profile" or "notes", "operations": [
-      {"action": "add", "content": "..."},
-      {"action": "patch", "old_text": "...", "content": "..."},
-      {"action": "remove", "old_text": "..."}]}]}
-    At most one batch per part, each with 1 to 10 operations.
-    """
-
-    user =
-      """
-      MEMORY
-      #{memory || "(empty)"}
-
-      PLANNING, LAST SIX WEEKS
-      #{history}
-      """ <> retry_note(rejection)
-
-    {system, user}
-  end
-
-  defp retry_note(nil), do: ""
-
-  defp retry_note(rejection),
-    do:
-      "\nYour last answer was rejected, and nothing was saved:\n#{Jason.encode!(rejection)}\nAnswer again.\n"
-
   defp dietary_guidance_instruction(nil), do: ""
   defp dietary_guidance_instruction(""), do: ""
 
