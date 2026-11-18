@@ -114,6 +114,62 @@ defmodule ToreWeb.HomeLiveTest do
     end
   end
 
+  describe "after dinner" do
+    defp plan_on(date, recipe) do
+      plan_id = Tore.Streams.plan(home_scope(), Tore.Streams.monday(date))
+
+      {:ok, _} =
+        Tore.Planning.assign_recipe(
+          home_scope(),
+          plan_id,
+          Tore.Streams.slot_key(date),
+          recipe.id,
+          4
+        )
+    end
+
+    defp dish(title) do
+      {:ok, recipe} =
+        Tore.Recipes.create(home_scope(), %{title: title, ingredients: [%{name: "lax"}]},
+          image: false
+        )
+
+      recipe
+    end
+
+    test "tonight cooked, Today is tomorrow's dinner", %{conn: conn} do
+      today = Tore.Clock.today()
+      stew = dish("Kycklinggryta")
+      salmon = dish("Laxpasta")
+      plan_on(today, stew)
+      plan_on(Date.add(today, 1), salmon)
+      :ok = Tore.Recipes.record_used(home_scope(), stew.id)
+
+      {:ok, view, html} = live(conn, ~p"/today")
+
+      assert html =~ "Laxpasta"
+
+      assert view |> element(~s([data-role="cooked"])) |> render() =~
+               "Kycklinggryta, lagad ikväll"
+
+      assert html =~ "Imorgon"
+      assert has_element?(view, ~s([data-role="open-recipe"]))
+      refute has_element?(view, ~s([data-role="start-cooking"]))
+      assert view |> element("#today-menu") |> render() =~ "Ingen middag imorgon"
+    end
+
+    test "at 21:00 Today is tomorrow, cooked or not", %{conn: conn} do
+      Application.put_env(:tore, :evening_over, 0)
+      on_exit(fn -> Application.put_env(:tore, :evening_over, 24) end)
+      plan_on(Tore.Clock.today(), dish("Kycklinggryta"))
+
+      {:ok, view, html} = live(conn, ~p"/today")
+
+      assert html =~ "Imorgon är ledig"
+      refute has_element?(view, ~s([data-role="cooked"]))
+    end
+  end
+
   describe "tonight object sheet" do
     test "long-pressing the tonight card opens a sheet scoped to today with a scoped input",
          %{conn: conn} do

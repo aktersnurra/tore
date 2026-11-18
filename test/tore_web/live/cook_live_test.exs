@@ -86,6 +86,26 @@ defmodule ToreWeb.CookLiveTest do
     )
   end
 
+  test "Done: cooked tonight, what it used is gone from home, and Undo puts it back", %{
+    conn: conn,
+    recipe: recipe
+  } do
+    {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vitlök"})
+    {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
+    assert eventually(view, "Fräs vitlöken i oljan")
+
+    html = view |> element(~s([data-role="done"])) |> render_click()
+    assert html =~ "Lagat"
+    assert html =~ "Slut hemma nu: vitlök."
+    assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == ["vitlök"]
+    assert Recipes.get!(home_scope(), recipe.id).last_used_at
+
+    view |> element("#cook-done button", "Ångra") |> render_click()
+    refute has_element?(view, "#cook-done")
+    assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == []
+    refute Recipes.get!(home_scope(), recipe.id).last_used_at
+  end
+
   test "a reload lands on the same card", %{conn: conn, recipe: recipe} do
     {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
 

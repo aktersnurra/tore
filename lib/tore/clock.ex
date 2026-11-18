@@ -10,4 +10,15 @@ defmodule Tore.Clock do
 
   @spec today() :: Date.t()
   def today, do: NaiveDateTime.to_date(now())
+
+  @doc "The household's date at a stored (UTC) moment."
+  @spec date_of(DateTime.t()) :: Date.t()
+  def date_of(%DateTime{} = at) do
+    at
+    |> DateTime.to_naive()
+    |> NaiveDateTime.to_erl()
+    |> :calendar.universal_time_to_local_time()
+    |> NaiveDateTime.from_erl!()
+    |> NaiveDateTime.to_date()
+  end
 end

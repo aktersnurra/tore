@@ -4,19 +4,19 @@ defmodule ToreWeb.HomeLive do
   alias Tore.{Recipes, Planning}
 
   def mount(_params, _session, socket) do
-    today = Tore.Clock.today()
-    week_start = Tore.Streams.monday(today)
     scope = socket.assigns.current_scope
-    plan_id = Tore.Streams.plan(scope, week_start)
-    today_key = Tore.Streams.slot_key(today)
+    {day, date, cooked} = shown_day(scope)
+    week_start = Tore.Streams.monday(date)
 
     {:ok,
      socket
      |> assign(
-       today: today,
-       plan_id: plan_id,
+       day: day,
+       date: date,
+       cooked: cooked,
+       plan_id: Tore.Streams.plan(scope, week_start),
        week_start: week_start,
-       today_key: today_key,
+       day_key: Tore.Streams.slot_key(date),
        tonight_sheet: false,
        before_cooking: false,
        choices: nil,
@@ -30,21 +30,28 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <.page max_width={:sm}>
         <div class="relative z-10 h-0">
-          <.top_bar on_photo={@tonight_recipe != nil} class="absolute inset-x-0 -top-2">
-            <:actions :if={@tonight_recipe}>
+          <.top_bar on_photo={@dish != nil} class="absolute inset-x-0 -top-2">
+            <:actions :if={@dish}>
               <.page_menu id="today-menu" on_photo>
                 <.menu_item
                   menu="today-menu"
                   icon="ph-book-open"
-                  navigate={~p"/recipes?#{[id: @tonight_recipe.id]}"}
+                  navigate={~p"/recipes?#{[id: @dish.id]}"}
                 >
                   {gettext("Open the recipe")}
                 </.menu_item>
-                <.menu_item menu="today-menu" icon="ph-chat-circle" event="open_tonight_sheet">
+                <.menu_item
+                  :if={@day == :tonight}
+                  menu="today-menu"
+                  icon="ph-chat-circle"
+                  event="open_tonight_sheet"
+                >
                   {gettext("Ask about tonight")}
                 </.menu_item>
                 <.menu_item menu="today-menu" icon="ph-x-circle" event="skip_tonight">
-                  {gettext("No dinner tonight")}
+                  {if @day == :tonight,
+                    do: gettext("No dinner tonight"),
+                    else: gettext("No dinner tomorrow")}
                 </.menu_item>
               </.page_menu>
             </:actions>
@@ -53,7 +60,7 @@ defmodule ToreWeb.HomeLive do
 
         <%!-- Tonight: the dish is the screen --%>
         <section
-          :if={@tonight_recipe}
+          :if={@dish}
           id="tonight-card"
           phx-hook="LongPress"
           data-long-press-event="open_tonight_sheet"
@@ -61,55 +68,57 @@ defmodule ToreWeb.HomeLive do
           <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn --%>
           <div class="relative -mx-4 -mt-4 h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)]">
             <img
-              :if={photo?(@tonight_recipe)}
-              src={~p"/images/recipes/#{@tonight_recipe.id}"}
+              :if={photo?(@dish)}
+              src={~p"/images/recipes/#{@dish.id}"}
               alt=""
               class="absolute inset-0 size-full object-cover"
-              style={"view-transition-name: dish-#{@tonight_recipe.id}"}
+              style={"view-transition-name: dish-#{@dish.id}"}
             />
-            <.blank_cover :if={!photo?(@tonight_recipe)} dish={@tonight_recipe} icon_class="size-20" />
+            <.blank_cover :if={!photo?(@dish)} dish={@dish} icon_class="size-20" />
           </div>
 
           <div class="reveal relative -mt-9" style="--i: 0">
             <.page_icon
-              icon={ToreWeb.Look.icon(@tonight_recipe)}
-              tint={ToreWeb.Look.tint(@tonight_recipe.recipe_type)}
+              icon={ToreWeb.Look.icon(@dish)}
+              tint={ToreWeb.Look.tint(@dish.recipe_type)}
               class="size-[72px] rounded-[var(--r-xl)] ring-4 ring-[var(--bg)]"
             />
           </div>
-          <h1 class="reveal t-display mt-3" style="--i: 1">{@tonight_recipe.title}</h1>
+          <h1 class="reveal t-display mt-3" style="--i: 1">{@dish.title}</h1>
+          <.cooked :if={@cooked} title={@cooked} class="mt-2" />
 
           <dl class="props reveal mt-4" style="--i: 2">
             <div>
               <dt><.icon name="ph-calendar-blank" /> {gettext("Day")}</dt>
               <dd class="flex items-center gap-2">
-                <span class="tag tag-red">{gettext("Tonight")}</span>
-                <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@today)}</span>
+                <span :if={@day == :tonight} class="tag tag-red">{gettext("Tonight")}</span>
+                <span :if={@day == :tomorrow} class="tag tag-blue">{gettext("Tomorrow")}</span>
+                <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@date)}</span>
               </dd>
             </div>
             <div>
               <dt><.icon name="ph-tag" /> {gettext("Collection")}</dt>
               <dd>
-                <span class={["tag", "tag-#{ToreWeb.Look.tint(@tonight_recipe.recipe_type)}"]}>
-                  <.icon name={ToreWeb.Look.collection_icon(@tonight_recipe.recipe_type)} />
-                  {collection_label(@tonight_recipe.recipe_type)}
+                <span class={["tag", "tag-#{ToreWeb.Look.tint(@dish.recipe_type)}"]}>
+                  <.icon name={ToreWeb.Look.collection_icon(@dish.recipe_type)} />
+                  {collection_label(@dish.recipe_type)}
                 </span>
               </dd>
             </div>
-            <div :if={minutes(@tonight_recipe) > 0}>
+            <div :if={minutes(@dish) > 0}>
               <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
               <dd class="num">
-                {gettext("%{minutes} min", minutes: minutes(@tonight_recipe))}
-                <span class="text-[color:var(--muted)]">
-                  · {gettext("ready by %{time}", time: ready_by(minutes(@tonight_recipe)))}
+                {gettext("%{minutes} min", minutes: minutes(@dish))}
+                <span :if={@day == :tonight} class="text-[color:var(--muted)]">
+                  · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
                 </span>
               </dd>
             </div>
-            <div :if={@tonight_servings}>
+            <div :if={@servings}>
               <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
-              <dd class="num">{@tonight_servings}</dd>
+              <dd class="num">{@servings}</dd>
             </div>
-            <div :if={@tonight_recipe.recipe_ingredients != []} data-role="at-home">
+            <div :if={@dish.recipe_ingredients != []} data-role="at-home">
               <dt><.icon name="ph-jar" /> {gettext("At home")}</dt>
               <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
                 {gettext("All of it")}
@@ -145,15 +154,23 @@ defmodule ToreWeb.HomeLive do
 
           <div class="reveal mt-5 flex gap-2" style="--i: 3">
             <.link
-              :if={@home.missing == []}
-              navigate={~p"/recipes/#{@tonight_recipe.id}/cook?from=/today"}
+              :if={@day == :tomorrow}
+              navigate={~p"/recipes?#{[id: @dish.id]}"}
+              class="pill press"
+              data-role="open-recipe"
+            >
+              <.icon name="ph-book-open" /> {gettext("Open the recipe")}
+            </.link>
+            <.link
+              :if={@day == :tonight and @home.missing == []}
+              navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
               class="pill pill-lamp press"
               data-role="start-cooking"
             >
               <.icon name="ph-fire-fill" /> {gettext("Cook now")}
             </.link>
             <button
-              :if={@home.missing != []}
+              :if={@day == :tonight and @home.missing != []}
               type="button"
               phx-click="before_cooking"
               class="pill pill-lamp press"
@@ -182,18 +199,18 @@ defmodule ToreWeb.HomeLive do
             </button>
           </p>
 
-          <section :if={@tonight_recipe.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
+          <section :if={@dish.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
             <h2 class="t-head mb-1">{gettext("Ingredients")}</h2>
             <ul class="menu-lines">
               <li
-                :for={ri <- @tonight_recipe.recipe_ingredients}
+                :for={ri <- @dish.recipe_ingredients}
                 class="flex items-baseline justify-between gap-4 py-3"
               >
                 <span class="text-[color:var(--text)]" style="font-size: 16px;">
                   {ri.ingredient.name}
                 </span>
                 <span class="num shrink-0 text-[color:var(--muted)]" style="font-size: 15px;">
-                  {amount(ri, @tonight_recipe.base_servings, @tonight_servings)}
+                  {amount(ri, @dish.base_servings, @servings)}
                 </span>
               </li>
             </ul>
@@ -201,19 +218,20 @@ defmodule ToreWeb.HomeLive do
         </section>
 
         <%!-- Nothing tonight: say so plainly, and offer the way forward --%>
-        <section :if={!@tonight_recipe} class="pt-20">
-          <p class="reveal t-eyebrow num" style="--i: 0">{ToreWeb.Dates.long(@today)}</p>
+        <section :if={!@dish} class="pt-20">
+          <.cooked :if={@cooked} title={@cooked} class="mb-6" />
+          <p class="reveal t-eyebrow num" style="--i: 0">{ToreWeb.Dates.long(@date)}</p>
           <h1 class="reveal t-display mt-2" style="--i: 1">
-            {if @eating_out_tonight,
-              do: gettext("Eating out tonight"),
-              else: gettext("Tonight is open")}
+            {empty_title(@day, @eating_out)}
           </h1>
           <p
-            :if={!@eating_out_tonight}
+            :if={!@eating_out}
             class="reveal mt-3 max-w-[30ch] text-[color:var(--muted)]"
             style="--i: 2; font-size: 15px; line-height: 1.5;"
           >
-            {gettext("Plan the week, or ask Tore what to make tonight.")}
+            {if @day == :tonight,
+              do: gettext("Plan the week, or ask Tore what to make tonight."),
+              else: gettext("Plan the week, or ask Tore what to make tomorrow.")}
           </p>
           <p :if={@changed} class="settle mt-4 text-[color:var(--muted)]" style="font-size: 15px;">
             <button
@@ -224,7 +242,7 @@ defmodule ToreWeb.HomeLive do
               {gettext("Undo")}
             </button>
           </p>
-          <div :if={!@eating_out_tonight} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
+          <div :if={!@eating_out} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
             <button type="button" phx-click="something_else" class="pill pill-lamp press">
               <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
             </button>
@@ -239,11 +257,11 @@ defmodule ToreWeb.HomeLive do
       </.page>
 
       <.live_component
-        :if={@before_cooking and @tonight_recipe != nil}
+        :if={@before_cooking and @dish != nil}
         module={ToreWeb.BeforeCooking}
         id="before-cooking"
         scope={@current_scope}
-        recipe={@tonight_recipe}
+        recipe={@dish}
         missing={@home.missing}
         cook_params={[from: "/today"]}
         on_close="close_before_cooking"
@@ -251,7 +269,9 @@ defmodule ToreWeb.HomeLive do
 
       <%!-- Something else tonight: a few dishes to choose between, or none --%>
       <.bottom_sheet :if={@choices} id="choices-sheet" on_close="close_choices" class="px-5">
-        <p class="t-eyebrow">{gettext("Tonight")}</p>
+        <p class="t-eyebrow">
+          {if @day == :tonight, do: gettext("Tonight"), else: gettext("Tomorrow")}
+        </p>
         <p class="t-head mt-1">{gettext("Something else?")}</p>
         <div class="mt-4">
           <ToreWeb.DishChoices.dish_choices
@@ -269,7 +289,7 @@ defmodule ToreWeb.HomeLive do
         </div>
         <div class="mt-4 flex items-center justify-between border-t border-[color:var(--hairline)] pt-3">
           <button
-            :if={@tonight_recipe}
+            :if={@dish}
             type="button"
             phx-click="skip_tonight"
             class="press py-2 text-[color:var(--muted)] hover:text-[color:var(--text)]"
@@ -289,13 +309,13 @@ defmodule ToreWeb.HomeLive do
 
       <%!-- Anything about tonight, asked in words (Ask, or a long press) --%>
       <.bottom_sheet
-        :if={@tonight_sheet && @tonight_recipe}
+        :if={@tonight_sheet && @dish && @day == :tonight}
         id="tonight-sheet"
         on_close="close_tonight_sheet"
         class="px-5"
       >
         <p class="t-eyebrow">{gettext("Tonight")}</p>
-        <p class="t-head mt-1">{@tonight_recipe.title}</p>
+        <p class="t-head mt-1">{@dish.title}</p>
         <form phx-submit="tonight_command" class="mt-4">
           <input
             type="text"
@@ -313,7 +333,7 @@ defmodule ToreWeb.HomeLive do
   end
 
   defp change_tonight(socket, change) do
-    %{current_scope: scope, plan_id: plan_id, today_key: key, tonight_recipe: from} =
+    %{current_scope: scope, plan_id: plan_id, day_key: key, dish: from} =
       socket.assigns
 
     {:ok, state} = Planning.load_plan(scope, plan_id)
@@ -326,8 +346,31 @@ defmodule ToreWeb.HomeLive do
      |> assign(choices: nil, changed: %{before: before, from: from && from.title})}
   end
 
+  # Tonight, until it's cooked or it's 21:00; then tomorrow, since that's what can still be
+  # sorted out this evening. `cooked` is tonight's dish when it was.
+  defp shown_day(scope) do
+    today = Tore.Clock.today()
+    tonight = dish_on(scope, today)
+    cooked = tonight && tonight.last_used_at && Tore.Clock.date_of(tonight.last_used_at) == today
+
+    if cooked || Tore.Clock.now().hour >= evening_over(),
+      do: {:tomorrow, Date.add(today, 1), cooked && tonight.title},
+      else: {:tonight, today, nil}
+  end
+
+  # The hour the evening is over, and Today shows tomorrow though tonight wasn't marked cooked.
+  defp evening_over, do: Application.get_env(:tore, :evening_over, 21)
+
+  defp dish_on(scope, date) do
+    {:ok, state} = Planning.load_plan(scope, Tore.Streams.plan(scope, Tore.Streams.monday(date)))
+    slot = Map.get(state.slots, Tore.Streams.slot_key(date))
+
+    if slot && slot.recipe_id && !slot.skipped,
+      do: scope |> Recipes.get_many([slot.recipe_id]) |> List.first()
+  end
+
   defp reload_tonight(socket) do
-    %{current_scope: scope, plan_id: plan_id, today_key: key} = socket.assigns
+    %{current_scope: scope, plan_id: plan_id, day_key: key} = socket.assigns
     {:ok, state} = Planning.load_plan(scope, plan_id)
     slot = Map.get(state.slots, key)
 
@@ -336,9 +379,9 @@ defmodule ToreWeb.HomeLive do
         do: scope |> Recipes.get_many([slot.recipe_id]) |> List.first()
 
     assign(socket,
-      tonight_recipe: tonight,
-      tonight_servings: slot && slot[:servings],
-      eating_out_tonight: Tore.Planning.State.eating_out?(slot),
+      dish: tonight,
+      servings: slot && slot[:servings],
+      eating_out: Tore.Planning.State.eating_out?(slot),
       home:
         tonight &&
           Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name)),
@@ -358,7 +401,7 @@ defmodule ToreWeb.HomeLive do
 
   # A few other dishes for tonight, ranked from the library (no model is asked).
   def handle_event("something_else", _params, socket) do
-    %{current_scope: scope, plan_id: plan_id, today_key: key, tonight_recipe: tonight} =
+    %{current_scope: scope, plan_id: plan_id, day_key: key, dish: tonight} =
       socket.assigns
 
     ToreWeb.Background.run(
@@ -390,7 +433,7 @@ defmodule ToreWeb.HomeLive do
         plan_id,
         key,
         String.to_integer(id),
-        socket.assigns.tonight_servings || 4
+        socket.assigns.servings || 4
       )
     end)
   end
@@ -407,7 +450,7 @@ defmodule ToreWeb.HomeLive do
   end
 
   def handle_event("open_tonight_sheet", _params, socket) do
-    if socket.assigns.tonight_recipe do
+    if socket.assigns.dish do
       {:noreply, assign(socket, tonight_sheet: true)}
     else
       {:noreply, socket}
@@ -425,7 +468,7 @@ defmodule ToreWeb.HomeLive do
       command: command,
       plan_stream_id: socket.assigns.plan_id,
       week_start: socket.assigns.week_start,
-      scoped_slot: socket.assigns.today_key
+      scoped_slot: socket.assigns.day_key
     }
 
     ToreWeb.Background.run(
@@ -466,6 +509,28 @@ defmodule ToreWeb.HomeLive do
 
     {:noreply, socket}
   end
+
+  attr :title, :string, required: true
+  attr :class, :string, default: nil
+
+  # Tonight's dinner, done: one quiet line above tomorrow.
+  defp cooked(assigns) do
+    ~H"""
+    <p
+      class={["flex items-center gap-2 text-[color:var(--muted)]", @class]}
+      style="font-size: 15px;"
+      data-role="cooked"
+    >
+      <.icon name="ph-check-circle" class="size-5 text-[color:var(--done)]" />
+      {gettext("%{dish}, cooked tonight", dish: @title)}
+    </p>
+    """
+  end
+
+  defp empty_title(:tonight, true), do: gettext("Eating out tonight")
+  defp empty_title(:tonight, _eating_out), do: gettext("Tonight is open")
+  defp empty_title(:tomorrow, true), do: gettext("Eating out tomorrow")
+  defp empty_title(:tomorrow, _eating_out), do: gettext("Tomorrow is open")
 
   defp photo?(recipe), do: recipe != nil and recipe.image_path != nil
 

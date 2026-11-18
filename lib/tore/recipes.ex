@@ -182,13 +182,13 @@ defmodule Tore.Recipes do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
-  @spec record_used(Scope.t(), integer()) :: :ok
-  def record_used(%Scope{} = scope, recipe_id) do
+  @doc "The recipe was cooked `at` (now); `nil` puts back a recipe that never was."
+  @spec record_used(Scope.t(), integer(), DateTime.t() | nil) :: :ok
+  def record_used(%Scope{} = scope, recipe_id, at \\ DateTime.utc_now()) do
+    at = at && DateTime.truncate(at, :second)
+
     from(r in Recipe, where: r.id == ^recipe_id)
-    |> Repo.update_all(
-      [set: [last_used_at: DateTime.utc_now() |> DateTime.truncate(:second)]],
-      Scope.repo_opts(scope)
-    )
+    |> Repo.update_all([set: [last_used_at: at]], Scope.repo_opts(scope))
 
     :ok
   end

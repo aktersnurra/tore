@@ -33,6 +33,7 @@ defmodule ToreWeb.CookLive do
        servings: servings(params["servings"], recipe),
        swaps: BeforeCooking.from_param(params["swaps"]),
        timers: [],
+       done: nil,
        close_to: ToreWeb.SafeReturn.path(params["from"], ~p"/recipes")
      )}
   end
@@ -80,6 +81,33 @@ defmodule ToreWeb.CookLive do
     }
 
     {:noreply, update(socket, :timers, &(&1 ++ [timer]))}
+  end
+
+  # Done: the dish was cooked tonight, and what it used is gone from the pantry, the swaps'
+  # in place of what they stood for. Undo puts both back.
+  def handle_event("done", _params, %{assigns: %{done: nil}} = socket) do
+    %{current_scope: scope, recipe: recipe, swaps: swaps} = socket.assigns
+
+    names =
+      Enum.map(recipe.recipe_ingredients, fn ri ->
+        case Enum.find(swaps, &same_name?(&1.for, ri.ingredient.name)) do
+          nil -> ri.ingredient.name
+          swap -> swap.use
+        end
+      end)
+
+    :ok = Recipes.record_used(scope, recipe.id)
+    used = Tore.Pantry.use_up(scope, names)
+    {:noreply, assign(socket, done: %{used: used, was: recipe.last_used_at})}
+  end
+
+  def handle_event("done", _params, socket), do: {:noreply, socket}
+
+  def handle_event("undo_done", _params, %{assigns: %{done: %{} = done}} = socket) do
+    %{current_scope: scope, recipe: recipe} = socket.assigns
+    :ok = Tore.Pantry.put_back(scope, done.used)
+    :ok = Recipes.record_used(scope, recipe.id, done.was)
+    {:noreply, assign(socket, done: nil)}
   end
 
   def handle_event("stop_timer", %{"id" => id}, socket) do
@@ -194,7 +222,44 @@ defmodule ToreWeb.CookLive do
         overview={@overview}
         close_to={@close_to}
         timers={@timers}
+        on_done="done"
       />
+
+      <%!-- Cooked: what's gone from the pantry now, with Undo, and the way out --%>
+      <div
+        :if={@done}
+        id="cook-done"
+        class="fixed inset-0 z-[80] flex flex-col justify-center bg-[var(--bg)] px-5"
+      >
+        <div class="mx-auto w-full max-w-2xl">
+          <p class="t-eyebrow">{@recipe.title}</p>
+          <p class="t-display settle mt-2 flex items-center gap-3">
+            <.icon name="ph-check-circle-fill" class="size-9 text-[color:var(--done)]" />
+            {gettext("Cooked")}
+          </p>
+          <p
+            :if={@done.used != []}
+            class="mt-4 text-[color:var(--muted)]"
+            style="font-size: 16px; line-height: 1.5;"
+          >
+            {gettext("Used up at home: %{things}.",
+              things: @done.used |> Enum.map(& &1.name) |> Enum.join(", ")
+            )}
+          </p>
+          <div class="mt-8 flex flex-wrap items-center gap-5">
+            <.link navigate={@close_to} class="pill pill-lg pill-lamp press" data-role="close-done">
+              {gettext("Close")}
+            </.link>
+            <button
+              type="button"
+              phx-click="undo_done"
+              class="press font-semibold text-[color:var(--accent-ink)]"
+            >
+              {gettext("Undo")}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div
         :if={!@cards}

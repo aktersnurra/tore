@@ -23,6 +23,10 @@ defmodule ToreWeb.StepCards do
   attr :overview, :boolean, default: false
   attr :close_to, :string, required: true, doc: "where the cross and the last card's button go"
 
+  attr :on_done, :string,
+    default: nil,
+    doc: "an event the last card's button sends instead of going to `close_to`"
+
   attr :timers, :list,
     default: nil,
     doc: """
@@ -182,13 +186,23 @@ defmodule ToreWeb.StepCards do
           {gettext("Next")}
         </button>
         <.link
-          :if={@index == @last}
+          :if={@index == @last and !@on_done}
           navigate={@close_to}
           class="pill press h-14 flex-1 bg-[color:var(--done)] text-[17px] text-[color:var(--bg)]"
         >
           <.icon name="ph-check" class="size-5" />
           {gettext("Done")}
         </.link>
+        <button
+          :if={@index == @last and @on_done}
+          type="button"
+          phx-click={@on_done}
+          data-role="done"
+          class="pill press h-14 flex-1 bg-[color:var(--done)] text-[17px] text-[color:var(--bg)]"
+        >
+          <.icon name="ph-check" class="size-5" />
+          {gettext("Done")}
+        </button>
       </footer>
 
       <%!-- Everything at once, to peek ahead. Tap a step to go there. --%>

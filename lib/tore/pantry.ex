@@ -367,11 +367,67 @@ defmodule Tore.Pantry do
 
   defp learn_shelf_life(_scope, _item, _expires_at), do: :ok
 
-  @doc "What's in the pantry and still within its date, if it has one."
+  @doc """
+  What's in the pantry and still within its date, if it has one. A row believed missing (used up
+  in a dinner, `use_up/2`) isn't, until it's bought again.
+  """
   @spec list_usable(Scope.t()) :: [PantryItem.t()]
   def list_usable(%Scope{} = scope) do
     today = Tore.Clock.today()
-    Enum.reject(list_inventory(scope), &PantryItem.past_date?(&1, today))
+
+    Enum.reject(
+      list_inventory(scope),
+      &(&1.belief == "missing" or PantryItem.past_date?(&1, today))
+    )
+  end
+
+  # What outlasts one dinner: the flour, the spices, the soy sauce.
+  @lasts ~w(dry_goods herbs_spices condiments)
+
+  @typedoc "What `use_up/2` changed, so `put_back/2` can undo it."
+  @type used :: %{id: integer(), name: String.t(), belief: String.t(), last_seen_at: DateTime.t()}
+
+  @doc """
+  A dinner was cooked with `names`: what the pantry held of them is believed missing now, except
+  what outlasts a dinner (dry goods, spices, condiments). Buying it again brings it back, as any
+  stronger belief does. Returns what changed, for `put_back/2`.
+  """
+  @spec use_up(Scope.t(), [String.t()]) :: [used()]
+  def use_up(%Scope{} = scope, names) do
+    keys = MapSet.new(names, &Ingredient.to_key/1)
+
+    items =
+      scope
+      |> list_usable()
+      |> Repo.preload(:ingredient)
+      |> Enum.filter(&(Ingredient.to_key(&1.name) in keys and not lasts?(&1)))
+
+    ids = Enum.map(items, & &1.id)
+
+    Repo.update_all(
+      from(p in PantryItem, where: p.id in ^ids),
+      [set: [belief: "missing", last_seen_at: now()]],
+      Scope.repo_opts(scope)
+    )
+
+    Enum.map(items, &Map.take(&1, [:id, :name, :belief, :last_seen_at]))
+  end
+
+  defp lasts?(%PantryItem{ingredient: %Ingredient{category: category}}), do: category in @lasts
+  defp lasts?(_item), do: false
+
+  @doc "Undoes `use_up/2`: each row's belief as it was."
+  @spec put_back(Scope.t(), [used()]) :: :ok
+  def put_back(%Scope{} = scope, used) do
+    for %{id: id, belief: belief, last_seen_at: seen} <- used do
+      Repo.update_all(
+        from(p in PantryItem, where: p.id == ^id),
+        [set: [belief: belief, last_seen_at: seen]],
+        Scope.repo_opts(scope)
+      )
+    end
+
+    :ok
   end
 
   @spec list_inventory(Scope.t()) :: [PantryItem.t()]

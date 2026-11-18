@@ -471,4 +471,34 @@ defmodule Tore.PantryTest do
                %{have: ["Vatten", "salt", "svartpeppar"], missing: ["jäst"]}
     end
   end
+
+  describe "use_up/2" do
+    test "a dinner uses up what it took, not what outlasts it; buying it again brings it back" do
+      buy = fn name, category ->
+        {:ok, _, _, _} =
+          Pantry.upsert_belief(home_scope(), %{
+            catalogue_name: name,
+            category: category,
+            quantity: Decimal.new(1),
+            provenance: "receipt"
+          })
+      end
+
+      buy.("Lax", "meat")
+      buy.("Vetemjöl", "dry_goods")
+      buy.("Grädde", "dairy")
+
+      used = Pantry.use_up(home_scope(), ["lax", "vetemjöl", "dill"])
+
+      assert Enum.map(used, & &1.name) == ["lax"]
+      assert Pantry.at_home(home_scope(), ["lax", "vetemjöl", "grädde"]).missing == ["lax"]
+
+      :ok = Pantry.put_back(home_scope(), used)
+      assert Pantry.at_home(home_scope(), ["lax"]).missing == []
+
+      Pantry.use_up(home_scope(), ["lax"])
+      buy.("Lax", "meat")
+      assert Pantry.at_home(home_scope(), ["lax"]).missing == []
+    end
+  end
 end
