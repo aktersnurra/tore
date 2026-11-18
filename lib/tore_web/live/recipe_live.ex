@@ -80,6 +80,13 @@ defmodule ToreWeb.RecipeLive do
   # The sheet stays open when a shared link's address is cleaned up.
   def handle_params(_params, _uri, %{assigns: %{adding: true}} = socket), do: {:noreply, socket}
 
+  # A collection picked in the menu.
+  def handle_params(%{"type" => type}, _uri, socket)
+      when type in ~w(meal baking component assembly),
+      do:
+        {:noreply,
+         socket |> closed() |> assign(filter_type: parse_type(type)) |> reload_recipes()}
+
   def handle_params(_params, _uri, socket), do: {:noreply, closed(socket)}
 
   # ── Events ─────────────────────────────────────────────────────────────────
@@ -469,8 +476,9 @@ defmodule ToreWeb.RecipeLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
+        <.top_bar />
         <div class="mb-6">
-          <header class="flex items-start justify-between gap-4 pt-6">
+          <header class="flex items-start justify-between gap-4 pt-1">
             <div>
               <h1 class="t-display">{gettext("Recipes")}</h1>
               <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">

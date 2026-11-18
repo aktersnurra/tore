@@ -311,7 +311,7 @@ defmodule ToreWeb.SettingsLive do
 
         <div class="space-y-3">
           <%!-- Members --%>
-          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
+          <section id="members" class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
               {gettext("Members")}
             </h2>

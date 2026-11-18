@@ -448,7 +448,8 @@ defmodule ToreWeb.PlannerLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <header class="flex items-start justify-between gap-4 pt-6">
+        <.top_bar />
+        <header class="flex items-start justify-between gap-4 pt-1">
           <div class="min-w-0">
             <h1 class="t-display num">{gettext("Week %{week}", week: @week_number)}</h1>
             <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">

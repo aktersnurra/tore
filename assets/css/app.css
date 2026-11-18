@@ -295,6 +295,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .tint-purple { background: var(--tag-purple); color: var(--tag-purple-ink); }
 .tint-grey   { background: var(--tag-grey);   color: var(--tag-grey-ink); }
 
+/* A collection's ink alone, for an icon on the page */
+.ink-orange { color: var(--tag-orange-ink); }
+.ink-yellow { color: var(--tag-yellow-ink); }
+.ink-green  { color: var(--tag-green-ink); }
+.ink-blue   { color: var(--tag-blue-ink); }
+
 /* ── Ticking an item: the check draws, then the row folds into the basket. ── */
 .tick-box {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -357,6 +363,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @media (hover: hover) { .row-hover:hover:not(:disabled) { background: var(--sunken); } }
 .row-hover:disabled { cursor: default; }
 
+/* A quiet icon button: the menu and a page's ⋯ in the top bar */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  color: var(--muted);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .icon-btn:hover { background: var(--sunken); color: var(--text); } }
+.icon-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+
 /* ── Tab bar labels: small, but words, so a tab is named and not guessed. ── */
 .tab-label { font-size: 11px; line-height: 1; font-weight: 600; letter-spacing: 0.01em; }
 
@@ -415,6 +431,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .sheet { animation: sheet-in var(--dur-slow) var(--ease-out) both; }
 @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
 .scrim { animation: scrim-in var(--dur-base) var(--ease-out) both; }
+
+/* The menu slides in from the left edge */
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+.drawer { animation: drawer-in var(--dur-slow) var(--ease-out) both; }
+.menu-sec { margin: 16px 6px 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.menu-row {
+  display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 6px;
+  border-radius: var(--r-sm); font-size: 15px; color: var(--text); white-space: nowrap;
+}
+.menu-row.is-current { background: var(--sunken); font-weight: 600; }
+.menu-count { margin-left: auto; padding-left: 8px; font-size: 13px; color: var(--muted); font-weight: 400; }
 
 /* The scanner's frame: quiet until the camera runs, then an ink ring that pulses once per
    pack caught */

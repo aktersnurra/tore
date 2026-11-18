@@ -43,14 +43,7 @@ defmodule ToreWeb.HomeLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <.page max_width={:sm}>
         <div class="relative z-10 h-0">
-          <.link
-            navigate={~p"/settings"}
-            aria-label={gettext("Settings")}
-            data-role="settings-link"
-            class="on-photo press absolute top-0 right-0"
-          >
-            <.icon name="ph-gear-six" class="size-5" />
-          </.link>
+          <.top_bar on_photo={@tonight_recipe != nil} class="absolute inset-x-0 -top-2" />
         </div>
 
         <%!-- Tonight: the dish is the screen --%>

@@ -464,6 +464,37 @@ defmodule ToreWeb.CoreComponents do
     """
   end
 
+  @doc ~S"""
+  The bar at the top of every tab: the menu on the left, this page's own actions on the right.
+  The menu is the drawer in `ToreWeb.TabBarLive`; the button asks it to open. Over a
+  photograph its buttons are frosted (`on_photo`); `class` places a bar that floats.
+
+      <.top_bar>
+        <:actions><button class="icon-btn">…</button></:actions>
+      </.top_bar>
+  """
+  attr :on_photo, :boolean, default: false
+  attr :class, :any, default: nil
+  slot :actions
+
+  def top_bar(assigns) do
+    ~H"""
+    <div data-role="top-bar" class={["flex h-14 items-center justify-between", @class]}>
+      <button
+        type="button"
+        phx-click={JS.dispatch("tore:menu", to: "#tab-bar")}
+        aria-label={gettext("Menu")}
+        aria-controls="menu"
+        data-role="open-menu"
+        class={["press", if(@on_photo, do: "on-photo", else: "icon-btn -ml-2")]}
+      >
+        <.icon name="ph-sidebar-simple" class="size-5" />
+      </button>
+      <div class={["flex items-center gap-1", !@on_photo && "-mr-2"]}>{render_slot(@actions)}</div>
+    </div>
+    """
+  end
+
   defp page_max_class(:sm), do: "max-w-md"
   defp page_max_class(:md), do: "max-w-2xl"
   defp page_max_class(:lg), do: "max-w-4xl"
