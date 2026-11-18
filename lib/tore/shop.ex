@@ -130,20 +130,32 @@ defmodule Tore.Shop do
   def learn(%Scope{} = scope, list_id, names),
     do: Learn.later(scope, names, fn -> resettle_sections(scope, list_id) end)
 
+  @doc """
+  Puts `name` on the list. A name already on it and not yet ticked off stays as it is, so
+  "Put on the list" pressed twice, or from two screens, gives one line: `{:ok, []}`.
+  """
   def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
-    result =
-      run(scope, list_id, %Commands.AddItem{
-        item_id: Ecto.UUID.generate(),
-        name: name,
-        quantity: quantity,
-        unit: unit,
-        section: section_for(scope, name),
-        added_by: user_id
-      })
+    {:ok, state} = load_list(scope, list_id)
 
-    learn(scope, list_id, [name])
-    result
+    if Enum.any?(Map.values(state.items), &(!&1.checked and same_name?(&1.name, name))) do
+      {:ok, []}
+    else
+      result =
+        run(scope, list_id, %Commands.AddItem{
+          item_id: Ecto.UUID.generate(),
+          name: name,
+          quantity: quantity,
+          unit: unit,
+          section: section_for(scope, name),
+          added_by: user_id
+        })
+
+      learn(scope, list_id, [name])
+      result
+    end
   end
+
+  defp same_name?(a, b), do: String.downcase(String.trim(a)) == String.downcase(String.trim(b))
 
   @doc """
   Annotate shop list items with the pantry's belief about whether they're

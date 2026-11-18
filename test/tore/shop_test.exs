@@ -30,6 +30,19 @@ defmodule Tore.ShopTest do
     assert item.checked == false
   end
 
+  test "add_item leaves a name already on the list alone, until it's ticked off" do
+    Shop.add_item(home_scope(), list_id(), "Gul lök", Decimal.new("3"), "st", 1)
+    assert {:ok, []} = Shop.add_item(home_scope(), list_id(), "gul lök ", nil, nil, 1)
+
+    {:ok, state} = Shop.load_list(home_scope(), list_id())
+    assert [%{name: "Gul lök", id: id}] = Map.values(state.items)
+
+    Shop.check_item(home_scope(), list_id(), id, 1)
+    Shop.add_item(home_scope(), list_id(), "Gul lök", nil, nil, 1)
+    {:ok, state} = Shop.load_list(home_scope(), list_id())
+    assert state.items |> Map.values() |> Enum.count(&(&1.name == "Gul lök")) == 2
+  end
+
   test "add_item broadcasts to shop_list topic" do
     Shop.add_item(home_scope(), list_id(), "Eggs", nil, nil, 1)
     assert_receive {:events, [%Tore.Shop.Events.ItemAdded{}]}
