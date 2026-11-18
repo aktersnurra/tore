@@ -4,27 +4,35 @@ defmodule ToreWeb.McpAuth do
   household. A token that doesn't verify, or names nobody with an account, gets a 401 that points
   at the protected-resource metadata, so Claude can find Pocket ID and sign in. Accounts are made
   by signing in to the app, never here. The token is never logged.
+
+  A harness job's session token (`Tore.Mcp.SessionToken`) is tried first and signs in as its
+  household with no person. It works with Pocket ID's MCP off, since Tore issued it itself.
   """
 
   import Plug.Conn
 
   alias Tore.Accounts
-  alias Tore.Mcp.Token
+  alias Tore.Mcp.{SessionToken, Token}
 
   require Logger
 
   def init(opts), do: opts
 
   def call(conn, _opts) do
+    token = bearer(conn)
+
+    case token && SessionToken.verify(token) do
+      {:ok, scope} -> signed_in(conn, scope)
+      _ -> pocket_id(conn, token)
+    end
+  end
+
+  defp pocket_id(conn, token) do
     with {:enabled, true} <- {:enabled, Token.enabled?()},
-         ["Bearer " <> token] <- get_req_header(conn, "authorization"),
-         token = String.trim(token),
-         true <- token != "",
+         true <- token != nil,
          {:ok, sub} <- Token.impl().verify(token),
          {_user, scope} <- Accounts.get_session_by_sub(sub) do
-      # Replies are written in the household's language, as everything it stores is.
-      Gettext.put_locale(ToreWeb.Gettext, Tore.Household.locale(scope) || "sv")
-      assign(conn, :current_scope, scope)
+      signed_in(conn, scope)
     else
       {:enabled, false} ->
         conn |> send_resp(404, "") |> halt()
@@ -40,11 +48,24 @@ defmodule ToreWeb.McpAuth do
     end
   end
 
+  defp bearer(conn) do
+    with ["Bearer " <> token] <- get_req_header(conn, "authorization"),
+         token when token != "" <- String.trim(token),
+         do: token,
+         else: (_ -> nil)
+  end
+
+  # Replies are written in the household's language, as everything it stores is.
+  defp signed_in(conn, scope) do
+    Gettext.put_locale(ToreWeb.Gettext, Tore.Household.locale(scope) || "sv")
+    assign(conn, :current_scope, scope)
+  end
+
   def metadata_url, do: ToreWeb.Endpoint.url() <> "/.well-known/oauth-protected-resource"
 
   defp reason({:error, reason}) when is_atom(reason), do: reason
   defp reason({:error, {reason, _, _}}) when is_atom(reason), do: reason
   defp reason({:error, _}), do: :invalid_token
   defp reason(nil), do: :unknown_subject
-  defp reason(_), do: :missing_bearer
+  defp reason(false), do: :missing_bearer
 end

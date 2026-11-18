@@ -134,4 +134,35 @@ defmodule ToreWeb.McpControllerTest do
     assert conn |> as(user) |> rpc("ping") |> response(404)
     assert build_conn() |> get("/.well-known/oauth-protected-resource") |> response(404)
   end
+
+  describe "a harness session token" do
+    alias Tore.Mcp.SessionToken
+
+    defp session(conn, token), do: put_req_header(conn, "authorization", "Bearer #{token}")
+
+    test "signs in as its household, with no person" do
+      household_id = home_scope().household_id
+      token = SessionToken.mint(household_id, "job-1", 60)
+
+      conn = ToreWeb.McpAuth.call(build_conn() |> session(token), [])
+
+      assert conn.assigns.current_scope == %Tore.Scope{household_id: household_id}
+    end
+
+    test "works with Pocket ID's MCP off", %{conn: conn} do
+      Application.put_env(:tore, :mcp, [])
+      token = SessionToken.mint(home_scope().household_id, "job-1", 60)
+
+      assert conn |> session(token) |> rpc("ping") |> json_response(200)
+    end
+
+    test "is refused once expired or altered", %{conn: conn} do
+      expired = SessionToken.mint(home_scope().household_id, "job-1", -1)
+      altered = SessionToken.mint(home_scope().household_id, "job-1", 60) <> "x"
+
+      for token <- [expired, altered] do
+        assert conn |> session(token) |> rpc("ping") |> response(401)
+      end
+    end
+  end
 end
