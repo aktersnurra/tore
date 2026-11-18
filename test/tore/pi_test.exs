@@ -4,39 +4,11 @@ defmodule Tore.PiTest do
   alias Tore.{Costs, Pi}
   alias Tore.Mcp.SessionToken
 
-  @fake Path.expand("../support/bin/fake-pi", __DIR__)
+  import Tore.FakePi
 
-  setup do
-    log = Path.join(System.tmp_dir!(), "fake-pi-#{System.unique_integer([:positive])}")
-    previous = Application.get_env(:tore, :pi)
+  setup :fake_pi
 
-    Application.put_env(:tore, :pi,
-      command: [@fake],
-      mcp_url: "http://tore.test/mcp",
-      model: "anthropic/claude-sonnet-5-5"
-    )
-
-    System.put_env("FAKE_PI_LOG", log)
-
-    on_exit(fn ->
-      if previous,
-        do: Application.put_env(:tore, :pi, previous),
-        else: Application.delete_env(:tore, :pi)
-
-      for {_, pid, _, _} <- DynamicSupervisor.which_children(Tore.Pi.Sessions),
-          do: DynamicSupervisor.terminate_child(Tore.Pi.Sessions, pid)
-
-      for var <- ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST), do: System.delete_env(var)
-      File.rm(log)
-    end)
-
-    %{log: log}
-  end
-
-  defp records(log),
-    do: log |> File.read!() |> String.split("\n", trim: true) |> Enum.map(&Jason.decode!/1)
-
-  test "a prompt streams pi's events to the household's session topic", %{log: log} do
+  test "a prompt streams pi's events to the household's session topic", %{pi_log: log} do
     scope = home_scope()
     :ok = Pi.subscribe(scope, "chat")
 
@@ -46,7 +18,7 @@ defmodule Tore.PiTest do
     assert update["assistantMessageEvent"]["delta"] == "echo: Planera veckan"
     assert_receive {:pi, "chat", %{"type" => "agent_settled"}}, 5_000
 
-    [header, prompt] = records(log)
+    [header, prompt] = pi_records(log)
 
     assert %{
              "household" => household_id,
@@ -72,14 +44,14 @@ defmodule Tore.PiTest do
     refute_receive {:pi, _, _}, 500
   end
 
-  test "a photo goes with the prompt", %{log: log} do
+  test "a photo goes with the prompt", %{pi_log: log} do
     scope = home_scope()
     :ok = Pi.subscribe(scope, "receipt")
 
     assert :ok = Pi.ask(scope, "receipt", "Logga kvittot", images: [{"image/jpeg", "jpegbytes"}])
     assert_receive {:pi, "receipt", %{"type" => "agent_settled"}}, 5_000
 
-    [_header, prompt] = records(log)
+    [_header, prompt] = pi_records(log)
 
     assert prompt["images"] == [
              %{

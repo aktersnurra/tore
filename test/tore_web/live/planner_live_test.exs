@@ -2,6 +2,7 @@ defmodule ToreWeb.PlannerLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
   import Mox
+  import Tore.FakePi
 
   alias Tore.{Recipes, Planning}
 
@@ -319,17 +320,14 @@ defmodule ToreWeb.PlannerLiveTest do
   end
 
   describe "planning the open days" do
-    test "one button plans what's still open, named by how many, and says what it's doing", %{
+    setup :fake_pi
+
+    test "one button asks pi to plan what's still open, and what pi says streams in", %{
       conn: conn,
-      user: user
+      user: user,
+      pi_log: log
     } do
-      test_pid = self()
-
-      Mox.expect(Tore.MockLLM, :chat_with_tools, fn _sys, msgs, _tools, _opts ->
-        send(test_pid, {:llm_messages, msgs})
-        {:ok, {:message, "Planned."}, %{}}
-      end)
-
+      System.put_env("FAKE_PI_REPLY", "Planerade resten av veckan.")
       {:ok, view, _} = live(authed(conn, user), "/plan")
       today = Tore.Clock.today()
       open = 8 - Date.day_of_week(today)
@@ -342,9 +340,21 @@ defmodule ToreWeb.PlannerLiveTest do
       html = render_click(button)
       assert html =~ "Planerar de lediga dagarna…"
 
-      assert_receive {:llm_messages, [%{role: "user", content: content}]}, 1000
-      assert content =~ "still open"
-      assert eventually_renders(view, "Tore justerade planen")
+      assert eventually_renders(view, "Planerade resten av veckan.")
+      refute render(view) =~ "Planerar de lediga dagarna…"
+
+      [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
+      assert header["session"] == "chat"
+      assert message =~ "open days from #{Date.to_iso8601(today)}"
+    end
+
+    test "a household that may not use pi is told why", %{conn: conn, user: user} do
+      Application.delete_env(:tore, :pi)
+      {:ok, view, _} = live(authed(conn, user), "/plan")
+
+      html = view |> element(~s([data-role="plan-week"])) |> render_click()
+      assert html =~ "Tore kunde inte slutföra det."
+      refute has_element?(view, ~s([data-role="pi-reply"]))
     end
 
     test "a week with every day planned has no button", %{conn: conn, user: user, recipe: recipe} do

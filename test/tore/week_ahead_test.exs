@@ -6,7 +6,10 @@ defmodule Tore.WeekAheadTest do
   alias Tore.{Deals, WeekAhead}
   alias Tore.Agent.Job
 
+  import Tore.FakePi
+
   setup :verify_on_exit!
+  setup :fake_pi
 
   @store_url "https://www.ica.se/erbjudanden/ica-supermarket-danvikstull-1156002/"
 
@@ -40,17 +43,7 @@ defmodule Tore.WeekAheadTest do
 
   setup do
     {:ok, _} = Deals.add_store(home_scope(), @store_url)
-    previous = Application.get_env(:tore, :pi)
-    Application.put_env(:tore, :pi, command: [Path.expand("support/bin/fake-pi", "test")])
-    System.put_env("FAKE_PI_LOG", Path.join(System.tmp_dir!(), "fake-pi-week-ahead"))
-
-    on_exit(fn ->
-      if previous,
-        do: Application.put_env(:tore, :pi, previous),
-        else: Application.delete_env(:tore, :pi)
-
-      System.delete_env("FAKE_PI_LOG")
-    end)
+    :ok
   end
 
   test "nothing before Friday" do

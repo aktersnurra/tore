@@ -4,28 +4,12 @@ defmodule Tore.AgentTest do
   alias Tore.{Agent, Costs}
   alias Tore.Agent.Job
 
-  @fake Path.expand("../support/bin/fake-pi", __DIR__)
+  import Tore.FakePi
 
-  setup do
-    log = Path.join(System.tmp_dir!(), "fake-pi-#{System.unique_integer([:positive])}")
-    previous = Application.get_env(:tore, :pi)
-    Application.put_env(:tore, :pi, command: [@fake])
-    System.put_env("FAKE_PI_LOG", log)
-
-    on_exit(fn ->
-      if previous,
-        do: Application.put_env(:tore, :pi, previous),
-        else: Application.delete_env(:tore, :pi)
-
-      for var <- ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST), do: System.delete_env(var)
-      File.rm(log)
-    end)
-
-    %{log: log}
-  end
+  setup :fake_pi
 
   test "a job sends the task to pi in a session of its own and records what came back", %{
-    log: log
+    pi_log: log
   } do
     System.put_env("FAKE_PI_REPLY", "Planned Mon–Sun, list made.")
     System.put_env("FAKE_PI_COST", "0.05")
