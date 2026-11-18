@@ -1,0 +1,14 @@
+#!/bin/sh
+# Stands in for Claude Code in tests of harness/harness-run: notes how it was started in
+# $STUB_CLAUDE_OUT, then prints a stream with $STUB_CLAUDE_RESULT as its last line, or sleeps.
+set -eu
+{
+  echo "cwd=$(pwd)"
+  echo "config=${CLAUDE_CONFIG_DIR:-}"
+  echo "args=$*"
+  mcp=$(printf '%s\n' "$@" | grep -m1 '/mcp.json$')
+  echo "mcp=$(cat "$mcp")"
+} >"$STUB_CLAUDE_OUT"
+[ -z "${STUB_CLAUDE_SLEEP:-}" ] || sleep "$STUB_CLAUDE_SLEEP"
+echo '{"type":"system","subtype":"init"}'
+printf '%s\n' "$STUB_CLAUDE_RESULT"

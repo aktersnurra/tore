@@ -3,7 +3,7 @@
 #
 #     TORE_DEV_DB=/path/to/copy.db mix run harness/fixtures/berg.exs
 #
-# Then sign /mcp in as its member with MCP_DEV_SUB=harness-berg.
+# Then run a task for it with harness/fixtures/agent.exs.
 #
 # What the history holds, for the weekly reflection to find:
 # - Thursday dinner is skipped four weeks in six (twice "went out").
@@ -211,4 +211,4 @@ today = Tore.Clock.today()
 {:ok, _} = Tore.Pantry.add_item(scope, %{name: "potatis", expires_at: Date.add(today, 14)})
 {:ok, _} = Tore.Pantry.add_item(scope, %{name: "ris", expires_at: nil})
 
-IO.puts("Seeded #{household.name} (household #{household.id}); MCP_DEV_SUB=#{sub}")
+IO.puts("Seeded #{household.name} (household #{household.id}), member #{sub}")

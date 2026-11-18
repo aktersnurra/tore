@@ -25,6 +25,18 @@ config :tore, ToreWeb.Endpoint, http: [port: String.to_integer(System.get_env("P
 # The Pocket ID claim that lets someone use the server's LLM.
 config :tore, :ai_claim, System.get_env("AI_CLAIM", "tore_ai")
 
+# The harness (Tore.Agent): off unless TORE_AGENT_COMMAND names the runner, such as
+# "harness/harness-run" on this machine or "ssh -i /var/db/tore/harness_key harness@172.16.0.11"
+# for the guest. TORE_AGENT_MCP_URL is /mcp as the runner reaches it (default: the endpoint's).
+if command = System.get_env("TORE_AGENT_COMMAND") do
+  config :tore, :agent,
+    command: OptionParser.split(command),
+    mcp_url: System.get_env("TORE_AGENT_MCP_URL"),
+    model: System.get_env("TORE_AGENT_MODEL", "claude-sonnet-5-5"),
+    timeout_s: String.to_integer(System.get_env("TORE_AGENT_TIMEOUT_S", "900")),
+    max_budget_usd: String.to_float(System.get_env("TORE_AGENT_MAX_BUDGET_USD", "1.0"))
+end
+
 if config_env() == :prod do
   config :tore,
          :uploads_dir,

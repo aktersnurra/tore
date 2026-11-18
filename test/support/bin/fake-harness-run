@@ -1,0 +1,7 @@
+#!/bin/sh
+# Stands in for harness/harness-run in tests: keeps the job it was given in $FAKE_AGENT_JOB and
+# prints $FAKE_AGENT_RESULT, or exits with $FAKE_AGENT_EXIT.
+set -eu
+cat >"$FAKE_AGENT_JOB"
+[ -z "${FAKE_AGENT_EXIT:-}" ] || { echo "it broke" >&2; exit "$FAKE_AGENT_EXIT"; }
+printf '%s\n' "$FAKE_AGENT_RESULT"
