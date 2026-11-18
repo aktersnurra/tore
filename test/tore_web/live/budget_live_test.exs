@@ -47,14 +47,14 @@ defmodule ToreWeb.BudgetLiveTest do
       :ok = Budget.set_default(home_scope(), Decimal.new(2000))
 
       {:ok, view, html} = live(conn, ~p"/plan")
-      assert html =~ "Runt 300 av 2 000 kr, 0 av 1 ingredienser har pris"
+      assert html =~ "runt 300 av 2 000 kr"
 
       :ok = Budget.set_week(home_scope(), week_start(), Decimal.new(250))
       plan("tue_dinner", recipe("Soppa", "50"))
       send(view.pid, {:events, []})
 
       assert view |> element(~s([data-role="week-estimate"])) |> render() =~
-               "Runt 350 av 250 kr, 100 kr över"
+               "runt 350 av 250 kr, 100 kr över"
     end
 
     test "with no plan and no budget there's no estimate line", %{conn: conn} do

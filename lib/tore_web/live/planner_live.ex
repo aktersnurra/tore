@@ -6,7 +6,7 @@ defmodule ToreWeb.PlannerLive do
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds.PlannerCommand
 
-  alias Tore.{Recipes, Planning, PlanHealth}
+  alias Tore.{Recipes, Planning}
   alias Tore.Planning.State
   alias Phoenix.PubSub
 
@@ -53,7 +53,6 @@ defmodule ToreWeb.PlannerLive do
 
     assign(socket,
       plan_state: plan_state,
-      plan_health: PlanHealth.compute(plan_state),
       budget: Tore.Budget.status(scope, plan_state, week_start),
       verdict: Tore.Budget.verdict(scope, week_start, socket.assigns.today)
     )
@@ -448,65 +447,69 @@ defmodule ToreWeb.PlannerLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <.top_bar />
-        <header class="flex items-start justify-between gap-4 pt-1">
-          <div class="min-w-0">
+        <.top_bar>
+          <:actions>
+            <.page_menu id="plan-menu">
+              <.menu_item
+                menu="plan-menu"
+                icon="ph-squares-four"
+                navigate={~p"/prep"}
+                data-role="prep-link"
+              >
+                {gettext("Prep this week")}
+              </.menu_item>
+            </.page_menu>
+          </:actions>
+        </.top_bar>
+
+        <%!-- The page: its icon, the week, and one line with the dates and the money --%>
+        <header class="pt-1">
+          <.page_icon icon="ph-calendar-blank-duotone" tint="blue" />
+          <div class="mt-3 flex items-center justify-between gap-3">
             <h1 class="t-display num">{gettext("Week %{week}", week: @week_number)}</h1>
-            <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
-              {ToreWeb.Dates.range(@week_start, @week_end)}
-            </p>
-            <p
+            <div class="-mr-2 flex shrink-0 items-center">
+              <button
+                type="button"
+                phx-click="prev_week"
+                class="icon-btn press"
+                aria-label={gettext("Previous week")}
+              >
+                <.icon name="ph-caret-left" class="size-5" />
+              </button>
+              <button
+                type="button"
+                phx-click="next_week"
+                class="icon-btn press"
+                aria-label={gettext("Next week")}
+              >
+                <.icon name="ph-caret-right" class="size-5" />
+              </button>
+            </div>
+          </div>
+          <p class="num mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
+            {ToreWeb.Dates.range(@week_start, @week_end)}<span
               :if={@verdict}
               id={"week-verdict-#{@week_start}-#{@verdict.spent}-#{@verdict.budget}"}
               data-role="week-verdict"
               class={[
-                "settle num mt-1 font-semibold",
+                "settle",
                 @verdict.budget && Decimal.gt?(@verdict.spent, @verdict.budget) &&
-                  "text-[color:var(--warn)]",
-                !(@verdict.budget && Decimal.gt?(@verdict.spent, @verdict.budget)) &&
-                  "text-[color:var(--text)]"
+                  "font-semibold text-[color:var(--warn)]"
               ]}
-              style="font-size: 15px;"
-            >
-              {verdict_line(@verdict)}
-            </p>
-            <p
+            > · {verdict_line(@verdict)}</span>
+            <span
               :if={!@verdict and (@budget.estimate.total > 0 or @budget.budget)}
               id={"week-estimate-#{@week_start}-#{@budget.expected}-#{@budget.budget}"}
               data-role="week-estimate"
-              class={[
-                "settle num mt-1",
-                @budget.over && "text-[color:var(--warn)] font-semibold",
-                !@budget.over && "text-[color:var(--muted)]"
-              ]}
-              style="font-size: 15px;"
+              class={["settle", @budget.over && "font-semibold text-[color:var(--warn)]"]}
             >
-              {estimate_line(@budget)}
-            </p>
-          </div>
-          <div class="flex shrink-0 items-center gap-2 pt-1">
-            <button
-              type="button"
-              phx-click="prev_week"
-              class="press inline-flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-              aria-label={gettext("Previous week")}
-            >
-              <.icon name="ph-caret-left" class="size-5" />
-            </button>
-            <button
-              type="button"
-              phx-click="next_week"
-              class="press inline-flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-              aria-label={gettext("Next week")}
-            >
-              <.icon name="ph-caret-right" class="size-5" />
-            </button>
-          </div>
+              · {estimate_line(@budget)}
+            </span>
+          </p>
         </header>
 
-        <div class="scroll-quiet -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4">
+        <div :if={open_days(@plan_state, @week_start, @today) > 0} class="mt-5">
           <button
-            :if={open_days(@plan_state, @week_start, @today) > 0}
             type="button"
             phx-click="plan_week"
             disabled={@quick_loading}
@@ -520,17 +523,6 @@ defmodule ToreWeb.PlannerLive do
               open_days(@plan_state, @week_start, @today)
             )}
           </button>
-          <.link navigate={~p"/prep"} data-role="prep-link" class="pill press">
-            <.icon name="ph-squares-four" /> {gettext("Prep this week")}
-          </.link>
-          <p class={[
-            "num ml-2 shrink-0 text-[14px] font-semibold",
-            elem(@plan_health, 0) == :ready && "text-[color:var(--done)]",
-            elem(@plan_health, 0) in [:flexible, :fragile] && "text-[color:var(--warn)]",
-            elem(@plan_health, 0) == :unplanned && "text-[color:var(--muted)]"
-          ]}>
-            {health_message(@plan_health)}
-          </p>
         </div>
 
         <p
@@ -550,8 +542,8 @@ defmodule ToreWeb.PlannerLive do
           />
         </div>
 
-        <div class="mt-6">
-          <ul class="space-y-2" inert={if @slot_action, do: true}>
+        <div class="mt-5">
+          <ul class="border-t border-[color:var(--hairline)]" inert={if @slot_action, do: true}>
             <.day_row
               :for={{day, i} <- Enum.with_index(@days)}
               day={day}
@@ -621,9 +613,8 @@ defmodule ToreWeb.PlannerLive do
     <li
       id={"slot-#{@slot_key}"}
       class={[
-        "rounded-[var(--r-xl)]",
-        @slot && @slot.skipped && !State.eating_out?(@slot) && "opacity-50",
-        @focused && "ring-2 ring-[color:var(--accent)]"
+        "border-b border-[color:var(--hairline)]",
+        @focused && "rounded-[var(--r-md)] ring-2 ring-[color:var(--accent)]"
       ]}
     >
       <div
@@ -631,89 +622,85 @@ defmodule ToreWeb.PlannerLive do
         phx-click="open_slot"
         phx-value-slot_key={@slot_key}
         class={[
-          "reveal press press-soft flex min-h-[88px] cursor-pointer items-center gap-3.5 rounded-[var(--r-xl)] p-2",
-          !@recipe && "pr-5",
-          Date.compare(@date, @today) == :lt && "opacity-60",
-          @recipe && "bg-[var(--surface)] hover:bg-[var(--sunken)]",
-          !@recipe && "border border-dashed border-[color:var(--border)] hover:bg-[var(--surface)]"
+          "reveal row-hover press-soft -mx-2 grid min-h-[60px] cursor-pointer grid-cols-[3rem_1fr_auto] items-center gap-2 rounded-[var(--r-md)] px-2 py-2",
+          Date.compare(@date, @today) == :lt && "opacity-70"
         ]}
         style={"--i: #{Date.day_of_week(@date) - 1}"}
         role="button"
         tabindex="0"
         aria-label={gettext("Edit %{label}", label: slot_label(@slot_key))}
       >
-        <%!-- The dish leads; a day without one shows its date like a calendar, today lit --%>
-        <img
-          :if={@recipe && @recipe.image_path}
-          src={~p"/images/recipes/#{@recipe.id}"}
-          alt=""
-          loading="lazy"
-          class="size-[72px] shrink-0 rounded-[16px] object-cover"
-        />
-        <div
-          :if={!(@recipe && @recipe.image_path)}
-          class={[
-            "flex size-[72px] shrink-0 flex-col items-center justify-center rounded-[16px]",
-            @is_today && "bg-[color:var(--accent)] text-[color:var(--on-accent)]",
-            !@is_today && @recipe && "bg-[var(--sunken)] text-[color:var(--text)]",
-            !@is_today && !@recipe && "text-[color:var(--text)]"
-          ]}
-        >
-          <span class={["text-[12px] font-semibold", !@is_today && "text-[color:var(--muted)]"]}>
-            {ToreWeb.Dates.weekday(@date) |> String.slice(0, 3)}
+        <%!-- The date, like a calendar's margin; today's number in red --%>
+        <span class="leading-tight">
+          <span class="block text-[12.5px] text-[color:var(--muted)]">
+            {ToreWeb.Dates.weekday(@date) |> String.slice(0, 3) |> String.downcase()}
           </span>
-          <span class="num text-[22px] leading-tight font-bold">{@date.day}</span>
-        </div>
+          <span class={[
+            "num block text-[18px] font-semibold",
+            @is_today && "text-[color:var(--tag-red-ink)]",
+            !@is_today && "text-[color:var(--text)]"
+          ]}>
+            {@date.day}
+          </span>
+        </span>
 
-        <div class="min-w-0 flex-1">
-          <p
-            :if={@recipe && @recipe.image_path}
-            class={[
-              "num mb-0.5 text-[12px] font-semibold",
-              @is_today && "text-[color:var(--accent-ink)]",
-              !@is_today && "text-[color:var(--muted)]"
-            ]}
-          >
-            {if @is_today,
-              do: gettext("Today"),
-              else: "#{ToreWeb.Dates.weekday(@date)} #{@date.day}"}
-          </p>
-          <%= cond do %>
-            <% @recipe -> %>
-              <p
-                class="line-clamp-2 font-semibold text-[color:var(--text)]"
-                style="font-size: 17px; line-height: 1.25; letter-spacing: -0.01em;"
+        <%= if @recipe do %>
+          <span class="flex min-w-0 items-center gap-3">
+            <span class="relative size-11 shrink-0 overflow-hidden rounded-[var(--r-md)]">
+              <img
+                :if={@recipe.image_path}
+                src={~p"/images/recipes/#{@recipe.id}"}
+                alt=""
+                loading="lazy"
+                class="size-full object-cover"
+              />
+              <.blank_cover :if={!@recipe.image_path} dish={@recipe} icon_class="size-6" />
+            </span>
+            <span class="min-w-0">
+              <span
+                class="block truncate font-semibold text-[color:var(--text)]"
+                style="font-size: 15.5px;"
               >
                 {@recipe.title}
-              </p>
-              <div
-                class="num mt-1 flex flex-wrap items-center gap-x-3 text-[color:var(--muted)]"
-                style="font-size: 13px;"
-              >
-                <span :if={@slot.servings}>{gettext("%{n} servings", n: @slot.servings)}</span>
-                <span :if={@slot.leftover} class="inline-flex items-center gap-1">
-                  <.icon name="ph-arrow-u-up-right" class="size-3.5" /> {gettext("Uses leftovers")}
+              </span>
+              <span class="mt-1 flex flex-wrap items-center gap-1.5">
+                <span :if={@is_today} class="tag tag-red">
+                  <span class="tag-dot"></span>{gettext("Tonight")}
                 </span>
-                <span
-                  :if={leftover_target(@plan_state, @days, @date) != nil}
-                  class="inline-flex items-center gap-1"
-                >
-                  <.icon name="ph-arrow-u-up-left" class="size-3.5" />
+                <span :if={@slot.leftover} class="tag tag-purple">
+                  <.icon name="ph-arrow-u-up-right" /> {gettext("Uses leftovers")}
+                </span>
+                <span :if={leftover_target(@plan_state, @days, @date) != nil} class="tag tag-purple">
+                  <.icon name="ph-arrow-u-up-left" />
                   {gettext("Leftovers for %{day}", day: leftover_target(@plan_state, @days, @date))}
                 </span>
-              </div>
-            <% @slot && @slot.leftover -> %>
-              <p class="text-[color:var(--muted)]" style="font-size: 17px;">{gettext("Leftovers")}</p>
-            <% State.eating_out?(@slot) -> %>
-              <p class="text-[color:var(--muted)]" style="font-size: 17px;">
-                {gettext("Eating out")}
-              </p>
-            <% @slot && @slot.skipped -> %>
-              <p class="text-[color:var(--muted)]" style="font-size: 17px;">{gettext("Skipped")}</p>
-            <% true -> %>
-              <p class="text-[color:var(--muted)]" style="font-size: 17px;">{gettext("Open")}</p>
-          <% end %>
-        </div>
+                <span :if={@slot.servings} class="num text-[13px] text-[color:var(--muted)]">
+                  {gettext("%{n} servings", n: @slot.servings)}
+                </span>
+              </span>
+            </span>
+          </span>
+        <% else %>
+          <span class="flex items-center gap-2 text-[color:var(--muted)]" style="font-size: 15px;">
+            <%= cond do %>
+              <% @slot && @slot.leftover -> %>
+                <span class="tag tag-purple">{gettext("Leftovers")}</span>
+              <% State.eating_out?(@slot) -> %>
+                <span class="tag tag-grey">{gettext("Eating out")}</span>
+              <% @slot && @slot.skipped -> %>
+                <span class="tag tag-grey">{gettext("Skipped")}</span>
+              <% Date.compare(@date, @today) == :lt -> %>
+                <span class="text-[color:var(--subtle)]">—</span>
+              <% true -> %>
+                <span
+                  class="flex items-center gap-1.5 text-[color:var(--subtle)]"
+                  data-role="new-dinner"
+                >
+                  <.icon name="ph-plus" class="size-4" /> {gettext("New dinner")}
+                </span>
+            <% end %>
+          </span>
+        <% end %>
 
         <span
           :if={@pinned}
@@ -723,11 +710,7 @@ defmodule ToreWeb.PlannerLive do
         >
           <.icon name="ph-lock" class="size-4" />
         </span>
-        <.icon
-          :if={!@recipe and !@pinned}
-          name="ph-plus"
-          class="size-5 shrink-0 text-[color:var(--subtle)]"
-        />
+        <span :if={!@pinned}></span>
       </div>
     </li>
     """
@@ -1214,26 +1197,20 @@ defmodule ToreWeb.PlannerLive do
     end
   end
 
-  defp estimate_line(%{budget: nil, estimate: e} = status),
-    do:
-      gettext("About %{amount} kr, %{priced} of %{total} ingredients priced",
-        amount: Tore.Money.format(status.expected),
-        priced: e.priced,
-        total: e.total
-      )
+  # The money in a few words after the dates: "about 575 of 900 kr".
+  defp estimate_line(%{budget: nil} = status),
+    do: gettext("about %{amount} kr", amount: Tore.Money.format(status.expected))
 
-  defp estimate_line(%{budget: budget, estimate: e, over: nil} = status),
+  defp estimate_line(%{budget: budget, over: nil} = status),
     do:
-      gettext("About %{amount} of %{budget} kr, %{priced} of %{total} ingredients priced",
+      gettext("about %{amount} of %{budget} kr",
         amount: Tore.Money.format(status.expected),
-        budget: Tore.Money.format(budget),
-        priced: e.priced,
-        total: e.total
+        budget: Tore.Money.format(budget)
       )
 
   defp estimate_line(%{budget: budget, over: over} = status),
     do:
-      gettext("About %{amount} of %{budget} kr, %{over} kr over",
+      gettext("about %{amount} of %{budget} kr, %{over} kr over",
         amount: Tore.Money.format(status.expected),
         budget: Tore.Money.format(budget),
         over: Tore.Money.format(over)
@@ -1336,13 +1313,4 @@ defmodule ToreWeb.PlannerLive do
   end
 
   defp plan_id(scope, week_start), do: Tore.Streams.plan(scope, week_start)
-
-  defp health_message({:unplanned, _}), do: gettext("No plan for this week yet")
-  defp health_message({:ready, _}), do: gettext("The week is planned")
-
-  defp health_message({:flexible, n}),
-    do: ngettext("%{count} dinner unplanned", "%{count} dinners unplanned", n, count: n)
-
-  defp health_message({:fragile, n}),
-    do: ngettext("%{count} dinner skipped", "%{count} dinners skipped", n, count: n)
 end

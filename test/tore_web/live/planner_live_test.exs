@@ -31,6 +31,28 @@ defmodule ToreWeb.PlannerLiveTest do
     Tore.Streams.plan(home_scope(), week_start)
   end
 
+  describe "the week's list" do
+    test "tonight's dish is tagged, and the open days ahead are New dinner rows", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      today = Tore.Clock.today()
+      key = Tore.Streams.slot_key(today)
+      {:ok, _} = Planning.assign_recipe(home_scope(), this_plan_id(), key, recipe.id, 4)
+
+      {:ok, lv, _html} = conn |> authed(user) |> live(~p"/plan")
+
+      tonight = lv |> element("#slot-#{key}") |> render()
+      assert tonight =~ "Roast chicken"
+      assert tonight =~ "Ikväll"
+
+      open_ahead = 7 - Date.day_of_week(today)
+      rows = Regex.scan(~r/data-role="new-dinner"/, render(lv))
+      assert length(rows) == open_ahead
+    end
+  end
+
   describe "slot modal" do
     test "open_slot loads suggestions and shows modal", %{conn: conn, user: user, recipe: recipe} do
       conn = authed(conn, user)
