@@ -1,11 +1,9 @@
 defmodule Tore.Harness.Kinds.RecipeIngestion do
   @moduledoc """
-  A recipe someone sends Capture, as photos of its pages or as a link. The model reads it into a
-  `RecipeProposal`, which always waits for review: nothing is saved until someone confirms it.
-  `ctx` holds `:images` (the page photos) or `:url`, or the `:proposal` itself when it was read
-  elsewhere (MCP).
+  A recipe from a link, read by the model into a `RecipeProposal`, or one pi read from a page or
+  photos and submitted whole over MCP (`save_recipe`). `ctx` holds `:url` or the `:proposal`.
 
-  Confirming saves the recipe, and undo deletes it. Review, saving and the picture work as for a
+  It saves straight away, and undo deletes it. Verifying, saving and the picture work as for a
   recipe the planner proposes.
   """
 
@@ -22,9 +20,6 @@ defmodule Tore.Harness.Kinds.RecipeIngestion do
   def surface, do: nil
 
   @impl true
-  def open(%{images: images}),
-    do: %{input: %{"source" => "photo", "pages" => length(images)}, actor: :user}
-
   def open(%{url: url}), do: %{input: %{"source" => "web_import", "url" => url}, actor: :user}
 
   # Read elsewhere and submitted whole, by someone's own Claude over MCP.
@@ -33,11 +28,6 @@ defmodule Tore.Harness.Kinds.RecipeIngestion do
 
   # The recipe calls record their own usage in llm_usage.
   @impl true
-  def propose(_run, %{scope: scope, images: images}) do
-    with {:ok, attrs} <- Recipes.extract_from_images(scope, images),
-         do: {:ok, RecipeProposal.from_attrs(attrs, :photo, nil)}
-  end
-
   def propose(_run, %{scope: scope, url: url}) do
     with {:ok, attrs} <- Recipes.scrape_attrs_from_url(scope, url),
          do: {:ok, RecipeProposal.from_attrs(attrs, :web_import, url)}

@@ -3,7 +3,7 @@ defmodule Tore.HouseholdLanguageTest do
   import Mox
   setup :verify_on_exit!
 
-  alias Tore.{Prep, Recipes, Repo}
+  alias Tore.{Prep, Repo}
   alias Tore.Capture.Dispatch
 
   @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
@@ -22,15 +22,6 @@ defmodule Tore.HouseholdLanguageTest do
 
   test "a new person starts in the household's language" do
     assert user_fixture().locale == "en"
-  end
-
-  test "a recipe photo is stored in the household's language" do
-    expect(Tore.MockLLM, :vision, fn _blobs, system, _user, _opts ->
-      assert system =~ "into English"
-      {:ok, %{"title" => "Soup", "ingredients" => [], "steps" => [], "tags" => []}, @usage}
-    end)
-
-    assert {:ok, _} = Recipes.extract_from_images(home_scope(), [<<255, 216, 255>>])
   end
 
   test "a recipe link from Capture is stored in the household's language" do

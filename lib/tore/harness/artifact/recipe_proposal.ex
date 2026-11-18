@@ -6,7 +6,7 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     * `:web_import` — parsed from a page the user chose out of web search
       results or pasted into Capture. `source_url` carries the page, and
       `image_url` the page's own picture if it has one.
-    * `:photo` — read from photos of a recipe sent to Capture.
+    * `:photo` — read by pi from photos of a recipe, and saved with no link.
     * `:generation` — a variant the planner generated from an existing recipe.
       `source_recipe_id` and `instruction` carry the provenance ("recipe 7,
       made simpler").

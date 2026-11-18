@@ -354,20 +354,6 @@ defmodule Tore.Recipes do
     end
   end
 
-  @spec extract_from_images(Scope.t(), [binary()]) :: {:ok, map()} | {:error, term()}
-  def extract_from_images(%Scope{} = scope, binaries) do
-    system = Tore.LLM.Prompts.parse_recipe_images(Tore.Household.locale(scope))
-    blobs = Enum.map(binaries, &{:image, &1})
-
-    with {:ok, data, _usage} <-
-           Tore.LLM.vision(scope, blobs, system, "Extract the recipe from these images.",
-             response_format: Tore.LLM.Prompts.recipe_json_schema(),
-             feature: :extract_recipe
-           ) do
-      {:ok, attrs_from_parsed(data)}
-    end
-  end
-
   @doc """
   The steps cook mode walks through, in order: maps with `"phase"`, `"order"`, `"action"`,
   `"ingredients"` (names) and `"duration_minutes"`.

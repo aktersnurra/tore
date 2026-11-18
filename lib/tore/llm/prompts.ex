@@ -248,17 +248,6 @@ defmodule Tore.LLM.Prompts do
     {system, user}
   end
 
-  def parse_recipe_images(locale \\ nil) do
-    """
-    You are a recipe extractor. The user has photographed one or more pages of a recipe — ingredients may be on one image, instructions on another.
-    Combine all images into a single complete recipe and return a JSON object matching this exact structure:
-    #{@recipe_schema}
-    Rules:
-    #{@recipe_rules}
-    #{translation_instruction(locale)}
-    """
-  end
-
   @locale_names %{
     "sv" => "Swedish",
     "en" => "English",

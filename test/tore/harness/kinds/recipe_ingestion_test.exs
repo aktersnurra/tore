@@ -37,21 +37,20 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
 
   defp titles, do: home_scope() |> Recipes.list() |> Enum.map(& &1.title)
 
-  # A photo of a recipe's page, read into a recipe by its run.
-  defp from_photo(ctx) do
-    {:ok, run} = Runs.start(ctx.scope, RecipeIngestion, %{images: [<<255, 216, 255>>]})
+  # A recipe pi read from photos of its pages and saved, as save_recipe submits it.
+  defp from_photo(ctx, recipe \\ @soup) do
+    proposal = recipe |> Recipes.attrs_from_parsed() |> RecipeProposal.from_attrs(:photo, nil)
+    {:ok, run} = Runs.submit(ctx.scope, RecipeIngestion, proposal, %{proposal: proposal})
     run
   end
 
   test "a recipe photo is saved straight away, and undo deletes it", %{ctx: ctx} do
-    expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, @soup, @usage} end)
-
     %KitchenRun{id: id} = from_photo(ctx)
 
     assert %KitchenRun{
              status: :applied,
              kind: "recipe_ingestion_run",
-             input: %{"source" => "photo", "pages" => 1},
+             input: %{"source" => "submitted"},
              artifacts: [%RecipeProposal{source: :photo}]
            } = Runs.get(home_scope(), id)
 
@@ -67,9 +66,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     ctx: ctx
   } do
     raw = @soup |> Map.put("base_servings", nil) |> Map.put("image_url", "https://evil.example/x")
-    expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, raw, @usage} end)
-
-    %KitchenRun{id: id} = from_photo(ctx)
+    %KitchenRun{id: id} = from_photo(ctx, raw)
 
     assert %KitchenRun{status: :applied, artifacts: [proposal]} = Runs.get(home_scope(), id)
     assert %RecipeProposal{base_servings: 4, image_url: nil} = proposal
@@ -139,18 +136,13 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
         image: false
       )
 
-    expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, @soup, @usage} end)
-
     assert %KitchenRun{status: :failed, failure_code: :near_duplicate} = from_photo(ctx)
     assert titles() == ["Morotssoppa"]
   end
 
   test "an imported recipe goes in its collection: buns are baking", %{ctx: ctx} do
-    expect(Tore.MockLLM, :vision, fn _, _, _, _ ->
-      {:ok, @soup |> Map.put("title", "Kanelbullar") |> Map.put("recipe_type", "baking"), @usage}
-    end)
-
-    %KitchenRun{status: :applied} = from_photo(ctx)
+    baking = @soup |> Map.put("title", "Kanelbullar") |> Map.put("recipe_type", "baking")
+    %KitchenRun{status: :applied} = from_photo(ctx, baking)
 
     assert [%{title: "Kanelbullar", recipe_type: :baking}] = Recipes.list(home_scope())
   end
