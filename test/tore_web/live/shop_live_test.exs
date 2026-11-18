@@ -64,6 +64,43 @@ defmodule ToreWeb.ShopLiveTest do
     assert positions == Enum.sort(positions)
   end
 
+  test "the page says what's left, sections are tags that fold, and the basket starts folded", %{
+    conn: conn
+  } do
+    week = Tore.Streams.monday(Tore.Clock.today())
+    list = Tore.Streams.shop_list(home_scope(), week)
+
+    items =
+      for {name, checked} <- [{"Äpple", false}, {"Päron", false}, {"Mjölk", true}] do
+        %{
+          "id" => Ecto.UUID.generate(),
+          "name" => name,
+          "quantity" => nil,
+          "unit" => nil,
+          "section" => if(name == "Mjölk", do: "dairy", else: "produce"),
+          "checked" => checked,
+          "basic" => false
+        }
+      end
+
+    {:ok, _} =
+      Tore.Shop.append(home_scope(), list, %Tore.Shop.Commands.BuildList{
+        week_start: week,
+        items: items
+      })
+
+    {:ok, view, html} = live(conn, ~p"/shop")
+
+    assert html =~ "2 kvar · vecka #{Tore.Streams.week_number(week)}"
+
+    assert view |> element(~s([aria-controls="items-produce"])) |> render() =~
+             ~r/tag-green.*Frukt &amp; grönt.*2/s
+
+    assert has_element?(view, ~s([aria-controls="items-basket"][aria-expanded="false"]))
+    assert has_element?(view, ~s(ul#items-basket.hidden))
+    assert has_element?(view, ~s[ul#items-produce:not(.hidden)])
+  end
+
   describe "adding" do
     test "the add form has a submit button, so Enter adds, and it clears after each item", %{
       conn: conn

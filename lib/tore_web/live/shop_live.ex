@@ -342,44 +342,39 @@ defmodule ToreWeb.ShopLive do
       current_user={@current_user}
     >
       <.page max_width={:md}>
-        <.top_bar />
-        <header class="flex items-start justify-between gap-4 pt-1">
-          <div class="min-w-0">
-            <h1 class="t-display">{gettext("Shop")}</h1>
-            <p class="num mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
-              {ngettext(
-                "%{count} item left, week %{week}",
-                "%{count} items left, week %{week}",
-                @unchecked_count,
-                week: @week_number
-              )}
-            </p>
-          </div>
-          <div class="mt-1 flex shrink-0 gap-2">
-            <.icon_button
-              icon="ph-barcode"
-              label={gettext("Scan what you bought")}
-              variant={:filled}
-              phx-click="open_scanner"
-            />
-            <.icon_button
-              :if={@total > 0}
-              icon="ph-file-text"
-              label={gettext("Show as text")}
-              variant={:filled}
-              phx-click="export_list"
-            />
-          </div>
+        <.top_bar>
+          <:actions :if={@total > 0}>
+            <.page_menu id="shop-menu">
+              <.menu_item menu="shop-menu" icon="ph-file-text" event="export_list">
+                {gettext("Show as text")}
+              </.menu_item>
+            </.page_menu>
+          </:actions>
+        </.top_bar>
+
+        <header class="pt-1">
+          <.page_icon icon="ph-shopping-cart-duotone" tint="green" />
+          <h1 class="t-display mt-3">{gettext("Shop")}</h1>
+          <p class="num mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
+            {gettext("%{count} left · week %{week}", count: @unchecked_count, week: @week_number)}
+          </p>
         </header>
 
-        <%!-- One field, where the thumb starts: "2 l mjölk" is read as two litres of milk. A
-             submit button, so Enter (and the phone's Go key) adds; cleared after, focus kept. --%>
-        <div class="sticky top-0 z-10 -mx-4 mt-4 bg-[var(--bg)] px-4 py-2">
+        <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
+             (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end. --%>
+        <div class="sticky top-0 z-10 -mx-4 mt-3 bg-[var(--bg)] px-4">
           <form
             id="add-item"
             phx-submit="add_item"
-            class="field-group flex items-center gap-2 rounded-full bg-[var(--sunken)] pl-5 pr-1"
+            class="flex items-center gap-2 border-b border-[color:var(--hairline)]"
           >
+            <button
+              type="submit"
+              aria-label={gettext("Add")}
+              class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
+            >
+              <.icon name="ph-plus" class="size-5" />
+            </button>
             <input
               type="text"
               name="name"
@@ -390,25 +385,15 @@ defmodule ToreWeb.ShopLive do
               class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
               style="font-size: 16px;"
             />
-            <.icon_button icon="ph-plus" label={gettext("Add")} type="submit" />
+            <button
+              type="button"
+              phx-click="open_scanner"
+              aria-label={gettext("Scan what you bought")}
+              class="icon-btn press -mr-2 shrink-0"
+            >
+              <.icon name="ph-barcode" class="size-5" />
+            </button>
           </form>
-        </div>
-
-        <%!-- How far along the shop is: dill fills as things go in the basket --%>
-        <div
-          :if={@total > 0}
-          class="mt-5 h-1.5 overflow-hidden rounded-full bg-[var(--sunken)]"
-          role="progressbar"
-          aria-valuemin="0"
-          aria-valuemax={@total}
-          aria-valuenow={@total - @unchecked_count}
-          aria-label={gettext("In the basket")}
-        >
-          <div
-            class="h-full rounded-full bg-[color:var(--done)] transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out)]"
-            style={"width: #{round((@total - @unchecked_count) / @total * 100)}%"}
-          >
-          </div>
         </div>
 
         <div
@@ -452,21 +437,32 @@ defmodule ToreWeb.ShopLive do
           </button>
         </div>
 
-        <%= for {section, section_items} <- @groups do %>
-          <h2 class="t-eyebrow mt-7 mb-2">{section_label(section)}</h2>
-          <ul id={"items-#{section}"} class="menu-lines" phx-hook=".Tick">
+        <%!-- The store's sections, each a tinted tag that folds its rows away --%>
+        <section :for={{section, section_items} <- @groups} class="mt-4">
+          <.group_head
+            id={"items-#{section}"}
+            label={section_label(section)}
+            tint={section_tint(section)}
+            count={length(section_items)}
+          />
+          <ul id={"items-#{section}"} class="pl-6" phx-hook=".Tick">
             <.item_row :for={item <- section_items} item={item} dinner={dinner_line(@dinners, item)} />
           </ul>
-        <% end %>
+        </section>
 
-        <%= if @checked != [] do %>
-          <h2 class="t-eyebrow mt-7 mb-2">
-            {gettext("In the basket, %{n}", n: length(@checked))}
-          </h2>
-          <ul id="items-basket" class="menu-lines" phx-hook=".Tick">
+        <%!-- The basket, folded shut at the bottom --%>
+        <section :if={@checked != []} class="mt-4">
+          <.group_head
+            id="items-basket"
+            label={gettext("In the basket")}
+            tint="grey"
+            count={length(@checked)}
+            open={false}
+          />
+          <ul id="items-basket" class="hidden pl-6" phx-hook=".Tick">
             <.item_row :for={item <- @checked} item={item} />
           </ul>
-        <% end %>
+        </section>
 
         <ToreWeb.Spending.spending
           spending={@spending}
@@ -640,6 +636,51 @@ defmodule ToreWeb.ShopLive do
 
   defp scan_line(%{change: :failed}), do: gettext("Couldn't look that code up. Try again.")
 
+  attr :id, :string, required: true, doc: "the id of the list it folds"
+  attr :label, :string, required: true
+  attr :tint, :string, required: true
+  attr :count, :integer, required: true
+  attr :open, :boolean, default: true
+
+  # A group's head: a caret that folds the list under it, the section's tag, and the count.
+  defp group_head(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click={
+        JS.toggle(to: "##{@id}")
+        |> JS.toggle_class("rotate-90", to: "##{@id}-caret")
+        |> JS.toggle_attribute({"aria-expanded", "true", "false"})
+      }
+      aria-expanded={to_string(@open)}
+      aria-controls={@id}
+      data-role="group-head"
+      class="press -ml-1 flex h-8 items-center gap-1.5"
+    >
+      <span
+        id={"#{@id}-caret"}
+        class={[
+          "ph-caret-right size-4 text-[color:var(--muted)] transition-transform duration-[var(--dur-fast)]",
+          @open && "rotate-90"
+        ]}
+      >
+      </span>
+      <span class={["tag", "tag-#{@tint}"]}>{@label}</span>
+      <span class="num text-[13px] text-[color:var(--muted)]">{@count}</span>
+    </button>
+    """
+  end
+
+  # Sections take the tint of what's in them; most of the shop is quiet grey.
+  defp section_tint(section) when section in [:produce, :herbs_spices], do: "green"
+  defp section_tint(section) when section in [:dairy, :frozen, :fish], do: "blue"
+
+  defp section_tint(section) when section in [:dry_goods, :bread, :canned, :condiments],
+    do: "yellow"
+
+  defp section_tint(section) when section in [:meat, :deli], do: "orange"
+  defp section_tint(_section), do: "grey"
+
   attr :item, :map, required: true
   attr :dinner, :string, default: nil
 
@@ -654,7 +695,7 @@ defmodule ToreWeb.ShopLive do
       data-item-id={@item.id}
       data-item-name={@item.name}
       class={[
-        "tick-row flex min-h-[56px] items-center gap-4 py-2.5",
+        "tick-row flex min-h-[44px] items-center gap-3 py-1.5",
         @item.checked && "is-checked"
       ]}
     >
@@ -677,7 +718,7 @@ defmodule ToreWeb.ShopLive do
         data-tick={@item.id}
         class="press press-soft min-w-0 flex-1 text-left"
       >
-        <span class="tick-name block truncate text-[var(--text)]" style="font-size: var(--t-body);">
+        <span class="tick-name block truncate text-[var(--text)]" style="font-size: 15.5px;">
           <span :if={Map.get(@item, :pantry_belief)} class="mr-1 text-[color:var(--muted)]">?</span>{@item.name}
         </span>
         <span
