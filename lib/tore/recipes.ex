@@ -690,21 +690,8 @@ defmodule Tore.Recipes do
 
   defp check_html_parseable(scope, html) do
     {system, user} = Tore.LLM.Prompts.check_recipe_html(html)
-    check_model = Application.get_env(:tore, :openrouter_check_model, "openai/gpt-oss-120b:free")
 
-    fallback =
-      Application.get_env(:tore, :openrouter_check_model_fallback, "openai/gpt-oss-120b")
-
-    result =
-      case Tore.LLM.text(scope, system, user, model: check_model, feature: :check_recipe_html) do
-        {:ok, _, _} = ok ->
-          ok
-
-        {:error, _} ->
-          Tore.LLM.text(scope, system, user, model: fallback, feature: :check_recipe_html)
-      end
-
-    case result do
+    case Tore.LLM.text(scope, system, user, feature: :check_recipe_html) do
       {:ok, %{"parseable" => true}, _} -> :ok
       {:ok, %{"parseable" => false}, _} -> {:error, :not_a_recipe}
       {:ok, _, _} -> {:error, :not_a_recipe}

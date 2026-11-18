@@ -70,17 +70,10 @@ config :tore, :http_client, Tore.Adapters.ReqHTTP
 config :tore, :llm_spec, Tore.LLM.Pi
 config :tore, :image_gen_client, Tore.ImageGen.OpenRouter
 config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
-config :tore, :openrouter_model, System.get_env("OPENROUTER_MODEL", "anthropic/claude-haiku-5.5")
-
-config :tore,
-       :openrouter_vision_model,
-       System.get_env("OPENROUTER_VISION_MODEL", "google/gemini-3.5-flash")
 
 config :tore,
        :openrouter_image_model,
        System.get_env("OPENROUTER_IMAGE_MODEL", "bytedance-seed/seedream-5-0-pro")
-
-config :tore, :decisions_model, System.get_env("DECISIONS_MODEL", "typesafe/jev-1.14")
 
 config :tore, :storage_client, Tore.Storage.S3
 config :tore, :env, :dev

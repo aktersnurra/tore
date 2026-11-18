@@ -20,25 +20,6 @@ defmodule Tore.LLM.Prompts do
     {system, user}
   end
 
-  def plan_weekly(constraints) do
-    dietary = dietary_guidance_instruction(constraints[:dietary_guidance])
-
-    system = """
-    You are a meal planner. Think like a prep cook.
-    Goal: assign recipes to meal slots for the week.
-    Principles:
-    - Batch cook early in the week; cascade leftovers into later meals
-    - Prefer ingredient reuse over variety
-    - Respect pinned slots as hard constraints
-    - Prefer pantry items and deals when available
-    - Weeknight slots need recipes with total time ≤45 min#{dietary}
-    Respond with a JSON object only. No prose.
-    """
-
-    user = render("plan_weekly.eex", constraints)
-    {system, user}
-  end
-
   def prep_guide(plan, locale \\ nil) do
     system = """
     You are a sous chef. Generate a Sunday prep session guide for the week's meals.
@@ -49,11 +30,6 @@ defmodule Tore.LLM.Prompts do
 
     user = render("prep_guide.eex", plan)
     {system, user}
-  end
-
-  def estimate_nutrition do
-    system = File.read!(Path.join(@prompts_dir, "estimate_nutrition.eex"))
-    {system, ""}
   end
 
   @recipe_schema """

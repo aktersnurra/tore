@@ -51,15 +51,6 @@ defmodule Tore.LLM.Pi do
     answer(message, [], opts)
   end
 
-  @impl true
-  def web_search(_system, _user, _opts), do: {:error, :unsupported}
-
-  @impl true
-  def chat(_system, _messages, _opts), do: {:error, :unsupported}
-
-  @impl true
-  def chat_with_tools(_system, _messages, _tools, _opts), do: {:error, :unsupported}
-
   defp answer(parts, images, opts) do
     scope = Keyword.fetch!(opts, :scope)
     message = parts |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join("\n\n")

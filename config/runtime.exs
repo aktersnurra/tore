@@ -44,7 +44,7 @@ if config_env() == :prod do
          System.get_env("UPLOADS_DIR") ||
            raise("environment variable UPLOADS_DIR is missing. Example: /var/data/tore/uploads")
 
-  # Optional: without a key no household can use the server's LLM (Tore.LLM.available?/1).
+  # Recipe pictures (Tore.ImageGen.OpenRouter); every other model call goes through pi.
   config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
 
   config :tore,
@@ -54,31 +54,8 @@ if config_env() == :prod do
   config :tore, :openrouter_app_name, System.get_env("OPENROUTER_APP_NAME", "Tore")
 
   config :tore,
-         :openrouter_model,
-         System.get_env("OPENROUTER_MODEL", "anthropic/claude-haiku-5.5")
-
-  config :tore,
-         :openrouter_vision_model,
-         System.get_env("OPENROUTER_VISION_MODEL", "google/gemini-3.5-flash")
-
-  config :tore,
          :openrouter_image_model,
          System.get_env("OPENROUTER_IMAGE_MODEL", "bytedance-seed/seedream-5-0-pro")
-
-  # The decision tier: models that only choose among fixed options (SPEC.md §A.8).
-  config :tore, :decisions_model, System.get_env("DECISIONS_MODEL", "typesafe/jev-1.14")
-
-  config :tore,
-         :decisions_url,
-         System.get_env("DECISIONS_URL", "https://openrouter.ai/api/alpha/decisions")
-
-  config :tore,
-         :openrouter_check_model,
-         System.get_env("OPENROUTER_CHECK_MODEL", "openai/gpt-oss-120b:free")
-
-  config :tore,
-         :openrouter_check_model_fallback,
-         System.get_env("OPENROUTER_CHECK_MODEL_FALLBACK", "openai/gpt-oss-120b")
 
   database_path =
     System.get_env("DATABASE_PATH") ||

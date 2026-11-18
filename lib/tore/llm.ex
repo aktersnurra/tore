@@ -18,7 +18,6 @@ defmodule Tore.LLM do
 
   @type blob :: {:image, binary()} | {:pdf, binary()}
   @type usage :: Tore.LLM.Spec.usage()
-  @type tool_response :: Tore.LLM.Spec.tool_response()
   @type refusal :: {:error, :ai_unavailable | :budget_exceeded}
 
   @monthly_limit_usd 20.0
@@ -59,16 +58,10 @@ defmodule Tore.LLM do
   def text(%Scope{} = scope, system, user, opts \\ []),
     do: call(scope, opts, &spec().text(system, user, &1))
 
-  def web_search(%Scope{} = scope, system, user, opts \\ []),
-    do: call(scope, opts, &spec().web_search(system, user, &1))
-
   def vision(%Scope{} = scope, blobs, system, user, opts \\ []),
     do: call(scope, opts, &spec().vision(blobs, system, user, &1))
 
-  def chat_with_tools(%Scope{} = scope, system, messages, tools, opts),
-    do: call(scope, opts, &spec().chat_with_tools(system, messages, tools, &1))
-
-  @doc "Typed decisions from the decision model (`Tore.LLM.Spec.decide/3`): an answer per question."
+  @doc "Typed decisions (`Tore.LLM.Spec.decide/3`): an answer per question."
   def decide(%Scope{} = scope, state, questions, opts \\ []),
     do: call(scope, opts, &spec().decide(state, questions, &1))
 
