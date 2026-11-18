@@ -354,7 +354,7 @@ defmodule ToreWeb.CaptureLive do
         </.link>
       </div>
 
-      <div id="chat-messages" class="scroll-quiet flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <div
           :if={@messages == [] and not @loading}
           class="flex h-full flex-col items-start justify-end pb-4"
@@ -489,7 +489,7 @@ defmodule ToreWeb.CaptureLive do
         <div
           :if={@swaps != [] and not @loading}
           data-role="swaps"
-          class="scroll-quiet -mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
+          class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
         >
           <button
             :for={{swap, index} <- Enum.with_index(@swaps)}

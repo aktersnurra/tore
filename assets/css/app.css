@@ -226,9 +226,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.35) 38%, rgba(0, 0, 0, 0) 68%);
 }
 
-/* Horizontal chip rows scroll without showing a scrollbar */
-.scroll-quiet { scrollbar-width: none; }
-.scroll-quiet::-webkit-scrollbar { display: none; }
+/* Nothing shows a scrollbar: pages, sheets and chip rows still scroll */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
 
 /* Prices and quantities line up in columns */
 .num { font-variant-numeric: tabular-nums; }

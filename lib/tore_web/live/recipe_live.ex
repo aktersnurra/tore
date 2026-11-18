@@ -732,7 +732,7 @@ defmodule ToreWeb.RecipeLive do
         >
           <div class="scrim absolute inset-0 hidden bg-black/50 md:block" phx-click="close"></div>
           <div class={[
-            "scroll-quiet relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[28px] md:shadow-[var(--shadow-pop)]",
+            "relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[28px] md:shadow-[var(--shadow-pop)]",
             (@form || @adding) && "sheet"
           ]}>
             <%= cond do %>
@@ -952,7 +952,7 @@ defmodule ToreWeb.RecipeLive do
         </dl>
 
         <%!-- What you can do with it, before anything to read --%>
-        <div class="reveal scroll-quiet -mx-5 mt-5 flex gap-2 overflow-x-auto px-5" style="--i: 3">
+        <div class="reveal -mx-5 mt-5 flex gap-2 overflow-x-auto px-5" style="--i: 3">
           <.link
             :if={@home.missing == []}
             navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
