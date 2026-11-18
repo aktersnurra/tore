@@ -7,6 +7,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### The Notion look (2026-11-18)
+
+- Papper: ink on white, graphite when the phone is dark. The main action is ink; colour comes from photos and from tags that mean something (orange dinner, yellow baking, green sauces and done, blue assemblies and the week, red tonight or missing, purple leftovers, grey quiet). Buttons are soft rectangles.
+- Phosphor icons in place of Heroicons and every emoji: regular in the chrome, fill for the current tab, duotone for pages and dishes. The Tore button is raised above the tab bar.
+- Never a missing photo: a dish without a picture shows its icon on its collection's tint, the icon read from its name ("Laxpasta" is a fish). Recipes still without a picture get one drawn at night (`Tore.Recipes.draw_missing_pictures/0`, off in dev and test).
+- The same top bar on every tab: the menu on the left, the page's ⋯ on the right. The menu is a drawer with the rest of the week, favourites, the collections with counts, the household's settings and Ask Tore. Today's gear is gone.
+- Favourites: a recipe's ⋯ stars it; starred recipes lead Recipes and sit in the menu.
+- Today is tonight's recipe page: cover, icon, title, properties (what's missing as red tags with Put on the list), Cook now, Something else, the ingredients.
+- Plan is a list: one line with the dates and the money ("16–22 november · runt 575 av 900 kr"), each day's dish with status tags, "+ Ny middag" on open days.
+- Recipes is a gallery grouped by collection (two to a row, 4:5 pictures), or a list; the choice is remembered. Search opens from the toolbar.
+- Shop is a to-do page: one add line with the scanner at its end, sections as tinted tags that fold, square checkboxes, the basket folded at the bottom.
+
 ### Pages, collections, and a smarter kitchen (2026-11-17)
 
 - Recipes are collections: 🍲 Dinner, 🥐 Baking, 🫙 Sauces & sides, 🥪 Assemblies. An import files itself. Only dinners go on the week; the rest are there to find and start.

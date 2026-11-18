@@ -144,8 +144,16 @@ Every main screen has the same tab bar at the bottom, each tab an icon with its 
 - **Quick swaps** sit in the chat, above its input: up to three chips that open a screen
   or send a short request. They come from the stored pick, or from the last turn. Plain
   chips: no AI iconography, no animation.
-- **Settings** is a button on Today, top right. It holds members, diet and allergies,
-  the household, memory, stores and AI.
+- **The top bar** is the same on every tab (2026-11-18): the sidebar icon on the left opens the
+  menu; the right holds this page's own actions behind ⋯. Page shortcuts live in the page:
+  search in Recipes' toolbar, the scanner at the end of Shop's add line.
+- **The menu** is a drawer from the left, read when it opens: the rest of this week (tonight
+  marked, open days quiet), starred recipes, the collections with their counts, the
+  household (members, diet and allergies, weekly budget, settings) and Ask Tore at its foot.
+  It closes on the scrim, on Escape, or when one of its links is followed. Tap only; no edge
+  swipe.
+- **Settings** is reached from the menu. It holds members, diet and allergies, the
+  household, memory, stores and AI.
 - The current tab is in the text colour with a filled icon, the others muted and outlined.
   Prep counts as Plan. No sparkle icons anywhere: Tore is a chat glyph.
 
@@ -160,8 +168,9 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 /shop          → Shop, with this month's spending under the list (tab)
 /recipes       → Recipes (tab)
 /capture       → Tore's chat (the centre tab; presents as a sheet)
-/settings      → Settings, from Today
-/prep          → Prep guide, via Plan's "Prep this week"
+/settings      → Settings, from the menu (#members, #diet, #budget go to a section)
+/prep          → Prep guide, via Plan's ⋯ "Prep this week"
+/recipes?type= → Recipes on one collection, from the menu
 /recipes/:id/cook → Cook mode, no tab bar
 ```
 
@@ -212,9 +221,10 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   own type colour. Small picture cards keep a dark foot and white type (`.photo-shade`).
 - **One palette, two lights.** Papper: ink on white, graphite when the phone is dark
   (follows the phone, or `data-theme`). The main action is ink; type on it uses `--on-accent`.
-- **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
-  Recipes is a picture grid. A recipe never shows an empty block: until its picture is drawn it
-  shows its icon on its collection's tint (`<.cover>`), never a stock image.
+- **Pictures lead where there's a dish.** Today opens on tonight's cover; Recipes is a
+  gallery. A recipe never shows an empty block: until its picture is drawn it shows its icon
+  on its collection's tint (`<.blank_cover>`, `ToreWeb.Look`), never a stock image. Pictures
+  that failed are drawn again at night (`Tore.Recipes.draw_missing_pictures/0`).
   Its + starts from a link: paste one and Tore reads the recipe in and opens it. "Write it
   yourself" under the field is the way out to the form, taking along what was typed (a link as
   the source, anything else as the name).
@@ -257,6 +267,9 @@ Four rules:
 - **A tag's colour is its meaning.** Orange is dinner, yellow baking, green sauces & sides (and
   done), blue assemblies (and the week), red tonight or missing, purple leftovers, grey quiet.
 - **Red never nags.** An open Thursday is not an error.
+- **One icon family: Phosphor** (MIT, vendored under `assets/vendor/phosphor`, used as
+  `ph-NAME`, `ph-NAME-fill` and `ph-NAME-duotone`). Regular in the chrome, fill for the current
+  tab and Tore, duotone in a collection's ink for pages and dishes. No emoji.
 
 Chosen 2026-11-18, replacing Gjutjärn (cast iron and saffron), which read as heavy. The mock it
 came from: the "Tore kitchen pages" artifact.
@@ -410,17 +423,19 @@ Material’s interaction guidance emphasizes visible states, consistent state ap
 
 ```md
 Top:
-- Household name or Tore wordmark
-- Current week/date context
-- Settings/avatar button
+- <.top_bar>: the menu (sidebar icon) left, the page's ⋯ (<.page_menu>) right
+- Over a photo the two buttons are frosted
 
 Main:
-- Single-column content
-- Max width 480px
-- Bottom padding for nav + command bars
+- A page: its icon (<.page_icon>, a duotone icon on a tinted square), the title, one muted
+  line with the context and one number, then the content
+- Single column, max width 480–672px
 
 Bottom:
-- 4-tab nav
+- The tab bar, Tore raised in the middle
+
+Menu:
+- The drawer from the left, in ToreWeb.TabBarLive (§3.1)
 ```
 
 ### Desktop shell
@@ -608,21 +623,17 @@ What matters for dinner today?
 
 ### Layout
 
+Today is tonight's recipe page (2026-11-18):
+
 ```md
-Header
-- "Today"
-- Date
-- small Settings/avatar button
-
-Hero
-- Tonight’s meal card
-
-Secondary
-- Tomorrow compact card
-- Review pill ("N to review") — only when runs await the user; opens the oldest pending review, then returns here; never red, never badge-styled
-
-Bar
-- [Today] [Plan] (pill) [Shop] — the pill is the Capture entry; no floating FAB
+Cover    — tonight's photo, or the dish's tinted icon while one is drawn
+Icon     — the dish's page icon, over the cover's edge
+Title    — the dish
+Props    — Day (Tonight tag + date) · Collection · Time (and ready by) · Servings ·
+           At home (missing things as red tags, Put on the list)
+Actions  — [Cook now] [Something else]
+Ingredients, for tonight's servings
+⋯        — Open the recipe · Ask about tonight · No dinner tonight
 ```
 
 ### Empty state
@@ -634,18 +645,6 @@ Tore can make a good guess for tonight.
 [Suggest dinner] [Open plan]
 ```
 
-### Hero card content
-
-```md
-Tonight
-Pork skewers with cucumber yoghurt
-
-35 min · 2 servings
-Rice is already prepped
-
-[Start cooking]
-[Swap]
-```
 
 On a night marked as eating out, the hero says "Eating out tonight" instead, with no cooking action.
 
@@ -686,33 +685,24 @@ What should the week look like?
 
 ### Layout
 
-```md
-Header
-- "This week"
-- Week range
-- Generate/refresh subtle action
-
-Top
-- Run receipt, when there is one
-
-Main
-- Seven-day meal board
-- "Prep this week" link, a quiet way to the prep guide. Optional and on demand: nothing asks you to prep
-
-Bottom
-- Sticky command bar
-```
-
-### Day slot card
+Plan is the week as a list (2026-11-18):
 
 ```md
-Tuesday
-Pork skewers
-35 min · 2 servings
-uses ICA pork deal
-
-[⋯]
+Icon + "Week 47"           ‹ ›
+16–22 november · about 575 of 900 kr      ← one line: the dates and the money
+[Plan the 4 open days]
+Run receipt, when there is one
+mån 16  [photo] Oxfilé med potatisgratäng   4 servings
+ons 18  [photo] Kycklinggryta  [Tonight] 4 servings
+tor 19  + New dinner                        ← an open day ahead, faint
+⋯       Prep this week
 ```
+
+### Day row
+
+The date sits in the margin (today's number in red). A planned day shows the dish's photo or
+tinted cover, its name, and tags: Tonight (red), Uses leftovers / Leftovers for (purple),
+Eating out and Skipped (grey). A pinned day has a small lock.
 
 States:
 
@@ -729,8 +719,8 @@ needs-attention
 ### Slot visual language
 
 ```md
-planned:       raised card with image/thumb or tonal block
-empty:         quiet dashed surface
+planned:       a row with the dish's photo or tinted cover
+empty:         a faint "+ New dinner" row
 skipped:       flat muted row, no guilt copy
 leftover:      linked chain marker from source meal
 locked:        tiny pin, not loud
@@ -824,22 +814,22 @@ What do we need to buy?
 
 ### Layout
 
+Shop is a to-do page (2026-11-18):
+
 ```md
-Header
-- "Shop"
-- Store/week context
-- Add item input
-
-Top
-- List status card
-
-Main
-- Grocery groups
-
-Bottom
-- Manual add
-- This month's spending (§6.7)
+Icon + "Shop"
+3 left · week 47
++ Add, e.g. 2 l milk                  [scan]   ← one line, sticky
+⌄ [Fruit & veg] 2
+    [ ] Gul lök     till kvällens kycklinggryta     3 st
+⌄ [Dairy & eggs] 1
+› [In the basket] 1                            ← folded shut
+This month's spending (§6.7)
+⋯   Show as text
 ```
+
+Sections are tinted tags that fold (green fruit, veg and herbs; blue dairy, frozen and fish;
+yellow the pantry and bread; orange meat and deli; grey the rest). Checkboxes are square.
 
 ### List status card
 
@@ -1716,15 +1706,22 @@ surface.
 
 ## 16.2a Pages and collections (2026-11-17)
 
-Borrowed from Notion's structure, not its look; the Gjutjärn/Dagsljus tokens stay.
+Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4.2).
 
 - **A recipe is a page:** cover photo, title, then quiet property rows (Collection, Time,
   Servings as a stepper that scales the amounts, At home, Source, Last made), then the
   actions (Cook/Bake now, Put on the week, Missing something?, Ask Tore), then sections.
 - **At home** checks the recipe against the pantry with no model: "All of it", or what's
   missing with Put on the list.
-- **Collections** are view tabs with an emoji each: 🍲 Dinner, 🥐 Baking, 🫙 Sauces & sides,
-  🥪 Assemblies. Only dinners are planned or suggested for a day.
+- **Collections** are Dinner, Baking, Sauces & sides and Assemblies, each with a Phosphor
+  icon and a tag colour (orange, yellow, green, blue). Recipes groups by them under their
+  tags, in a Gallery (two to a row, 4:5 pictures, the name underneath) or a List (one line
+  each); a tag shows its collection alone. The view chosen is remembered per person. Only
+  dinners are planned or suggested for a day.
+- **Every dish has an icon**, read from its name (Swedish or English) and otherwise its
+  collection's; no model is asked (`ToreWeb.Look.icon/1`). No emoji anywhere.
+- **Favourites:** a recipe's ⋯ stars it. Starred recipes lead Recipes and are listed in the
+  menu.
 - Rows answer hover with a soft background; chrome stays quiet.
 - **Pictures** share one house style (one fixed art direction appended to every dish), so
   the library looks like one cookbook.

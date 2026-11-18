@@ -939,12 +939,20 @@ A stored pick is narrowed when it is read. A household that can't use the model 
 `ToreWeb.TabBarLive`, a sticky LiveView at the bottom of every main screen: Today, Plan, Tore,
 Shop and Recipes. Tore, in the middle, opens Capture over the current screen; Capture's Close
 returns there, query string and all. Prep counts as Plan, and a recipe's pages as Recipes.
-Settings opens from a button on Today. Cook mode has no bar.
+Cook mode has no bar.
+
+Every tab starts with the same top bar (`<.top_bar>`): the sidebar icon opens the menu, and
+the right holds the page's own actions behind ⋯ (`<.page_menu>`). The menu is a drawer that
+`TabBarLive` reads when it opens: the rest of this week, starred recipes
+(`Tore.Recipes.list_favorites/1`), the collections with counts (each opens
+`/recipes?type=…`), the household's members, diet, budget and settings, and Ask Tore.
 
 ### Today (`/today`)
 
-- Tonight's dinner. A night marked as eating out says so instead of showing a dinner.
-- A button to Settings.
+- Tonight's dinner, as its recipe page: cover, icon, title, properties (the day, collection,
+  time, servings, what's missing at home with Put on the list), Cook now and Something else,
+  then the ingredients. A night marked as eating out says so instead of showing a dinner.
+- ⋯: Open the recipe, Ask about tonight, No dinner tonight.
 - Long-press on tonight for its object sheet.
 
 ### Planner (`/plan`)
@@ -952,7 +960,10 @@ Settings opens from a button on Today. Cook mode has no bar.
 - Week view with editable slots.
 - A command bar at the bottom: text input + voice (phase ≥ 8) that runs through `PlannerAgent` (§2).
 - Slot interactions still work via tap (assign, swap, skip, mark leftover, set servings, eating out).
-- A "Prep this week" link (§9).
+- One line under the week: the dates and about what it costs against the budget.
+- Each day a row with the dish and status tags (Tonight, leftovers, eating out, skipped); an
+  open day ahead is a faint "+ New dinner".
+- "Prep this week" behind ⋯ (§9).
 
 ### Capture (`/capture`)
 
@@ -991,7 +1002,7 @@ off (`Tore.Shop.Walk`, no model): until three real trips are seen, the walk thro
 Swedish store, fruit and veg first and frozen by the tills. A list ticked off in seconds teaches
 nothing. One order per household; it doesn't tell two stores apart.
 
-The scanner button in the header opens a sheet with the camera: each pack scanned while unpacking goes into the
+The scanner button at the end of the add line opens a sheet with the camera: each pack scanned while unpacking goes into the
 pantry, or is ticked off if it's still on the list, with a line and Undo per pack (§4).
 
 Under the list, what was spent this month (`ToreWeb.Spending`): the total against last month,
@@ -1275,6 +1286,7 @@ Used when the answer is one of a few options Tore wrote, and code acts on it: th
 config :tore, Tore.Scheduler,
   jobs: [
     {"0 3 * * *",  {Tore.Deals,                          :clear_expired,      []}},
+    {"30 3 * * *", {Tore.Recipes,                        :draw_missing_pictures, []}},  # off in dev and test
     {"0 4 * * 0",  {Tore.Harness.InboxSweeper,           :sweep_weekly,       []}},
     {"0 6 * * 6",  {Tore.Harness.Kinds.MemoryReview,     :review_weekly,      []}},  # starts :memory_review_run
     {"0 9 * * 0,5,6", {Tore.WeekAhead,                   :run,                []}},  # fetches offers, dispatches :weekly_planning_run
@@ -1286,6 +1298,8 @@ config :tore, Tore.Scheduler,
 AI's behalf starts a `KitchenRun` (with `actor: :system`) — it never
 calls a context function directly, per §A.2's hard rule. `Tore.Deals.clear_expired`
 and the fetching in `Tore.WeekAhead` are deterministic maintenance, not AI actions, and stay direct.
+So does `Tore.Recipes.draw_missing_pictures`: it draws the picture a recipe should already
+have, the same way saving one does, and decides nothing.
 
 ---
 
