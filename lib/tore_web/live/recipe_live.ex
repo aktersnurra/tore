@@ -510,7 +510,7 @@ defmodule ToreWeb.RecipeLive do
                   ]}
                   style="font-size: 14px; font-weight: 600;"
                 >
-                  <span :if={type_icon(type)} aria-hidden="true">{type_icon(type)}</span>
+                  <.icon :if={type_icon(type)} name={type_icon(type)} class="size-4" />
                   {type_label(type)}
                 </button>
               </div>
@@ -604,11 +604,9 @@ defmodule ToreWeb.RecipeLive do
             <.link
               patch={~p"/recipes?#{[id: recipe.id]}"}
               data-dish={recipe.id}
-              class={[
-                "press-soft press group relative block aspect-[3/4] w-full overflow-hidden rounded-[var(--r-xl)] text-left",
-                !recipe.image_path && "bg-[var(--sunken)]"
-              ]}
+              class="press-soft press group relative block aspect-[3/4] w-full overflow-hidden rounded-[var(--r-xl)] text-left"
             >
+              <.blank_cover :if={!recipe.image_path} dish={recipe} />
               <img
                 :if={recipe.image_path}
                 src={~p"/images/recipes/#{recipe.id}"}
@@ -680,11 +678,8 @@ defmodule ToreWeb.RecipeLive do
     ~H"""
     <article>
       <%!-- The dish, with its name on the dark foot of the photograph --%>
-      <div class={[
-        "relative w-full overflow-hidden",
-        @selected.image_path && "h-[58svh] min-h-[360px] max-h-[560px]",
-        !@selected.image_path && "h-28"
-      ]}>
+      <div class="relative h-[58svh] min-h-[360px] max-h-[560px] w-full overflow-hidden">
+        <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
         <img
           :if={@selected.image_path}
           src={~p"/images/recipes/#{@selected.id}"}
@@ -692,12 +687,7 @@ defmodule ToreWeb.RecipeLive do
           class="absolute inset-0 size-full object-cover"
           style={"view-transition-name: dish-#{@selected.id}"}
         />
-        <div
-          :if={@selected.image_path}
-          class="photo-foot absolute inset-x-0 bottom-0 h-3/5"
-          aria-hidden="true"
-        >
-        </div>
+        <div class="photo-foot absolute inset-x-0 bottom-0 h-3/5" aria-hidden="true"></div>
 
         <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
           <.link
@@ -754,23 +744,21 @@ defmodule ToreWeb.RecipeLive do
           </div>
         </div>
 
-        <div :if={@selected.image_path} class="absolute inset-x-0 bottom-0 px-5 pb-1">
+        <div class="absolute inset-x-0 bottom-0 px-5 pb-1">
           <h1 class="reveal t-display" style="--i: 1">{@selected.title}</h1>
         </div>
       </div>
 
       <div class="px-5 pb-28">
-        <div :if={!@selected.image_path}>
-          <h1 class="t-display mt-2">{@selected.title}</h1>
-        </div>
-
         <%!-- The page's properties: quiet rows, a label and its value. Servings is a stepper. --%>
         <dl class="props reveal mt-4" style="--i: 2">
           <div>
             <dt><.icon name="ph-squares-four" /> {gettext("Collection")}</dt>
             <dd data-role="collection">
-              <span aria-hidden="true">{type_icon(@selected.recipe_type)}</span>
-              {type_label(@selected.recipe_type)}
+              <span class={["tag", "tag-#{ToreWeb.Look.tint(@selected.recipe_type)}"]}>
+                <.icon name={type_icon(@selected.recipe_type)} />
+                {type_label(@selected.recipe_type)}
+              </span>
             </dd>
           </div>
           <div :if={total_time(@selected) != "—"}>
@@ -1189,7 +1177,7 @@ defmodule ToreWeb.RecipeLive do
               value={t}
               selected={@form[:recipe_type] == to_string(t)}
             >
-              {type_icon(t)} {type_label(t)}
+              {type_label(t)}
             </option>
           </select>
         </label>
@@ -1462,15 +1450,8 @@ defmodule ToreWeb.RecipeLive do
     end
   end
 
-  defp type_icon(type) do
-    case to_string(type) do
-      "all" -> nil
-      "meal" -> "🍲"
-      "baking" -> "🥐"
-      "component" -> "🫙"
-      "assembly" -> "🥪"
-    end
-  end
+  defp type_icon(type) when type in [:all, "all"], do: nil
+  defp type_icon(type), do: ToreWeb.Look.collection_icon(type)
 
   # "35 min, vegetarian, quick": time first, then up to two tags.
   defp recipe_meta(recipe) do

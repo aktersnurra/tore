@@ -285,6 +285,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .tag-purple { background: var(--tag-purple); color: var(--tag-purple-ink); }
 .tag-grey   { background: var(--tag-grey);   color: var(--tag-grey-ink); }
 
+/* A tinted block in a collection's colour, its ink for the icon on it: a dish's cover while its
+   picture is drawn, a page's icon. */
+.tint-orange { background: var(--tag-orange); color: var(--tag-orange-ink); }
+.tint-yellow { background: var(--tag-yellow); color: var(--tag-yellow-ink); }
+.tint-green  { background: var(--tag-green);  color: var(--tag-green-ink); }
+.tint-blue   { background: var(--tag-blue);   color: var(--tag-blue-ink); }
+.tint-red    { background: var(--tag-red);    color: var(--tag-red-ink); }
+.tint-purple { background: var(--tag-purple); color: var(--tag-purple-ink); }
+.tint-grey   { background: var(--tag-grey);   color: var(--tag-grey-ink); }
+
 /* ── Ticking an item: the check draws, then the row folds into the basket. ── */
 .tick-box {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;

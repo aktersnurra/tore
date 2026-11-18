@@ -818,14 +818,14 @@ defmodule ToreWeb.PlannerLive do
             </header>
 
             <%= if @selected_recipe do %>
-              <div class="aspect-[16/9] w-full bg-[color:var(--hairline)] flex items-center justify-center text-[color:var(--subtle)]">
+              <div class="relative aspect-[16/9] w-full">
                 <img
                   :if={@selected_recipe.image_path}
                   src={~p"/images/recipes/#{@selected_recipe.id}"}
                   alt=""
                   class="h-full w-full object-cover"
                 />
-                <.icon :if={!@selected_recipe.image_path} name="ph-image" class="size-10" />
+                <.blank_cover :if={!@selected_recipe.image_path} dish={@selected_recipe} />
               </div>
               <div class="px-6 pt-4">
                 <p class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
@@ -1136,14 +1136,14 @@ defmodule ToreWeb.PlannerLive do
           !@selected && "border-[color:var(--border)] hover:border-[color:var(--subtle)]"
         ]}
       >
-        <div class="size-12 shrink-0 rounded-[var(--r-md)] overflow-hidden bg-[color:var(--hairline)] flex items-center justify-center text-[color:var(--subtle)]">
+        <div class="relative size-12 shrink-0 overflow-hidden rounded-[var(--r-md)]">
           <img
             :if={@recipe.image_path}
             src={~p"/images/recipes/#{@recipe.id}"}
             alt=""
             class="h-full w-full object-cover"
           />
-          <.icon :if={!@recipe.image_path} name="ph-image" class="size-5" />
+          <.blank_cover :if={!@recipe.image_path} dish={@recipe} icon_class="size-6" />
         </div>
         <div class="flex-1 min-w-0">
           <p class="font-semibold text-[var(--text)] truncate" style="font-size: var(--t-body);">

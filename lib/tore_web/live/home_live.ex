@@ -68,12 +68,7 @@ defmodule ToreWeb.HomeLive do
               class="absolute inset-0 size-full object-cover"
               style={"view-transition-name: dish-#{@tonight_recipe.id}"}
             />
-            <div
-              :if={!photo?(@tonight_recipe)}
-              class="absolute inset-0 flex items-center justify-center text-[color:var(--subtle)]"
-            >
-              <.icon name="ph-image" class="size-10" />
-            </div>
+            <.blank_cover :if={!photo?(@tonight_recipe)} dish={@tonight_recipe} icon_class="size-24" />
             <div class="photo-foot absolute inset-x-0 bottom-0 h-3/5" aria-hidden="true"></div>
             <div class="absolute inset-x-0 bottom-0 px-4 pb-1 md:px-5">
               <p class="reveal t-eyebrow num" style="--i: 0">

@@ -158,14 +158,22 @@ defmodule ToreWeb.CaptureLive do
       class="rise-in w-full max-w-[85%] rounded-[20px] rounded-bl-md bg-[var(--sunken)] p-3"
     >
       <div class="flex items-center gap-3">
-        <span
-          :if={@msg.can_make.photo}
-          class="size-16 shrink-0 overflow-hidden rounded-[var(--r-md)]"
-        >
+        <span class="relative size-16 shrink-0 overflow-hidden rounded-[var(--r-md)]">
           <img
+            :if={@msg.can_make.photo}
             src={~p"/images/recipes/#{@msg.can_make.recipe_id}"}
             alt=""
             class="size-full object-cover"
+          />
+          <.blank_cover
+            :if={!@msg.can_make.photo}
+            dish={
+              %{
+                title: @msg.can_make.title,
+                recipe_type: if(@msg.can_make.baking, do: :baking, else: :meal)
+              }
+            }
+            icon_class="size-8"
           />
         </span>
         <div class="min-w-0 flex-1">
@@ -352,7 +360,7 @@ defmodule ToreWeb.CaptureLive do
                   navigate={~p"/recipes?#{[id: s.recipe_id]}"}
                   class="row-hover press-soft flex items-center gap-3 rounded-[var(--r-lg)] p-1.5"
                 >
-                  <span class="size-14 shrink-0 overflow-hidden rounded-[var(--r-md)] bg-[var(--sunken)]">
+                  <span class="relative size-14 shrink-0 overflow-hidden rounded-[var(--r-md)]">
                     <img
                       :if={s[:photo]}
                       src={~p"/images/recipes/#{s.recipe_id}"}
@@ -360,6 +368,7 @@ defmodule ToreWeb.CaptureLive do
                       loading="lazy"
                       class="size-full object-cover"
                     />
+                    <.blank_cover :if={!s[:photo]} dish={s} icon_class="size-7" />
                   </span>
                   <span class="min-w-0 flex-1">
                     <span class="block truncate text-[15px] font-semibold text-[color:var(--text)]">

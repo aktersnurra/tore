@@ -9,6 +9,7 @@ defmodule ToreWeb.DishChoices do
   use Gettext, backend: ToreWeb.Gettext
 
   import ToreWeb.CoreComponents, only: [icon: 1]
+  import ToreWeb.Look, only: [blank_cover: 1]
 
   attr :choices, :list, required: true, doc: "[%{recipe: recipe, reasons: [String.t()]}]"
   attr :event, :string, required: true
@@ -49,6 +50,7 @@ defmodule ToreWeb.DishChoices do
               loading="lazy"
               class="absolute inset-0 size-full object-cover"
             />
+            <.blank_cover :if={!choice.recipe.image_path} dish={choice.recipe} icon_class="size-9" />
           </span>
           <span class="min-w-0 flex-1">
             <span
