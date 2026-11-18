@@ -7,8 +7,8 @@
 #            "model": "anthropic/claude-sonnet-5-5"}
 #
 # The household's agent sees Tore's MCP tools and the web, nothing else: no shell, no files, no
-# extensions but pi-web-access, and none of this machine's own pi settings. Its sessions are kept
-# per household in $HARNESS_STATE_DIR/households/<id>/sessions.
+# extensions but MCP and pi-web-access, and none of this machine's own pi settings. Its sessions
+# are kept per household in $HARNESS_STATE_DIR/households/<id>/sessions.
 #
 # Needs jq and pi, with ANTHROPIC_API_KEY or OPENROUTER_API_KEY for the model in the environment.
 # pi's own config (the installed web package) lives in $HARNESS_STATE_DIR/pi, never ~/.pi.
@@ -44,10 +44,10 @@ mv "$PI_CODING_AGENT_DIR/mcp.json.$$" "$PI_CODING_AGENT_DIR/mcp.json"
 export TORE_MCP_TOKEN="$token"
 
 # An empty working directory: no AGENTS.md or .pi of anyone's to find. The rest of stdin is
-# pi's.
+# pi's. --no-extensions turns off pi's built-in MCP support too, so it is loaded again by name.
 mkdir -p "$state/cwd" && cd "$state/cwd"
 exec pi --mode rpc \
-  --no-extensions -e "npm:pi-web-access" \
+  --no-extensions -e builtin:mcp -e "npm:pi-web-access" \
   --no-tools --tools 'mcp__tore__*,web_search,fetch_content' \
   --append-system-prompt "$dir/AGENTS.md" \
   ${model:+--model "$model"} \
