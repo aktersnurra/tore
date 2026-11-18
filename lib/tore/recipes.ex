@@ -162,6 +162,26 @@ defmodule Tore.Recipes do
   def delete(%Scope{household_id: household_id}, %Recipe{household_id: household_id} = recipe),
     do: Repo.delete(recipe)
 
+  @doc """
+  Stars a recipe, or takes its star away. Starred recipes are listed in the menu and first in
+  Recipes, so the ones made often are two taps away.
+  """
+  @spec set_favorite(Scope.t(), integer(), boolean()) :: :ok
+  def set_favorite(%Scope{} = scope, recipe_id, favorite?) when is_boolean(favorite?) do
+    from(r in Recipe, where: r.id == ^recipe_id)
+    |> Repo.update_all([set: [favorite: favorite?]], Scope.repo_opts(scope))
+
+    Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:recipe_favorite, recipe_id, favorite?})
+    :ok
+  end
+
+  @doc "The starred recipes, by name."
+  @spec list_favorites(Scope.t()) :: [Recipe.t()]
+  def list_favorites(%Scope{} = scope) do
+    from(r in Recipe, where: r.favorite, order_by: [asc: r.title])
+    |> Repo.all(Scope.repo_opts(scope))
+  end
+
   @spec record_used(Scope.t(), integer()) :: :ok
   def record_used(%Scope{} = scope, recipe_id) do
     from(r in Recipe, where: r.id == ^recipe_id)
@@ -641,14 +661,15 @@ defmodule Tore.Recipes do
   defp filter_weeknight(query, _), do: query
 
   defp apply_sort(query, :last_used) do
-    from r in query, order_by: [desc_nulls_last: r.last_used_at]
+    from r in query, order_by: [desc: r.favorite, desc_nulls_last: r.last_used_at]
   end
 
   defp apply_sort(query, :alphabetical) do
-    from r in query, order_by: [asc: r.title]
+    from r in query, order_by: [desc: r.favorite, asc: r.title]
   end
 
+  # Starred recipes lead whichever order is chosen.
   defp apply_sort(query, _) do
-    from r in query, order_by: [desc: r.inserted_at]
+    from r in query, order_by: [desc: r.favorite, desc: r.inserted_at]
   end
 end

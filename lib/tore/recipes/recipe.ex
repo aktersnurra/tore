@@ -15,6 +15,7 @@ defmodule Tore.Recipes.Recipe do
     field :video_url, :string
     field :image_path, :string
     field :last_used_at, :utc_datetime
+    field :favorite, :boolean, default: false
     field :created_by, :integer
     field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient

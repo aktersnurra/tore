@@ -286,6 +286,16 @@ defmodule Tore.RecipesTest do
       titles = Enum.map(results, & &1.title)
       assert titles == Enum.sort(titles)
     end
+
+    test "starred recipes come first, whatever the order", %{r3: r3} do
+      :ok = Recipes.set_favorite(home_scope(), r3.id, true)
+
+      for sort <- [:alphabetical, :last_used, :recently_added] do
+        assert [%{title: "Gamma"} | _] = Recipes.list(home_scope(), sort: sort)
+      end
+
+      assert [%{title: "Gamma"}] = Recipes.list_favorites(home_scope())
+    end
   end
 
   describe "search/1" do

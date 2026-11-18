@@ -278,6 +278,14 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, show_recipe_menu: !socket.assigns.show_recipe_menu)}
   end
 
+  def handle_event("toggle_favorite", _, socket) do
+    recipe = socket.assigns.selected
+    :ok = Recipes.set_favorite(socket.assigns.current_scope, recipe.id, !recipe.favorite)
+
+    {:noreply,
+     socket |> assign(show_recipe_menu: false) |> put_favorite(recipe.id, !recipe.favorite)}
+  end
+
   # The picture arrives on its own when it's made (`{:recipe_image, id, key}`).
   def handle_event("make_image", _params, socket) do
     Recipes.start_image(socket.assigns.current_scope, socket.assigns.selected.id)
@@ -334,6 +342,10 @@ defmodule ToreWeb.RecipeLive do
   end
 
   def handle_info({:steps_written, _result}, socket), do: {:noreply, socket}
+
+  # A star set here or on another phone.
+  def handle_info({:recipe_favorite, id, favorite?}, socket),
+    do: {:noreply, put_favorite(socket, id, favorite?)}
 
   def handle_info({:recipe_image, id, key}, socket) do
     recipes =
@@ -713,6 +725,21 @@ defmodule ToreWeb.RecipeLive do
               phx-click-away="toggle_recipe_menu"
               class="rise-in absolute right-0 top-12 z-10 w-48 origin-top-right overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] py-1 shadow-[var(--shadow-pop)]"
             >
+              <button
+                type="button"
+                phx-click="toggle_favorite"
+                data-role="toggle-favorite"
+                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+                style="font-size: 15px;"
+              >
+                <.icon
+                  name={if @selected.favorite, do: "ph-star-fill", else: "ph-star"}
+                  class="size-4 text-[color:var(--muted)]"
+                />
+                {if @selected.favorite,
+                  do: gettext("Remove from favourites"),
+                  else: gettext("Add to favourites")}
+              </button>
               <button
                 type="button"
                 phx-click="edit_recipe"
@@ -1313,6 +1340,16 @@ defmodule ToreWeb.RecipeLive do
   end
 
   defp reload_recipes(socket), do: assign(socket, recipes: reload(socket))
+
+  defp put_favorite(socket, id, favorite?) do
+    star = fn r -> if r.id == id, do: %{r | favorite: favorite?}, else: r end
+    selected = socket.assigns.selected
+
+    assign(socket,
+      recipes: Enum.map(socket.assigns.recipes, star),
+      selected: selected && star.(selected)
+    )
+  end
 
   defp start_import(socket, url) do
     ctx = %{scope: socket.assigns.current_scope}

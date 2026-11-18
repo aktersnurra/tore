@@ -302,6 +302,21 @@ defmodule ToreWeb.RecipeLiveTest do
       assert html =~ "Gör en bild"
       refute has_element?(lv, ~s(button[phx-click="make_image"]))
     end
+
+    test "stars the recipe, and takes the star away", %{conn: conn, user: user, recipe: recipe} do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      render_click(lv, "select_recipe", %{"id" => to_string(recipe.id)})
+      render_click(lv, "toggle_recipe_menu")
+
+      lv |> element(~s([data-role="toggle-favorite"])) |> render_click()
+      assert [%{id: id}] = Recipes.list_favorites(home_scope())
+      assert id == recipe.id
+
+      render_click(lv, "toggle_recipe_menu")
+      assert lv |> element(~s([data-role="toggle-favorite"])) |> render() =~ "Ta bort från favoriter"
+      lv |> element(~s([data-role="toggle-favorite"])) |> render_click()
+      assert Recipes.list_favorites(home_scope()) == []
+    end
   end
 
   describe "filter_type" do

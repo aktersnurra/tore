@@ -16,6 +16,7 @@ defmodule Tore.Repo.Migrations.CreateRecipes do
       add :video_url, :string
       add :image_path, :string
       add :last_used_at, :utc_datetime
+      add :favorite, :boolean, null: false, default: false
       add :created_by, :integer
       timestamps()
     end
