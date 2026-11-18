@@ -5,33 +5,6 @@ defmodule Tore.Pantry do
   alias Tore.Pantry.{Expiry, PantryItem}
   alias Tore.Recipes.Ingredient
 
-  def parse_image(%Scope{} = scope, image_binary) do
-    {system, user} = Tore.LLM.Prompts.parse_pantry_image(Tore.Household.locale(scope))
-
-    with {:ok, data, _usage} <-
-           Tore.LLM.vision(scope, [{:image, image_binary}], system, user,
-             response_format: Tore.LLM.Prompts.pantry_json_schema(),
-             feature: :parse_shelf_photo
-           ) do
-      items =
-        Enum.map(data["items"] || [], fn it ->
-          %{
-            name: it["name"],
-            quantity: parse_decimal(it["quantity"]),
-            unit: it["unit"],
-            category: it["category"],
-            expires_on: Expiry.parse_date(it["expires_on"])
-          }
-        end)
-
-      {:ok, items}
-    end
-  end
-
-  defp parse_decimal(nil), do: nil
-  defp parse_decimal(n) when is_number(n), do: Decimal.from_float(n * 1.0)
-  defp parse_decimal(s) when is_binary(s), do: Decimal.new(s)
-
   @doc """
   Catalogue snapshot used to ground the LLM canonicaliser, leaving out `except_ids`, the
   ingredients being learned, so none is matched to itself.

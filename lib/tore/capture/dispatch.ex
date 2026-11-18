@@ -365,14 +365,26 @@ defmodule Tore.Capture.Dispatch do
 
   # ── pantry mutations ───────────────────────────────────────────────────
 
-  @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx()) :: bubble()
-  def add_to_pantry(name, quantity, unit, ctx) when is_binary(name) do
-    item = %{name: name, quantity: Tore.Types.decimal(quantity), unit: unit}
+  @doc """
+  Puts something in the pantry. `seen` says it was seen at home, as on a photo of a shelf: then
+  `quantity` is what's there now rather than what came in, and `seen` may give the date printed
+  on it (`:expires_on`) and how many days this food keeps (`:shelf_life_days`).
+  """
+  @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx(), map() | nil) ::
+          bubble()
+  def add_to_pantry(name, quantity, unit, ctx, seen \\ nil) when is_binary(name) do
+    item =
+      Map.merge(
+        %{name: name, quantity: Tore.Types.decimal(quantity), unit: unit},
+        Map.take(seen || %{}, [:expires_on, :shelf_life_days])
+      )
+
+    channel = if seen, do: :seen, else: :manual
 
     case Runs.start(
            ctx.scope,
            Kinds.PantryUpdate,
-           as_actor(%{channel: :manual, items: [item]}, ctx)
+           as_actor(%{channel: channel, items: [item]}, ctx)
          ) do
       {:ok, %KitchenRun{status: :applied, id: id, undo: {:steps, [step]}}} ->
         text =

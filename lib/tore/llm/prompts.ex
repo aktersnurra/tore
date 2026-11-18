@@ -322,59 +322,6 @@ defmodule Tore.LLM.Prompts do
     {system, user}
   end
 
-  @pantry_json_schema %{
-    type: "object",
-    required: ["items"],
-    additionalProperties: false,
-    properties: %{
-      items: %{
-        type: "array",
-        items: %{
-          type: "object",
-          required: ["name", "quantity", "unit", "category", "expires_on"],
-          additionalProperties: false,
-          properties: %{
-            name: %{type: "string"},
-            quantity: %{type: ["number", "null"]},
-            unit: %{type: ["string", "null"]},
-            expires_on: %{
-              type: ["string", "null"],
-              description: "ISO 8601 yyyy-mm-dd date printed on the item; null if not readable."
-            },
-            category: %{
-              type: "string",
-              enum: Tore.Recipes.Ingredient.sections()
-            }
-          }
-        }
-      }
-    }
-  }
-
-  def pantry_json_schema do
-    %{
-      type: "json_schema",
-      json_schema: %{name: "pantry_items", strict: true, schema: @pantry_json_schema}
-    }
-  end
-
-  def parse_pantry_image(locale) do
-    system = """
-    You are a kitchen inventory assistant. Identify food and household items from photos.
-    Respond with a JSON object only. No prose.
-    """
-
-    user = render("parse_pantry_image.eex", %{name_rule: pantry_name_rule(locale)})
-    {system, user}
-  end
-
-  defp pantry_name_rule(locale) do
-    case Map.get(@locale_names, locale) do
-      nil -> "Keep each name in the language shown on the item"
-      language -> "name must be in #{language} (translate if needed)"
-    end
-  end
-
   @receipt_json_schema %{
     type: "object",
     required: ["total", "store_name", "purchase_date", "items"],

@@ -18,49 +18,18 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
   defp inventory,
     do: home_scope() |> Pantry.list_inventory() |> Enum.map(&Pantry.before_image/1) |> Enum.sort()
 
-  # The canonicaliser's answer: each raw name to `matches[name]`, or to itself.
-  defp canonicalise(raw, matches \\ %{}) do
-    expect(Tore.MockLLM, :text, fn _system, _user, _opts ->
-      norm =
-        for name <- raw do
-          {catalogue, key} = Map.get(matches, name, {name, nil})
-
-          %{
-            "raw_name" => name,
-            "catalogue_name" => catalogue,
-            "category" => "other",
-            "default_unit" => nil,
-            "matched_key" => key
-          }
-        end
-
-      {:ok, %{"items" => norm}, @usage}
-    end)
-  end
-
   defp tick(items),
     do: Runs.start(home_scope(), PantryUpdate, %{channel: :grocery_checkoff, items: items})
 
   describe "pantry" do
-    test "a shelf photo applies straight away, and undo removes what it added" do
-      expect(Tore.MockLLM, :vision, fn _, _, _, _ ->
-        {:ok,
-         %{
-           "items" => [
-             %{"name" => "mjölk", "quantity" => 2, "unit" => "l", "category" => "dairy"}
-           ]
-         }, @usage}
-      end)
-
-      canonicalise(["mjölk"])
-
+    test "something seen at home applies straight away, and undo removes what it added" do
       assert {:ok, %KitchenRun{status: :applied, input: input} = run} =
                Runs.start(home_scope(), PantryUpdate, %{
-                 channel: :shelf_photo,
-                 image_binary: <<1, 2>>
+                 channel: :seen,
+                 items: [%{name: "mjölk", quantity: 2, unit: "l", category: "dairy"}]
                })
 
-      assert input == %{"channel" => "shelf_photo"}
+      assert input == %{"channel" => "seen"}
       assert run == Runs.get(home_scope(), run.id)
       assert names() == ["mjölk"]
 
@@ -117,31 +86,21 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       assert "gräddfil" in Enum.map(rows, & &1.name)
     end
 
-    test "an invented catalogue key fails the run and creates no ingredient" do
-      expect(Tore.MockLLM, :vision, fn _, _, _, _ ->
-        {:ok, %{"items" => [%{"name" => "gräddfil", "category" => "dairy"}]}, @usage}
-      end)
+    test "a catalogue key the household doesn't have is refused" do
+      update = %PantryBeliefUpdate{
+        items: [
+          %{
+            name: "gräddfil",
+            change: :added,
+            provenance: "manual",
+            last_seen_at: DateTime.utc_now(),
+            matched_key: "invented_key"
+          }
+        ]
+      }
 
-      canonicalise(["gräddfil"], %{"gräddfil" => {"Gräddfil", "invented_key"}})
-
-      assert {:ok, %KitchenRun{status: :failed, failure_code: :unknown_ingredient}} =
-               Runs.start(home_scope(), PantryUpdate, %{
-                 channel: :shelf_photo,
-                 image_binary: <<1>>
-               })
-
-      assert names() == []
-      refute Repo.get_by(Ingredient, [key: "invented_key"], Tore.Scope.repo_opts(home_scope()))
-    end
-
-    test "a shelf photo with nothing on it applies without asking the canonicaliser" do
-      expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, %{"items" => []}, @usage} end)
-
-      assert {:ok, %KitchenRun{status: :applied}} =
-               Runs.start(home_scope(), PantryUpdate, %{
-                 channel: :shelf_photo,
-                 image_binary: <<1>>
-               })
+      assert {:fail, :unknown_ingredient, :reject} =
+               PantryUpdate.verify(update, %{scope: home_scope()})
     end
 
     test "Capture adding by hand asks no model, and undo takes it out" do

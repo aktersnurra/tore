@@ -165,7 +165,6 @@ defmodule ToreWeb.SettingsLive do
   defp feature_label("pi_plan_week"), do: gettext("Planning")
   defp feature_label("pi_weekly_reflection"), do: gettext("Memory review")
   defp feature_label("parse_receipt"), do: gettext("Receipt parsing")
-  defp feature_label("parse_shelf_photo"), do: gettext("Shelf photos")
   defp feature_label("planner"), do: gettext("Planning")
   defp feature_label("recipe_variant"), do: gettext("Recipe variants")
   defp feature_label("recipe_web_search"), do: gettext("Recipe search on the web")

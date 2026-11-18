@@ -43,8 +43,8 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
     %__MODULE__{items: Enum.map(items, &item_from_json/1)}
   end
 
-  # The canonicaliser's answer (`catalogue_name`, `matched_key`, `default_unit`,
-  # `shelf_life_days`) is nil until the run resolves the items. `item_id` is the pantry row a
+  # What the run resolves an item to (`catalogue_name`, `matched_key`, `default_unit`) is nil
+  # until then; `shelf_life_days` is a guess given with a seen item. `item_id` is the pantry row a
   # removal takes out, and nil otherwise.
   @resolved ~w(catalogue_name matched_key default_unit shelf_life_days item_id)a
   @json_keys ~w(name change quantity unit category expires_on provenance last_seen_at catalogue_name matched_key default_unit shelf_life_days item_id)
