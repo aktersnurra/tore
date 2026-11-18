@@ -1,16 +1,15 @@
 defmodule Tore.LLM do
   @moduledoc """
-  Facade contexts call. Dispatches to the configured `Tore.LLM.Spec`
-  implementation — by default `Tore.LLM.OpenAI`. Callers never see the
-  wire shape or the underlying provider.
+  Facade contexts call for a one-off model answer. Dispatches to the configured `Tore.LLM.Spec`,
+  `Tore.LLM.Pi`: every answer comes from pi, as a one-shot session. Callers never see how.
 
-  Every call is for a household, and this is the one gate in front of OpenRouter: a call is refused
-  when no key is configured, nobody sponsors the household (`Tore.Household.ai_sponsor/1`), or the
+  Every call is for a household, and this is the one gate in front of it: a call is refused when
+  pi isn't configured, nobody sponsors the household (`Tore.Household.ai_sponsor/1`), or the
   household has spent its monthly limit. Each call's cost is recorded for the household here, under
-  the `:feature` option (`:other` when none is given), so the limit sees every call.
+  the `:feature` option (`:other` when none is given), so the limit sees every call. The spec gets
+  the household as the `:scope` option.
 
-  `:llm_spec` remains injectable so contexts use a uniform facade while
-  `Tore.LLM.OpenAI` owns OpenAI body construction and response decoding.
+  `:llm_spec` stays injectable, so tests answer with `Tore.MockLLM`.
   """
 
   use Gettext, backend: ToreWeb.Gettext
@@ -28,10 +27,10 @@ defmodule Tore.LLM do
   @spec monthly_limit_usd() :: float()
   def monthly_limit_usd, do: @monthly_limit_usd
 
-  @doc "Whether the household may use the server's LLM at all: a key is configured and someone sponsors it."
+  @doc "Whether the household may use AI at all: pi is configured and someone sponsors it."
   @spec available?(Scope.t()) :: boolean()
   def available?(%Scope{} = scope) do
-    key_configured?() and Tore.Household.ai_sponsor(scope) != nil
+    configured?() and Tore.Household.ai_sponsor(scope) != nil
   end
 
   @doc "Whether the household may make a call right now: `:ok`, or the refusal a call would get."
@@ -77,7 +76,7 @@ defmodule Tore.LLM do
     {feature, opts} = Keyword.pop(opts, :feature, :other)
 
     with :ok <- check(scope) do
-      case request.(opts) do
+      case request.([{:scope, scope} | opts]) do
         {:ok, _result, usage} = ok ->
           record(scope, feature, usage)
           ok
@@ -102,9 +101,8 @@ defmodule Tore.LLM do
   defp usd(%Decimal{} = cost), do: Decimal.to_float(cost)
   defp usd(cost) when is_number(cost), do: cost / 1
 
-  defp key_configured? do
-    Application.get_env(:tore, :openrouter_api_key) not in [nil, ""]
-  end
+  # pi answers every call; a test's stand-in for it is always there.
+  defp configured?, do: spec() != Tore.LLM.Pi or Tore.Pi.configured?()
 
-  defp spec, do: Application.get_env(:tore, :llm_spec, Tore.LLM.OpenAI)
+  defp spec, do: Application.get_env(:tore, :llm_spec, Tore.LLM.Pi)
 end

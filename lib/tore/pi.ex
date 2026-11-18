@@ -56,12 +56,13 @@ defmodule Tore.Pi do
   @doc """
   Sends `message` to the household's session, starting it if it isn't running. Returns at once;
   the answer arrives on the topic. `:images` is a list of `{mime_type, bytes}`. A message sent
-  while the session is working waits until it is done.
+  while the session is working waits until it is done. `oneshot: true` starts the session as
+  pi with no tools (`Tore.Pi.Session`).
   """
   @spec ask(Scope.t(), session(), String.t(), keyword()) :: :ok | {:error, atom()}
   def ask(%Scope{} = scope, session, message, opts \\ []) do
     with :ok <- check(scope),
-         {:ok, pid} <- ensure_started(scope, session) do
+         {:ok, pid} <- ensure_started(scope, session, Keyword.take(opts, [:oneshot])) do
       prompt(pid, message, Keyword.get(opts, :images, []))
     end
   end
@@ -80,7 +81,7 @@ defmodule Tore.Pi do
   @spec messages(Scope.t(), session()) :: {:ok, [map()]} | {:error, term()}
   def messages(%Scope{} = scope, session) do
     with :ok <- check(scope),
-         {:ok, pid} <- ensure_started(scope, session),
+         {:ok, pid} <- ensure_started(scope, session, []),
          {:ok, %{"messages" => messages}} <- command(pid, %{type: "get_messages"}) do
       {:ok, messages}
     end
@@ -166,8 +167,8 @@ defmodule Tore.Pi do
     end
   end
 
-  defp ensure_started(scope, session) do
-    case DynamicSupervisor.start_child(Tore.Pi.Sessions, {Session, {scope, session}}) do
+  defp ensure_started(scope, session, opts) do
+    case DynamicSupervisor.start_child(Tore.Pi.Sessions, {Session, {scope, session, opts}}) do
       {:ok, pid} -> {:ok, pid}
       {:error, {:already_started, pid}} -> {:ok, pid}
       {:error, _} -> {:error, :pi_unavailable}

@@ -81,7 +81,7 @@ defmodule Tore.LLM.OpenAIWebSearchTest do
   test "the facade delegates web_search/3 to the configured spec" do
     # config/test.exs wires :llm_spec to Tore.MockLLM.
     Mox.expect(Tore.MockLLM, :web_search, fn "sys", "user", opts ->
-      assert opts == []
+      assert opts == [scope: home_scope()]
       {:ok, %{"candidates" => []}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0.0}}
     end)
 

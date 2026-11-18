@@ -32,6 +32,36 @@ defmodule Tore.AgentTest do
     refute Agent.ran?(scope, "plan_week", Date.add(week, 7))
   end
 
+  test "planning the week guesses prices for what nothing prices first" do
+    {:ok, _} =
+      Tore.Recipes.create(
+        home_scope(),
+        %{
+          title: "Soppa",
+          base_servings: 4,
+          ingredients: [%{name: "Lök", quantity: 2, unit: "st"}]
+        },
+        image: false
+      )
+
+    Mox.expect(Tore.MockLLM, :text, fn _system, user, opts ->
+      assert user =~ "Lök"
+      assert opts[:feature] == nil
+      {:ok, %{"items" => [%{"name" => "Lök", "price" => 4.5, "unit" => "st"}]}, %{cost_usd: 0}}
+    end)
+
+    assert {:ok, %Job{status: :succeeded}} = Agent.run(home_scope(), "plan_week")
+
+    onion =
+      Tore.Repo.get_by!(
+        Tore.Recipes.Ingredient,
+        [name: "Lök"],
+        Tore.Scope.repo_opts(home_scope())
+      )
+
+    assert Decimal.eq?(onion.estimated_price, Decimal.new("4.5"))
+  end
+
   test "a pi that dies fails the job, and a failed job can run again" do
     Application.put_env(:tore, :pi, command: ["false"])
 

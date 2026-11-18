@@ -1,8 +1,8 @@
 defmodule Tore.Prices.Estimate do
   @moduledoc """
   The model's guess at what an ingredient typically costs, for ingredients nothing better prices.
-  One call per batch of ingredients without a guess, made when a planner run starts (it uses the
-  model anyway), and kept on the ingredient. An estimate never counts as priced.
+  One call per batch of ingredients without a guess, made before the `plan_week` job
+  (`Tore.Agent`), and kept on the ingredient. An estimate never counts as priced.
   """
 
   import Ecto.Query

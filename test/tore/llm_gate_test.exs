@@ -48,10 +48,10 @@ defmodule Tore.LLMGateTest do
     assert Costs.llm_spend_total(unsponsored) == 0.0
   end
 
-  test "without a key no household can use it" do
-    previous = Application.get_env(:tore, :openrouter_api_key)
-    Application.delete_env(:tore, :openrouter_api_key)
-    on_exit(fn -> Application.put_env(:tore, :openrouter_api_key, previous) end)
+  test "without pi no household can use it" do
+    Application.put_env(:tore, :llm_spec, Tore.LLM.Pi)
+    Application.delete_env(:tore, :pi)
+    on_exit(fn -> Application.put_env(:tore, :llm_spec, Tore.MockLLM) end)
 
     refute LLM.available?(home_scope())
     assert {:error, :ai_unavailable} = LLM.text(home_scope(), "sys", "user")

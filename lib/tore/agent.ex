@@ -55,6 +55,10 @@ defmodule Tore.Agent do
           status: :running
         })
 
+      # Recipes nothing prices get a guess first, so the week's estimate pi plans against
+      # (get_context) counts them.
+      if task == "plan_week", do: Tore.Prices.Estimate.missing(scope)
+
       prompt = "Background job: #{task}.\n\n" <> Map.fetch!(@tasks, task)
       # A session of its own: a fresh conversation, counted as the task.
       {:ok, finish(job, Pi.run(scope, "#{task}-#{job.id}", prompt, timeout: @timeout))}
