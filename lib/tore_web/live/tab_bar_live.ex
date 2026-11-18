@@ -62,8 +62,9 @@ defmodule ToreWeb.TabBarLive do
             data-role="tab-tore"
             class="press group flex w-16 flex-col items-center gap-1"
           >
-            <span class="flex size-11 items-center justify-center rounded-full bg-[var(--text)] text-[color:var(--bg)]">
-              <.icon name="hero-chat-bubble-oval-left-solid" class="size-5" />
+            <%!-- Raised above the bar, ringed in the page colour, so it reads as the one way to ask. --%>
+            <span class="-mt-5 flex size-14 items-center justify-center rounded-full bg-[var(--accent)] text-[color:var(--on-accent)] shadow-[0_0_0_5px_var(--bg),var(--shadow-pop)]">
+              <.icon name="hero-chat-bubble-oval-left-solid" class="size-6" />
             </span>
             <span class="tab-label text-[color:var(--muted)]">Tore</span>
           </.link>

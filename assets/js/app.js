@@ -64,7 +64,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
 })
 
 // Show progress bar on live navigation and form submits
-topbar.config({barColors: {0: "#FFAE41"}, shadowColor: "rgba(0, 0, 0, 0)", barThickness: 2})
+topbar.config({barColors: {0: "#75726D"}, shadowColor: "rgba(0, 0, 0, 0)", barThickness: 2})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 

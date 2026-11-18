@@ -210,11 +210,11 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **A large photograph melts into the page.** Its foot blurs and fades to the page colour
   (`.photo-blur` under `.photo-fade`), and the dish's name stands on the fade in the page's
   own type colour. Small picture cards keep a dark foot and white type (`.photo-shade`).
-- **Two palettes, one set of tokens.** Dagsljus in light, Gjutjärn in dark, saffron in both
-  (follows the phone, or `data-theme`). Type on the accent uses `--on-accent`, never
-  `text-white`: saffron is a light colour.
+- **One palette, two lights.** Papper: ink on white, graphite when the phone is dark
+  (follows the phone, or `data-theme`). The main action is ink; type on it uses `--on-accent`.
 - **Pictures lead where there's a dish.** Today opens with tonight's picture edge to edge;
-  Recipes is a picture grid. A recipe without a picture shows a quiet block, never a stock image.
+  Recipes is a picture grid. A recipe never shows an empty block: until its picture is drawn it
+  shows its icon on its collection's tint (`<.cover>`), never a stock image.
   Its + starts from a link: paste one and Tore reads the recipe in and opens it. "Write it
   yourself" under the field is the way out to the form, taking along what was typed (a link as
   the source, anything else as the name).
@@ -242,64 +242,63 @@ AI sparkle icons everywhere
 ## 4.2 Theme name
 
 ```md
-Theme: Gjutjärn (dark) and Dagsljus (light)
+Theme: Papper
 ```
 
-Calm, warm and capable. The page is cast iron: greys with a trace of warmth, tinted toward
-the accent so they belong to it. Saffron is the one lamp on the page. The photographs carry
-the rest of the colour. The phone's setting picks dark or light; `data-theme` overrides.
+A kitchen notebook, after Notion's pages: ink on white paper, with graphite for a phone set to
+dark. The page has almost no colour of its own. The photographs carry the appetite, and colour
+elsewhere comes only from tags that mean something.
 
 Four rules:
 
-- **One lamp per screen.** Saffron marks the next step. If two things are saffron, one is wrong.
-- **The food is the colour.** Surfaces stay low in colour so tomatoes and dill are the
-  brightest things on screen.
-- **Green means done.** Dill for in the basket, cooked, in stock. Nothing else.
-- **Red never nags.** Lingon only when something can be lost. An open Thursday is not an error.
+- **The main action is ink.** One filled button per screen; everything else is quiet.
+- **The food is the colour.** Surfaces stay grey-white so tomatoes and dill are the brightest
+  things on screen.
+- **A tag's colour is its meaning.** Orange is dinner, yellow baking, green sauces & sides (and
+  done), blue assemblies (and the week), red tonight or missing, purple leftovers, grey quiet.
+- **Red never nags.** An open Thursday is not an error.
 
-Locked 2026-11-15 after rounds on the design canvas (blue, neutral and green darks were tried
-and dropped). Improve it later in the app, not by reopening the base.
+Chosen 2026-11-18, replacing Gjutjärn (cast iron and saffron), which read as heavy. The mock it
+came from: the "Tore kitchen pages" artifact.
 
 ## 4.3 Color tokens
 
 `assets/css/app.css` is the source of truth; this is a copy. Screens use these tokens only, never raw colours.
 
 ```css
-/* light (Dagsljus)          dark (Gjutjärn) */
---bg:           #F4EFEC;  /* #1B1815 */
---surface:      #FFFFFF;  /* #282522 */
---sunken:       #ECE8E5;  /* #322E2C */
+/* light                     dark */
+--bg:           #FFFFFF;  /* #191919 */
+--surface:      #F7F7F5;  /* #232322 */
+--sunken:       #EFEEEB;  /* #2C2C2B */
 
---text:         #1B1815;  /* #F7F4F2 */
---muted:        #666260;  /* #9A9896 */
---subtle:       #BCB8B5;  /* #73716F: rings and lines only, never text */
+--text:         #2E2C29;  /* #ECEBE9: ink */
+--muted:        #75726D;  /* #9B9A97 */
+--subtle:       #C9C7C3;  /* #5E5D5B: rings and lines only, never text */
 
---border:       #E4E0DD;  /* #3C3836 */
---hairline:     #ECE8E5;  /* #2D2927 */
+--border:       #E8E7E4;  /* #2F2F2E */
+--hairline:     #EFEEEB;  /* #262625 */
 
---accent:       #FFAE41;  /* #FFAE41: saffran 400 */
---accent-hover: #EE9903;  /* #FFC581 */
---accent-soft:  #FFEBD5;  /* #382000 */
---accent-ink:   #7B4C01;  /* #FFAE41: saffron as text */
---on-accent:    #000000;  /* #000000 */
+--accent:       #2E2C29;  /* #ECEBE9: the main action is ink */
+--on-accent:    #FFFFFF;  /* #191919 */
 
---done:         #2E7B3F;  /* #6DC97D: dill */
---warn:         #7B4C01;  /* #FFC581 */
---warn-soft:    #FFEBD5;  /* #382000 */
---danger:       #C92F33;  /* #F3625D: lingon */
---danger-soft:  #F9E4E2;  /* #3A1C1A */
+--done:         #3F7F5B;  /* #6FB38A */
+--danger:       #B8403A;  /* #E26B63 */
 ```
 
-The saffron ramp (OKLCH hue 70), for anything that needs a step between:
+Tags: a tint and an ink per colour (`.tag .tag-orange` …), with a dark pair for each.
 
 ```md
-50 #FFF5EB · 100 #FFEBD5 · 200 #FEDAB2 · 300 #FFC581 · 400 #FFAE41 · 500 #EE9903
-600 #C98000 · 700 #A06604 · 800 #7B4C01 · 900 #5A3700 · 950 #382000
+orange  #FAEBDD / #8C4A1A   dinner
+yellow  #FBF3DB / #7A5A12   baking
+green   #EDF3EC / #346648   sauces & sides, done
+blue    #E7F3F8 / #1F5E85   assemblies, the week
+red     #FDEBEC / #9F2F2D   tonight, missing
+purple  #F4EFF8 / #6A4396   leftovers
+grey    #F1F1EF / #5F5D58   quiet
 ```
 
-Checked contrast: text on page 15–16:1; muted on page, surface or sunken 5.0–6.2:1;
-black on saffron 11.4:1; saffron text 6.4:1 (light) and 9.6:1 (dark); dill and lingon
-4.6:1 or more on both pages. `--subtle` is 3.6:1 at best, so it is for rings and lines only.
+Muted is 4.8:1 on the page; every tag ink is 4.5:1 or more on its tint. `--subtle` is for rings
+and lines only.
 
 Color must communicate hierarchy and state, not decoration.
 
@@ -345,11 +344,11 @@ Use tabular figures (`.num`) for servings, times, quantities and prices.
 Corners follow hierarchy.
 
 ```css
---r-sm:   8px;
---r-md:   10px;   /* buttons, inputs, thumbnails */
---r-lg:   14px;   /* cards */
---r-xl:   20px;   /* sheets and dialogs */
---r-pill: 9999px; /* chips, the chat box */
+--r-sm:   6px;    /* tags, checkboxes */
+--r-md:   8px;    /* buttons, inputs, thumbnails */
+--r-lg:   10px;   /* cards, photos */
+--r-xl:   14px;   /* grouped rows, sheets */
+--r-pill: 9999px; /* the chat box, the Tore button */
 ```
 
 ## 4.7 Elevation

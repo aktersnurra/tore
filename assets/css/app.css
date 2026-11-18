@@ -25,42 +25,52 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* ---------------------------------------------------------------------- */
-/* Design tokens: "Gjutjärn". See docs/specs/ui.md §4.                     */
-/* Cast-iron greys with a trace of warmth, one saffron accent, dill for   */
-/* done, lingon for loss. Screens use these tokens only, never raw colours. */
+/* Design tokens: "Papper". See docs/specs/ui.md §4.                       */
+/* Ink on white, like a page. The main action is ink; colour comes from   */
+/* photographs and from tags that mean something. Screens use these       */
+/* tokens only, never raw colours.                                        */
 /* ---------------------------------------------------------------------- */
 
 :root {
   /* Colour */
-  --bg: #F4EFEC;            /* daylight: a warm white page */
-  --surface: #FFFFFF;       /* cards, sheets, inputs */
-  --sunken: #ECE8E5;        /* wells: empty photos, quiet buttons */
-  --text: #1B1815;
-  --muted: #666260;
-  --subtle: #BCB8B5;        /* rings and lines only, too faint for text */
-  --border: #E4E0DD;
-  --hairline: #ECE8E5;
-  --accent: #FFAE41;        /* saffran 400: one per screen */
-  --accent-hover: #EE9903;
-  --accent-soft: #FFEBD5;
-  --accent-ink: #7B4C01;    /* saffron as text on a light page */
-  --on-accent: #000000;     /* type set on the accent */
-  --done: #2E7B3F;          /* dill: in the basket, cooked, in stock */
-  --warn: #7B4C01;
-  --warn-soft: #FFEBD5;
-  --danger: #C92F33;        /* lingon: only for what can be lost */
-  --danger-soft: #F9E4E2;
+  --bg: #FFFFFF;            /* the page */
+  --surface: #F7F7F5;       /* sheets, inputs, grouped rows */
+  --sunken: #EFEEEB;        /* quiet buttons, hover */
+  --text: #2E2C29;          /* ink */
+  --muted: #75726D;
+  --subtle: #C9C7C3;        /* rings and lines only, too faint for text */
+  --border: #E8E7E4;
+  --hairline: #EFEEEB;
+  --accent: #2E2C29;        /* the main action is ink */
+  --accent-hover: #000000;
+  --accent-soft: #EFEEEB;
+  --accent-ink: #2E2C29;
+  --on-accent: #FFFFFF;     /* type set on the main action */
+  --done: #3F7F5B;          /* in the basket, cooked, in stock */
+  --warn: #8A5D12;
+  --warn-soft: #FBF3DB;
+  --danger: #B8403A;        /* only for what can be lost */
+  --danger-soft: #FDEBEC;
 
-  /* Radius follows hierarchy: sheets, cards, controls, chips */
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --r-xl: 22px;
+  /* Tags: a tint and its ink. Each colour means one thing (ui.md §4.3). */
+  --tag-orange: #FAEBDD;  --tag-orange-ink: #8C4A1A;   /* dinner */
+  --tag-yellow: #FBF3DB;  --tag-yellow-ink: #7A5A12;   /* baking */
+  --tag-green: #EDF3EC;   --tag-green-ink: #346648;    /* sauces & sides, done */
+  --tag-blue: #E7F3F8;    --tag-blue-ink: #1F5E85;     /* assemblies, the week */
+  --tag-red: #FDEBEC;     --tag-red-ink: #9F2F2D;      /* tonight, missing */
+  --tag-purple: #F4EFF8;  --tag-purple-ink: #6A4396;   /* leftovers */
+  --tag-grey: #F1F1EF;    --tag-grey-ink: #5F5D58;     /* quiet */
+
+  /* Radius: small and even, like paper */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
   --r-pill: 9999px;
 
   /* Shadow: cards sit on hairlines, only things that float get a shadow */
-  --shadow-card: 0 1px 0 rgba(28, 33, 39, 0.03);
-  --shadow-pop: 0 12px 32px -8px rgba(28, 33, 39, 0.18), 0 2px 6px rgba(28, 33, 39, 0.06);
+  --shadow-card: 0 0 0 1px rgba(15, 15, 15, 0.06), 0 2px 4px rgba(15, 15, 15, 0.04);
+  --shadow-pop: 0 12px 32px -8px rgba(15, 15, 15, 0.18), 0 2px 6px rgba(15, 15, 15, 0.06);
 
   /* Type scale */
   --t-display: 34px;
@@ -80,54 +90,69 @@
   --dur-slow: 420ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  color-scheme: light;
 }
 
-/* Dark, for a phone set to dark: the photographs carry the colour. */
+/* Dark, for a phone set to dark: neutral graphite, the photographs carry the colour. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1B1815;            /* gjutjärn: cast iron, the evening page */
-    --surface: #282522;
-    --sunken: #322E2C;
-    --text: #F7F4F2;
-    --muted: #9A9896;
-    --subtle: #73716F;
-    --border: #3C3836;
-    --hairline: #2D2927;
-    --accent: #FFAE41;
-    --accent-hover: #FFC581;
-    --accent-soft: #382000;
-    --accent-ink: #FFAE41;
-    --on-accent: #000000;
-    --done: #6DC97D;
-    --warn: #FFC581;
-    --warn-soft: #382000;
-    --danger: #F3625D;
-    --danger-soft: #3A1C1A;
-    --shadow-card: none;
+    --bg: #191919;
+    --surface: #232322;
+    --sunken: #2C2C2B;
+    --text: #ECEBE9;
+    --muted: #9B9A97;
+    --subtle: #5E5D5B;
+    --border: #2F2F2E;
+    --hairline: #262625;
+    --accent: #ECEBE9;
+    --accent-hover: #FFFFFF;
+    --accent-soft: #2C2C2B;
+    --accent-ink: #ECEBE9;
+    --on-accent: #191919;
+    --done: #6FB38A;
+    --warn: #E0B062;
+    --warn-soft: #3A3020;
+    --danger: #E26B63;
+    --danger-soft: #3E2423;
+    --tag-orange: #3D2A1C;  --tag-orange-ink: #E6A26E;
+    --tag-yellow: #3A3020;  --tag-yellow-ink: #E0BE6A;
+    --tag-green: #233329;   --tag-green-ink: #79B98F;
+    --tag-blue: #1E3140;    --tag-blue-ink: #6FB0DB;
+    --tag-red: #3E2423;     --tag-red-ink: #E9837D;
+    --tag-purple: #322A3D;  --tag-purple-ink: #B697DE;
+    --tag-grey: #2C2C2B;    --tag-grey-ink: #A8A6A1;
+    --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07);
     --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #1B1815;            /* gjutjärn: cast iron, the evening page */
-  --surface: #282522;
-  --sunken: #322E2C;
-  --text: #F7F4F2;
-  --muted: #9A9896;
-  --subtle: #73716F;
-  --border: #3C3836;
-  --hairline: #2D2927;
-  --accent: #FFAE41;
-  --accent-hover: #FFC581;
-  --accent-soft: #382000;
-  --accent-ink: #FFAE41;
-  --on-accent: #000000;
-  --done: #6DC97D;
-  --warn: #FFC581;
-  --warn-soft: #382000;
-  --danger: #F3625D;
-  --danger-soft: #3A1C1A;
-  --shadow-card: none;
+  --bg: #191919;
+  --surface: #232322;
+  --sunken: #2C2C2B;
+  --text: #ECEBE9;
+  --muted: #9B9A97;
+  --subtle: #5E5D5B;
+  --border: #2F2F2E;
+  --hairline: #262625;
+  --accent: #ECEBE9;
+  --accent-hover: #FFFFFF;
+  --accent-soft: #2C2C2B;
+  --accent-ink: #ECEBE9;
+  --on-accent: #191919;
+  --done: #6FB38A;
+  --warn: #E0B062;
+  --warn-soft: #3A3020;
+  --danger: #E26B63;
+  --danger-soft: #3E2423;
+  --tag-orange: #3D2A1C;  --tag-orange-ink: #E6A26E;
+  --tag-yellow: #3A3020;  --tag-yellow-ink: #E0BE6A;
+  --tag-green: #233329;   --tag-green-ink: #79B98F;
+  --tag-blue: #1E3140;    --tag-blue-ink: #6FB0DB;
+  --tag-red: #3E2423;     --tag-red-ink: #E9837D;
+  --tag-purple: #322A3D;  --tag-purple-ink: #B697DE;
+  --tag-grey: #2C2C2B;    --tag-grey-ink: #A8A6A1;
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07);
   --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
@@ -235,24 +260,41 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .press-soft:active { transform: scale(0.985); }
 
 /* ── Pills: the actions under a dish. One lamp per screen. ────────────────── */
+/* Buttons are soft rectangles, like Notion's: quiet by default, ink for the one main action. */
 .pill {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
-  height: 40px; padding-inline: 16px; border-radius: 9999px;
+  height: 36px; padding-inline: 12px; border-radius: var(--r-md);
   background: var(--sunken); color: var(--text);
-  font-size: 15px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap;
+  font-size: 14px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap;
 }
-.pill .hero-icon, .pill [class*="hero-"] { width: 17px; height: 17px; }
+.pill .hero-icon, .pill [class*="hero-"] { width: 16px; height: 16px; }
 .pill-lamp { background: var(--accent); color: var(--on-accent); }
+
+/* ── Tags: a small tinted label. The colour says what it is (ui.md §4.3). ── */
+.tag {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding-inline: 7px;
+  border-radius: 4px; font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap;
+  background: var(--tag-grey); color: var(--tag-grey-ink);
+}
+.tag [class*="hero-"] { width: 13px; height: 13px; }
+.tag-dot::before { content: ""; width: 6px; height: 6px; border-radius: 9px; background: currentColor; opacity: .85; }
+.tag-orange { background: var(--tag-orange); color: var(--tag-orange-ink); }
+.tag-yellow { background: var(--tag-yellow); color: var(--tag-yellow-ink); }
+.tag-green  { background: var(--tag-green);  color: var(--tag-green-ink); }
+.tag-blue   { background: var(--tag-blue);   color: var(--tag-blue-ink); }
+.tag-red    { background: var(--tag-red);    color: var(--tag-red-ink); }
+.tag-purple { background: var(--tag-purple); color: var(--tag-purple-ink); }
+.tag-grey   { background: var(--tag-grey);   color: var(--tag-grey-ink); }
 
 /* ── Ticking an item: the check draws, then the row folds into the basket. ── */
 .tick-box {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-  width: 26px; height: 26px; border-radius: 999px; border: 1.5px solid var(--subtle);
+  width: 20px; height: 20px; border-radius: 4px; border: 1.5px solid var(--subtle);
   color: var(--on-accent);
   transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 .tick-box:hover { border-color: var(--done); }
-.tick-box svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6;
+.tick-box svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.6;
   stroke-linecap: round; stroke-linejoin: round; }
 .tick-box path { stroke-dasharray: 22; stroke-dashoffset: 22;
   transition: stroke-dashoffset var(--dur-base) var(--ease-out) 60ms; }
@@ -317,7 +359,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .view-tab.is-open::after { transform: scaleX(1); }
 @media (hover: hover) { .view-tab:hover { background: var(--sunken); color: var(--text); } }
-.pill-lg { height: 52px; padding-inline: 24px; font-size: 17px; }
+.pill-lg { height: 46px; padding-inline: 20px; font-size: 16px; }
 @media (hover: hover) {
   .pill:hover { background: color-mix(in srgb, var(--sunken) 80%, var(--text) 8%); }
   .pill-lamp:hover { background: var(--accent-hover); }
@@ -365,7 +407,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
 .scrim { animation: scrim-in var(--dur-base) var(--ease-out) both; }
 
-/* The scanner's frame: quiet until the camera runs, then a saffron ring that pulses once per
+/* The scanner's frame: quiet until the camera runs, then an ink ring that pulses once per
    pack caught */
 .scanner-frame {
   box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.35);
