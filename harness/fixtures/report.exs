@@ -13,4 +13,14 @@ for slot <- context.next_week,
     do: IO.puts("  #{slot.date} #{slot.status} #{Map.get(slot, :recipe_title) || ""}")
 
 IO.puts("\nMEMORY\n#{context.memory || "(empty)"}")
+
+# The fixture's recipes have no source, so these are the ones found on the web.
+IO.puts("\nRECIPES FROM THE WEB")
+
+for recipe <- Tore.Recipes.list(scope), recipe.source_url do
+  recipe = Tore.Repo.preload(recipe, recipe_ingredients: :ingredient)
+  names = Enum.map_join(recipe.recipe_ingredients, ", ", & &1.ingredient.name)
+  IO.puts("  #{recipe.title} (#{recipe.recipe_type}) #{recipe.source_url}\n    #{names}")
+end
+
 IO.puts("\nLLM SPEND THIS MONTH (server's model): $#{Tore.Costs.llm_spend_this_month(scope)}")
