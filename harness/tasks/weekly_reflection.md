@@ -2,8 +2,9 @@
 
 Keep the household's memory true to how they live, so next week's planning fits them better.
 
-1. Call `get_context` for the memory as it stands and `get_planning_history` for the last six
-   weeks: what was planned, skipped, removed and chosen again.
+1. Call `get_context` for the memory as it stands and `get_planning_history` for every day of
+   the last six weeks: what was planned on which weekday, skipped, eaten as leftovers and
+   swapped out.
 2. Look for patterns that will still matter next week: a weekday they skip, a dish they always
    swap away, a favourite they come back to, leftovers they plan on. One week is not a pattern;
    three in six is.

@@ -19,7 +19,8 @@ one: make the sensible choice and say what you chose in your summary.
   refused answers with why; fix it and try again rather than giving up.
 - **A pinned day stays as it is.** So does a day marked eating out.
 - **Memory is small on purpose.** `profile` is who they cook for; `notes` is what has been
-  learned. Change an entry rather than adding a second. Allergies never go in memory.
+  learned. Change an entry rather than adding a second. What Tore already keeps as a setting
+  (diet, allergies, budget, servings) never goes in memory; `get_context` gives it every time.
 
 ## The web
 

@@ -122,25 +122,64 @@ defmodule Tore.Mcp.ReadToolsTest do
              ok(home_scope(), "list_receipts")
   end
 
-  test "get_planning_history gives the last six weeks the memory review reads" do
+  test "get_planning_history lists each day of the last six weeks and this one" do
     scope = home_scope()
-    assert %{"history" => nil} = ok(scope, "get_planning_history")
+    assert %{"days" => []} = ok(scope, "get_planning_history")
 
     pasta = recipe("Pasta")
-    plan = Tore.Streams.plan(scope, Tore.Streams.monday(Tore.Clock.today()))
-    {:ok, _} = Planning.assign_recipe(scope, plan, "mon_dinner", pasta.id, 4)
-    {:ok, _} = Planning.remove_recipe(scope, plan, "mon_dinner")
-    {:ok, _} = Planning.assign_recipe(scope, plan, "thu_dinner", pasta.id, 4)
-    {:ok, _} = Planning.skip_meal(scope, plan, "thu_dinner")
+    sauce = recipe("Köttfärssås")
+    salmon = recipe("Lax")
+    this_monday = Tore.Streams.monday(Tore.Clock.today())
+    last_week = Tore.Streams.plan(scope, Date.add(this_monday, -7))
+    this_week = Tore.Streams.plan(scope, this_monday)
 
-    %{"history" => history} = ok(scope, "get_planning_history")
+    # Sunday's sauce eaten again on Monday, across the week boundary.
+    {:ok, _} = Planning.assign_recipe(scope, last_week, "sun_dinner", sauce.id, 4)
+    {:ok, _} = Planning.assign_recipe(scope, this_week, "mon_dinner", sauce.id, 4)
 
-    assert history =~ "2 meals planned, 1 skipped"
-    assert history =~ "Skip-heavy days: thu (1)"
-    assert history =~ "Pasta"
+    :ok =
+      Tore.EventStore.append(scope, this_week, [
+        %Tore.Planning.Events.LeftoverMarked{slot_key: "mon_dinner"}
+      ])
+
+    # Salmon swapped for pasta; Thursday planned and then skipped.
+    {:ok, _} = Planning.assign_recipe(scope, this_week, "tue_dinner", salmon.id, 4)
+    {:ok, _} = Planning.assign_recipe(scope, this_week, "tue_dinner", pasta.id, 4)
+    {:ok, _} = Planning.assign_recipe(scope, this_week, "thu_dinner", pasta.id, 4)
+    {:ok, _} = Planning.skip_meal(scope, this_week, "thu_dinner")
+    # Removed outright.
+    {:ok, _} = Planning.assign_recipe(scope, this_week, "fri_dinner", salmon.id, 4)
+    {:ok, _} = Planning.remove_recipe(scope, this_week, "fri_dinner")
+
+    date = &Date.to_iso8601(Date.add(this_monday, &1))
+
+    assert %{"days" => days} = ok(scope, "get_planning_history")
+
+    assert days == [
+             %{"date" => date.(-1), "slot" => "sun_dinner", "recipe" => "Köttfärssås"},
+             %{
+               "date" => date.(0),
+               "slot" => "mon_dinner",
+               "recipe" => "Köttfärssås",
+               "leftovers" => true
+             },
+             %{
+               "date" => date.(1),
+               "slot" => "tue_dinner",
+               "recipe" => "Pasta",
+               "swapped_out" => ["Lax"]
+             },
+             %{
+               "date" => date.(3),
+               "slot" => "thu_dinner",
+               "recipe" => "Pasta",
+               "skipped" => true
+             },
+             %{"date" => date.(4), "slot" => "fri_dinner", "swapped_out" => ["Lax"]}
+           ]
 
     other = Tore.AccountsFixtures.household_fixture() |> Tore.AccountsFixtures.scope_fixture()
-    assert %{"history" => nil} = ok(other, "get_planning_history")
+    assert %{"days" => []} = ok(other, "get_planning_history")
   end
 
   test "list_deals answers with the household's current deals" do

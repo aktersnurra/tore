@@ -39,7 +39,10 @@ if config_env() == :prod do
          System.get_env("OPENROUTER_SITE_URL", "https://scullion.gustafrydholm.xyz")
 
   config :tore, :openrouter_app_name, System.get_env("OPENROUTER_APP_NAME", "Tore")
-  config :tore, :openrouter_model, System.get_env("OPENROUTER_MODEL", "anthropic/claude-haiku-5.5")
+
+  config :tore,
+         :openrouter_model,
+         System.get_env("OPENROUTER_MODEL", "anthropic/claude-haiku-5.5")
 
   config :tore,
          :openrouter_vision_model,
