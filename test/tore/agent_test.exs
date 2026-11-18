@@ -3,115 +3,90 @@ defmodule Tore.AgentTest do
 
   alias Tore.{Agent, Costs}
   alias Tore.Agent.Job
-  alias Tore.Mcp.SessionToken
 
-  @runner Path.expand("../support/bin/fake-harness-run", __DIR__)
+  @fake Path.expand("../support/bin/fake-pi", __DIR__)
 
   setup do
-    job_file = Path.join(System.tmp_dir!(), "agent-test-#{System.unique_integer([:positive])}")
-    previous = Application.get_env(:tore, :agent)
-
-    Application.put_env(:tore, :agent,
-      command: [@runner],
-      mcp_url: "http://tore.test/mcp",
-      model: "claude-sonnet-5-5",
-      timeout_s: 600,
-      max_budget_usd: 1.0
-    )
-
-    System.put_env("FAKE_AGENT_JOB", job_file)
+    log = Path.join(System.tmp_dir!(), "fake-pi-#{System.unique_integer([:positive])}")
+    previous = Application.get_env(:tore, :pi)
+    Application.put_env(:tore, :pi, command: [@fake])
+    System.put_env("FAKE_PI_LOG", log)
 
     on_exit(fn ->
       if previous,
-        do: Application.put_env(:tore, :agent, previous),
-        else: Application.delete_env(:tore, :agent)
+        do: Application.put_env(:tore, :pi, previous),
+        else: Application.delete_env(:tore, :pi)
 
-      for var <- ~w(FAKE_AGENT_JOB FAKE_AGENT_RESULT FAKE_AGENT_EXIT), do: System.delete_env(var)
-      File.rm(job_file)
+      for var <- ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST), do: System.delete_env(var)
+      File.rm(log)
     end)
 
-    %{job_file: job_file}
+    %{log: log}
   end
 
-  defp result(map), do: System.put_env("FAKE_AGENT_RESULT", Jason.encode!(map))
-
-  test "a job runs the task for its household and records the summary and cost", %{
-    job_file: job_file
+  test "a job sends the task to pi in a session of its own and records what came back", %{
+    log: log
   } do
+    System.put_env("FAKE_PI_REPLY", "Planned Mon–Sun, list made.")
+    System.put_env("FAKE_PI_COST", "0.05")
     scope = home_scope()
     week = ~D[2026-11-23]
 
-    result(%{
-      status: "succeeded",
-      summary: "Planned Mon–Sun, list made.",
-      cost_usd: 0.05,
-      tokens: %{input: 1200, output: 300}
-    })
+    assert {:ok, %Job{status: :succeeded, summary: "Planned Mon–Sun, list made."} = job} =
+             Agent.run(scope, "plan_week", week)
 
-    assert {:ok, %Job{} = job} = Agent.run(scope, "plan_week", week)
+    assert job.cost_usd == 0.05 and job.week == week and job.finished_at
 
-    assert %Job{status: :succeeded, summary: "Planned Mon–Sun, list made.", cost_usd: 0.05} = job
-    assert job.week == week and job.finished_at
+    [header, prompt] = log |> File.read!() |> String.split("\n", trim: true)
+    assert Jason.decode!(header)["session"] == "plan_week"
 
-    sent = job_file |> File.read!() |> Jason.decode!()
+    assert Jason.decode!(prompt)["message"] =~
+             ~r/\ABackground job: plan_week\.\n\n# Plan next week/
 
-    assert %{
-             "job" => job_id,
-             "household" => household_id,
-             "task" => "plan_week",
-             "mcp_url" => "http://tore.test/mcp",
-             "model" => "claude-sonnet-5-5",
-             "timeout_s" => 600,
-             "max_budget_usd" => 1.0,
-             "token" => token
-           } = sent
-
-    assert job_id == to_string(job.id) and household_id == scope.household_id
-    # The token signs in as this household only.
-    assert {:ok, %Tore.Scope{household_id: ^household_id, user_id: nil}} =
-             SessionToken.verify(token)
-
-    assert [{"agent_plan_week", 1, 0.05}] = Costs.llm_calls_this_month_by_feature(scope)
+    assert [{"pi_plan_week", 1, 0.05}] = Costs.llm_calls_this_month_by_feature(scope)
     assert Agent.ran?(scope, "plan_week", week)
     refute Agent.ran?(scope, "plan_week", Date.add(week, 7))
   end
 
-  test "a runner that fails, or answers nonsense, fails the job and it can run again" do
-    scope = home_scope()
+  test "a pi that dies fails the job, and a failed job can run again" do
+    Application.put_env(:tore, :pi, command: ["false"])
 
-    System.put_env("FAKE_AGENT_EXIT", "3")
-    assert {:ok, %Job{status: :failed, summary: summary}} = Agent.run(scope, "weekly_reflection")
-    assert summary =~ "exit 3"
+    assert {:ok, %Job{status: :failed, summary: "pi: exited"}} =
+             Agent.run(home_scope(), "weekly_reflection")
 
-    System.delete_env("FAKE_AGENT_EXIT")
-    System.put_env("FAKE_AGENT_RESULT", "not json")
-    assert {:ok, %Job{status: :failed}} = Agent.run(scope, "weekly_reflection")
-
-    refute Agent.ran?(scope, "weekly_reflection", nil)
+    refute Agent.ran?(home_scope(), "weekly_reflection", nil)
   end
 
-  test "a timed-out job is recorded as such, with what it cost" do
-    result(%{status: "timed_out", summary: nil, cost_usd: 0.4})
-
-    assert {:ok, %Job{status: :timed_out, cost_usd: 0.4}} = Agent.run(home_scope(), "plan_week")
-  end
-
-  test "no job without a sponsor, over the monthly limit, or with no runner configured" do
+  test "no job for a household that may not use pi" do
     unsponsored = scope_fixture(household_fixture())
     assert {:error, :ai_unavailable} = Agent.run(unsponsored, "plan_week")
+    assert Repo.all(Job, Tore.Scope.repo_opts(unsponsored)) == []
+  end
+
+  test "the weekly cron runs once a week, in each household that may use pi" do
+    unsponsored = scope_fixture(household_fixture())
+    over_limit = scope_fixture(household_fixture())
+
+    sponsor =
+      user_fixture(household: Repo.get!(Tore.Household.HouseholdSchema, over_limit.household_id))
+
+    Repo.update_all(from(u in Tore.Accounts.User, where: u.id == ^sponsor.id),
+      set: [ai_enabled: true]
+    )
+
+    Repo.update_all(
+      from(h in Tore.Household.HouseholdSchema, where: h.id == ^over_limit.household_id),
+      set: [ai_sponsor_id: sponsor.id]
+    )
 
     {:ok, _} =
-      Costs.log_llm_usage(home_scope(), %{
-        feature: "other",
-        cost_usd: Tore.LLM.monthly_limit_usd()
-      })
+      Costs.log_llm_usage(over_limit, %{feature: "seed", cost_usd: Tore.LLM.monthly_limit_usd()})
 
-    assert {:error, :budget_exceeded} = Agent.run(home_scope(), "plan_week")
+    assert :ok = Agent.run_weekly("weekly_reflection")
+    assert :ok = Agent.run_weekly("weekly_reflection")
 
-    Application.delete_env(:tore, :agent)
-    assert {:error, :agent_off} = Agent.run(unsponsored, "plan_week")
-
-    for scope <- [unsponsored, home_scope()],
-        do: assert(Repo.all(Job, Tore.Scope.repo_opts(scope)) == [])
+    jobs = fn scope -> Repo.all(Job, Tore.Scope.repo_opts(scope)) end
+    assert [%Job{task: "weekly_reflection", status: :succeeded}] = jobs.(home_scope())
+    assert jobs.(unsponsored) == [] and jobs.(over_limit) == []
   end
 end

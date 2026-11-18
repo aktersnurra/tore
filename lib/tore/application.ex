@@ -19,6 +19,9 @@ defmodule Tore.Application do
         Tore.Harness.Runs,
         {DNSCluster, query: Application.get_env(:tore, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Tore.PubSub},
+        # Each household's pi sessions (Tore.Pi), by {household_id, session}.
+        {Registry, keys: :unique, name: Tore.Pi.Registry},
+        {DynamicSupervisor, name: Tore.Pi.Sessions, strategy: :one_for_one},
         Tore.Scheduler,
         {Task.Supervisor, name: Tore.TaskSupervisor}
       ] ++

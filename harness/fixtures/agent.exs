@@ -2,8 +2,8 @@
 # and prints the job. A server must be running on the same database for the harness to reach:
 #
 #     TORE_DEV_DB=/path/to/copy.db PORT=4100 mix phx.server
-#     ANTHROPIC_API_KEY=… TORE_DEV_DB=/path/to/copy.db TORE_AGENT_COMMAND=harness/harness-run \
-#       TORE_AGENT_MCP_URL=http://localhost:4100/mcp mix run harness/fixtures/agent.exs plan_week
+#     ANTHROPIC_API_KEY=… TORE_DEV_DB=/path/to/copy.db TORE_PI_COMMAND=harness/pi-session \
+#       TORE_PI_MCP_URL=http://localhost:4100/mcp mix run harness/fixtures/agent.exs plan_week
 #
 # The second argument is the member's sub (default harness-berg, from berg.exs).
 

@@ -1,0 +1,18 @@
+#!/bin/sh
+# Stands in for harness/pi-session in tests. Keeps its header in $FAKE_PI_LOG, then answers each
+# RPC prompt as pi would: accepted, a text delta, the assistant message with what it cost
+# ($FAKE_PI_COST), settled. The reply is $FAKE_PI_REPLY, or "echo: <the prompt>".
+set -eu
+IFS= read -r header
+printf '%s\n' "$header" >"$FAKE_PI_LOG"
+while IFS= read -r line; do
+  printf '%s\n' "$line" >>"$FAKE_PI_LOG"
+  [ "$(printf '%s' "$line" | jq -r .type)" = prompt ] || continue
+  reply=${FAKE_PI_REPLY:-"echo: $(printf '%s' "$line" | jq -r .message)"}
+  jq -cn '{type: "response", command: "prompt", success: true, data: {disposition: "started"}}'
+  jq -cn '{type: "agent_start"}'
+  jq -cn --arg d "$reply" '{type: "message_update", assistantMessageEvent: {type: "text_delta", contentIndex: 0, delta: $d}}'
+  jq -cn --arg t "$reply" --argjson c "${FAKE_PI_COST:-0.01}" \
+    '{type: "message_end", message: {role: "assistant", content: [{type: "text", text: $t}], usage: {cost: {total: $c}}}}'
+  jq -cn '{type: "agent_settled", aborted: false}'
+done

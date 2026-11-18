@@ -1,0 +1,54 @@
+#!/bin/sh
+# Starts one pi session for one household in RPC mode, the way Tore talks to it: Tore writes one
+# header line, then pi's RPC commands; pi answers with RPC records on stdout. Tore runs it
+# directly on the same machine, or as the forced command of an ssh key on the harness machine.
+#
+#   header: {"household": 7, "session": "chat", "mcp_url": "https://…/mcp", "token": "…",
+#            "model": "anthropic/claude-sonnet-5-5"}
+#
+# The household's agent sees Tore's MCP tools and the web, nothing else: no shell, no files, no
+# extensions but pi-web-access, and none of this machine's own pi settings. Its sessions are kept
+# per household in $HARNESS_STATE_DIR/households/<id>/sessions.
+#
+# Needs jq and pi, with ANTHROPIC_API_KEY or OPENROUTER_API_KEY for the model in the environment.
+# pi's own config (the installed web package) lives in $HARNESS_STATE_DIR/pi, never ~/.pi.
+set -eu
+
+dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+state=${HARNESS_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/tore-harness}
+
+fail() { echo "pi-session: $1" >&2; exit 2; }
+
+IFS= read -r header || fail "no header"
+field() { printf '%s' "$header" | jq -r "$1 // empty" 2>/dev/null; }
+
+household=$(field .household)
+session=$(field .session)
+mcp_url=$(field .mcp_url)
+token=$(field .token)
+model=$(field .model)
+
+case $household in '' | *[!0-9]*) fail "bad household" ;; esac
+case $session in '' | *[!A-Za-z0-9_-]*) fail "bad session" ;; esac
+[ -n "$mcp_url" ] && [ -n "$token" ] || fail "no mcp_url or token"
+
+export PI_CODING_AGENT_DIR="$state/pi"
+sessions="$state/households/$household/sessions"
+mkdir -p "$PI_CODING_AGENT_DIR" "$sessions"
+
+# pi's servers come from mcp.json in its config dir, shared by every session. The token isn't in
+# it: each session's pi reads its own from the environment.
+jq -n --arg url "$mcp_url" '{mcpServers: {tore: {url: $url, exposure: "direct",
+  headers: {Authorization: "Bearer ${TORE_MCP_TOKEN}"}}}}' >"$PI_CODING_AGENT_DIR/mcp.json.$$"
+mv "$PI_CODING_AGENT_DIR/mcp.json.$$" "$PI_CODING_AGENT_DIR/mcp.json"
+export TORE_MCP_TOKEN="$token"
+
+# An empty working directory: no AGENTS.md or .pi of anyone's to find. The rest of stdin is
+# pi's.
+mkdir -p "$state/cwd" && cd "$state/cwd"
+exec pi --mode rpc \
+  --no-extensions -e "npm:pi-web-access" \
+  --no-tools --tools 'mcp__tore__*,web_search,fetch_content' \
+  --append-system-prompt "$dir/AGENTS.md" \
+  ${model:+--model "$model"} \
+  --session-dir "$sessions" --name "$session"
