@@ -51,6 +51,22 @@ defmodule Tore.Shop.Walk do
     if length(trips) < @min_trips, do: @default, else: rank(trips)
   end
 
+  @doc """
+  When the household's latest shopping trips began (UTC), newest first: the same trips the walk
+  learns from, so ticking a list off at home afterwards isn't one.
+  """
+  @spec trip_starts(Scope.t()) :: [NaiveDateTime.t()]
+  def trip_starts(%Scope{} = scope) do
+    scope
+    |> ticks()
+    |> Enum.group_by(&elem(&1, 1))
+    |> Enum.flat_map(fn {_list, list_ticks} -> trips(list_ticks) end)
+    |> Enum.filter(&counts?/1)
+    |> Enum.map(&(&1 |> hd() |> elem(0)))
+    |> Enum.sort({:desc, NaiveDateTime})
+    |> Enum.take(@latest_trips)
+  end
+
   # A list's ticks, in time order, split wherever two are hours apart.
   defp trips(ticks) do
     ticks

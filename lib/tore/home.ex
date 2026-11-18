@@ -1,6 +1,6 @@
 defmodule Tore.Home do
   @moduledoc """
-  Where the app opens, and the quick swaps above the chat box.
+  Where the app opens, the quick swaps above the chat box, and the one note Today may show.
 
   A decision model picks both (`Tore.Harness.Kinds.HomePick`) from facts worked out here, and
   the stored pick is the latest applied `home_pick_run`. Opening the app reads the stored pick
@@ -8,8 +8,10 @@ defmodule Tore.Home do
   (`refresh/1`). Without a pick, or when the model is unsure, a fixed rule (`fallback/1`)
   picks from the same facts.
 
-  The model only chooses among screens and swaps that make sense now (`screens_for/1`,
-  `swaps_for/1`), and the stored pick is narrowed the same way when it is read.
+  The model only chooses among screens, swaps and notes that make sense now (`screens_for/1`,
+  `swaps_for/1`, `notes_for/1`), and the stored pick is narrowed the same way when it is read.
+  A note is code's own sentence (Today writes it from the facts); the model only picks which
+  one, if any, is worth saying at this hour, for this household.
 
   Times are the household's clock (`Tore.Clock`).
   """
@@ -32,6 +34,7 @@ defmodule Tore.Home do
     :suggest_tonight,
     :build_list
   ]
+  @note_keys [:buy_for_tomorrow, :shop_now, :tomorrow_open]
   @max_swaps 3
   @min_confidence 0.6
   @min_swap_probability 0.5
@@ -51,6 +54,7 @@ defmodule Tore.Home do
           label: String.t(),
           action: {:open, screen()} | {:prompt, String.t()}
         }
+  @type note_key :: :buy_for_tomorrow | :shop_now | :tomorrow_open
   @type facts :: %{
           now: NaiveDateTime.t(),
           tonight: :planned | :eating_out | :empty,
@@ -58,15 +62,26 @@ defmodule Tore.Home do
           unplanned_this_week: non_neg_integer(),
           unplanned_next_week: non_neg_integer(),
           list_items: non_neg_integer(),
-          items_left: non_neg_integer()
+          items_left: non_neg_integer(),
+          tomorrow: :planned | :eating_out | :empty,
+          tomorrow_missing: [String.t()]
         }
-  @type current :: %{screen: screen(), swaps: [swap()], stale?: boolean()}
+  @type note :: %{key: note_key(), things: [String.t()], count: non_neg_integer()}
+  @type current :: %{
+          screen: screen(),
+          swaps: [swap()],
+          note: note() | nil,
+          stale?: boolean()
+        }
 
   @spec screens() :: [screen()]
   def screens, do: @screens
 
   @spec swap_keys() :: [swap_key()]
   def swap_keys, do: @swap_keys
+
+  @spec note_keys() :: [note_key()]
+  def note_keys, do: @note_keys
 
   @spec max_swaps() :: pos_integer()
   def max_swaps, do: @max_swaps
@@ -90,15 +105,15 @@ defmodule Tore.Home do
 
     case Tore.LLM.check(scope) == :ok and latest_pick(scope) do
       false ->
-        facts |> fallback() |> resolve(false)
+        facts |> fallback() |> resolve(false, facts)
 
       nil ->
-        facts |> fallback() |> resolve(true)
+        facts |> fallback() |> resolve(true, facts)
 
       %KitchenRun{artifacts: [%HomePick{} = pick | _]} = run ->
         pick
         |> narrow(facts)
-        |> resolve(stale?(scope, run))
+        |> resolve(stale?(scope, run), facts)
     end
   end
 
@@ -145,25 +160,33 @@ defmodule Tore.Home do
     |> Repo.exists?(Scope.repo_opts(scope))
   end
 
-  defp narrow(%HomePick{screen: screen, swaps: swaps}, facts) do
+  defp narrow(%HomePick{screen: screen, swaps: swaps, note: note}, facts) do
     if screen in screens_for(facts) do
       %{
         screen: screen,
-        swaps: Enum.filter(swaps, &(&1 in swaps_for(facts) and &1 != open(screen)))
+        swaps: Enum.filter(swaps, &(&1 in swaps_for(facts) and &1 != open(screen))),
+        note: if(note in notes_for(facts), do: note)
       }
     else
       fallback(facts)
     end
   end
 
-  defp resolve(%{screen: screen, swaps: swaps}, stale?),
-    do: %{screen: screen, swaps: Enum.map(swaps, &swap/1), stale?: stale?}
+  defp resolve(%{screen: screen, swaps: swaps, note: note}, stale?, facts) do
+    %{
+      screen: screen,
+      swaps: Enum.map(swaps, &swap/1),
+      note: note && %{key: note, things: facts.tomorrow_missing, count: facts.items_left},
+      stale?: stale?
+    }
+  end
 
   # ----- facts -----------------------------------------------------------------------------
 
   @doc """
   What the pick is made from, worked out in code, since a decision model doesn't do date
-  maths: tonight's dinner, what's unplanned from today to Sunday and next week, and the list.
+  maths: tonight's dinner, what's unplanned from today to Sunday and next week, the list, and
+  tomorrow's dinner with what it needs that's neither at home nor on a list.
   """
   @spec facts(Scope.t(), NaiveDateTime.t()) :: facts()
   def facts(%Scope{} = scope, %NaiveDateTime{} = now) do
@@ -173,17 +196,49 @@ defmodule Tore.Home do
     next_week = week(scope, Date.add(monday, 7))
     {:ok, list} = Tore.Shop.load_list(scope, Streams.shop_list(scope, monday))
     items = Map.values(list.items)
+    tomorrow = Date.add(today, 1)
+    tomorrow_slot = Enum.find(rest_of_week ++ next_week, &(&1.date == tomorrow))
 
     %{
       now: now,
-      tonight: rest_of_week |> Enum.find(&(&1.date == today)) |> tonight(),
+      tonight: rest_of_week |> Enum.find(&(&1.date == today)) |> tonight_status(),
       planned_this_week: Enum.count(rest_of_week, &(&1.status == :assigned)),
       unplanned_this_week: Enum.count(rest_of_week, &(&1.status == :empty)),
       unplanned_next_week: Enum.count(next_week, &(&1.status == :empty)),
       list_items: length(items),
-      items_left: Enum.count(items, &(not &1.checked))
+      items_left: Enum.count(items, &(not &1.checked)),
+      tomorrow: tonight_status(tomorrow_slot),
+      tomorrow_missing: missing_for(scope, tomorrow_slot, items)
     }
   end
+
+  # What tomorrow's dish needs that isn't at home, and isn't on this week's or its week's list.
+  defp missing_for(scope, %{status: :assigned, recipe_id: id, date: date}, items)
+       when is_integer(id) do
+    case Tore.Recipes.get_many(scope, [id]) do
+      [recipe] ->
+        names = Enum.map(recipe.recipe_ingredients, & &1.ingredient.name)
+
+        {:ok, its_list} =
+          Tore.Shop.load_list(scope, Streams.shop_list(scope, Streams.monday(date)))
+
+        listed =
+          MapSet.new(
+            items ++ Map.values(its_list.items),
+            &Tore.Recipes.Ingredient.to_key(&1.name)
+          )
+
+        scope
+        |> Tore.Pantry.at_home(names)
+        |> Map.fetch!(:missing)
+        |> Enum.reject(&(Tore.Recipes.Ingredient.to_key(&1) in listed))
+
+      [] ->
+        []
+    end
+  end
+
+  defp missing_for(_scope, _slot, _items), do: []
 
   defp week(scope, monday) do
     ctx = %{
@@ -195,9 +250,9 @@ defmodule Tore.Home do
     WeekPlanCapsule.build(ctx).slots || []
   end
 
-  defp tonight(%{status: :assigned}), do: :planned
-  defp tonight(%{status: :eating_out}), do: :eating_out
-  defp tonight(_slot), do: :empty
+  defp tonight_status(%{status: :assigned}), do: :planned
+  defp tonight_status(%{status: :eating_out}), do: :eating_out
+  defp tonight_status(_slot), do: :empty
 
   @doc "The screens that make sense now: all of them."
   @spec screens_for(facts()) :: [screen()]
@@ -214,14 +269,25 @@ defmodule Tore.Home do
     end)
   end
 
+  @doc "The notes that are true now: each says something the household could act on."
+  @spec notes_for(facts()) :: [note_key()]
+  def notes_for(facts) do
+    Enum.filter(@note_keys, fn
+      :buy_for_tomorrow -> facts.tomorrow_missing != []
+      :shop_now -> facts.items_left > 0
+      :tomorrow_open -> facts.tomorrow == :empty
+    end)
+  end
+
   # ----- the fixed rule ----------------------------------------------------------------------
 
   @doc """
   The pick without a model: the list on Saturday morning,
   next week's plan on Sunday evening, and otherwise tonight. The swaps open the other main
-  screens.
+  screens. The note: what tomorrow needs from the afternoon, the list on Saturday morning, an
+  open tomorrow in the evening.
   """
-  @spec fallback(facts()) :: %{screen: screen(), swaps: [swap_key()]}
+  @spec fallback(facts()) :: %{screen: screen(), swaps: [swap_key()], note: note_key() | nil}
   def fallback(facts) do
     day = Date.day_of_week(facts.now)
     hour = facts.now.hour
@@ -238,14 +304,25 @@ defmodule Tore.Home do
       |> Enum.filter(&(&1 in swaps_for(facts) and &1 != open(screen)))
       |> Enum.take(@max_swaps)
 
-    %{screen: screen, swaps: swaps}
+    %{screen: screen, swaps: swaps, note: fallback_note(facts, day, hour)}
+  end
+
+  defp fallback_note(facts, day, hour) do
+    notes = notes_for(facts)
+
+    cond do
+      :buy_for_tomorrow in notes and hour >= 14 -> :buy_for_tomorrow
+      :shop_now in notes and day == 6 and hour < 14 -> :shop_now
+      :tomorrow_open in notes and hour >= 17 -> :tomorrow_open
+      true -> nil
+    end
   end
 
   @doc "The fixed rule's pick, as the run stores it."
   @spec fallback_pick(facts()) :: HomePick.t()
   def fallback_pick(facts) do
-    %{screen: screen, swaps: swaps} = fallback(facts)
-    %HomePick{screen: screen, source: :rules, swaps: swaps}
+    %{screen: screen, swaps: swaps, note: note} = fallback(facts)
+    %HomePick{screen: screen, source: :rules, swaps: swaps, note: note}
   end
 
   # ----- the decision model's question -----------------------------------------------------
@@ -270,6 +347,8 @@ defmodule Tore.Home do
       "#{facts.unplanned_this_week} dinners from today to Sunday are unplanned.",
       "#{facts.unplanned_next_week} of next week's 7 dinners are unplanned.",
       "The shopping list has #{facts.list_items} items, #{facts.items_left} not yet bought.",
+      tomorrow_line(facts),
+      trips_line(scope),
       plan,
       Tore.Household.Memory.snapshot(scope)
     ]
@@ -279,6 +358,29 @@ defmodule Tore.Home do
   defp tonight_line(:planned), do: "Tonight's dinner is planned."
   defp tonight_line(:eating_out), do: "The household eats out tonight."
   defp tonight_line(:empty), do: "Nothing is planned for dinner tonight."
+
+  defp tomorrow_line(%{tomorrow: :empty}), do: "Nothing is planned for dinner tomorrow."
+  defp tomorrow_line(%{tomorrow: :eating_out}), do: "The household eats out tomorrow."
+
+  defp tomorrow_line(%{tomorrow_missing: []}),
+    do: "Tomorrow's dinner is planned, and all of it is at home or on the list."
+
+  defp tomorrow_line(%{tomorrow_missing: missing}),
+    do: "Tomorrow's dinner needs #{Enum.join(missing, ", ")}: not at home and not on the list."
+
+  # When they shop, so a note about the list lands when they usually go.
+  defp trips_line(scope) do
+    case Tore.Shop.Walk.trip_starts(scope) do
+      [] ->
+        nil
+
+      starts ->
+        times =
+          Enum.map_join(starts, ", ", &Calendar.strftime(Tore.Clock.local(&1), "%A %H:%M"))
+
+        "Their latest shopping trips began: #{times}."
+    end
+  end
 
   @doc """
   One `choice` for the screen, among those that make sense now, and one `noul` per swap that
@@ -297,6 +399,41 @@ defmodule Tore.Home do
     |> swaps_for()
     |> Map.new(&{"swap_#{&1}", %{"type" => "noul", "instructions" => swap_criterion(&1)}})
     |> Map.put("screen", screen)
+    |> put_note_question(notes_for(facts))
+  end
+
+  defp put_note_question(questions, []), do: questions
+
+  defp put_note_question(questions, notes) do
+    Map.put(questions, "note", %{
+      "type" => "choice",
+      "instructions" =>
+        "Today, the dinner screen, can show the household one short note. Which helps most " <>
+          "right now, at this hour, given their habits? Choose none unless it's worth a glance.",
+      "criteria" =>
+        Map.new(notes, &{Atom.to_string(&1), note_criterion(&1)})
+        |> Map.put("none", "Nothing needs saying now.")
+    })
+  end
+
+  defp note_criterion(:buy_for_tomorrow),
+    do:
+      "Tomorrow's dinner needs things that aren't at home or on the list, and there's still time to get them."
+
+  defp note_criterion(:shop_now),
+    do: "There are things on the list, and this is when they usually shop."
+
+  defp note_criterion(:tomorrow_open),
+    do: "Tomorrow's dinner isn't planned, and it's late enough that it should be."
+
+  defp model_note(answers, facts) do
+    with %{"choice" => choice, "confidence" => confidence} when is_number(confidence) <-
+           answers["note"],
+         true <- confidence >= @min_confidence do
+      Enum.find(notes_for(facts), &(Atom.to_string(&1) == choice))
+    else
+      _unsure -> nil
+    end
   end
 
   @doc """
@@ -321,7 +458,7 @@ defmodule Tore.Home do
         |> Enum.map(fn {key, _p} -> key end)
         |> Enum.take(@max_swaps)
 
-      %HomePick{screen: screen, source: :model, swaps: swaps}
+      %HomePick{screen: screen, source: :model, swaps: swaps, note: model_note(answers, facts)}
     else
       _unsure -> fallback_pick(facts)
     end

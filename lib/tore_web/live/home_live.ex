@@ -7,6 +7,8 @@ defmodule ToreWeb.HomeLive do
     scope = socket.assigns.current_scope
     {day, date, cooked} = shown_day(scope)
     week_start = Tore.Streams.monday(date)
+    pick = Tore.Home.current(scope)
+    if connected?(socket) and pick.stale?, do: Tore.Home.refresh(scope)
 
     {:ok,
      socket
@@ -14,6 +16,8 @@ defmodule ToreWeb.HomeLive do
        day: day,
        date: date,
        cooked: cooked,
+       note: note(pick.note, day),
+       note_added: false,
        plan_id: Tore.Streams.plan(scope, week_start),
        week_start: week_start,
        day_key: Tore.Streams.slot_key(date),
@@ -183,6 +187,8 @@ defmodule ToreWeb.HomeLive do
             </button>
           </div>
 
+          <.note :if={@note} note={@note} added={@note_added} class="mt-5" />
+
           <p
             :if={@changed}
             id="tonight-changed"
@@ -242,6 +248,7 @@ defmodule ToreWeb.HomeLive do
               {gettext("Undo")}
             </button>
           </p>
+          <.note :if={@note} note={@note} added={@note_added} class="mt-6" />
           <div :if={!@eating_out} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
             <button type="button" phx-click="something_else" class="pill pill-lamp press">
               <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
@@ -361,6 +368,10 @@ defmodule ToreWeb.HomeLive do
   # The hour the evening is over, and Today shows tomorrow though tonight wasn't marked cooked.
   defp evening_over, do: Application.get_env(:tore, :evening_over, 21)
 
+  # The pick's note, unless the page already says it: tomorrow's page shows what it needs.
+  defp note(%{key: key}, :tomorrow) when key in [:buy_for_tomorrow, :tomorrow_open], do: nil
+  defp note(note, _day), do: note
+
   defp dish_on(scope, date) do
     {:ok, state} = Planning.load_plan(scope, Tore.Streams.plan(scope, Tore.Streams.monday(date)))
     slot = Map.get(state.slots, Tore.Streams.slot_key(date))
@@ -387,6 +398,15 @@ defmodule ToreWeb.HomeLive do
           Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name)),
       home_added: false
     )
+  end
+
+  # The note's things go on the list of the week tomorrow is in.
+  def handle_event("add_note_items", _params, %{assigns: %{note: %{things: things}}} = socket) do
+    %{current_scope: scope, current_user: user} = socket.assigns
+    tomorrow = Date.add(Tore.Clock.today(), 1)
+    list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(tomorrow))
+    for name <- things, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
+    {:noreply, assign(socket, note_added: true)}
   end
 
   # What tonight needs and the house doesn't have goes on this week's list.
@@ -508,6 +528,74 @@ defmodule ToreWeb.HomeLive do
       end)
 
     {:noreply, socket}
+  end
+
+  attr :note, :map, required: true
+  attr :added, :boolean, required: true
+  attr :class, :string, default: nil
+
+  # The one thing worth a glance now, as the home pick chose it, with what to do about it.
+  defp note(assigns) do
+    ~H"""
+    <p
+      class={["settle flex flex-wrap items-center gap-x-3 gap-y-1", @class]}
+      style="font-size: 15px;"
+      data-role="note"
+      data-note={@note.key}
+    >
+      <.icon name={note_icon(@note.key)} class="size-5 text-[color:var(--muted)]" />
+      <span class="text-[color:var(--text)]">{note_text(@note)}</span>
+      <button
+        :if={@note.key == :buy_for_tomorrow and !@added}
+        type="button"
+        phx-click="add_note_items"
+        class="press font-semibold text-[color:var(--accent-ink)] hover:underline"
+      >
+        {gettext("Put on the list")}
+      </button>
+      <.link
+        :if={@note.key == :buy_for_tomorrow and @added}
+        navigate={~p"/shop"}
+        class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
+      >
+        <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
+      </.link>
+      <.link
+        :if={@note.key == :shop_now}
+        navigate={~p"/shop"}
+        class="press font-semibold text-[color:var(--accent-ink)] hover:underline"
+      >
+        {gettext("Open the list")}
+      </.link>
+      <.link
+        :if={@note.key == :tomorrow_open}
+        navigate={~p"/plan"}
+        class="press font-semibold text-[color:var(--accent-ink)] hover:underline"
+      >
+        {gettext("Plan it")}
+      </.link>
+    </p>
+    """
+  end
+
+  defp note_icon(:buy_for_tomorrow), do: "ph-basket"
+  defp note_icon(:shop_now), do: "ph-shopping-cart"
+  defp note_icon(:tomorrow_open), do: "ph-calendar-blank"
+
+  defp note_text(%{key: :buy_for_tomorrow, things: things}),
+    do: gettext("Buy %{things} before tomorrow", things: and_list(things))
+
+  defp note_text(%{key: :shop_now, count: count}),
+    do: ngettext("One thing on the list", "%{count} things on the list", count)
+
+  defp note_text(%{key: :tomorrow_open}), do: gettext("Tomorrow's dinner isn't planned yet")
+
+  # "lax", "lax and dill", "lax, dill and lime".
+  defp and_list([one]), do: one
+
+  defp and_list(things) do
+    {rest, [last]} = Enum.split(things, -1)
+    gettext("%{rest} and %{last}", rest: Enum.join(rest, ", "), last: last)
   end
 
   attr :title, :string, required: true

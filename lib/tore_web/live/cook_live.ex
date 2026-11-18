@@ -98,6 +98,8 @@ defmodule ToreWeb.CookLive do
 
     :ok = Recipes.record_used(scope, recipe.id)
     used = Tore.Pantry.use_up(scope, names)
+    # Tomorrow is what's next now, so Today's note is worth picking again.
+    Tore.Home.refresh(scope)
     {:noreply, assign(socket, done: %{used: used, was: recipe.last_used_at})}
   end
 

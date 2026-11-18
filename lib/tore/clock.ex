@@ -13,12 +13,17 @@ defmodule Tore.Clock do
 
   @doc "The household's date at a stored (UTC) moment."
   @spec date_of(DateTime.t()) :: Date.t()
-  def date_of(%DateTime{} = at) do
-    at
-    |> DateTime.to_naive()
+  def date_of(%DateTime{} = at), do: at |> local() |> NaiveDateTime.to_date()
+
+  @doc "The household's time at a stored (UTC) moment."
+  @spec local(DateTime.t() | NaiveDateTime.t()) :: NaiveDateTime.t()
+  def local(%DateTime{} = at), do: at |> DateTime.to_naive() |> local()
+
+  def local(%NaiveDateTime{} = utc) do
+    utc
+    |> NaiveDateTime.truncate(:second)
     |> NaiveDateTime.to_erl()
     |> :calendar.universal_time_to_local_time()
     |> NaiveDateTime.from_erl!()
-    |> NaiveDateTime.to_date()
   end
 end

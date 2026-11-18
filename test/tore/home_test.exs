@@ -25,7 +25,9 @@ defmodule Tore.HomeTest do
         unplanned_this_week: 2,
         unplanned_next_week: 7,
         list_items: 4,
-        items_left: 3
+        items_left: 3,
+        tomorrow: :planned,
+        tomorrow_missing: []
       },
       Map.new(overrides)
     )
@@ -82,6 +84,73 @@ defmodule Tore.HomeTest do
     test "an empty week has nothing planned tonight" do
       assert %{tonight: :empty, planned_this_week: 0, list_items: 0} =
                Home.facts(home_scope(), @tuesday_evening)
+    end
+  end
+
+  describe "the note" do
+    test "facts know what tomorrow's dinner needs that's neither at home nor on a list" do
+      scope = home_scope()
+
+      stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
+        {:ok, %{"section" => "other"}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
+      end)
+
+      {:ok, salmon} =
+        Recipes.create(
+          scope,
+          %{
+            title: "Laxpasta",
+            ingredients: [%{name: "lax"}, %{name: "dill"}, %{name: "pasta"}]
+          },
+          image: false
+        )
+
+      {:ok, _} =
+        Planning.assign_recipe(scope, Streams.plan(scope, @monday), "wed_dinner", salmon.id, 4)
+
+      {:ok, _} = Tore.Pantry.add_item(scope, %{name: "pasta"})
+      {:ok, _} = Shop.add_item(scope, Streams.shop_list(scope, @monday), "dill", nil, nil, nil)
+
+      assert %{tomorrow: :planned, tomorrow_missing: ["lax"]} =
+               Home.facts(scope, @tuesday_evening)
+    end
+
+    test "only true notes are offered, and the fixed rule says them when it's time" do
+      assert Home.notes_for(facts(items_left: 0)) == []
+
+      assert Home.notes_for(facts(tomorrow_missing: ["lax"], tomorrow: :planned)) ==
+               [:buy_for_tomorrow, :shop_now]
+
+      assert %{note: :buy_for_tomorrow} = Home.fallback(facts(tomorrow_missing: ["lax"]))
+      assert %{note: :shop_now} = Home.fallback(facts(now: ~N[2026-11-14 10:00:00]))
+      assert %{note: :tomorrow_open} = Home.fallback(facts(tomorrow: :empty, items_left: 0))
+      assert %{note: nil} = Home.fallback(facts(now: ~N[2026-11-10 09:00:00]))
+    end
+
+    test "the model picks one note, or none, when it's sure" do
+      facts = facts(tomorrow_missing: ["lax"])
+      assert %{"note" => %{"criteria" => criteria}} = Home.questions(facts)
+      assert Map.keys(criteria) == ~w(buy_for_tomorrow none shop_now)
+      refute Map.has_key?(Home.questions(facts(items_left: 0)), "note")
+
+      sure = fn note, confidence ->
+        %{
+          "screen" => %{"choice" => "today", "confidence" => 0.9},
+          "note" => %{"choice" => note, "confidence" => confidence}
+        }
+      end
+
+      assert %HomePick{note: :shop_now} = Home.pick(sure.("shop_now", 0.8), facts)
+      assert %HomePick{note: nil} = Home.pick(sure.("none", 0.9), facts)
+      assert %HomePick{note: nil} = Home.pick(sure.("shop_now", 0.4), facts)
+      assert %HomePick{note: nil} = Home.pick(sure.("tomorrow_open", 0.9), facts)
+    end
+
+    test "a stored note that's no longer true isn't shown" do
+      scope = home_scope()
+      stored_pick(scope, %HomePick{screen: :today, source: :model, swaps: [], note: :shop_now})
+
+      assert %{note: nil} = Home.current(scope, @tuesday_evening)
     end
   end
 

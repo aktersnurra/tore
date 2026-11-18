@@ -158,6 +158,40 @@ defmodule ToreWeb.HomeLiveTest do
       assert view |> element("#today-menu") |> render() =~ "Ingen middag imorgon"
     end
 
+    test "the home pick's note shows with its way on, unless the page already says it", %{
+      conn: conn
+    } do
+      Mox.set_mox_global()
+      Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
+      today = Tore.Clock.today()
+      plan_on(today, dish("Kycklinggryta"))
+      plan_on(Date.add(today, 1), dish("Laxpasta"))
+
+      {:ok, _} =
+        Tore.Harness.Runs.submit(
+          home_scope(),
+          Tore.Harness.Kinds.HomePick,
+          %Tore.Harness.Artifact.HomePick{
+            screen: :today,
+            source: :model,
+            swaps: [],
+            note: :buy_for_tomorrow
+          },
+          %{}
+        )
+
+      {:ok, view, _} = live(conn, ~p"/today")
+      assert view |> element(~s([data-role="note"])) |> render() =~ "Köp lax före imorgon"
+
+      view |> element(~s([data-role="note"] button)) |> render_click()
+      assert view |> element(~s([data-role="note"])) |> render() =~ "På listan"
+
+      tomorrow = Date.add(today, 1)
+      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(tomorrow))
+      {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
+      assert state.items |> Map.values() |> Enum.map(& &1.name) == ["lax"]
+    end
+
     test "at 21:00 Today is tomorrow, cooked or not", %{conn: conn} do
       Application.put_env(:tore, :evening_over, 0)
       on_exit(fn -> Application.put_env(:tore, :evening_over, 24) end)

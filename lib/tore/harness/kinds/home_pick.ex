@@ -1,9 +1,10 @@
 defmodule Tore.Harness.Kinds.HomePick do
   @moduledoc """
-  Picks the screen the app opens on and the quick swaps above the chat box (`Tore.Home`).
+  Picks the screen the app opens on, the quick swaps above the chat box, and Today's note
+  (`Tore.Home`).
 
-  One call to the decision model (`Tore.LLM.decide/4`): a choice among the screens and a yes/no
-  per swap, about facts worked out in code. Unsure, or when the call fails for any reason but
+  One call to the decision model (`Tore.LLM.decide/4`): a choice among the screens, a yes/no
+  per swap and a choice among the notes, about facts worked out in code. Unsure, or when the call fails for any reason but
   the gate, the run stores the fixed rule's pick, so a stale pick is still replaced. It changes
   nothing else, so its undo is empty.
   """
@@ -52,10 +53,10 @@ defmodule Tore.Harness.Kinds.HomePick do
   end
 
   @impl true
-  def verify(%HomePick{screen: screen, swaps: swaps}, _ctx) do
+  def verify(%HomePick{screen: screen, swaps: swaps, note: note}, _ctx) do
     if screen in Home.screens() and length(swaps) <= Home.max_swaps() and
          swaps == Enum.uniq(swaps) and Enum.all?(swaps, &(&1 in Home.swap_keys())) and
-         :"open_#{screen}" not in swaps,
+         :"open_#{screen}" not in swaps and (note == nil or note in Home.note_keys()),
        do: :ok,
        else: {:fail, :invalid_home_pick, :reject}
   end
