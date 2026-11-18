@@ -28,7 +28,13 @@ defmodule ToreWeb.PlannerLive do
 
     {:ok, plan_state} = Planning.load_plan(scope, plan_id)
     recipes = Recipes.list(scope, sort: :alphabetical)
-    current_run = Runs.latest_on_surface(scope, :plan)
+    # Only a run still working is picked up on opening; one that finished, or a question left
+    # waiting from another day, isn't news here. A result still shows if it lands while open.
+    current_run =
+      case Runs.latest_on_surface(scope, :plan) do
+        %{status: :running} = run -> run
+        _other -> nil
+      end
 
     {:ok,
      socket

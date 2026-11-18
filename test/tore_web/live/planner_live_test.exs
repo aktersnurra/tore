@@ -53,6 +53,19 @@ defmodule ToreWeb.PlannerLiveTest do
     end
   end
 
+  describe "an earlier run" do
+    test "a question left waiting from before isn't shown when Plan opens", %{
+      conn: conn,
+      user: user
+    } do
+      Tore.RunFixtures.pending_question_fixture(home_scope())
+
+      {:ok, lv, _html} = conn |> authed(user) |> live(~p"/plan")
+
+      refute render(lv) =~ "Which Monday?"
+    end
+  end
+
   describe "slot modal" do
     test "open_slot loads suggestions and shows modal", %{conn: conn, user: user, recipe: recipe} do
       conn = authed(conn, user)
