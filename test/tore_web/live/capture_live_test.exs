@@ -238,20 +238,5 @@ defmodule ToreWeb.CaptureLiveTest do
       assert [%{"message" => message}] = prompts(log)
       assert message =~ "Planera nästa vecka"
     end
-
-    test "a turn's suggestions replace the pick's", %{conn: conn, user: user} do
-      store_pick([:open_plan])
-      {:ok, lv, _html} = live(conn, ~p"/capture")
-
-      Phoenix.PubSub.broadcast(
-        Tore.PubSub,
-        Tore.Home.swaps_topic(user.id),
-        {:quick_swaps, [%{label: "Mer pasta", action: {:prompt, "Mer pasta"}}]}
-      )
-
-      html = render(lv)
-      assert html =~ "Mer pasta"
-      refute html =~ "Veckans plan"
-    end
   end
 end

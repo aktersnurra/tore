@@ -1,7 +1,6 @@
 defmodule Tore.Household.MemoryTest do
   use Tore.DataCase, async: true
 
-  alias Tore.Harness.Capsules.MemoryCapsule
   alias Tore.Household.Memory
   alias Tore.Household.Memory.Ops
 
@@ -85,14 +84,13 @@ defmodule Tore.Household.MemoryTest do
     assert_raise MatchError, fn -> Memory.restore(other, [id], []) end
   end
 
-  test "the capsule shows both parts with usage, nothing cut at the limit, and nothing when empty" do
-    ctx = %{scope: home_scope()}
-    assert MemoryCapsule.to_prompt(MemoryCapsule.build(ctx)) == nil
+  test "the snapshot shows both parts with usage, nothing cut at the limit, and nothing when empty" do
+    assert Memory.snapshot(home_scope()) == nil
 
     long = String.duplicate("a", 1_300)
     write(home_scope(), "profile", [add(long)])
 
-    prompt = MemoryCapsule.to_prompt(MemoryCapsule.build(ctx))
+    prompt = Memory.snapshot(home_scope())
     assert prompt =~ "HOUSEHOLD PROFILE"
     assert prompt =~ "[95% — 1,300/1,375 chars]"
     assert prompt =~ long

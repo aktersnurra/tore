@@ -3,8 +3,8 @@ defmodule Tore.Capture.DeleteTest do
 
   import Mox
 
-  alias Tore.{Costs, Recipes, Shop, Streams}
-  alias Tore.Capture.{Dispatch, Router}
+  alias Tore.{Recipes, Shop, Streams}
+  alias Tore.Capture.Dispatch
 
   setup :verify_on_exit!
 
@@ -34,41 +34,5 @@ defmodule Tore.Capture.DeleteTest do
     assert Dispatch.delete_recipe(soup.id, ctx).text =~ "Soppa"
     assert Recipes.get(home_scope(), soup.id) == nil
     refute Dispatch.delete_recipe(soup.id, ctx).text =~ "Soppa"
-  end
-
-  test "the model lists receipts, then deletes the one asked for", %{ctx: ctx, user: user} do
-    {:ok, ica} =
-      Costs.log_receipt(home_scope(), %{
-        date: ~D[2026-11-02],
-        store_name: "ICA",
-        total_amount: "500",
-        user_id: user.id
-      })
-
-    {:ok, coop} =
-      Costs.log_receipt(home_scope(), %{
-        date: ~D[2026-11-03],
-        store_name: "Coop",
-        total_amount: "200",
-        user_id: user.id
-      })
-
-    list = %{id: "c1", name: "list_receipts", args: %{}}
-
-    Tore.MockLLM
-    |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:tool_calls, [list]}, @usage} end)
-    |> expect(:chat_with_tools, fn _, msgs, _, _ ->
-      %{"receipts" => receipts} = Jason.decode!(List.last(msgs).content)
-      %{"id" => id} = Enum.find(receipts, &(&1["store"] == "ICA"))
-      delete = %{id: "c2", name: "delete_receipt", args: %{"receipt_id" => id}}
-      {:ok, {:tool_calls, [delete]}, @usage}
-    end)
-    |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Borta."}, @usage} end)
-
-    assert {:ok, _bubbles} = Router.route("ta bort ICA-kvittot", [], ctx)
-
-    assert [%{id: id}] = Costs.recent_receipts(home_scope(), 10)
-    assert id == coop.id
-    refute id == ica.id
   end
 end

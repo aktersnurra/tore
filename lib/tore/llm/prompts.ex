@@ -282,58 +282,6 @@ defmodule Tore.LLM.Prompts do
     end
   end
 
-  @web_candidates_schema %{
-    type: "object",
-    properties: %{
-      candidates: %{
-        type: "array",
-        items: %{
-          type: "object",
-          properties: %{
-            title: %{type: "string"},
-            url: %{type: "string"}
-          },
-          required: ["title", "url"],
-          additionalProperties: false
-        }
-      }
-    },
-    required: ["candidates"],
-    additionalProperties: false
-  }
-
-  def web_candidates_json_schema do
-    %{
-      type: "json_schema",
-      json_schema: %{name: "web_candidates", strict: true, schema: @web_candidates_schema}
-    }
-  end
-
-  @doc """
-  Discovery only. The model searches the web and hands back candidate recipe
-  pages; it never writes the recipe itself — the chosen URL goes through the
-  existing scraper, so the recipe text always comes from the real page.
-  """
-  def find_recipe_web(query, locale \\ nil) do
-    system = """
-    You find recipe pages on the web. Search for pages matching the user's request.
-
-    Return a JSON object: {"candidates": [{"title": "...", "url": "..."}]}
-    Rules:
-    - return at most 5 candidates, best match first
-    - each url must be a direct link to a single recipe page you actually found in the search results
-    - never return a search-results page, a category listing, or a homepage
-    - the title is the recipe's name as the page states it
-    - prefer pages that show ingredients and steps as text
-    - if nothing suitable was found, return {"candidates": []}
-    - do not write out any recipe content — only titles and urls
-    #{locale_preference_instruction(locale)}
-    Respond with a JSON object only. No prose.
-    """
-
-    {system, query}
-  end
-
   @doc """
   Generate a variant of an existing recipe (simpler, vegetarian, scaled to a
   different number of servings, …). The result is a complete recipe in the
@@ -362,20 +310,6 @@ defmodule Tore.LLM.Prompts do
       })
 
     {system, user}
-  end
-
-  # Search results are better in the household's own language, but the prompt
-  # itself stays English — locale is a parameter, never baked in.
-  defp locale_preference_instruction(nil), do: ""
-
-  defp locale_preference_instruction(locale) do
-    case Map.get(@locale_names, locale) do
-      nil ->
-        ""
-
-      language ->
-        "- prefer recipe pages written in #{language}, but return good pages in any language if there are none"
-    end
   end
 
   def check_recipe_html(html) do
@@ -692,24 +626,6 @@ defmodule Tore.LLM.Prompts do
 
     user = "Canonicalise these items:\n#{items_lines}"
     {system, user}
-  end
-
-  @doc "What Capture's `memory` tool should keep, and how, with entries in the household's language."
-  def capture_memory(locale) do
-    language = Map.get(@locale_names, locale, "English")
-
-    """
-    Memory:
-      - The household's memory is in this prompt. When someone tells you something that will
-        still matter next week (a preference, a correction, a schedule change, an agreement),
-        call `memory` without asking. Skip what is only true today.
-      - When a fact changes, patch its entry rather than adding a second one, and remove what is
-        no longer true. Past 80% full, merge entries in the same batch you add to.
-      - Write each entry as one short fact in #{language}, with no internal ids (write "Monday
-        dinner", not mon_dinner).
-      - Never save an allergy or intolerance; those go on the kitchen page.
-      - If `memory` comes back rejected, correct the batch and call it again, or let it go.
-    """
   end
 
   defp dietary_guidance_instruction(nil), do: ""

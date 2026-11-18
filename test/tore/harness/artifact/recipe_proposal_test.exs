@@ -20,8 +20,7 @@ defmodule Tore.Harness.Artifact.RecipeProposalTest do
       source: :generation,
       source_url: nil,
       source_recipe_id: 7,
-      instruction: "make it simpler",
-      pending_assignment: %{slot_key: "mon_dinner", servings: 4}
+      instruction: "make it simpler"
     }
 
     struct!(base, overrides)
@@ -44,15 +43,8 @@ defmodule Tore.Harness.Artifact.RecipeProposalTest do
         source: :web_import,
         source_url: "https://example.com/ramen",
         source_recipe_id: nil,
-        instruction: nil,
-        pending_assignment: nil
+        instruction: nil
       })
-
-    assert RecipeProposal.from_json(RecipeProposal.to_json(original)) == original
-  end
-
-  test "round-trips a nil pending_assignment" do
-    original = proposal(%{pending_assignment: nil})
 
     assert RecipeProposal.from_json(RecipeProposal.to_json(original)) == original
   end

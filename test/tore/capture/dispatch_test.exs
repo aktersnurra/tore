@@ -120,9 +120,10 @@ defmodule Tore.Capture.DispatchTest do
           "receipt"
         )
 
-      bubble = Dispatch.ingest_receipt(image, capture_ctx(household_id))
+      assert {:duplicate, text} =
+               Dispatch.read_receipt(Tore.Scope.for_household(household_id), image)
 
-      assert bubble.text =~ "already uploaded"
+      assert text =~ "already uploaded"
     end
 
     test "is read again when the first try failed" do
@@ -134,14 +135,12 @@ defmodule Tore.Capture.DispatchTest do
       end)
 
       image = <<255, 216, 255, 9, 9, 9>>
-      ctx = capture_ctx(home_scope().household_id)
 
-      Dispatch.ingest_receipt(image, ctx)
-      bubble = Dispatch.ingest_receipt(image, ctx)
+      assert {:failed, _} = Dispatch.read_receipt(home_scope(), image)
+      assert {:failed, _} = Dispatch.read_receipt(home_scope(), image)
 
       assert_received :read
       assert_received :read
-      refute bubble.text =~ "already uploaded"
     end
   end
 
@@ -204,131 +203,6 @@ defmodule Tore.Capture.DispatchTest do
                Dispatch.set_basics([%{name: "havregryn", quantity: nil, unit: nil}], true, ctx)
 
       assert ["Mjölk"] = Enum.map(Tore.Basics.list(home_scope()), & &1.name)
-    end
-
-    test "a typed total is a receipt with no lines in the week named, with undo", %{ctx: ctx} do
-      last_week = Date.add(Tore.Streams.monday(Tore.Clock.today()), -7)
-      week = Tore.Streams.week_number(last_week)
-
-      assert %{text: text, run_stream_id: id} =
-               Dispatch.log_total(Decimal.new(1900), Date.add(last_week, 2), ctx)
-
-      assert text == "Lade in 1 900 kr för vecka #{week}."
-      assert Decimal.eq?(Tore.Costs.spent_in_week(home_scope(), last_week), 1900)
-
-      {:ok, _} = Runs.revert(home_scope(), id)
-      assert Tore.Costs.spent_in_week(home_scope(), last_week) == nil
-
-      next_week = Date.add(Tore.Clock.today(), 7)
-
-      assert %{error: true, text: "Den veckan har inte börjat än."} =
-               Dispatch.log_total(Decimal.new(100), next_week, ctx)
-    end
-
-    test "planning the week answers with its estimate against the budget", %{ctx: ctx} do
-      import Mox
-
-      {:ok, recipe} =
-        Tore.Recipes.create(
-          home_scope(),
-          %{
-            title: "Gryta",
-            base_servings: 4,
-            ingredients: [%{name: "bönor", quantity: 2, unit: "st"}]
-          },
-          image: false
-        )
-
-      Repo.update_all(
-        Ecto.Query.from(i in Tore.Recipes.Ingredient, where: i.name == "bönor"),
-        [set: [estimated_price: Decimal.new(15), estimated_unit: "st"]],
-        Tore.Scope.repo_opts(home_scope())
-      )
-
-      Dispatch.set_budget(Decimal.new(500), ~D[2026-11-16], ctx)
-      plan = Tore.Streams.plan(home_scope(), ~D[2026-11-16])
-      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "mon_dinner", recipe.id, 4)
-
-      expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Klart."}, %{}} end)
-
-      # Monday's stew, 30 kr, and six open days at a typical dinner, the same.
-      assert %{
-               text: "Planerade vecka 47: runt 210 av 500 kr, 0 av 1 ingredienser har pris.",
-               run_stream_id: id
-             } =
-               Dispatch.plan_week(~D[2026-11-18], "planera veckan", ctx)
-
-      assert %KitchenRun{kind: "planner_command_run"} = Runs.get(home_scope(), id)
-    end
-  end
-
-  describe "can_i_make/4" do
-    test "checks a recipe in the library by its own ingredients" do
-      {:ok, buns} =
-        Tore.Recipes.create(
-          home_scope(),
-          %{
-            title: "Kanelbullar",
-            recipe_type: :baking,
-            ingredients: [%{name: "vetemjöl"}, %{name: "kanel"}, %{name: "smör"}]
-          },
-          image: false
-        )
-
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vetemjöl"})
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
-
-      bubble = Dispatch.can_i_make("kanelbullar", nil, ["ignored"], %{scope: home_scope()})
-
-      assert %{recipe_id: id, baking: true, have: ["vetemjöl", "smör"], missing: ["kanel"]} =
-               bubble.can_make
-
-      assert id == buns.id
-    end
-
-    test "a dish not in the library is checked by the ingredients given for it" do
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ägg"})
-
-      bubble =
-        Dispatch.can_i_make("Pannkakor", nil, ["ägg", "mjölk", "vetemjöl"], %{scope: home_scope()})
-
-      assert %{recipe_id: nil, title: "Pannkakor", have: ["ägg"], missing: ["mjölk", "vetemjöl"]} =
-               bubble.can_make
-    end
-
-    test "a plain question makes no model call; saying what's lacking asks for swaps once" do
-      {:ok, stew} =
-        Tore.Recipes.create(
-          home_scope(),
-          %{
-            title: "Kycklinggryta",
-            recipe_type: :meal,
-            ingredients: [%{name: "kyckling"}, %{name: "crème fraîche"}]
-          },
-          image: false
-        )
-
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "kyckling"})
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "crème fraîche"})
-
-      assert %{missing: [], swaps: nil} =
-               Dispatch.can_i_make("kycklinggryta", stew.id, [], %{scope: home_scope()}).can_make
-
-      Mox.expect(Tore.MockLLM, :text, fn _system, user, _opts ->
-        assert %{"missing" => ["crème fraîche"], "they_have" => "gräddfil"} = Jason.decode!(user)
-
-        {:ok, %{"swaps" => [%{"for" => "crème fraîche", "use" => "gräddfil", "note" => nil}]},
-         %{}}
-      end)
-
-      bubble =
-        Dispatch.can_i_make("kycklinggryta", stew.id, [], %{scope: home_scope()},
-          lacking: ["Crème fraîche"],
-          instead: "gräddfil"
-        )
-
-      assert %{have: ["kyckling"], missing: ["crème fraîche"], swaps: [%{use: "gräddfil"}]} =
-               bubble.can_make
     end
   end
 end

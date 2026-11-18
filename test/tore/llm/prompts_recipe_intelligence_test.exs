@@ -3,36 +3,6 @@ defmodule Tore.LLM.PromptsRecipeIntelligenceTest do
 
   alias Tore.LLM.Prompts
 
-  describe "find_recipe_web/2" do
-    test "returns a {system, user} pair carrying the query" do
-      {system, user} = Prompts.find_recipe_web("weeknight ramen", nil)
-
-      assert is_binary(system)
-      assert user =~ "weeknight ramen"
-    end
-
-    test "instructs the model to return urls, not recipe bodies" do
-      {system, _user} = Prompts.find_recipe_web("ramen", nil)
-
-      assert system =~ "url"
-      refute system =~ "invent"
-    end
-
-    test "the prompt is English even for a Swedish household" do
-      {system, _user} = Prompts.find_recipe_web("ramen", "sv")
-
-      assert system =~ "recipe"
-      assert system =~ "Swedish"
-    end
-
-    test "web_candidates_json_schema/0 names the candidates array" do
-      schema = Prompts.web_candidates_json_schema()
-
-      assert schema.json_schema.name == "web_candidates"
-      assert get_in(schema.json_schema.schema, [:properties, :candidates])
-    end
-  end
-
   describe "generate_recipe_variant/3" do
     @source %{
       title: "Miso Ramen",

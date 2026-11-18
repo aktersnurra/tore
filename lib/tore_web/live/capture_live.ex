@@ -34,8 +34,6 @@ defmodule ToreWeb.CaptureLive do
 
     socket =
       if connected?(socket) do
-        # The suggestions are the stored pick's, until a turn here suggests its own.
-        Phoenix.PubSub.subscribe(Tore.PubSub, Home.swaps_topic(socket.assigns.current_user.id))
         Pi.subscribe(scope, session)
         start_async(socket, :history, fn -> history(scope, session) end)
       else
@@ -100,10 +98,8 @@ defmodule ToreWeb.CaptureLive do
   # No pi, or pi couldn't be reached: the tray opens empty, and sending says why.
   def handle_async(:history, _result, socket), do: {:noreply, socket}
 
-  @impl true
-  def handle_info({:quick_swaps, swaps}, socket), do: {:noreply, assign(socket, swaps: swaps)}
-
   # pi's events, heard while it answers something sent from here.
+  @impl true
   def handle_info({:pi, _session, _event}, %{assigns: %{loading: false}} = socket),
     do: {:noreply, socket}
 

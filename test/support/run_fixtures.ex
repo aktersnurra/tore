@@ -21,20 +21,13 @@ defmodule Tore.RunFixtures do
     |> move({:review, "Review this recipe before saving it."}, %{artifacts: [proposal]})
   end
 
-  @doc "A planner run waiting on a question, which has nothing to review."
-  def pending_question_fixture(scope) do
-    scope
-    |> open(%{kind: "planner_command_run", surface: :plan, input: %{}})
-    |> move({:ask, "Which Monday?"})
-  end
-
-  defp open(scope, attrs, at \\ DateTime.utc_now()) do
+  defp open(scope, attrs, at) do
     scope
     |> KitchenRun.open(Map.put(attrs, :actor, :user), at)
     |> Repo.insert!()
   end
 
-  defp move(run, action, extra \\ %{}) do
+  defp move(run, action, extra) do
     {:ok, changes} = Transition.next(run, action, DateTime.utc_now())
     run |> KitchenRun.change(Map.merge(changes, extra)) |> Repo.update!()
   end

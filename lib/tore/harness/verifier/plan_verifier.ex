@@ -71,10 +71,10 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
   end
 
   # Unlike the other checks (which key off the authoritative plan_state), this one
-  # reads recipe_id from the PlanDiff payload. It therefore depends on
-  # PlanDiffBuilder emitting recipe_id for both RecipeAssigned AND RecipeSwapped —
-  # if that fidelity ever lapses, the dietary check goes blind on swapped recipes
-  # while the plan still gets written. Keep the two in sync.
+  # reads recipe_id from the PlanDiff payload. It therefore depends on the kinds
+  # that build a PlanDiff (SetPlanSlot, PlanEdit) giving recipe_id for both
+  # RecipeAssigned AND RecipeSwapped — if that fidelity ever lapses, the dietary
+  # check goes blind on swapped recipes while the plan still gets written.
   defp check_dietary(events, prefs, scope) do
     banned = MapSet.new(downcase(prefs.dietary_restrictions ++ prefs.allergies))
 

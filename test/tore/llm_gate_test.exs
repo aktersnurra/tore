@@ -73,14 +73,6 @@ defmodule Tore.LLMGateTest do
     assert Costs.llm_spend_this_month(home_scope()) == 0.25
   end
 
-  test "Capture tells someone a refused household why, instead of to try again" do
-    unsponsored = scope_fixture(household_fixture())
-    ctx = %{scope: unsponsored}
-
-    assert {:ok, bubbles} = Tore.Capture.Router.route("plan tuesday", [], ctx)
-    assert List.last(bubbles).text == LLM.refusal_text(:ai_unavailable)
-  end
-
   test "refusal_text names both refusals, also wrapped by a run, and nothing else" do
     Gettext.with_locale(ToreWeb.Gettext, "sv", fn ->
       assert LLM.refusal_text(:ai_unavailable) == "AI är avstängt för det här hushållet."

@@ -11,12 +11,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       `source_recipe_id` and `instruction` carry the provenance ("recipe 7,
       made simpler").
 
-  `pending_assignment` carries the slot the user was talking about when they
-  asked for the recipe ("make *tonight's* ramen vegetarian"). It rides on the
-  artifact rather than the run's `input` because the slot is only known
-  mid-loop, after the run has opened with its `input`. `nil` means "save the
-  recipe, slot nothing".
-
   Nothing here is persisted until someone confirms the run, which turns it into
   a real `Tore.Recipes.Recipe`.
   """
@@ -37,7 +31,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     :source_url,
     :source_recipe_id,
     :instruction,
-    :pending_assignment,
     :image_url,
     :steps,
     ingredients: [],
@@ -51,8 +44,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
         }
 
   @type source :: :web_import | :generation | :photo
-
-  @type pending_assignment :: %{slot_key: String.t(), servings: pos_integer()}
 
   @type t :: %__MODULE__{
           title: String.t(),
@@ -68,7 +59,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
           source_url: String.t() | nil,
           source_recipe_id: integer() | nil,
           instruction: String.t() | nil,
-          pending_assignment: pending_assignment() | nil,
           image_url: String.t() | nil,
           steps: String.t() | nil
         }
@@ -124,7 +114,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       "source_url" => proposal.source_url,
       "source_recipe_id" => proposal.source_recipe_id,
       "instruction" => proposal.instruction,
-      "pending_assignment" => pending_to_json(proposal.pending_assignment),
       "image_url" => proposal.image_url,
       "steps" => proposal.steps
     }
@@ -146,7 +135,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
       source_url: json["source_url"],
       source_recipe_id: json["source_recipe_id"],
       instruction: json["instruction"],
-      pending_assignment: pending_from_json(json["pending_assignment"]),
       image_url: json["image_url"],
       steps: json["steps"]
     }
@@ -156,16 +144,6 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     do: String.to_existing_atom(type)
 
   defp recipe_type_from_json(_), do: nil
-
-  defp pending_to_json(nil), do: nil
-
-  defp pending_to_json(%{slot_key: slot_key, servings: servings}),
-    do: %{"slot_key" => slot_key, "servings" => servings}
-
-  defp pending_from_json(nil), do: nil
-
-  defp pending_from_json(%{"slot_key" => slot_key, "servings" => servings}),
-    do: %{slot_key: slot_key, servings: servings}
 
   defp ingredient_to_json(ing) do
     %{

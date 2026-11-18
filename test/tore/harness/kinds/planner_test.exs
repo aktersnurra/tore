@@ -5,14 +5,13 @@ defmodule Tore.Harness.Kinds.PlannerTest do
 
   alias Tore.{Planning, Recipes}
   alias Tore.Harness.{KitchenRun, Runs}
-  alias Tore.Harness.Artifact.{PlanDiff, RecipeProposal}
-  alias Tore.Harness.Kinds.{PlannerCommand, SetPlanSlot}
+  alias Tore.Harness.Artifact.RecipeProposal
+  alias Tore.Harness.Kinds.{RecipeIngestion, SetPlanSlot}
   alias Tore.Planning.{Commands, Decider, State}
 
   setup :verify_on_exit!
 
   @week ~D[2026-06-08]
-  @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
 
   setup do
     stub(Tore.MockHTTP, :fetch, fn _url -> {:error, :not_found} end)
@@ -33,148 +32,28 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       image_url: "https://example.com/x.jpg"
     }
 
-  defp command(plan, text), do: %{command: text, plan_stream_id: plan, week_start: @week}
-
-  defp tool_call(name, args) do
-    expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
-      {:ok, {:tool_calls, [%{id: "c1", name: name, args: args}]}, @usage}
-    end)
-  end
-
-  defp done,
-    do:
-      expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ ->
-        {:ok, {:message, "Done."}, @usage}
-      end)
-
   defp slots(plan) do
     {:ok, state} = Planning.load_plan(home_scope(), plan)
     {state.slots, state.pins}
   end
 
-  describe "a planner command" do
-    test "applies the planner's change, undoes it to what was there, and the run reads back equal",
-         %{plan: plan} do
-      before = slots(plan)
-      tool_call("skip_meal", %{"slot_key" => "mon_dinner", "rationale" => "busy"})
-      done()
-
-      assert {:ok, %KitchenRun{status: :applied, kind: "planner_command_run"} = run} =
-               Runs.start(home_scope(), PlannerCommand, command(plan, "skip monday"))
-
-      assert run == Runs.get(home_scope(), run.id)
-
-      assert [%PlanDiff{events: [%{event_type: "MealSkipped", rationale: ["busy"]}]}] =
-               run.artifacts
-
-      assert {%{"mon_dinner" => %{skipped: true}}, _} = slots(plan)
-
-      assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(home_scope(), run.id)
-      assert slots(plan) == before
-    end
-
-    test "the prompt names the week's mode once", %{plan: plan} do
-      {:ok, _} = Tore.WeekMode.set_mode(home_scope(), "low_effort")
-      test_pid = self()
-
-      expect(Tore.MockLLM, :chat_with_tools, fn system, _, _, _ ->
-        send(test_pid, {:system, system})
-        {:ok, {:message, "Done."}, @usage}
-      end)
-
-      {:ok, _run} = Runs.start(home_scope(), PlannerCommand, command(plan, "hello"))
-
-      assert_received {:system, system}
-      assert [_before, _after] = String.split(system, "Current week mode: ")
-      assert system =~ "Current week mode: Low effort."
-    end
-
-    test "a question waits for the person", %{plan: plan} do
-      tool_call("ask_user", %{"question" => "which Monday?"})
-
-      assert {:ok, %KitchenRun{status: :needs_user, question: "which Monday?"}} =
-               Runs.start(home_scope(), PlannerCommand, command(plan, "skip monday"))
-    end
-
-    test "a pinned day fails the run and the plan is untouched", %{plan: plan} do
-      {:ok, _} = Planning.pin_slot(home_scope(), plan, "mon_dinner", true)
-      before = slots(plan)
-      tool_call("skip_meal", %{"slot_key" => "mon_dinner", "rationale" => "out"})
-      done()
-
-      assert {:ok,
-              %KitchenRun{
-                status: :failed,
-                failure_code: :slot_pinned,
-                repair_action: {:edit_plan, ["mon_dinner"]}
-              }} =
-               Runs.start(home_scope(), PlannerCommand, command(plan, "skip monday"))
-
-      assert slots(plan) == before
-    end
-
-    test "a refused LLM call fails the run and writes nothing", %{plan: plan} do
-      before = slots(plan)
-      stub(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ -> {:error, :boom} end)
-
-      assert {:error, {:step_failed, :boom}} =
-               Runs.start(home_scope(), PlannerCommand, command(plan, "skip monday"))
-
-      assert %KitchenRun{status: :failed, failure_code: :internal_error} =
-               Runs.latest_on_surface(home_scope(), :plan)
-
-      assert slots(plan) == before
-    end
-
-    test "plan screens hear about it only once it has committed", %{plan: plan} do
-      Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(home_scope()))
-      tool_call("skip_meal", %{"slot_key" => "mon_dinner", "rationale" => "busy"})
-      done()
-
-      {:ok, run} = Runs.start(home_scope(), PlannerCommand, command(plan, "skip monday"))
-      assert_receive {:events, _}
-      {:ok, _} = Runs.revert(home_scope(), run.id)
-      assert_receive {:events, _}
-    end
-  end
-
-  describe "a recipe the planner proposes" do
-    setup %{plan: plan} do
+  describe "a saved recipe" do
+    setup do
       proposal = %RecipeProposal{
         title: "Tofu ramen",
         instructions: "Simmer.",
         base_servings: 4,
         ingredients: [%{name: "tofu", quantity: "300", unit: "g"}],
         tags: [],
-        source: :generation,
-        pending_assignment: %{slot_key: "tue_dinner", servings: 2}
+        source: :web_import
       }
 
-      %{proposal: proposal, ctx: command(plan, "ramen tuesday")}
-    end
-
-    test "is saved straight away on the day it was meant for, and undo deletes it", %{
-      plan: plan,
-      proposal: proposal,
-      ctx: ctx
-    } do
-      assert {:ok, %KitchenRun{status: :applied} = run} =
-               Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
-
-      assert %{title: "Tofu ramen", id: id} =
-               Recipes.list(home_scope()) |> Enum.find(&(&1.title == "Tofu ramen"))
-
-      assert {%{"tue_dinner" => %{recipe_id: ^id, servings: 2}}, _} = slots(plan)
-
-      assert {:ok, _} = Runs.revert(home_scope(), run.id)
-      refute Recipes.get(home_scope(), id)
-      assert {slots, _} = slots(plan)
-      refute Map.has_key?(slots, "tue_dinner")
+      %{proposal: proposal, ctx: %{proposal: proposal}}
     end
 
     test "is saved as made by whoever asked for it", %{proposal: proposal, ctx: ctx} do
       person = scope_fixture(user_fixture())
-      {:ok, _} = Runs.submit(person, PlannerCommand, proposal, ctx)
+      {:ok, _} = Runs.submit(person, RecipeIngestion, proposal, ctx)
 
       assert %{created_by: by} =
                Enum.find(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
@@ -186,34 +65,11 @@ defmodule Tore.Harness.Kinds.PlannerTest do
       proposal: proposal,
       ctx: ctx
     } do
-      {:ok, applied} = Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
+      {:ok, applied} = Runs.submit(home_scope(), RecipeIngestion, proposal, ctx)
       recipe = Enum.find(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
       {:ok, _} = Recipes.delete(home_scope(), recipe)
 
       assert {:ok, %KitchenRun{status: :reverted}} = Runs.revert(home_scope(), applied.id)
-    end
-
-    test "a pinned day is left alone, and nothing is saved", %{
-      plan: plan,
-      proposal: proposal,
-      ctx: ctx
-    } do
-      {:ok, _} = Planning.pin_slot(home_scope(), plan, "tue_dinner", true)
-
-      assert {:ok, %KitchenRun{status: :failed, failure_code: :slot_pinned}} =
-               Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
-
-      refute Enum.any?(Recipes.list(home_scope()), &(&1.title == "Tofu ramen"))
-    end
-
-    test "a day marked eating out is left alone", %{plan: plan, proposal: proposal, ctx: ctx} do
-      {:ok, _} = Planning.eat_out(home_scope(), plan, "tue_dinner", %{})
-
-      assert {:ok, %KitchenRun{status: :failed, failure_code: :slot_eating_out}} =
-               Runs.submit(home_scope(), PlannerCommand, proposal, ctx)
-
-      assert {%{"tue_dinner" => slot}, _} = slots(plan)
-      assert State.eating_out?(slot)
     end
   end
 

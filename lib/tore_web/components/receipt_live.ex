@@ -44,8 +44,7 @@ defmodule ToreWeb.Components.ReceiptLive do
 
   # Header per (kind, state-variant) ------------------------------------------
 
-  defp header_for(%KitchenRun{kind: "planner_command_run", status: status}),
-    do: planner_header(status)
+  defp header_for(%KitchenRun{surface: :plan, status: status}), do: planner_header(status)
 
   defp header_for(_), do: gettext("Tore")
 

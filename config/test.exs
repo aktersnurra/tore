@@ -70,4 +70,3 @@ config :tore, :draw_missing_pictures, false
 # Today switches to tomorrow at 21:00; in tests only when a test says so, whatever the hour.
 config :tore, :evening_over, 24
 config :tore, :learn, :off
-config :tore, :estimate_prices, false

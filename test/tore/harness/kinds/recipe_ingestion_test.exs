@@ -7,6 +7,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
   alias Tore.Capture.Dispatch
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.RecipeProposal
+  alias Tore.Harness.Kinds.RecipeIngestion
 
   setup :verify_on_exit!
 
@@ -36,13 +37,16 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
 
   defp titles, do: home_scope() |> Recipes.list() |> Enum.map(& &1.title)
 
+  # A photo of a recipe's page, read into a recipe by its run.
+  defp from_photo(ctx) do
+    {:ok, run} = Runs.start(ctx.scope, RecipeIngestion, %{images: [<<255, 216, 255>>]})
+    run
+  end
+
   test "a recipe photo is saved straight away, and undo deletes it", %{ctx: ctx} do
     expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, @soup, @usage} end)
 
-    bubble = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
-
-    assert %{run_stream_id: id} = bubble
-    assert bubble.text =~ "Morotssoppa"
+    %KitchenRun{id: id} = from_photo(ctx)
 
     assert %KitchenRun{
              status: :applied,
@@ -65,7 +69,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     raw = @soup |> Map.put("base_servings", nil) |> Map.put("image_url", "https://evil.example/x")
     expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, raw, @usage} end)
 
-    %{run_stream_id: id} = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
+    %KitchenRun{id: id} = from_photo(ctx)
 
     assert %KitchenRun{status: :applied, artifacts: [proposal]} = Runs.get(home_scope(), id)
     assert %RecipeProposal{base_servings: 4, image_url: nil} = proposal
@@ -137,11 +141,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
 
     expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, @soup, @usage} end)
 
-    Gettext.put_locale(ToreWeb.Gettext, "sv")
-    bubble = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
-
-    assert bubble.text =~ "redan har"
-    refute Map.has_key?(bubble, :run_stream_id)
+    assert %KitchenRun{status: :failed, failure_code: :near_duplicate} = from_photo(ctx)
     assert titles() == ["Morotssoppa"]
   end
 
@@ -150,7 +150,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
       {:ok, @soup |> Map.put("title", "Kanelbullar") |> Map.put("recipe_type", "baking"), @usage}
     end)
 
-    %{run_stream_id: _} = Dispatch.ingest_recipe([<<255, 216, 255>>], ctx)
+    %KitchenRun{status: :applied} = from_photo(ctx)
 
     assert [%{title: "Kanelbullar", recipe_type: :baking}] = Recipes.list(home_scope())
   end

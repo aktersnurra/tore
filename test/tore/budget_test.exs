@@ -4,7 +4,6 @@ defmodule Tore.BudgetTest do
   import Ecto.Query
 
   alias Tore.{Budget, Planning, Recipes, Streams}
-  alias Tore.Harness.Capsules.BudgetCapsule
   alias Tore.Recipes.Ingredient
 
   @week ~D[2026-11-16]
@@ -222,24 +221,5 @@ defmodule Tore.BudgetTest do
     assert Decimal.eq?(page.paid, 0)
     assert page.average == nil
     assert page.sections == [] and page.receipts == []
-  end
-
-  test "the planner hears of the budget only when the week has one" do
-    ctx = %{scope: home_scope(), plan_stream_id: plan(), week_start: @week}
-    assert BudgetCapsule.to_prompt(BudgetCapsule.build(ctx)) == nil
-
-    :ok = Budget.set_default(home_scope(), d("1800"))
-    prompt = BudgetCapsule.to_prompt(BudgetCapsule.build(ctx))
-    assert prompt =~ "1800 kr"
-    assert prompt =~ "expected to cost about 0 kr"
-    refute prompt =~ "open days"
-
-    # Once a dinner has a price, the open days are said to be in the expected cost.
-    {:ok, _} =
-      Planning.assign_recipe(home_scope(), plan(), "mon_dinner", recipe("Gryta", "100").id, 4)
-
-    prompt = BudgetCapsule.to_prompt(BudgetCapsule.build(ctx))
-    assert prompt =~ "expected to cost about 700 kr"
-    assert prompt =~ "6 open days at a typical dinner, 600 kr together"
   end
 end
