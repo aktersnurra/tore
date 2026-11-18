@@ -125,3 +125,6 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
+
+# The nightly job that draws missing recipe photos makes paid image calls; not from a laptop.
+config :tore, :draw_missing_pictures, false

@@ -65,5 +65,6 @@ config :tore, :oidc_start_worker, false
 config :tore, :extra_run_kinds, [Tore.Harness.TestKind]
 config :tore, :fail_interrupted_runs_at_boot, false
 config :tore, :recipe_images_in_background, false
+config :tore, :draw_missing_pictures, false
 config :tore, :learn, :off
 config :tore, :estimate_prices, false

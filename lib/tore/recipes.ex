@@ -478,10 +478,29 @@ defmodule Tore.Recipes do
   drawn and how many failed (a failed one keeps its old picture).
   """
   @spec restyle_images() :: %{drawn: non_neg_integer(), failed: non_neg_integer()}
-  def restyle_images do
+  def restyle_images, do: draw_each(fn scope -> list(scope) end)
+
+  @doc """
+  Draws a picture for each recipe that has none, in every household: one whose picture failed
+  when it was saved, or one from before pictures were drawn. `Tore.Scheduler` runs it at night,
+  so no recipe stays without a photo for long. Each picture is a paid call, so it does nothing
+  where `config :tore, :draw_missing_pictures, false` (dev and test).
+  """
+  @spec draw_missing_pictures() :: %{drawn: non_neg_integer(), failed: non_neg_integer()}
+  def draw_missing_pictures do
+    if Application.get_env(:tore, :draw_missing_pictures, true),
+      do: draw_each(&without_picture/1),
+      else: %{drawn: 0, failed: 0}
+  end
+
+  defp without_picture(scope),
+    do: Repo.all(from(r in Recipe, where: is_nil(r.image_path)), Scope.repo_opts(scope))
+
+  # One picture at a time, for the recipes `pick` gives in each household.
+  defp draw_each(pick) do
     for id <- Tore.Household.list_ids(),
         scope = Scope.for_household(id),
-        recipe <- scope |> list() |> Repo.preload(recipe_ingredients: :ingredient) do
+        recipe <- scope |> pick.() |> Repo.preload(recipe_ingredients: :ingredient) do
       generate_image(scope, recipe, nil)
     end
     |> Enum.frequencies_by(&(&1 == :ok))

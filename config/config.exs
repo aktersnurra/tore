@@ -62,6 +62,8 @@ config :tore, :openrouter_app_name, "Tore"
 config :tore, Tore.Scheduler,
   jobs: [
     {"0 3 * * *", {Tore.Deals, :clear_expired, []}},
+    # Recipes still without a photo get one drawn (off in dev and test).
+    {"30 3 * * *", {Tore.Recipes, :draw_missing_pictures, []}},
     {"0 4 * * 0", {Tore.Harness.InboxSweeper, :sweep_weekly, []}},
     {"0 6 * * 6", {Tore.Harness.Kinds.MemoryReview, :review_weekly, []}},
     # The coming week's offers, then its plan: Friday to Sunday mornings, and Sunday's deadline.

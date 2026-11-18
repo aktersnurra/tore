@@ -88,6 +88,24 @@ defmodule Tore.RecipesTest do
       assert %{drawn: 2, failed: 0} = Recipes.restyle_images()
       assert Recipes.get!(home_scope(), a.id).image_path
     end
+
+    test "draw_missing_pictures draws only the recipes without one, and only where it's on" do
+      Tore.Storage.Mock.reset()
+      {:ok, bare} = Recipes.create(home_scope(), recipe_attrs(%{title: "A"}), image: false)
+      {:ok, drawn} = Recipes.create(home_scope(), recipe_attrs(%{title: "B"}), image: false)
+      :ok = Recipes.generate_image(home_scope(), drawn, nil)
+      had = Recipes.get!(home_scope(), drawn.id).image_path
+
+      assert %{drawn: 0, failed: 0} = Recipes.draw_missing_pictures()
+      refute Recipes.get!(home_scope(), bare.id).image_path
+
+      Application.put_env(:tore, :draw_missing_pictures, true)
+      on_exit(fn -> Application.put_env(:tore, :draw_missing_pictures, false) end)
+
+      assert %{drawn: 1, failed: 0} = Recipes.draw_missing_pictures()
+      assert Recipes.get!(home_scope(), bare.id).image_path
+      assert Recipes.get!(home_scope(), drawn.id).image_path == had
+    end
   end
 
   describe "create/1" do
