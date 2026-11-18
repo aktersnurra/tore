@@ -284,10 +284,16 @@ defmodule Tore.Capture.Dispatch do
   title containing `dish`) is checked by its own ingredients; otherwise by `ingredients`, the
   model's idea of what the dish needs. The reply carries what's had and what's missing, and,
   for a library recipe, its id so it can be started.
+
+  `lacking` is what they said they don't have, whatever the pantry says; `instead` what they said
+  they'd use. Either one asks for swaps (`Tore.Recipes.Swaps`, one model call), the same check as
+  the sheet before cooking. A plain "can I make it?" makes no call.
   """
-  @spec can_i_make(String.t(), integer() | nil, [String.t()], ctx()) :: bubble()
-  def can_i_make(dish, recipe_id, ingredients, ctx) when is_binary(dish) do
+  @spec can_i_make(String.t(), integer() | nil, [String.t()], ctx(), keyword()) :: bubble()
+  def can_i_make(dish, recipe_id, ingredients, ctx, opts \\ []) when is_binary(dish) do
     recipe = library_recipe(ctx.scope, recipe_id, dish)
+    lacking = Keyword.get(opts, :lacking, [])
+    instead = Keyword.get(opts, :instead, "")
 
     names =
       if recipe,
@@ -295,7 +301,18 @@ defmodule Tore.Capture.Dispatch do
         else: ingredients
 
     %{have: have, missing: missing} = Tore.Pantry.at_home(ctx.scope, names)
+    {have, missing} = also_lacking(have, missing, lacking)
     title = if recipe, do: recipe.title, else: dish
+
+    swaps =
+      if missing != [] and (lacking != [] or String.trim(instead) != "") do
+        recipe = recipe || %Tore.Recipes.Recipe{title: dish, recipe_ingredients: []}
+
+        case Tore.Recipes.Swaps.check(ctx.scope, recipe, missing, instead) do
+          {:ok, swaps} -> swaps
+          {:error, _} -> nil
+        end
+      end
 
     %{
       role: :assistant,
@@ -305,10 +322,20 @@ defmodule Tore.Capture.Dispatch do
         photo: recipe && recipe.image_path != nil,
         baking: recipe && recipe.recipe_type == :baking,
         have: have,
-        missing: missing
+        missing: missing,
+        swaps: swaps
       },
       text: can_make_text(title, missing)
     }
+  end
+
+  # What they said they lack is missing, even where the pantry thinks it's had.
+  defp also_lacking(have, missing, lacking) do
+    lacks? = fn name -> Enum.any?(lacking, &(String.downcase(&1) == String.downcase(name))) end
+    {gone, have} = Enum.split_with(have, lacks?)
+    known = Enum.map(have ++ gone ++ missing, &String.downcase/1)
+    extra = Enum.reject(lacking, &(String.downcase(&1) in known))
+    {have, missing ++ gone ++ extra}
   end
 
   defp library_recipe(scope, id, _dish) when is_integer(id) do

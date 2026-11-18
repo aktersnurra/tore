@@ -65,8 +65,10 @@ defmodule ToreWeb.CaptureLive do
     list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(Tore.Clock.today()))
 
     case Enum.at(socket.assigns.messages, index) do
-      %{can_make: %{missing: missing}, added: nil} ->
-        for name <- missing, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
+      %{can_make: %{missing: missing} = can_make, added: nil} ->
+        for name <- missing,
+            !swapped?(can_make, name),
+            do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
 
         {:noreply,
          update(socket, :messages, &List.update_at(&1, index, fn m -> %{m | added: true} end))}
@@ -186,22 +188,41 @@ defmodule ToreWeb.CaptureLive do
           >
             <.icon name="ph-check" class="size-4" /> {gettext("All of it is at home")}
           </p>
-          <p :if={@msg.can_make.missing != []} class="mt-0.5 text-[14px] text-[color:var(--muted)]">
+          <p
+            :if={@msg.can_make.missing != [] and !@msg.can_make[:swaps]}
+            class="mt-0.5 text-[14px] text-[color:var(--muted)]"
+          >
             {gettext("Missing: %{things}", things: Enum.join(@msg.can_make.missing, ", "))}
           </p>
         </div>
       </div>
+      <ul :if={@msg.can_make[:swaps]} class="mt-3 space-y-1.5" data-role="swaps">
+        <li :for={swap <- @msg.can_make.swaps} class="text-[14px] leading-snug">
+          <span class="text-[color:var(--muted)]">{swap.for}</span>
+          <span :if={swap.use} class="font-semibold text-[color:var(--text)]">
+            <.icon name="ph-arrow-right" class="size-3.5" /> {swap.use}
+          </span>
+          <span :if={swap.at_home} class="tag tag-green">{gettext("At home")}</span>
+          <span :if={swap.note} class="block text-[color:var(--muted)]">{swap.note}</span>
+          <span :if={!swap.use and !swap.note} class="block text-[color:var(--muted)]">
+            {gettext("Nothing at home fits.")}
+          </span>
+        </li>
+      </ul>
       <div class="mt-3 flex flex-wrap items-center gap-2">
         <.link
           :if={@msg.can_make.recipe_id}
-          navigate={~p"/recipes/#{@msg.can_make.recipe_id}/cook"}
-          class={["pill press", @msg.can_make.missing == [] && "pill-lamp"]}
+          navigate={cook_path(@msg.can_make)}
+          class={[
+            "pill press",
+            Enum.all?(@msg.can_make.missing, &swapped?(@msg.can_make, &1)) && "pill-lamp"
+          ]}
         >
           <.icon name="ph-play" />
           {if @msg.can_make.baking, do: gettext("Bake now"), else: gettext("Cook now")}
         </.link>
         <button
-          :if={@msg.can_make.missing != [] and !@msg.added}
+          :if={!@msg.added and Enum.any?(@msg.can_make.missing, &(!swapped?(@msg.can_make, &1)))}
           type="button"
           phx-click="add_missing"
           phx-value-index={@index}
@@ -220,6 +241,15 @@ defmodule ToreWeb.CaptureLive do
       </div>
     </div>
     """
+  end
+
+  # A missing thing with something to use instead doesn't need buying.
+  defp swapped?(can_make, name),
+    do: Enum.any?(can_make[:swaps] || [], &(&1.for == name and &1.use))
+
+  defp cook_path(%{recipe_id: id} = can_make) do
+    swaps = Enum.filter(can_make[:swaps] || [], & &1.use)
+    ~p"/recipes/#{id}/cook?#{ToreWeb.BeforeCooking.to_param(swaps)}"
   end
 
   # A reply meant only for the model, such as a rejected memory batch, has no text.

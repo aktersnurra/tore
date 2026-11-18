@@ -265,5 +265,40 @@ defmodule Tore.Capture.DispatchTest do
       assert %{recipe_id: nil, title: "Pannkakor", have: ["ägg"], missing: ["mjölk", "vetemjöl"]} =
                bubble.can_make
     end
+
+    test "a plain question makes no model call; saying what's lacking asks for swaps once" do
+      {:ok, stew} =
+        Tore.Recipes.create(
+          home_scope(),
+          %{
+            title: "Kycklinggryta",
+            recipe_type: :meal,
+            ingredients: [%{name: "kyckling"}, %{name: "crème fraîche"}]
+          },
+          image: false
+        )
+
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "kyckling"})
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "crème fraîche"})
+
+      assert %{missing: [], swaps: nil} =
+               Dispatch.can_i_make("kycklinggryta", stew.id, [], %{scope: home_scope()}).can_make
+
+      Mox.expect(Tore.MockLLM, :text, fn _system, user, _opts ->
+        assert %{"missing" => ["crème fraîche"], "they_have" => "gräddfil"} = Jason.decode!(user)
+
+        {:ok, %{"swaps" => [%{"for" => "crème fraîche", "use" => "gräddfil", "note" => nil}]},
+         %{}}
+      end)
+
+      bubble =
+        Dispatch.can_i_make("kycklinggryta", stew.id, [], %{scope: home_scope()},
+          lacking: ["Crème fraîche"],
+          instead: "gräddfil"
+        )
+
+      assert %{have: ["kyckling"], missing: ["crème fraîche"], swaps: [%{use: "gräddfil"}]} =
+               bubble.can_make
+    end
   end
 end

@@ -374,5 +374,61 @@ defmodule ToreWeb.CaptureLiveTest do
                "kanel"
              ]
     end
+
+    test "I don't have crème fraîche, I have gräddfil: the card swaps it and cooks with it", %{
+      conn: conn
+    } do
+      {:ok, stew} =
+        Tore.Recipes.create(
+          home_scope(),
+          %{
+            title: "Kycklinggryta",
+            recipe_type: :meal,
+            ingredients: [%{name: "kyckling"}, %{name: "crème fraîche"}]
+          },
+          image: false
+        )
+
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "kyckling"})
+
+      stub(Tore.MockLLM, :text, fn _s, _u, _o ->
+        {:ok,
+         %{"swaps" => [%{"for" => "crème fraîche", "use" => "gräddfil", "note" => "Låg värme."}]},
+         %{}}
+      end)
+
+      call = %{
+        id: "c1",
+        name: "can_i_make",
+        args: %{
+          "dish" => "Kycklinggryta",
+          "recipe_id" => stew.id,
+          "ingredients" => [],
+          "lacking" => ["crème fraîche"],
+          "instead" => "gräddfil"
+        }
+      }
+
+      expect(Tore.MockLLM, :chat_with_tools, 2, fn _sys, msgs, _tools, _opts ->
+        if Enum.any?(msgs, &(&1[:role] == "tool")),
+          do: {:ok, {:message, "Ta gräddfil."}, %{}},
+          else: {:ok, {:tool_calls, [call]}, %{}}
+      end)
+
+      {:ok, view, _} = live(conn, ~p"/capture")
+
+      view
+      |> form(~s(form[phx-submit="send_message"]), %{
+        message: "har ingen crème fraîche, gräddfil?"
+      })
+      |> render_submit()
+
+      assert eventually(fn -> has_element?(view, ~s([data-role="swaps"])) end)
+      card = view |> element(~s([data-role="can-make"])) |> render()
+      assert card =~ "gräddfil"
+      assert card =~ "Låg värme."
+      assert card =~ "swaps[0][use]=gr%C3%A4ddfil"
+      refute card =~ "Lägg det som saknas på listan"
+    end
   end
 end

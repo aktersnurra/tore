@@ -69,6 +69,10 @@ defmodule Tore.Capture.Router do
       → `can_i_make` with the dish. If it isn't in their recipes, also pass `ingredients`: what
       the dish usually needs, in their language, staples included. Then say in one line what's
       missing; the card offers to start it or put the missing things on the list.
+    - "I want to cook X but I don't have Y" / "jag vill laga X men har ingen crème fraîche, har
+      gräddfil" → `can_i_make` with Y in `lacking` and what they'd use in `instead`. The card
+      shows a swap per missing thing, taken from what they said and the pantry; say the swaps
+      in one line, never suggest others of your own.
     - "Plan next week" / "planera veckan" → `plan_week` with their words as the request. A budget
       in the same breath ("budget 2000 kr") → `set_budget` for that week first, then `plan_week`.
       "Our budget is 2000 a week" → `set_budget` with no week. It covers the whole shop.
@@ -320,7 +324,11 @@ defmodule Tore.Capture.Router do
        when is_binary(dish) do
     recipe_id = if is_integer(args["recipe_id"]), do: args["recipe_id"]
     ingredients = Enum.filter(args["ingredients"] || [], &is_binary/1)
-    {:ok, [Dispatch.can_i_make(dish, recipe_id, ingredients, ctx)]}
+    lacking = Enum.filter(args["lacking"] || [], &is_binary/1)
+    instead = if is_binary(args["instead"]), do: args["instead"], else: ""
+
+    {:ok,
+     [Dispatch.can_i_make(dish, recipe_id, ingredients, ctx, lacking: lacking, instead: instead)]}
   end
 
   defp run_call(%{name: "suggest_meals_from_pantry", args: args}, _images, _count, ctx) do
@@ -574,7 +582,7 @@ defmodule Tore.Capture.Router do
       ),
       tool(
         "can_i_make",
-        "Check whether a dish can be made with what's at home: what's had and what's missing. A recipe in their library is checked by its own ingredients; otherwise by `ingredients`.",
+        "Check whether a dish can be made with what's at home: what's had and what's missing. A recipe in their library is checked by its own ingredients; otherwise by `ingredients`. With `lacking` or `instead`, it also says what to use in place of each missing thing.",
         %{
           type: "object",
           properties: %{
@@ -588,9 +596,20 @@ defmodule Tore.Capture.Router do
               items: %{type: "string"},
               description:
                 "What the dish usually needs, for a dish not in their recipes. Empty when it is."
+            },
+            lacking: %{
+              type: "array",
+              items: %{type: "string"},
+              description:
+                "What they said they don't have, as named in the recipe when you know it. Empty when they didn't say."
+            },
+            instead: %{
+              type: "string",
+              description:
+                "What they said they have to use instead, in their words (\"gräddfil, rödlök\"). Empty when they didn't say."
             }
           },
-          required: ["dish", "recipe_id", "ingredients"],
+          required: ["dish", "recipe_id", "ingredients", "lacking", "instead"],
           additionalProperties: false
         }
       ),
@@ -1042,6 +1061,7 @@ defmodule Tore.Capture.Router do
       recipe_id: can_make.recipe_id,
       have: can_make.have,
       missing: can_make.missing,
+      swaps: Enum.map(can_make.swaps || [], &Map.take(&1, [:for, :use, :note])),
       message: bubble.text
     }
   end
