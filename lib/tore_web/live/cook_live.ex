@@ -175,7 +175,7 @@ defmodule ToreWeb.CookLive do
           <p class="t-title mt-3 flex items-center gap-3" role="status">
             <.icon
               :if={!@failed}
-              name="hero-arrow-path"
+              name="ph-arrows-clockwise"
               class="size-6 shrink-0 text-[color:var(--muted)] motion-safe:animate-spin"
             />
             {if @failed,

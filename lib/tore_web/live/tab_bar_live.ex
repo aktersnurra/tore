@@ -27,11 +27,11 @@ defmodule ToreWeb.TabBarLive do
   # Icon names written out in full, outline and filled, so Tailwind builds both.
   defp tabs do
     [
-      {~p"/today", {"hero-home", "hero-home-solid"}, gettext("Today")},
-      {~p"/plan", {"hero-calendar-days", "hero-calendar-days-solid"}, gettext("Plan")},
+      {~p"/today", {"ph-house-simple", "ph-house-simple-fill"}, gettext("Today")},
+      {~p"/plan", {"ph-calendar-blank", "ph-calendar-blank-fill"}, gettext("Plan")},
       :tore,
-      {~p"/shop", {"hero-shopping-cart", "hero-shopping-cart-solid"}, gettext("Shop")},
-      {~p"/recipes", {"hero-book-open", "hero-book-open-solid"}, gettext("Recipes")}
+      {~p"/shop", {"ph-shopping-cart", "ph-shopping-cart-fill"}, gettext("Shop")},
+      {~p"/recipes", {"ph-book-open", "ph-book-open-fill"}, gettext("Recipes")}
     ]
   end
 
@@ -64,7 +64,7 @@ defmodule ToreWeb.TabBarLive do
           >
             <%!-- Raised above the bar, ringed in the page colour, so it reads as the one way to ask. --%>
             <span class="-mt-5 flex size-14 items-center justify-center rounded-full bg-[var(--accent)] text-[color:var(--on-accent)] shadow-[0_0_0_5px_var(--bg),var(--shadow-pop)]">
-              <.icon name="hero-chat-bubble-oval-left-solid" class="size-6" />
+              <.icon name="ph-chat-circle-fill" class="size-6" />
             </span>
             <span class="tab-label text-[color:var(--muted)]">Tore</span>
           </.link>

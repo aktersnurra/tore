@@ -68,14 +68,14 @@ defmodule ToreWeb.Spending do
             for={@upload.ref}
             class="pill press cursor-pointer"
           >
-            <.icon name="hero-camera" /> {gettext("Scan receipt")}
+            <.icon name="ph-camera" /> {gettext("Scan receipt")}
           </label>
           <span
             :if={@scanning}
             role="status"
             class="inline-flex h-11 items-center gap-2 text-[14px] text-[color:var(--muted)]"
           >
-            <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" /> {gettext(
+            <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" /> {gettext(
               "Reading the receipt…"
             )}
           </span>
@@ -143,7 +143,7 @@ defmodule ToreWeb.Spending do
           )
         }
       >
-        <.icon name="hero-arrows-right-left" class="size-3.5" />
+        <.icon name="ph-arrows-left-right" class="size-3.5" />
         {gettext("Week %{week}", week: Tore.Streams.week_number(@receipt.week_start))}
       </button>
       <span :if={@amount} class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">

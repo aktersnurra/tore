@@ -6,9 +6,8 @@
 @source "../js";
 @source "../../lib/tore_web";
 
-/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
-   The heroicons installation itself is managed by your mix.exs */
-@plugin "../vendor/heroicons";
+/* A Tailwind plugin that makes "ph-#{ICON}" classes from the Phosphor icons in vendor/phosphor. */
+@plugin "../vendor/phosphor";
 
 /* daisyUI is kept for legacy components but no themes are registered.
    Tokens below drive all new UI. */
@@ -267,7 +266,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--sunken); color: var(--text);
   font-size: 14px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap;
 }
-.pill .hero-icon, .pill [class*="hero-"] { width: 16px; height: 16px; }
+.pill [class*="ph-"] { width: 16px; height: 16px; }
 .pill-lamp { background: var(--accent); color: var(--on-accent); }
 
 /* ── Tags: a small tinted label. The colour says what it is (ui.md §4.3). ── */
@@ -276,7 +275,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border-radius: 4px; font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap;
   background: var(--tag-grey); color: var(--tag-grey-ink);
 }
-.tag [class*="hero-"] { width: 13px; height: 13px; }
+.tag [class*="ph-"] { width: 13px; height: 13px; }
 .tag-dot::before { content: ""; width: 6px; height: 6px; border-radius: 9px; background: currentColor; opacity: .85; }
 .tag-orange { background: var(--tag-orange); color: var(--tag-orange-ink); }
 .tag-yellow { background: var(--tag-yellow); color: var(--tag-yellow-ink); }
@@ -333,7 +332,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 @media (hover: hover) { .props > div:hover { background: var(--sunken); } }
 .props dt { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
-.props dt [class*="hero-"] { width: 16px; height: 16px; flex: none; }
+.props dt [class*="ph-"] { width: 16px; height: 16px; flex: none; }
 .props dd { font-size: 15px; color: var(--text); min-width: 0; }
 
 /* A small round button for steppers. */

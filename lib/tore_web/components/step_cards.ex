@@ -51,7 +51,7 @@ defmodule ToreWeb.StepCards do
           aria-label={gettext("Close")}
           class="press inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
         >
-          <.icon name="hero-x-mark" class="size-5" />
+          <.icon name="ph-x" class="size-5" />
         </.link>
         <p class="min-w-0 flex-1 truncate text-[14px] font-semibold text-[color:var(--muted)]">
           {@title}
@@ -93,7 +93,7 @@ defmodule ToreWeb.StepCards do
           aria-label={gettext("Stop the timer for %{label}", label: timer.label)}
           class="timer-chip press rise-in"
         >
-          <.icon name="hero-clock" class="size-4" />
+          <.icon name="ph-clock" class="size-4" />
           <span class="truncate">{timer.label}</span>
           <span data-role="left" class="num font-bold"></span>
         </button>
@@ -122,7 +122,7 @@ defmodule ToreWeb.StepCards do
             :if={@card[:minutes] && @timers == nil}
             class="num mt-6 inline-flex h-10 items-center gap-2 rounded-full bg-[var(--sunken)] px-4 text-[16px] font-semibold text-[color:var(--text)]"
           >
-            <.icon name="hero-clock" class="size-[18px] text-[color:var(--muted)]" />
+            <.icon name="ph-clock" class="size-[18px] text-[color:var(--muted)]" />
             {gettext("%{minutes} min", minutes: @card.minutes)}
           </span>
           <span
@@ -149,7 +149,7 @@ defmodule ToreWeb.StepCards do
           data-role="start-timer"
           class="pill pill-lg pill-lamp press num"
         >
-          <.icon name="hero-clock" /> {gettext("Start %{minutes} min", minutes: @card.minutes)}
+          <.icon name="ph-clock" /> {gettext("Start %{minutes} min", minutes: @card.minutes)}
         </button>
       </div>
 
@@ -162,7 +162,7 @@ defmodule ToreWeb.StepCards do
           aria-label={gettext("Previous step")}
           class="press inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] disabled:opacity-30"
         >
-          <.icon name="hero-chevron-left" class="size-6" />
+          <.icon name="ph-caret-left" class="size-6" />
         </button>
         <button
           type="button"
@@ -170,7 +170,7 @@ defmodule ToreWeb.StepCards do
           aria-label={gettext("All steps")}
           class="press inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)]"
         >
-          <.icon name="hero-list-bullet" class="size-6" />
+          <.icon name="ph-list-bullets" class="size-6" />
         </button>
         <button
           :if={@index < @last}
@@ -186,7 +186,7 @@ defmodule ToreWeb.StepCards do
           navigate={@close_to}
           class="pill press h-14 flex-1 bg-[color:var(--done)] text-[17px] text-[color:var(--bg)]"
         >
-          <.icon name="hero-check" class="size-5" />
+          <.icon name="ph-check" class="size-5" />
           {gettext("Done")}
         </.link>
       </footer>
@@ -209,7 +209,7 @@ defmodule ToreWeb.StepCards do
               aria-label={gettext("Close")}
               class="-mr-2 inline-flex size-11 items-center justify-center rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--sunken)]"
             >
-              <.icon name="hero-x-mark" class="size-5" />
+              <.icon name="ph-x" class="size-5" />
             </button>
           </div>
           <ol class="menu-lines overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]">

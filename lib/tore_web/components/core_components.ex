@@ -67,12 +67,12 @@ defmodule ToreWeb.CoreComponents do
       ]}>
         <.icon
           :if={@kind == :info}
-          name="hero-check-circle-solid"
+          name="ph-check-circle-fill"
           class="pop size-5 shrink-0 mt-px"
         />
         <.icon
           :if={@kind == :error}
-          name="hero-exclamation-circle"
+          name="ph-warning-circle"
           class="size-5 shrink-0 mt-px text-[color:var(--danger)]"
         />
         <div class="flex-1 min-w-0 font-medium" style="font-size: 15px; line-height: 1.35;">
@@ -80,7 +80,7 @@ defmodule ToreWeb.CoreComponents do
           <p>{msg}</p>
         </div>
         <button type="button" class="group shrink-0 cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark" class="size-4 opacity-50 group-hover:opacity-80" />
+          <.icon name="ph-x" class="size-4 opacity-50 group-hover:opacity-80" />
         </button>
       </div>
     </div>
@@ -270,7 +270,7 @@ defmodule ToreWeb.CoreComponents do
   defp error(assigns) do
     ~H"""
     <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
-      <.icon name="hero-exclamation-circle" class="size-5" />
+      <.icon name="ph-warning-circle" class="size-5" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -367,27 +367,22 @@ defmodule ToreWeb.CoreComponents do
   end
 
   @doc """
-  Renders a [Heroicon](https://heroicons.com).
+  Renders a [Phosphor icon](https://phosphoricons.com): `ph-NAME` (regular), `ph-NAME-fill` or
+  `ph-NAME-duotone`. The icon takes the text colour; size it with width and height classes.
 
-  Heroicons come in three styles – outline, solid, and mini.
-  By default, the outline style is used, but solid and mini may
-  be applied by using the `-solid` and `-mini` suffix.
-
-  You can customize the size and colors of the icons by setting
-  width, height, and background color classes.
-
-  Icons are extracted from the `deps/heroicons` directory and bundled within
-  your compiled app.css by the plugin in `assets/vendor/heroicons.js`.
+  Only the icons the app uses are kept, under `assets/vendor/phosphor`, and the plugin in
+  `assets/vendor/phosphor.js` bundles them into app.css. Write the full name as a literal so
+  Tailwind finds it.
 
   ## Examples
 
-      <.icon name="hero-x-mark" />
-      <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+      <.icon name="ph-x" />
+      <.icon name="ph-arrows-clockwise" class="ml-1 size-3 motion-safe:animate-spin" />
   """
   attr :name, :string, required: true
   attr :class, :any, default: "size-4"
 
-  def icon(%{name: "hero-" <> _} = assigns) do
+  def icon(%{name: "ph-" <> _} = assigns) do
     ~H"""
     <span class={[@name, @class]} />
     """
@@ -614,9 +609,9 @@ defmodule ToreWeb.CoreComponents do
   Square 44px icon button. Variant: :ghost (default), or :filled for a header action that
   stands on its own.
 
-      <.icon_button icon="hero-x-mark" label="Close" phx-click="close" />
-      <.icon_button icon="hero-document-text" label="Show as text" variant={:filled} />
-      <.icon_button icon="hero-plus" label="Add" type="submit" />
+      <.icon_button icon="ph-x" label="Close" phx-click="close" />
+      <.icon_button icon="ph-file-text" label="Show as text" variant={:filled} />
+      <.icon_button icon="ph-plus" label="Add" type="submit" />
   """
   attr :icon, :string, required: true
   attr :label, :string, required: true
@@ -749,7 +744,7 @@ defmodule ToreWeb.CoreComponents do
       ]}
       {@rest}
     >
-      <.icon :if={@checked} name="hero-check-mini" class="size-4" />
+      <.icon :if={@checked} name="ph-check" class="size-4" />
     </button>
     """
   end
@@ -823,7 +818,7 @@ defmodule ToreWeb.CoreComponents do
   Photo + title + meta tile, used in recipe grids and weekly planner.
 
       <.tile image={@recipe.image_url} title={@recipe.title}>
-        <:meta><.icon name="hero-clock" class="size-4" /> 30 min</:meta>
+        <:meta><.icon name="ph-clock" class="size-4" /> 30 min</:meta>
       </.tile>
   """
   attr :image, :string, default: nil
@@ -850,7 +845,7 @@ defmodule ToreWeb.CoreComponents do
           :if={!@image}
           class="h-full w-full flex items-center justify-center text-[color:var(--subtle)]"
         >
-          <.icon name="hero-photo" class="size-8" />
+          <.icon name="ph-image" class="size-8" />
         </div>
         <div :if={@overlay != []} class="absolute inset-0">{render_slot(@overlay)}</div>
       </div>
@@ -903,7 +898,7 @@ defmodule ToreWeb.CoreComponents do
       <div class="absolute inset-0 bg-black/30" phx-click={@on_close}></div>
       <aside class="absolute right-0 top-0 h-full w-full max-w-[420px] bg-[var(--surface)] shadow-xl overflow-y-auto">
         <div class="flex justify-end p-2 border-b border-[color:var(--border)]">
-          <.icon_button icon="hero-x-mark" label={gettext("Close")} phx-click={@on_close} />
+          <.icon_button icon="ph-x" label={gettext("Close")} phx-click={@on_close} />
         </div>
         <div class="p-4">{render_slot(@inner_block)}</div>
       </aside>

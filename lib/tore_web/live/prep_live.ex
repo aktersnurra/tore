@@ -148,7 +148,7 @@ defmodule ToreWeb.PrepLive do
                       }
                       class="size-7 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:text-[var(--text)] hover:bg-[color:var(--hairline)] transition-colors"
                     >
-                      <.icon name="hero-arrow-path" class="size-4" />
+                      <.icon name="ph-arrows-clockwise" class="size-4" />
                     </button>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ defmodule ToreWeb.PrepLive do
                 </p>
                 <div class="mt-5">
                   <.button variant={:primary} size={:lg} phx-click="generate_guide">
-                    <.icon name="hero-pencil-square" class="size-4" /> {gettext("Generate guide")}
+                    <.icon name="ph-note-pencil" class="size-4" /> {gettext("Generate guide")}
                   </.button>
                 </div>
               </div>

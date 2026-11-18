@@ -80,7 +80,7 @@ defmodule ToreWeb.DishChoices do
           </span>
           <.icon
             :if={@selected_id == choice.recipe.id}
-            name="hero-check-circle-solid"
+            name="ph-check-circle-fill"
             class="size-5 shrink-0 text-[color:var(--done)]"
           />
         </button>

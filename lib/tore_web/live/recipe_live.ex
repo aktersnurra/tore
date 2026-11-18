@@ -471,7 +471,7 @@ defmodule ToreWeb.RecipeLive do
               aria-label={gettext("New recipe")}
               class="press flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
             >
-              <.icon name="hero-plus" class="size-5" />
+              <.icon name="ph-plus" class="size-5" />
             </button>
           </header>
 
@@ -479,7 +479,7 @@ defmodule ToreWeb.RecipeLive do
             <%!-- Search --%>
             <form phx-change="search" class="relative">
               <.icon
-                name="hero-magnifying-glass"
+                name="ph-magnifying-glass"
                 class="size-5 absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--muted)]"
               />
               <input
@@ -526,7 +526,7 @@ defmodule ToreWeb.RecipeLive do
                     "text-[color:var(--muted)] hover:text-[var(--text)] hover:bg-[var(--sunken)]"
                 ]}
               >
-                <.icon name="hero-adjustments-horizontal" class="size-5" />
+                <.icon name="ph-sliders-horizontal" class="size-5" />
               </button>
             </div>
 
@@ -706,7 +706,7 @@ defmodule ToreWeb.RecipeLive do
             data-role="recipe-close"
             class="on-photo press"
           >
-            <.icon name="hero-chevron-left" class="size-5" />
+            <.icon name="ph-caret-left" class="size-5" />
           </.link>
           <div class="relative" id="recipe-actions">
             <button
@@ -716,7 +716,7 @@ defmodule ToreWeb.RecipeLive do
               aria-expanded={to_string(@show_recipe_menu)}
               class="on-photo press"
             >
-              <.icon name="hero-ellipsis-horizontal" class="size-5" />
+              <.icon name="ph-dots-three" class="size-5" />
             </button>
             <div
               :if={@show_recipe_menu}
@@ -729,7 +729,7 @@ defmodule ToreWeb.RecipeLive do
                 class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
                 style="font-size: 15px;"
               >
-                <.icon name="hero-pencil" class="size-4 text-[color:var(--muted)]" />
+                <.icon name="ph-pencil-simple" class="size-4 text-[color:var(--muted)]" />
                 {gettext("Edit")}
               </button>
               <button
@@ -738,7 +738,7 @@ defmodule ToreWeb.RecipeLive do
                 class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
                 style="font-size: 15px;"
               >
-                <.icon name="hero-photo" class="size-4 text-[color:var(--muted)]" />
+                <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
                 {gettext("New picture")}
               </button>
               <button
@@ -747,7 +747,7 @@ defmodule ToreWeb.RecipeLive do
                 class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--danger)] hover:bg-[var(--border)]"
                 style="font-size: 15px;"
               >
-                <.icon name="hero-trash" class="size-4" />
+                <.icon name="ph-trash" class="size-4" />
                 {gettext("Delete")}
               </button>
             </div>
@@ -767,14 +767,14 @@ defmodule ToreWeb.RecipeLive do
         <%!-- The page's properties: quiet rows, a label and its value. Servings is a stepper. --%>
         <dl class="props reveal mt-4" style="--i: 2">
           <div>
-            <dt><.icon name="hero-squares-2x2" /> {gettext("Collection")}</dt>
+            <dt><.icon name="ph-squares-four" /> {gettext("Collection")}</dt>
             <dd data-role="collection">
               <span aria-hidden="true">{type_icon(@selected.recipe_type)}</span>
               {type_label(@selected.recipe_type)}
             </dd>
           </div>
           <div :if={total_time(@selected) != "—"}>
-            <dt><.icon name="hero-clock" /> {gettext("Time")}</dt>
+            <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
             <dd class="num">
               {total_time(@selected)}
               <span :if={@selected.prep_time_minutes} class="text-[color:var(--muted)]">
@@ -783,7 +783,7 @@ defmodule ToreWeb.RecipeLive do
             </dd>
           </div>
           <div>
-            <dt><.icon name="hero-users" /> {gettext("Servings")}</dt>
+            <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
             <dd class="flex items-center gap-1">
               <button
                 type="button"
@@ -793,7 +793,7 @@ defmodule ToreWeb.RecipeLive do
                 aria-label={gettext("Fewer servings")}
                 class="step-btn press"
               >
-                <.icon name="hero-minus" class="size-4" />
+                <.icon name="ph-minus" class="size-4" />
               </button>
               <span
                 id={"servings-#{@servings}"}
@@ -810,12 +810,12 @@ defmodule ToreWeb.RecipeLive do
                 aria-label={gettext("More servings")}
                 class="step-btn press"
               >
-                <.icon name="hero-plus" class="size-4" />
+                <.icon name="ph-plus" class="size-4" />
               </button>
             </dd>
           </div>
           <div :if={source_host(@selected)}>
-            <dt><.icon name="hero-link" /> {gettext("Source")}</dt>
+            <dt><.icon name="ph-link" /> {gettext("Source")}</dt>
             <dd>
               <a
                 href={@selected.source_url}
@@ -828,7 +828,7 @@ defmodule ToreWeb.RecipeLive do
             </dd>
           </div>
           <div :if={@selected.recipe_ingredients != []} data-role="at-home">
-            <dt><.icon name="hero-home" /> {gettext("At home")}</dt>
+            <dt><.icon name="ph-house-simple" /> {gettext("At home")}</dt>
             <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
               {gettext("All of it")}
             </dd>
@@ -850,12 +850,12 @@ defmodule ToreWeb.RecipeLive do
                 navigate={~p"/shop"}
                 class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
               >
-                <.icon name="hero-check-mini" class="size-4" /> {gettext("On the list")}
+                <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
               </.link>
             </dd>
           </div>
           <div :if={@selected.last_used_at}>
-            <dt><.icon name="hero-calendar" /> {gettext("Last made")}</dt>
+            <dt><.icon name="ph-calendar-blank" /> {gettext("Last made")}</dt>
             <dd>{ToreWeb.Dates.day(DateTime.to_date(@selected.last_used_at))}</dd>
           </div>
         </dl>
@@ -867,7 +867,7 @@ defmodule ToreWeb.RecipeLive do
             data-role="start-cooking"
             class="pill pill-lamp press"
           >
-            <.icon name="hero-fire-solid" />
+            <.icon name="ph-fire-fill" />
             {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
           </.link>
           <button
@@ -878,10 +878,10 @@ defmodule ToreWeb.RecipeLive do
             data-role="put-on-week"
             class="pill press"
           >
-            <.icon name="hero-calendar-days" /> {gettext("Put on the week")}
+            <.icon name="ph-calendar-blank" /> {gettext("Put on the week")}
           </button>
           <button type="button" phx-click="toggle_substitution" class="pill press">
-            <.icon name="hero-arrows-right-left" /> {gettext("Missing something?")}
+            <.icon name="ph-arrows-left-right" /> {gettext("Missing something?")}
           </button>
           <.link
             navigate={
@@ -890,7 +890,7 @@ defmodule ToreWeb.RecipeLive do
             data-role="ask-tore"
             class="pill press"
           >
-            <.icon name="hero-chat-bubble-oval-left" /> {gettext("Ask Tore")}
+            <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
           </.link>
         </div>
 
@@ -952,7 +952,7 @@ defmodule ToreWeb.RecipeLive do
             class="mt-3 flex items-center gap-2 text-[color:var(--muted)]"
             style="font-size: 14px;"
           >
-            <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" />
+            <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
             {gettext("Finding a swap…")}
           </p>
           <div :if={@substitution} class="reveal mt-3 rounded-[var(--r-lg)] bg-[var(--surface)] p-4">
@@ -1095,7 +1095,7 @@ defmodule ToreWeb.RecipeLive do
           aria-label={gettext("Close")}
           class="press size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
         >
-          <.icon name="hero-x-mark" class="size-5" />
+          <.icon name="ph-x" class="size-5" />
         </button>
       </div>
       <p class="mt-1 text-[color:var(--muted)]">
@@ -1134,7 +1134,7 @@ defmodule ToreWeb.RecipeLive do
         </p>
         <.button type="submit" variant={:primary} full disabled={@importing}>
           <span :if={@importing} class="inline-flex items-center gap-2" role="status">
-            <.icon name="hero-arrow-path" class="size-4 animate-spin" />
+            <.icon name="ph-arrows-clockwise" class="size-4 animate-spin" />
             {gettext("Reading the recipe")}
           </span>
           <span :if={!@importing}>{gettext("Get recipe")}</span>
@@ -1168,7 +1168,7 @@ defmodule ToreWeb.RecipeLive do
           phx-click="close"
           class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
         >
-          <.icon name="hero-x-mark" class="size-5" />
+          <.icon name="ph-x" class="size-5" />
         </button>
       </div>
 
@@ -1273,7 +1273,7 @@ defmodule ToreWeb.RecipeLive do
                 phx-value-index={idx}
                 class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--subtle)] hover:text-[color:var(--danger)] hover:bg-[color:var(--hairline)]"
               >
-                <.icon name="hero-x-mark" class="size-4" />
+                <.icon name="ph-x" class="size-4" />
               </button>
             </div>
           </div>
@@ -1283,7 +1283,7 @@ defmodule ToreWeb.RecipeLive do
             class="mt-2 inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
             style="font-size: var(--t-meta); font-weight: 500;"
           >
-            <.icon name="hero-plus" class="size-4" /> {gettext("Add ingredient")}
+            <.icon name="ph-plus" class="size-4" /> {gettext("Add ingredient")}
           </button>
         </div>
         <.field

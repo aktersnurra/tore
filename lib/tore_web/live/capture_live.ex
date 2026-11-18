@@ -176,7 +176,7 @@ defmodule ToreWeb.CaptureLive do
             :if={@msg.can_make.missing == []}
             class="mt-0.5 flex items-center gap-1 text-[14px] font-semibold text-[color:var(--done)]"
           >
-            <.icon name="hero-check-mini" class="size-4" /> {gettext("All of it is at home")}
+            <.icon name="ph-check" class="size-4" /> {gettext("All of it is at home")}
           </p>
           <p :if={@msg.can_make.missing != []} class="mt-0.5 text-[14px] text-[color:var(--muted)]">
             {gettext("Missing: %{things}", things: Enum.join(@msg.can_make.missing, ", "))}
@@ -189,7 +189,7 @@ defmodule ToreWeb.CaptureLive do
           navigate={~p"/recipes/#{@msg.can_make.recipe_id}/cook"}
           class={["pill press", @msg.can_make.missing == [] && "pill-lamp"]}
         >
-          <.icon name="hero-play" />
+          <.icon name="ph-play" />
           {if @msg.can_make.baking, do: gettext("Bake now"), else: gettext("Cook now")}
         </.link>
         <button
@@ -199,7 +199,7 @@ defmodule ToreWeb.CaptureLive do
           phx-value-index={@index}
           class="pill pill-lamp press"
         >
-          <.icon name="hero-plus" /> {gettext("Put what's missing on the list")}
+          <.icon name="ph-plus" /> {gettext("Put what's missing on the list")}
         </button>
         <.link
           :if={@msg.added}
@@ -207,7 +207,7 @@ defmodule ToreWeb.CaptureLive do
           navigate={~p"/shop"}
           class="settle inline-flex items-center gap-1 text-[14px] font-semibold text-[color:var(--done)]"
         >
-          <.icon name="hero-check-mini" class="size-4" /> {gettext("On the list")}
+          <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
         </.link>
       </div>
     </div>
@@ -312,7 +312,7 @@ defmodule ToreWeb.CaptureLive do
           aria-label={gettext("Close")}
           class="press flex size-10 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
         >
-          <.icon name="hero-x-mark" class="size-5" />
+          <.icon name="ph-x" class="size-5" />
         </.link>
       </div>
 
@@ -432,7 +432,7 @@ defmodule ToreWeb.CaptureLive do
             class="rise-in flex items-center gap-2 rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5"
           >
             <.icon
-              name="hero-arrow-path"
+              name="ph-arrows-clockwise"
               class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
             />
             <span
@@ -471,7 +471,7 @@ defmodule ToreWeb.CaptureLive do
               title={gettext("Attach photo")}
               class="press flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
             >
-              <.icon name="hero-camera" class="size-5" />
+              <.icon name="ph-camera" class="size-5" />
             </label>
             <input
               type="text"
@@ -488,7 +488,7 @@ defmodule ToreWeb.CaptureLive do
               aria-label={gettext("Send")}
               class="press flex size-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)] disabled:opacity-40"
             >
-              <.icon name="hero-arrow-up" class="size-5" />
+              <.icon name="ph-arrow-up" class="size-5" />
             </button>
           </div>
           <div :if={@uploads.chat_photos.entries != []} class="flex flex-wrap items-center gap-2">
@@ -496,7 +496,7 @@ defmodule ToreWeb.CaptureLive do
               :for={entry <- @uploads.chat_photos.entries}
               class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
             >
-              <.icon name="hero-photo" class="size-4 text-[color:var(--muted)]" />
+              <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
               {entry.client_name} · {entry.progress}%
             </span>
           </div>

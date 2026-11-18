@@ -304,7 +304,7 @@ defmodule ToreWeb.SettingsLive do
             aria-label={gettext("Back")}
             class="press -ml-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
           >
-            <.icon name="hero-chevron-left" class="size-5" />
+            <.icon name="ph-caret-left" class="size-5" />
           </.link>
         </header>
         <h1 class="t-display mt-5 mb-6">{gettext("Settings")}</h1>
@@ -399,7 +399,7 @@ defmodule ToreWeb.SettingsLive do
               class="press mt-4 inline-flex h-10 items-center gap-2 font-semibold text-[color:var(--muted)] hover:text-[color:var(--text)]"
               style="font-size: 15px;"
             >
-              <.icon name="hero-arrow-right-start-on-rectangle" class="size-4" />
+              <.icon name="ph-sign-out" class="size-4" />
               {gettext("Sign out")}
             </.link>
           </section>

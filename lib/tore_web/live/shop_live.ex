@@ -356,14 +356,14 @@ defmodule ToreWeb.ShopLive do
           </div>
           <div class="mt-1 flex shrink-0 gap-2">
             <.icon_button
-              icon="hero-viewfinder-circle"
+              icon="ph-barcode"
               label={gettext("Scan what you bought")}
               variant={:filled}
               phx-click="open_scanner"
             />
             <.icon_button
               :if={@total > 0}
-              icon="hero-document-text"
+              icon="ph-file-text"
               label={gettext("Show as text")}
               variant={:filled}
               phx-click="export_list"
@@ -389,7 +389,7 @@ defmodule ToreWeb.ShopLive do
               class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
               style="font-size: 16px;"
             />
-            <.icon_button icon="hero-plus" label={gettext("Add")} type="submit" />
+            <.icon_button icon="ph-plus" label={gettext("Add")} type="submit" />
           </form>
         </div>
 
@@ -416,7 +416,7 @@ defmodule ToreWeb.ShopLive do
         >
           <div class="mb-2 flex items-center justify-between">
             <span class="section-label">{gettext("The list as text")}</span>
-            <.icon_button icon="hero-x-mark" label={gettext("Close")} phx-click="clear_export" />
+            <.icon_button icon="ph-x" label={gettext("Close")} phx-click="clear_export" />
           </div>
           <textarea
             readonly
@@ -444,7 +444,7 @@ defmodule ToreWeb.ShopLive do
             class="pill pill-lamp press mt-5"
           >
             <.icon
-              name={if @making_list, do: "hero-arrow-path", else: "hero-list-bullet"}
+              name={if @making_list, do: "ph-arrows-clockwise", else: "ph-list-bullets"}
               class={@making_list && "motion-safe:animate-spin"}
             />
             {if @making_list, do: gettext("Making the list…"), else: gettext("Make the list")}
@@ -503,7 +503,7 @@ defmodule ToreWeb.ShopLive do
             phx-value-item_id={@item_sheet.id}
             class="press mt-4 flex h-11 items-center gap-2 text-[15px] font-semibold text-[color:var(--danger)]"
           >
-            <.icon name="hero-trash" class="size-4" />
+            <.icon name="ph-trash" class="size-4" />
             {gettext("Remove from the list")}
           </button>
         </div>
@@ -565,7 +565,7 @@ defmodule ToreWeb.ShopLive do
             </span>
           <% @scanner.busy -> %>
             <span class="inline-flex items-center gap-2">
-              <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" />
+              <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
               {gettext("Looking it up…")}
             </span>
           <% true -> %>
@@ -604,7 +604,7 @@ defmodule ToreWeb.ShopLive do
           class={["rise-in flex min-h-[52px] items-center gap-3 py-2", line.undone && "opacity-50"]}
         >
           <.icon
-            name={if line.change == :failed, do: "hero-exclamation-circle", else: "hero-check"}
+            name={if line.change == :failed, do: "ph-warning-circle", else: "ph-check"}
             class={[
               "size-5 shrink-0",
               if(line.change == :failed,

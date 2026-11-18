@@ -40,7 +40,7 @@ defmodule ToreWeb.TabBarLiveTest do
     for label <- ["Idag", "Plan", "Tore", "Inköp", "Recept"], do: assert(html =~ label)
 
     assert bar(view) |> element(~s(a[aria-current="page"])) |> render() =~
-             "hero-calendar-days-solid"
+             "ph-calendar-blank-fill"
 
     refute html =~ "sparkles"
   end

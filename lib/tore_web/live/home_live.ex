@@ -49,7 +49,7 @@ defmodule ToreWeb.HomeLive do
             data-role="settings-link"
             class="on-photo press absolute top-0 right-0"
           >
-            <.icon name="hero-cog-6-tooth" class="size-5" />
+            <.icon name="ph-gear-six" class="size-5" />
           </.link>
         </div>
 
@@ -72,7 +72,7 @@ defmodule ToreWeb.HomeLive do
               :if={!photo?(@tonight_recipe)}
               class="absolute inset-0 flex items-center justify-center text-[color:var(--subtle)]"
             >
-              <.icon name="hero-photo" class="size-10" />
+              <.icon name="ph-image" class="size-10" />
             </div>
             <div class="photo-foot absolute inset-x-0 bottom-0 h-3/5" aria-hidden="true"></div>
             <div class="absolute inset-x-0 bottom-0 px-4 pb-1 md:px-5">
@@ -92,16 +92,16 @@ defmodule ToreWeb.HomeLive do
               class="pill pill-lamp press"
               data-role="start-cooking"
             >
-              <.icon name="hero-fire-solid" /> {gettext("Cook")}
+              <.icon name="ph-fire-fill" /> {gettext("Cook")}
             </.link>
             <.link navigate={~p"/recipes?id=#{@tonight_recipe.id}"} class="pill press">
-              <.icon name="hero-book-open" /> {gettext("Recipe")}
+              <.icon name="ph-book-open" /> {gettext("Recipe")}
             </.link>
             <button type="button" phx-click="something_else" class="pill press">
-              <.icon name="hero-arrow-path" /> {gettext("Something else")}
+              <.icon name="ph-arrows-clockwise" /> {gettext("Something else")}
             </button>
             <button type="button" phx-click="open_tonight_sheet" class="pill press">
-              <.icon name="hero-chat-bubble-oval-left" /> {gettext("Ask")}
+              <.icon name="ph-chat-circle" /> {gettext("Ask")}
             </button>
           </div>
 
@@ -167,13 +167,13 @@ defmodule ToreWeb.HomeLive do
           </p>
           <div :if={!@eating_out_tonight} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
             <button type="button" phx-click="something_else" class="pill pill-lamp press">
-              <.icon name="hero-light-bulb" /> {gettext("Suggest something")}
+              <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
             </button>
             <.link navigate={~p"/plan"} class="pill press">
-              <.icon name="hero-calendar-days" /> {gettext("Plan the week")}
+              <.icon name="ph-calendar-blank" /> {gettext("Plan the week")}
             </.link>
             <.link navigate={~p"/capture?#{[return_to: "/today"]}"} class="pill press">
-              <.icon name="hero-chat-bubble-oval-left" /> {gettext("Ask Tore")}
+              <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
             </.link>
           </div>
         </section>

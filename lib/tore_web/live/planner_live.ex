@@ -490,7 +490,7 @@ defmodule ToreWeb.PlannerLive do
               class="press inline-flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
               aria-label={gettext("Previous week")}
             >
-              <.icon name="hero-chevron-left" class="size-5" />
+              <.icon name="ph-caret-left" class="size-5" />
             </button>
             <button
               type="button"
@@ -498,7 +498,7 @@ defmodule ToreWeb.PlannerLive do
               class="press inline-flex size-11 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
               aria-label={gettext("Next week")}
             >
-              <.icon name="hero-chevron-right" class="size-5" />
+              <.icon name="ph-caret-right" class="size-5" />
             </button>
           </div>
         </header>
@@ -512,7 +512,7 @@ defmodule ToreWeb.PlannerLive do
             data-role="plan-week"
             class="pill pill-lamp press"
           >
-            <.icon name="hero-calendar-days" />
+            <.icon name="ph-calendar-blank" />
             {ngettext(
               "Plan the open day",
               "Plan the %{count} open days",
@@ -520,7 +520,7 @@ defmodule ToreWeb.PlannerLive do
             )}
           </button>
           <.link navigate={~p"/prep"} data-role="prep-link" class="pill press">
-            <.icon name="hero-squares-2x2" /> {gettext("Prep this week")}
+            <.icon name="ph-squares-four" /> {gettext("Prep this week")}
           </.link>
           <p class={[
             "num ml-2 shrink-0 text-[14px] font-semibold",
@@ -537,7 +537,7 @@ defmodule ToreWeb.PlannerLive do
           class="mt-4 flex items-center gap-2 text-[14px] text-[color:var(--muted)]"
           role="status"
         >
-          <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" />
+          <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
           {@quick_label || gettext("Changing the plan…")}
         </p>
 
@@ -691,13 +691,13 @@ defmodule ToreWeb.PlannerLive do
               >
                 <span :if={@slot.servings}>{gettext("%{n} servings", n: @slot.servings)}</span>
                 <span :if={@slot.leftover} class="inline-flex items-center gap-1">
-                  <.icon name="hero-arrow-uturn-right" class="size-3.5" /> {gettext("Uses leftovers")}
+                  <.icon name="ph-arrow-u-up-right" class="size-3.5" /> {gettext("Uses leftovers")}
                 </span>
                 <span
                   :if={leftover_target(@plan_state, @days, @date) != nil}
                   class="inline-flex items-center gap-1"
                 >
-                  <.icon name="hero-arrow-uturn-left" class="size-3.5" />
+                  <.icon name="ph-arrow-u-up-left" class="size-3.5" />
                   {gettext("Leftovers for %{day}", day: leftover_target(@plan_state, @days, @date))}
                 </span>
               </div>
@@ -720,11 +720,11 @@ defmodule ToreWeb.PlannerLive do
           title={gettext("Pinned")}
           class="shrink-0 text-[color:var(--muted)]"
         >
-          <.icon name="hero-lock-closed" class="size-4" />
+          <.icon name="ph-lock" class="size-4" />
         </span>
         <.icon
           :if={!@recipe and !@pinned}
-          name="hero-plus"
+          name="ph-plus"
           class="size-5 shrink-0 text-[color:var(--subtle)]"
         />
       </div>
@@ -813,7 +813,7 @@ defmodule ToreWeb.PlannerLive do
                 phx-click="close_slot"
                 class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
               >
-                <.icon name="hero-x-mark" class="size-5" />
+                <.icon name="ph-x" class="size-5" />
               </button>
             </header>
 
@@ -825,7 +825,7 @@ defmodule ToreWeb.PlannerLive do
                   alt=""
                   class="h-full w-full object-cover"
                 />
-                <.icon :if={!@selected_recipe.image_path} name="hero-photo" class="size-10" />
+                <.icon :if={!@selected_recipe.image_path} name="ph-image" class="size-10" />
               </div>
               <div class="px-6 pt-4">
                 <p class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
@@ -864,7 +864,7 @@ defmodule ToreWeb.PlannerLive do
                     phx-click="dec_servings"
                     class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] border border-[color:var(--border)] hover:border-[color:var(--subtle)]"
                   >
-                    <.icon name="hero-minus" class="size-4" />
+                    <.icon name="ph-minus" class="size-4" />
                   </button>
                   <span
                     class="w-6 text-center font-semibold tabular-nums"
@@ -877,7 +877,7 @@ defmodule ToreWeb.PlannerLive do
                     phx-click="inc_servings"
                     class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] border border-[color:var(--border)] hover:border-[color:var(--subtle)]"
                   >
-                    <.icon name="hero-plus" class="size-4" />
+                    <.icon name="ph-plus" class="size-4" />
                   </button>
                 </div>
               </div>
@@ -920,7 +920,7 @@ defmodule ToreWeb.PlannerLive do
                 class="inline-flex items-center gap-1.5 text-[color:var(--accent)] hover:underline"
                 style="font-size: var(--t-meta); font-weight: 500;"
               >
-                <.icon name="hero-arrow-path" class="size-4" /> {gettext("Change recipe")}
+                <.icon name="ph-arrows-clockwise" class="size-4" /> {gettext("Change recipe")}
               </button>
 
               <button
@@ -936,7 +936,7 @@ defmodule ToreWeb.PlannerLive do
                 style="font-size: var(--t-meta);"
               >
                 <.icon
-                  name={if @slot_action.skipped, do: "hero-x-circle", else: "hero-x-circle"}
+                  name={if @slot_action.skipped, do: "ph-x-circle", else: "ph-x-circle"}
                   class="size-4"
                 />
                 {if @slot_action.skipped, do: gettext("Skipped"), else: gettext("Skip dinner")}
@@ -954,7 +954,7 @@ defmodule ToreWeb.PlannerLive do
                 ]}
                 style="font-size: var(--t-meta);"
               >
-                <.icon name="hero-building-storefront" class="size-4" />
+                <.icon name="ph-storefront" class="size-4" />
                 {gettext("Eating out")}
               </button>
 
@@ -971,7 +971,7 @@ defmodule ToreWeb.PlannerLive do
                 style="font-size: var(--t-meta);"
               >
                 <.icon
-                  name={if @slot_action.pinned, do: "hero-lock-closed", else: "hero-lock-open"}
+                  name={if @slot_action.pinned, do: "ph-lock", else: "ph-lock-open"}
                   class="size-4"
                 />
                 {if @slot_action.pinned, do: gettext("Pinned"), else: gettext("Pin this day")}
@@ -1035,7 +1035,7 @@ defmodule ToreWeb.PlannerLive do
                 phx-click="flip_slot"
                 class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
               >
-                <.icon name="hero-chevron-left" class="size-5" />
+                <.icon name="ph-caret-left" class="size-5" />
               </button>
               <h2 class="font-semibold text-[var(--text)]" style="font-size: var(--t-h2);">
                 {gettext("Choose a recipe")}
@@ -1046,7 +1046,7 @@ defmodule ToreWeb.PlannerLive do
               <form phx-change="search_slot_recipes">
                 <div class="relative">
                   <.icon
-                    name="hero-magnifying-glass"
+                    name="ph-magnifying-glass"
                     class="size-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[color:var(--subtle)]"
                   />
                   <input
@@ -1073,7 +1073,7 @@ defmodule ToreWeb.PlannerLive do
                       class="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline disabled:opacity-40"
                       style="font-size: var(--t-meta);"
                     >
-                      <.icon name="hero-light-bulb" class="size-3.5" /> {gettext("Surprise me")}
+                      <.icon name="ph-lightbulb" class="size-3.5" /> {gettext("Surprise me")}
                     </button>
                   </div>
 
@@ -1143,7 +1143,7 @@ defmodule ToreWeb.PlannerLive do
             alt=""
             class="h-full w-full object-cover"
           />
-          <.icon :if={!@recipe.image_path} name="hero-photo" class="size-5" />
+          <.icon :if={!@recipe.image_path} name="ph-image" class="size-5" />
         </div>
         <div class="flex-1 min-w-0">
           <p class="font-semibold text-[var(--text)] truncate" style="font-size: var(--t-body);">
