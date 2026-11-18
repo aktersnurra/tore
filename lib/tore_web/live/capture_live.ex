@@ -1,18 +1,30 @@
 defmodule ToreWeb.CaptureLive do
+  @moduledoc """
+  The chat with Tore: the person's own pi session (`Tore.Pi.chat_session/1`). What they send
+  goes to pi, photos with it; pi's answer streams in, and each change it makes in Tore shows as a
+  receipt with Undo, read from the tool's result. The conversation is pi's, so opening the tray
+  shows it from where it was.
+  """
   use ToreWeb, :live_view
 
-  alias Tore.Capture.Router
+  alias Tore.{Home, Pi}
+  alias Tore.Harness.Runs
 
-  alias Tore.Home
+  # How much of the conversation the tray shows when it opens.
+  @history_bubbles 60
 
   @impl true
   def mount(params, _session, socket) do
     return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
+    scope = socket.assigns.current_scope
+    session = Pi.chat_session(scope)
 
     socket =
       socket
       |> assign(
+        session: session,
         messages: [],
+        draft: nil,
         input: params["q"] || "",
         loading: false,
         working: nil,
@@ -20,11 +32,17 @@ defmodule ToreWeb.CaptureLive do
       )
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
-    # The suggestions are the stored pick's, until a turn here suggests its own.
-    if connected?(socket),
-      do: Phoenix.PubSub.subscribe(Tore.PubSub, Home.swaps_topic(socket.assigns.current_user.id))
+    socket =
+      if connected?(socket) do
+        # The suggestions are the stored pick's, until a turn here suggests its own.
+        Phoenix.PubSub.subscribe(Tore.PubSub, Home.swaps_topic(socket.assigns.current_user.id))
+        Pi.subscribe(scope, session)
+        start_async(socket, :history, fn -> history(scope, session) end)
+      else
+        socket
+      end
 
-    {:ok, assign(socket, swaps: Home.current(socket.assigns.current_scope).swaps)}
+    {:ok, assign(socket, swaps: Home.current(scope).swaps)}
   end
 
   @impl true
@@ -43,89 +61,210 @@ defmodule ToreWeb.CaptureLive do
   end
 
   def handle_event("undo_run", %{"sid" => sid}, socket) do
-    case Tore.Harness.Runs.revert(socket.assigns.current_scope, sid) do
-      {:ok, _run} ->
-        messages =
-          Enum.map(socket.assigns.messages, fn
-            %{run_stream_id: ^sid} = m -> Map.put(m, :reverted, true)
-            other -> other
-          end)
-
-        {:noreply, assign(socket, messages: messages)}
-
-      {:error, _} ->
-        {:noreply, socket}
+    case Runs.revert(socket.assigns.current_scope, sid) do
+      {:ok, _run} -> {:noreply, update(socket, :messages, &reverted(&1, sid))}
+      {:error, _} -> {:noreply, socket}
     end
   end
 
-  # The missing things from a "can I make it" card go on this week's list.
-  def handle_event("add_missing", %{"index" => index}, socket) do
-    index = String.to_integer(index)
-    %{current_scope: scope, current_user: user} = socket.assigns
-    list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(Tore.Clock.today()))
-
-    case Enum.at(socket.assigns.messages, index) do
-      %{can_make: %{missing: missing} = can_make, added: nil} ->
-        for name <- missing,
-            !swapped?(can_make, name),
-            do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
-
-        {:noreply,
-         update(socket, :messages, &List.update_at(&1, index, fn m -> %{m | added: true} end))}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
-  @impl true
   def handle_event("send_message", %{"message" => text}, socket) do
     text = String.trim(text)
 
     images =
-      consume_uploaded_entries(socket, :chat_photos, fn %{path: path}, _entry ->
-        {:ok, File.read!(path)}
+      consume_uploaded_entries(socket, :chat_photos, fn %{path: path}, entry ->
+        {:ok, {entry.client_type, File.read!(path)}}
       end)
 
     if text == "" and images == [] do
       {:noreply, socket}
     else
-      history = socket.assigns.messages
-      user_bubble = user_bubble_for(text, images)
-      messages = history ++ [user_bubble]
+      %{current_scope: scope, session: session} = socket.assigns
+      bubble = user_bubble_for(text, length(images))
 
-      view = self()
+      socket = socket |> assign(input: "") |> update(:messages, &(&1 ++ [bubble]))
 
-      ctx = %{
-        scope: socket.assigns.current_scope,
-        progress: &send(view, {:route_step, &1})
-      }
+      case Pi.ask(scope, session, if(text == "", do: bubble.text, else: text), images: images) do
+        :ok ->
+          {:noreply, assign(socket, loading: true, working: first_step(text, images))}
 
-      ToreWeb.Background.run(
-        fn -> Router.route(text, images, ctx, history) end,
-        &{:route_complete, &1}
-      )
-
-      {:noreply,
-       assign(socket,
-         messages: messages,
-         input: "",
-         loading: true,
-         working: first_step(text, images)
-       )}
+        {:error, reason} ->
+          {:noreply, update(socket, :messages, &(&1 ++ [refusal(reason)]))}
+      end
     end
   end
 
-  defp user_bubble_for("", images), do: %{role: :user, text: photo_label(length(images))}
-  defp user_bubble_for(text, []), do: %{role: :user, text: text}
+  @impl true
+  def handle_async(:history, {:ok, {:ok, bubbles}}, socket),
+    do: {:noreply, update(socket, :messages, &(bubbles ++ &1))}
 
-  defp user_bubble_for(text, images),
-    do: %{role: :user, text: "#{text} (#{photo_label(length(images))})"}
+  # No pi, or pi couldn't be reached: the tray opens empty, and sending says why.
+  def handle_async(:history, _result, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_info({:quick_swaps, swaps}, socket), do: {:noreply, assign(socket, swaps: swaps)}
+
+  # pi's events, heard while it answers something sent from here.
+  def handle_info({:pi, _session, _event}, %{assigns: %{loading: false}} = socket),
+    do: {:noreply, socket}
+
+  def handle_info({:pi, _session, event}, socket), do: {:noreply, pi_event(event, socket)}
+
+  defp pi_event(
+         %{"type" => "message_update", "assistantMessageEvent" => %{"type" => "text_delta"} = e},
+         socket
+       ),
+       do: assign(socket, draft: (socket.assigns.draft || "") <> e["delta"])
+
+  defp pi_event(%{"type" => "message_end", "message" => %{"role" => "assistant"} = m}, socket) do
+    case Pi.assistant_text(m) do
+      nil -> assign(socket, draft: nil)
+      text -> socket |> assign(draft: nil) |> append(%{role: :assistant, text: text})
+    end
+  end
+
+  defp pi_event(%{"type" => "tool_execution_start", "toolName" => name}, socket),
+    do: assign(socket, working: step_label(tool(name)) || socket.assigns.working)
+
+  defp pi_event(%{"type" => "tool_execution_end", "isError" => false} = event, socket) do
+    case {tool(event["toolName"]), receipt(event["result"])} do
+      # Undone by asking: the change's own receipt says so.
+      {"undo", %{run_stream_id: id}} -> update(socket, :messages, &reverted(&1, id))
+      {_tool, nil} -> socket
+      {_tool, receipt} -> append(socket, receipt)
+    end
+  end
+
+  defp pi_event(%{"type" => "agent_settled"}, socket),
+    do: assign(socket, loading: false, working: nil, draft: nil)
+
+  defp pi_event(%{"type" => "exited"}, socket) do
+    socket
+    |> assign(loading: false, working: nil, draft: nil)
+    |> append(refusal(:exited))
+  end
+
+  defp pi_event(_event, socket), do: socket
+
+  defp append(socket, bubble), do: update(socket, :messages, &(&1 ++ [bubble]))
+
+  defp reverted(messages, id) do
+    Enum.map(messages, fn
+      %{run_stream_id: ^id} = m -> Map.put(m, :reverted, true)
+      other -> other
+    end)
+  end
+
+  # ----- the conversation as pi keeps it ----------------------------------------------------
+
+  defp history(scope, session) do
+    with {:ok, messages} <- Pi.messages(scope, session) do
+      bubbles = messages |> Enum.flat_map(&bubbles/1) |> Enum.take(-@history_bubbles)
+      ids = for %{run_stream_id: id} <- bubbles, do: id
+      statuses = Runs.statuses(scope, ids)
+
+      {:ok,
+       Enum.map(bubbles, fn
+         %{run_stream_id: id} = b -> Map.put(b, :reverted, statuses[id] == :reverted)
+         b -> b
+       end)}
+    end
+  end
+
+  defp bubbles(%{"role" => "user", "content" => content}) do
+    {texts, photos} = user_content(content)
+    [user_bubble_for(Enum.join(texts, "\n"), photos)]
+  end
+
+  defp bubbles(%{"role" => "assistant"} = message) do
+    case Pi.assistant_text(message) do
+      nil -> []
+      text -> [%{role: :assistant, text: text}]
+    end
+  end
+
+  defp bubbles(%{"role" => "toolResult", "isError" => false} = message) do
+    case {tool(message["toolName"]), receipt(message)} do
+      {"undo", _} -> []
+      {_tool, nil} -> []
+      {_tool, receipt} -> [receipt]
+    end
+  end
+
+  defp bubbles(_message), do: []
+
+  defp user_content(text) when is_binary(text), do: {[text], 0}
+
+  defp user_content(blocks) when is_list(blocks) do
+    {for(%{"type" => "text", "text" => t} <- blocks, do: t),
+     Enum.count(blocks, &(&1["type"] == "image"))}
+  end
+
+  # A change Tore made for pi answers `{"done": …, "run_id": …}`: its receipt, with Undo.
+  defp receipt(%{"content" => [%{"type" => "text", "text" => text} | _]}) do
+    case Jason.decode(text) do
+      {:ok, %{"done" => done, "run_id" => id}} when is_binary(done) and is_binary(id) ->
+        %{role: :assistant, text: done, run_stream_id: id, quiet: true}
+
+      _ ->
+        nil
+    end
+  end
+
+  defp receipt(_result), do: nil
+
+  # pi names Tore's tools `mcp__tore__<tool>`.
+  defp tool(name) when is_binary(name), do: String.replace_prefix(name, "mcp__tore__", "")
+  defp tool(_name), do: nil
+
+  # ----- bubbles ----------------------------------------------------------------------------
+
+  defp user_bubble_for(text, 0), do: %{role: :user, text: text}
+  defp user_bubble_for("", photos), do: %{role: :user, text: photo_label(photos)}
+
+  defp user_bubble_for(text, photos),
+    do: %{role: :user, text: "#{text} (#{photo_label(photos)})"}
 
   defp photo_label(1), do: gettext("1 photo")
   defp photo_label(n), do: gettext("%{n} photos", n: n)
 
-  # Undo on a reply whose run can be undone, and "Reverted" once it has been.
+  defp refusal(reason) do
+    text =
+      Tore.LLM.refusal_text(reason) ||
+        gettext("Tore couldn't finish that. Try again in a moment.")
+
+    %{role: :assistant, text: text}
+  end
+
+  # What Tore is doing, named as the kitchen would: before any tool runs, and as each starts.
+  defp first_step(_text, [_ | _]), do: gettext("Reading the photo…")
+
+  defp first_step(text, []) do
+    if text =~ ~r{https?://},
+      do: gettext("Reading the link…"),
+      else: gettext("Checking the kitchen…")
+  end
+
+  defp step_label("log_receipt"), do: gettext("Reading the receipt…")
+  defp step_label("save_recipe"), do: gettext("Reading the recipe…")
+  defp step_label(n) when n in ~w(web_search fetch_content), do: gettext("Reading the link…")
+
+  defp step_label(n) when n in ~w(search_recipes get_recipe),
+    do: gettext("Looking through the recipes…")
+
+  defp step_label(n) when n in ~w(add_to_pantry remove_from_pantry),
+    do: gettext("Checking what's at home…")
+
+  defp step_label(n) when n in ~w(set_dinner change_day mark_cooked),
+    do: gettext("Changing the plan…")
+
+  defp step_label("make_list"), do: gettext("Making the list…")
+
+  defp step_label(n) when n in ~w(add_to_list check_off remove_from_list),
+    do: gettext("Going through the list…")
+
+  defp step_label(_name), do: nil
+
+  # Undo on a receipt whose change can be undone, and "Reverted" once it has been.
   attr :msg, :map, required: true
 
   defp undo(assigns) do
@@ -143,182 +282,6 @@ defmodule ToreWeb.CaptureLive do
       {gettext("Reverted")}
     </span>
     """
-  end
-
-  # A card that can be acted on keeps whether it has been.
-  defp actionable(%{can_make: _} = bubble), do: Map.put(bubble, :added, nil)
-  defp actionable(bubble), do: bubble
-
-  attr :msg, :map, required: true
-  attr :index, :integer, required: true
-
-  # Whether a dish can be made now: its photo, what's missing, and the two ways on.
-  defp can_make(assigns) do
-    ~H"""
-    <div
-      data-role="can-make"
-      class="rise-in w-full max-w-[85%] rounded-[20px] rounded-bl-md bg-[var(--sunken)] p-3"
-    >
-      <div class="flex items-center gap-3">
-        <span class="relative size-16 shrink-0 overflow-hidden rounded-[var(--r-md)]">
-          <img
-            :if={@msg.can_make.photo}
-            src={~p"/images/recipes/#{@msg.can_make.recipe_id}"}
-            alt=""
-            class="size-full object-cover"
-          />
-          <.blank_cover
-            :if={!@msg.can_make.photo}
-            dish={
-              %{
-                title: @msg.can_make.title,
-                recipe_type: if(@msg.can_make.baking, do: :baking, else: :meal)
-              }
-            }
-            icon_class="size-8"
-          />
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-[16px] font-semibold text-[color:var(--text)]">
-            {@msg.can_make.title}
-          </p>
-          <p
-            :if={@msg.can_make.missing == []}
-            class="mt-0.5 flex items-center gap-1 text-[14px] font-semibold text-[color:var(--done)]"
-          >
-            <.icon name="ph-check" class="size-4" /> {gettext("All of it is at home")}
-          </p>
-          <p
-            :if={@msg.can_make.missing != [] and !@msg.can_make[:swaps]}
-            class="mt-0.5 text-[14px] text-[color:var(--muted)]"
-          >
-            {gettext("Missing: %{things}", things: Enum.join(@msg.can_make.missing, ", "))}
-          </p>
-        </div>
-      </div>
-      <ul :if={@msg.can_make[:swaps]} class="mt-3 space-y-1.5" data-role="swaps">
-        <li :for={swap <- @msg.can_make.swaps} class="text-[14px] leading-snug">
-          <span class="text-[color:var(--muted)]">{swap.for}</span>
-          <span :if={swap.use} class="font-semibold text-[color:var(--text)]">
-            <.icon name="ph-arrow-right" class="size-3.5" /> {swap.use}
-          </span>
-          <span :if={swap.at_home} class="tag tag-green">{gettext("At home")}</span>
-          <span :if={swap.note} class="block text-[color:var(--muted)]">{swap.note}</span>
-          <span :if={!swap.use and !swap.note} class="block text-[color:var(--muted)]">
-            {gettext("Nothing at home fits.")}
-          </span>
-        </li>
-      </ul>
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <.link
-          :if={@msg.can_make.recipe_id}
-          navigate={cook_path(@msg.can_make)}
-          class={[
-            "pill press",
-            Enum.all?(@msg.can_make.missing, &swapped?(@msg.can_make, &1)) && "pill-lamp"
-          ]}
-        >
-          <.icon name="ph-play" />
-          {if @msg.can_make.baking, do: gettext("Bake now"), else: gettext("Cook now")}
-        </.link>
-        <button
-          :if={!@msg.added and Enum.any?(@msg.can_make.missing, &(!swapped?(@msg.can_make, &1)))}
-          type="button"
-          phx-click="add_missing"
-          phx-value-index={@index}
-          class="pill pill-lamp press"
-        >
-          <.icon name="ph-plus" /> {gettext("Put what's missing on the list")}
-        </button>
-        <.link
-          :if={@msg.added}
-          id={"added-#{@index}"}
-          navigate={~p"/shop"}
-          class="settle inline-flex items-center gap-1 text-[14px] font-semibold text-[color:var(--done)]"
-        >
-          <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
-        </.link>
-      </div>
-    </div>
-    """
-  end
-
-  # A missing thing with something to use instead doesn't need buying.
-  defp swapped?(can_make, name),
-    do: Enum.any?(can_make[:swaps] || [], &(&1.for == name and &1.use))
-
-  defp cook_path(%{recipe_id: id} = can_make) do
-    swaps = Enum.filter(can_make[:swaps] || [], & &1.use)
-    ~p"/recipes/#{id}/cook?#{ToreWeb.BeforeCooking.to_param(swaps)}"
-  end
-
-  # A reply meant only for the model, such as a rejected memory batch, has no text.
-  defp shown(bubbles), do: Enum.reject(bubbles, &(&1.role == :assistant and &1[:text] == ""))
-
-  # What Tore is doing, named as the kitchen would: before any tool runs, and as each starts.
-  defp first_step(_text, [_ | _]), do: gettext("Reading the photo…")
-
-  defp first_step(text, []) do
-    if text =~ ~r{https?://},
-      do: gettext("Reading the link…"),
-      else: gettext("Checking the kitchen…")
-  end
-
-  defp step_label(names), do: Enum.find_value(names, &step_label_for/1)
-
-  defp step_label_for("ingest_receipt"), do: gettext("Reading the receipt…")
-
-  defp step_label_for(n) when n in ~w(ingest_recipe import_recipe_from_url),
-    do: gettext("Reading the recipe…")
-
-  defp step_label_for(n) when n in ~w(update_pantry_from_shelf suggest_from_fridge),
-    do: gettext("Reading the photo…")
-
-  defp step_label_for("find_recipe"), do: gettext("Looking through the recipes…")
-
-  defp step_label_for(n) when n in ~w(can_i_make check_pantry),
-    do: gettext("Checking what's at home…")
-
-  defp step_label_for("suggest_meals_from_pantry"), do: gettext("Finding dinners…")
-  defp step_label_for("plan_week"), do: gettext("Planning the week…")
-
-  defp step_label_for(n)
-       when n in ~w(set_plan_slot clear_plan_slot skip_plan_meal set_plan_servings pin_plan_slot mark_eating_out set_days_off),
-       do: gettext("Changing the plan…")
-
-  defp step_label_for("generate_shopping_list_from_plan"), do: gettext("Making the list…")
-
-  defp step_label_for(n)
-       when n in ~w(add_to_shopping_list check_off_shopping_item remove_shopping_item list_shopping_list),
-       do: gettext("Going through the list…")
-
-  defp step_label_for(_name), do: nil
-
-  @impl true
-  def handle_info({:route_step, names}, socket) do
-    {:noreply, assign(socket, working: step_label(names) || socket.assigns.working)}
-  end
-
-  def handle_info({:quick_swaps, swaps}, socket), do: {:noreply, assign(socket, swaps: swaps)}
-
-  def handle_info({:route_complete, {:ok, bubbles}}, socket) do
-    {:noreply,
-     socket
-     |> assign(:loading, false)
-     |> assign(working: nil)
-     |> update(:messages, &(&1 ++ Enum.map(shown(bubbles), fn b -> actionable(b) end)))}
-  end
-
-  def handle_info({:route_complete, {:error, _reason}}, socket) do
-    bubble = %{
-      role: :assistant,
-      text: gettext("Tore couldn't finish that. Try again in a moment.")
-    }
-
-    {:noreply,
-     socket
-     |> assign(:loading, false)
-     |> update(:messages, &(&1 ++ [bubble]))}
   end
 
   @impl true
@@ -354,7 +317,22 @@ defmodule ToreWeb.CaptureLive do
         </.link>
       </div>
 
-      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".ScrollBottom">
+        // The latest of the conversation is in view: when it opens, and as the answer comes in,
+        // unless they have scrolled up to read.
+        export default {
+          mounted() { this.el.scrollTop = this.el.scrollHeight },
+          beforeUpdate() {
+            this.atEnd = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight < 80
+          },
+          updated() { if (this.atEnd) this.el.scrollTop = this.el.scrollHeight },
+        }
+      </script>
+      <div
+        id="chat-messages"
+        phx-hook=".ScrollBottom"
+        class="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+      >
         <div
           :if={@messages == [] and not @loading}
           class="flex h-full flex-col items-start justify-end pb-4"
@@ -370,102 +348,31 @@ defmodule ToreWeb.CaptureLive do
           </p>
         </div>
         <div
-          :for={{msg, index} <- Enum.with_index(@messages)}
+          :for={msg <- @messages}
+          data-role={"bubble-#{msg.role}"}
           class={[
             "flex",
             msg.role == :user && "justify-end",
             msg.role == :assistant && "justify-start"
           ]}
         >
-          <div
-            :if={Map.get(msg, :pantry_suggestions)}
-            class="rise-in w-full max-w-[85%] space-y-2"
-          >
-            <p class="rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5 text-[15px] text-[color:var(--text)]">
-              {msg.text}
-            </p>
-            <ul class="space-y-1">
-              <li :for={s <- msg.suggestions}>
-                <.link
-                  navigate={~p"/recipes?#{[id: s.recipe_id]}"}
-                  class="row-hover press-soft flex items-center gap-3 rounded-[var(--r-lg)] p-1.5"
-                >
-                  <span class="relative size-14 shrink-0 overflow-hidden rounded-[var(--r-md)]">
-                    <img
-                      :if={s[:photo]}
-                      src={~p"/images/recipes/#{s.recipe_id}"}
-                      alt=""
-                      loading="lazy"
-                      class="size-full object-cover"
-                    />
-                    <.blank_cover :if={!s[:photo]} dish={s} icon_class="size-7" />
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate text-[15px] font-semibold text-[color:var(--text)]">
-                      {s.title}
-                    </span>
-                    <span
-                      :if={s.reasons != []}
-                      class="block truncate text-[13px] text-[color:var(--muted)]"
-                    >
-                      {hd(s.reasons)}
-                    </span>
-                  </span>
-                </.link>
-              </li>
-            </ul>
-          </div>
-          <.can_make :if={Map.get(msg, :can_make)} msg={msg} index={index} />
-          <div
-            :if={Map.get(msg, :shop_link)}
-            class="rise-in bg-[var(--sunken)] rounded-[20px] rounded-bl-md px-4 py-3 max-w-[85%] space-y-2"
-          >
-            <p class="text-sm text-[color:var(--text)]">{msg.text}</p>
-            <ul :if={Map.get(msg, :shopping_items, []) != []} class="space-y-0.5">
-              <li
-                :for={it <- Map.get(msg, :shopping_items, [])}
-                class={[
-                  "text-xs",
-                  it.checked && "line-through text-[color:var(--muted)]",
-                  !it.checked && "text-[color:var(--text)]"
-                ]}
-              >
-                {it.name}<span :if={it.quantity}> · {it.quantity} {it.unit}</span>
-              </li>
-            </ul>
-            <.link
-              navigate={~p"/shop"}
-              class="text-[15px] font-semibold text-[color:var(--text)] underline underline-offset-4 decoration-[color:var(--subtle)] whitespace-nowrap"
-            >
-              {gettext("Open shopping list")}
-            </.link>
-            <.undo msg={msg} />
-          </div>
-          <div
-            :if={
-              !Map.get(msg, :pantry_suggestions) && !Map.get(msg, :shop_link) &&
-                !Map.get(msg, :can_make)
-            }
-            class={[
-              "rise-in max-w-[85%] rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed flex flex-col gap-1",
-              msg.role == :user && "rounded-br-md bg-[var(--text)] text-[color:var(--bg)]",
-              msg.role == :assistant && "rounded-bl-md bg-[var(--sunken)]",
-              msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
-              Map.get(msg, :quiet) && "text-[color:var(--muted)] whitespace-pre-line"
-            ]}
-          >
+          <div class={[
+            "rise-in max-w-[85%] rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed flex flex-col gap-1 whitespace-pre-line",
+            msg.role == :user && "rounded-br-md bg-[var(--text)] text-[color:var(--bg)]",
+            msg.role == :assistant && "rounded-bl-md bg-[var(--sunken)]",
+            msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
+            Map.get(msg, :quiet) && "text-[color:var(--muted)]"
+          ]}>
             <span>{msg.text}</span>
-            <.link
-              :if={Map.get(msg, :kitchen_link)}
-              navigate={~p"/settings#diet"}
-              class="self-start text-[15px] font-semibold underline underline-offset-4 decoration-[color:var(--subtle)] whitespace-nowrap"
-            >
-              {gettext("Open diet and allergies")}
-            </.link>
             <.undo msg={msg} />
           </div>
         </div>
-        <div :if={@loading} class="flex justify-start">
+        <div :if={@draft} data-role="draft" class="flex justify-start">
+          <div class="max-w-[85%] rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-line text-[color:var(--text)]">
+            {@draft}
+          </div>
+        </div>
+        <div :if={@loading and is_nil(@draft)} class="flex justify-start">
           <div
             role="status"
             class="rise-in flex items-center gap-2 rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5"

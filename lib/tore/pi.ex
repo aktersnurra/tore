@@ -62,8 +62,15 @@ defmodule Tore.Pi do
   def ask(%Scope{} = scope, session, message, opts \\ []) do
     with :ok <- check(scope),
          {:ok, pid} <- ensure_started(scope, session) do
-      GenServer.call(pid, {:prompt, message, Keyword.get(opts, :images, [])})
+      prompt(pid, message, Keyword.get(opts, :images, []))
     end
+  end
+
+  # A pi that exits as it starts ends its session before the session takes the prompt.
+  defp prompt(pid, message, images) do
+    GenServer.call(pid, {:prompt, message, images})
+  catch
+    :exit, _ -> {:error, :exited}
   end
 
   @doc """

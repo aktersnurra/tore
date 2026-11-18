@@ -70,8 +70,7 @@ defmodule Tore.Pi.Session do
     id = "tore-#{state.next_id}"
     send_record(state, Map.put(command, :id, id))
 
-    {:noreply,
-     %{state | next_id: state.next_id + 1, pending: Map.put(state.pending, id, from)}}
+    {:noreply, %{state | next_id: state.next_id + 1, pending: Map.put(state.pending, id, from)}}
   end
 
   @impl true
@@ -164,8 +163,9 @@ defmodule Tore.Pi.Session do
       model: config[:model]
     }
 
-    Port.command(port, Jason.encode!(header) <> "\n")
-    Map.merge(state, %{port: port, opened_at: System.monotonic_time(:second)})
+    state = Map.merge(state, %{port: port, opened_at: System.monotonic_time(:second)})
+    send_record(state, header)
+    state
   end
 
   defp reopen(state) do
@@ -176,7 +176,13 @@ defmodule Tore.Pi.Session do
 
   defp age_s(state), do: System.monotonic_time(:second) - state.opened_at
 
-  defp send_record(state, record), do: Port.command(state.port, Jason.encode!(record) <> "\n")
+  # A pi that has already exited has closed its port, and its exit status is on its way: that
+  # ends the session and tells everyone listening, so a write that can't land is let go.
+  defp send_record(state, record) do
+    Port.command(state.port, Jason.encode!(record) <> "\n")
+  rescue
+    ArgumentError -> false
+  end
 
   defp put_images(command, []), do: command
 

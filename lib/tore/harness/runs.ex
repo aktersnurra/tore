@@ -153,6 +153,14 @@ defmodule Tore.Harness.Runs do
   @spec get(Scope.t(), String.t()) :: KitchenRun.t() | nil
   def get(%Scope{} = scope, run_id), do: Repo.get(KitchenRun, run_id, Scope.repo_opts(scope))
 
+  @doc "The status of each of `ids` the household has, by id."
+  @spec statuses(Scope.t(), [String.t()]) :: %{String.t() => atom()}
+  def statuses(%Scope{} = scope, ids) do
+    from(r in KitchenRun, where: r.id in ^ids, select: {r.id, r.status})
+    |> Repo.all(Scope.repo_opts(scope))
+    |> Map.new()
+  end
+
   @doc "Runs waiting for someone, newest first."
   @spec list_pending(Scope.t()) :: [KitchenRun.t()]
   def list_pending(%Scope{} = scope) do

@@ -1,11 +1,9 @@
 defmodule ToreWeb.CaptureLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
-  import Mox
-  import Ecto.Query, only: [from: 2]
+  import Tore.FakePi
 
-  setup :verify_on_exit!
-  setup :set_mox_from_context
+  setup :fake_pi
 
   setup do
     user = user_fixture(name: "Gustaf")
@@ -13,21 +11,48 @@ defmodule ToreWeb.CaptureLiveTest do
     %{conn: conn, user: user}
   end
 
-  defp eventually(fun, attempts \\ 50)
+  defp eventually(fun, attempts \\ 80)
   defp eventually(_fun, 0), do: flunk("Timed out waiting for condition")
 
   defp eventually(fun, attempts) do
-    if fun.() do
-      true
-    else
-      Process.sleep(10)
-      eventually(fun, attempts - 1)
-    end
+    if fun.(), do: true, else: Process.sleep(25) && eventually(fun, attempts - 1)
   end
 
-  test "mount renders empty chat", %{conn: conn} do
-    {:ok, _lv, html} = live(conn, "/capture")
+  defp prompts(log), do: for(%{"type" => "prompt"} = p <- pi_records(log), do: p)
+
+  # A dinner set the way pi sets one, over MCP: the tool's text and its run.
+  defp set_dinner do
+    {:ok, recipe} =
+      Tore.Repo.insert(%Tore.Recipes.Recipe{
+        household_id: home_scope().household_id,
+        title: "Pizza",
+        recipe_type: :meal
+      })
+
+    args = %{"date" => "2026-06-23", "recipe_id" => recipe.id}
+
+    {:reply, %{"result" => %{"content" => [%{"text" => text}], "structuredContent" => result}}} =
+      Tore.Mcp.handle(home_scope(), %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => "set_dinner", "arguments" => args}
+      })
+
+    %{args: args, text: text, done: result.done, run_id: result.run_id}
+  end
+
+  defp tuesday_planned? do
+    {:ok, plan} =
+      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
+
+    Map.has_key?(plan.slots, "tue_dinner")
+  end
+
+  test "an empty conversation asks what they need", %{conn: conn} do
+    {:ok, lv, html} = live(conn, "/capture")
     assert html =~ "Fråga Tore"
+    assert render_async(lv) =~ "Vad behöver du?"
   end
 
   test "capture renders as a sheet with a close affordance", %{conn: conn} do
@@ -47,6 +72,139 @@ defmodule ToreWeb.CaptureLiveTest do
     assert view
            |> element(~s([data-role="tray-close"]))
            |> render() =~ ~s(href="/plan")
+  end
+
+  test "a message goes to their own chat with pi, and the answer streams in", %{
+    conn: conn,
+    user: user,
+    pi_log: log
+  } do
+    {:ok, lv, _html} = live(conn, "/capture")
+    html = lv |> form("form", %{message: "Vad ska jag laga?"}) |> render_submit()
+
+    assert html =~ "Vad ska jag laga?"
+    assert eventually(fn -> render(lv) =~ "echo: Vad ska jag laga?" end)
+
+    [header | _] = pi_records(log)
+    assert header["session"] == "chat-#{user.id}"
+    assert [%{"message" => "Vad ska jag laga?"}] = prompts(log)
+  end
+
+  test "a change pi makes shows its receipt, and Undo takes it back", %{conn: conn} do
+    dinner = set_dinner()
+
+    System.put_env(
+      "FAKE_PI_TOOL",
+      Jason.encode!(%{name: "mcp__tore__set_dinner", args: dinner.args, result: dinner.text})
+    )
+
+    {:ok, lv, _html} = live(conn, "/capture")
+    lv |> form("form", %{message: "pizza på tisdag"}) |> render_submit()
+
+    assert eventually(fn -> has_element?(lv, "button", "Ångra") end)
+    assert render(lv) =~ dinner.done
+    assert tuesday_planned?()
+
+    lv |> element("button", "Ångra") |> render_click()
+
+    refute tuesday_planned?()
+    assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
+  end
+
+  test "undone by asking pi, the change's receipt says so", %{conn: conn} do
+    dinner = set_dinner()
+    undone = Jason.encode!(%{done: "Undone.", run_id: dinner.run_id})
+
+    System.put_env(
+      "FAKE_PI_HISTORY",
+      Jason.encode!([
+        %{
+          "role" => "toolResult",
+          "toolName" => "mcp__tore__set_dinner",
+          "isError" => false,
+          "content" => [%{"type" => "text", "text" => dinner.text}]
+        }
+      ])
+    )
+
+    System.put_env(
+      "FAKE_PI_TOOL",
+      Jason.encode!(%{name: "mcp__tore__undo", args: %{run_id: dinner.run_id}, result: undone})
+    )
+
+    {:ok, lv, _html} = live(conn, "/capture")
+    render_async(lv)
+    assert has_element?(lv, "button", "Ångra")
+
+    # What pi's undo call does in Tore, while the fake answers with its result.
+    {:ok, _} = Tore.Harness.Runs.revert(home_scope(), dinner.run_id)
+    lv |> form("form", %{message: "ångra pizzan"}) |> render_submit()
+
+    assert eventually(fn -> render(lv) =~ "echo: ångra pizzan" end)
+    refute has_element?(lv, "button", "Ångra")
+    assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
+  end
+
+  test "the conversation is there when the tray opens, with what has been undone", %{conn: conn} do
+    dinner = set_dinner()
+    {:ok, _} = Tore.Harness.Runs.revert(home_scope(), dinner.run_id)
+
+    System.put_env(
+      "FAKE_PI_HISTORY",
+      Jason.encode!([
+        %{"role" => "user", "content" => "Pizza på tisdag"},
+        %{
+          "role" => "assistant",
+          "content" => [%{"type" => "toolCall", "id" => "c1", "name" => "mcp__tore__set_dinner"}]
+        },
+        %{
+          "role" => "toolResult",
+          "toolName" => "mcp__tore__set_dinner",
+          "isError" => false,
+          "content" => [%{"type" => "text", "text" => dinner.text}]
+        },
+        %{"role" => "assistant", "content" => [%{"type" => "text", "text" => "Klart, pizza."}]}
+      ])
+    )
+
+    {:ok, lv, _html} = live(conn, "/capture")
+    html = render_async(lv)
+
+    assert html =~ "Pizza på tisdag"
+    assert html =~ dinner.done
+    assert html =~ "Klart, pizza."
+    refute has_element?(lv, "button", "Ångra")
+    assert html =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
+  end
+
+  test "a photo goes to pi with what was written", %{conn: conn, pi_log: log} do
+    {:ok, lv, _html} = live(conn, "/capture")
+
+    lv
+    |> file_input("form", :chat_photos, [
+      %{name: "kvitto.jpg", content: "jpegbytes", type: "image/jpeg"}
+    ])
+    |> render_upload("kvitto.jpg")
+
+    lv |> form("form", %{message: ""}) |> render_submit()
+    assert eventually(fn -> prompts(log) != [] end)
+
+    [%{"message" => message, "images" => [image]}] = prompts(log)
+    assert message == Gettext.dgettext(ToreWeb.Gettext, "default", "1 photo")
+
+    assert image == %{
+             "type" => "image",
+             "mimeType" => "image/jpeg",
+             "data" => Base.encode64("jpegbytes")
+           }
+  end
+
+  test "without pi, sending says it couldn't", %{conn: conn} do
+    Application.delete_env(:tore, :pi)
+    {:ok, lv, _html} = live(conn, "/capture")
+
+    html = lv |> form("form", %{message: "hej"}) |> render_submit()
+    assert html =~ "Tore kunde inte slutföra det."
   end
 
   describe "suggestions" do
@@ -70,18 +228,15 @@ defmodule ToreWeb.CaptureLiveTest do
                lv |> element(~s([data-role="swap"]), "Inköpslistan") |> render_click()
     end
 
-    test "one with a request sends it", %{conn: conn} do
+    test "one with a request sends it to pi", %{conn: conn, pi_log: log} do
       store_pick([:plan_next_week])
-
-      expect(Tore.MockLLM, :chat_with_tools, fn _system, messages, _tools, _opts ->
-        assert List.last(messages).content =~ "Planera nästa vecka"
-        {:ok, {:message, "Klart!"}, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
-      end)
-
       {:ok, lv, _html} = live(conn, ~p"/capture")
+
       lv |> element(~s([data-role="swap"]), "Planera nästa vecka") |> render_click()
 
-      assert eventually(fn -> render(lv) =~ "Klart!" end)
+      assert eventually(fn -> render(lv) =~ "echo: " end)
+      assert [%{"message" => message}] = prompts(log)
+      assert message =~ "Planera nästa vecka"
     end
 
     test "a turn's suggestions replace the pick's", %{conn: conn, user: user} do
@@ -97,338 +252,6 @@ defmodule ToreWeb.CaptureLiveTest do
       html = render(lv)
       assert html =~ "Mer pasta"
       refute html =~ "Veckans plan"
-    end
-  end
-
-  test "sending a message appends user bubble", %{conn: conn} do
-    Tore.MockLLM
-    |> expect(:chat_with_tools, fn _system, _messages, _tools, _opts ->
-      {:ok, {:message, "Try making pasta tonight!"},
-       %{prompt_tokens: 10, completion_tokens: 8, cost_usd: 0.0001}}
-    end)
-
-    {:ok, lv, _html} = live(conn, "/capture")
-
-    html =
-      lv
-      |> form("form", %{message: "What should I cook?"})
-      |> render_submit()
-
-    assert html =~ "What should I cook?"
-
-    :timer.sleep(200)
-    html = render(lv)
-    assert html =~ "Try making pasta tonight!"
-  end
-
-  test "Undo on a set_plan_slot bubble reverts the run and marks the bubble", %{conn: conn} do
-    {:ok, recipe} =
-      %Tore.Recipes.Recipe{
-        household_id: home_scope().household_id,
-        title: "Pizza",
-        recipe_type: :meal
-      }
-      |> Tore.Repo.insert()
-
-    tool_call = %{
-      id: "call_1",
-      name: "set_plan_slot",
-      args: %{"date" => "2026-06-23", "recipe_id" => recipe.id, "servings" => 4}
-    }
-
-    Tore.MockLLM
-    |> expect(:chat_with_tools, 2, fn _sys, _msgs, _tools, _opts ->
-      case Process.get(:turn_count, 0) do
-        0 ->
-          Process.put(:turn_count, 1)
-
-          {:ok, {:tool_calls, [tool_call]},
-           %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-
-        _ ->
-          {:ok, {:message, "Done."},
-           %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}}
-      end
-    end)
-
-    {:ok, lv, _html} = live(conn, "/capture")
-
-    lv
-    |> form("form", %{message: "plan pizza tuesday"})
-    |> render_submit()
-
-    :timer.sleep(300)
-    html = render(lv)
-    assert html =~ "Pizza"
-    assert html =~ "Ångra"
-
-    {:ok, plan_state} =
-      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
-
-    assert Map.has_key?(plan_state.slots, "tue_dinner")
-
-    lv |> element("button", "Ångra") |> render_click()
-
-    {:ok, plan_state2} =
-      Tore.Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-06-22]))
-
-    refute Map.has_key?(plan_state2.slots, "tue_dinner")
-
-    html2 = render(lv)
-    assert html2 =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
-  end
-
-  test "an item added to the shopping list can be undone from its reply", %{conn: conn} do
-    usage = %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
-    call = %{id: "call_1", name: "add_to_shopping_list", args: %{"name" => "mjölk"}}
-
-    Tore.MockLLM
-    |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:tool_calls, [call]}, usage} end)
-    |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Klart."}, usage} end)
-    |> stub(:text, fn _, _, _ -> {:ok, %{"section" => "dairy"}, usage} end)
-
-    {:ok, lv, _html} = live(conn, "/capture")
-    lv |> form("form", %{message: "lägg till mjölk"}) |> render_submit()
-    eventually(fn -> has_element?(lv, "button", "Ångra") end)
-
-    list_id = Tore.Streams.shop_list(home_scope(), Tore.Clock.today())
-    assert {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list_id)
-    assert map_size(items) == 1
-
-    lv |> element("button", "Ångra") |> render_click()
-
-    assert {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list_id)
-    assert items == %{}
-  end
-
-  describe "the memory tool" do
-    @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
-
-    # The model saves `content` as a note, then replies once it has the tool's answer.
-    defp say_and_note(content, test_pid) do
-      call = %{
-        id: "call_1",
-        name: "memory",
-        args: %{"target" => "notes", "operations" => [%{"action" => "add", "content" => content}]}
-      }
-
-      Tore.MockLLM
-      |> expect(:chat_with_tools, fn _, _, _, _ -> {:ok, {:tool_calls, [call]}, @usage} end)
-      |> expect(:chat_with_tools, fn _, msgs, _, _ ->
-        send(test_pid, {:tool_answer, List.last(msgs).content})
-        {:ok, {:message, "Okej."}, @usage}
-      end)
-    end
-
-    defp notes, do: home_scope() |> Tore.Household.Memory.list("notes") |> Enum.map(& &1.text)
-
-    test "a saved note shows 'Noted:' and undoes", %{conn: conn} do
-      say_and_note("Äter inte fisk på vardagar.", self())
-      {:ok, lv, _html} = live(conn, "/capture")
-
-      lv |> form("form", %{message: "vi har slutat äta fisk på vardagar"}) |> render_submit()
-      assert_receive {:tool_answer, answer}, 1000
-      assert answer =~ ~s("status":"ok")
-
-      eventually(fn -> render(lv) =~ "Noterat: Äter inte fisk på vardagar." end)
-      assert notes() == ["Äter inte fisk på vardagar."]
-
-      lv |> element("button", "Ångra") |> render_click()
-
-      assert notes() == []
-      assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
-    end
-
-    test "an allergy is refused and points to diet and allergies", %{conn: conn} do
-      say_and_note("Anna är allergisk mot nötter.", self())
-      {:ok, lv, _html} = live(conn, "/capture")
-
-      lv |> form("form", %{message: "Anna är allergisk mot nötter"}) |> render_submit()
-      assert_receive {:tool_answer, answer}, 1000
-      assert answer =~ ~s("status":"rejected")
-      assert answer =~ ~s("refused":"allergy")
-
-      eventually(fn -> render(lv) =~ "Öppna kost och allergier" end)
-      assert has_element?(lv, ~s(a[href="/settings#diet"]))
-      refute render(lv) =~ "Noterat"
-      assert notes() == []
-
-      assert [] =
-               Tore.Repo.all(
-                 from(r in Tore.Harness.KitchenRun, where: r.kind == "memory_update_run"),
-                 Tore.Scope.repo_opts(home_scope())
-               )
-    end
-  end
-
-  test "a shelf photo replies in the user's language and can be undone", %{conn: conn} do
-    usage = %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
-    tool_call = %{id: "call_1", name: "update_pantry_from_shelf", args: %{"image_indices" => [1]}}
-
-    Tore.MockLLM
-    |> expect(:chat_with_tools, 2, fn _sys, _msgs, _tools, _opts ->
-      case Process.get(:turn_count, 0) do
-        0 ->
-          Process.put(:turn_count, 1)
-          {:ok, {:tool_calls, [tool_call]}, usage}
-
-        _ ->
-          {:ok, {:message, "Klart."}, usage}
-      end
-    end)
-    |> expect(:vision, fn _blobs, _sys, _user, _opts ->
-      {:ok,
-       %{
-         "items" => [%{"name" => "mjölk", "quantity" => 2, "unit" => "l", "category" => "dairy"}]
-       }, usage}
-    end)
-    |> expect(:text, fn _sys, _user, _opts ->
-      {:ok,
-       %{
-         "items" => [
-           %{
-             "raw_name" => "mjölk",
-             "catalogue_name" => "mjölk",
-             "category" => "dairy",
-             "default_unit" => "l",
-             "matched_key" => nil
-           }
-         ]
-       }, usage}
-    end)
-
-    {:ok, lv, _html} = live(conn, "/capture")
-
-    photo =
-      file_input(lv, "form", :chat_photos, [
-        %{name: "shelf.jpg", content: <<255, 216, 255, 1>>, type: "image/jpeg"}
-      ])
-
-    render_upload(photo, "shelf.jpg")
-    lv |> form("form", %{message: "hyllan"}) |> render_submit()
-
-    :timer.sleep(300)
-    assert render(lv) =~ "La till mjölk från din bild."
-    assert [%{name: "mjölk"}] = Tore.Pantry.list_inventory(home_scope())
-
-    lv |> element("button", "Ångra") |> render_click()
-
-    assert Tore.Pantry.list_inventory(home_scope()) == []
-    assert render(lv) =~ "Återställd"
-  end
-
-  describe "can I make it" do
-    test "says what it's doing, then shows what's missing and puts it on the list", %{conn: conn} do
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vetemjöl"})
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
-      stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
-      test_pid = self()
-
-      call = %{
-        id: "c1",
-        name: "can_i_make",
-        args: %{
-          "dish" => "Kanelbullar",
-          "recipe_id" => nil,
-          "ingredients" => ["vetemjöl", "smör", "kanel", "jäst"]
-        }
-      }
-
-      expect(Tore.MockLLM, :chat_with_tools, 2, fn _sys, msgs, _tools, _opts ->
-        if Enum.any?(msgs, &(&1[:role] == "tool")) do
-          send(test_pid, {:second_turn, self()})
-          receive do: (:go_on -> :ok)
-          {:ok, {:message, "Du saknar kanel och jäst."}, %{}}
-        else
-          {:ok, {:tool_calls, [call]}, %{}}
-        end
-      end)
-
-      {:ok, view, _} = live(conn, ~p"/capture")
-
-      html =
-        view
-        |> form(~s(form[phx-submit="send_message"]), %{message: "kan jag baka kanelbullar?"})
-        |> render_submit()
-
-      assert html =~ "Kollar köket…"
-      assert_receive {:second_turn, worker}, 1000
-
-      assert view |> element(~s([data-role="working"])) |> render() =~
-               "Kollar vad som finns hemma…"
-
-      send(worker, :go_on)
-
-      assert eventually(fn -> has_element?(view, ~s([data-role="can-make"])) end)
-      card = view |> element(~s([data-role="can-make"])) |> render()
-      assert card =~ "Saknas: kanel, jäst"
-
-      view |> element("button", "Lägg det som saknas på listan") |> render_click()
-      assert render(view) =~ "På listan"
-
-      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
-      {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
-
-      assert state.items |> Map.values() |> Enum.map(& &1.name) |> Enum.sort() == [
-               "jäst",
-               "kanel"
-             ]
-    end
-
-    test "I don't have crème fraîche, I have gräddfil: the card swaps it and cooks with it", %{
-      conn: conn
-    } do
-      {:ok, stew} =
-        Tore.Recipes.create(
-          home_scope(),
-          %{
-            title: "Kycklinggryta",
-            recipe_type: :meal,
-            ingredients: [%{name: "kyckling"}, %{name: "crème fraîche"}]
-          },
-          image: false
-        )
-
-      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "kyckling"})
-
-      stub(Tore.MockLLM, :text, fn _s, _u, _o ->
-        {:ok,
-         %{"swaps" => [%{"for" => "crème fraîche", "use" => "gräddfil", "note" => "Låg värme."}]},
-         %{}}
-      end)
-
-      call = %{
-        id: "c1",
-        name: "can_i_make",
-        args: %{
-          "dish" => "Kycklinggryta",
-          "recipe_id" => stew.id,
-          "ingredients" => [],
-          "lacking" => ["crème fraîche"],
-          "instead" => "gräddfil"
-        }
-      }
-
-      expect(Tore.MockLLM, :chat_with_tools, 2, fn _sys, msgs, _tools, _opts ->
-        if Enum.any?(msgs, &(&1[:role] == "tool")),
-          do: {:ok, {:message, "Ta gräddfil."}, %{}},
-          else: {:ok, {:tool_calls, [call]}, %{}}
-      end)
-
-      {:ok, view, _} = live(conn, ~p"/capture")
-
-      view
-      |> form(~s(form[phx-submit="send_message"]), %{
-        message: "har ingen crème fraîche, gräddfil?"
-      })
-      |> render_submit()
-
-      assert eventually(fn -> has_element?(view, ~s([data-role="swaps"])) end)
-      card = view |> element(~s([data-role="can-make"])) |> render()
-      assert card =~ "gräddfil"
-      assert card =~ "Låg värme."
-      assert card =~ "swaps[0][use]=gr%C3%A4ddfil"
-      refute card =~ "Lägg det som saknas på listan"
     end
   end
 end
