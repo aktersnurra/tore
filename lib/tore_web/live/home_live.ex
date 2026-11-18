@@ -69,7 +69,8 @@ defmodule ToreWeb.HomeLive do
           phx-hook="LongPress"
           data-long-press-event="open_tonight_sheet"
         >
-          <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn --%>
+          <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
+               the dish's name in white on its darkened foot --%>
           <div class="relative -mx-4 -mt-4 h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)]">
             <img
               :if={photo?(@dish)}
@@ -79,17 +80,18 @@ defmodule ToreWeb.HomeLive do
               style={"view-transition-name: dish-#{@dish.id}"}
             />
             <.blank_cover :if={!photo?(@dish)} dish={@dish} icon_class="size-20" />
+            <div :if={photo?(@dish)} class="photo-shade absolute inset-0" aria-hidden="true"></div>
+            <h1
+              class={[
+                "reveal t-display absolute inset-x-0 bottom-0 px-4 pb-4 md:px-5",
+                photo?(@dish) && "on-photo-text"
+              ]}
+              style="--i: 1"
+            >
+              {@dish.title}
+            </h1>
           </div>
-
-          <div class="reveal relative -mt-9" style="--i: 0">
-            <.page_icon
-              icon={ToreWeb.Look.icon(@dish)}
-              tint={ToreWeb.Look.tint(@dish.recipe_type)}
-              class="size-[72px] rounded-[var(--r-xl)] ring-4 ring-[var(--bg)]"
-            />
-          </div>
-          <h1 class="reveal t-display mt-3" style="--i: 1">{@dish.title}</h1>
-          <.cooked :if={@cooked} title={@cooked} class="mt-2" />
+          <.cooked :if={@cooked} title={@cooked} class="mt-4" />
 
           <dl class="props reveal mt-4" style="--i: 2">
             <div>

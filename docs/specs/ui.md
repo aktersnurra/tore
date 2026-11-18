@@ -216,9 +216,10 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
 - **Soft, not editorial.** Headlines are 26–30px bold, never poster-sized or tightly tracked.
   Lists sit on one rounded surface (`.menu-lines`), not as ruled lines on the page.
-- **A large photograph melts into the page.** Its foot blurs and fades to the page colour
-  (`.photo-blur` under `.photo-fade`), and the dish's name stands on the fade in the page's
-  own type colour. Small picture cards keep a dark foot and white type (`.photo-shade`).
+- **The dish's name is on its photograph.** A large cover (Today, a recipe page) darkens at
+  its foot (`.photo-shade`) and carries the name in white (`.on-photo-text`), then the page
+  starts. A cover still waiting for its picture keeps its tint and the name in the page's
+  own type colour, with no shade (2026-11-19).
 - **One palette, two lights.** Papper: ink on white, graphite when the phone is dark
   (follows the phone, or `data-theme`). The main action is ink; type on it uses `--on-accent`.
 - **Pictures lead where there's a dish.** Today opens on tonight's cover; Recipes is a
@@ -626,9 +627,8 @@ What matters for dinner today?
 Today is tonight's recipe page (2026-11-18):
 
 ```md
-Cover    — tonight's photo, or the dish's tinted icon while one is drawn
-Icon     — the dish's page icon, over the cover's edge
-Title    — the dish
+Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
+           dish's name on it
 Props    — Day (Tonight tag + date) · Collection · Time (and ready by) · Servings ·
            At home (missing things as red tags, Put on the list)
 Actions  — [Cook now] [Something else]

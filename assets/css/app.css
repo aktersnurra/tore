@@ -406,9 +406,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .facts dd { margin-top: 2px; font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
 /* A hero photograph darkens into the page, no blur. The name stands on the dark. */
-.photo-foot {
-  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--bg) 55%, transparent) 48%, var(--bg) 100%);
-}
+.on-photo-text { color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); }
 
 /* ── Arrival: content rises into place, a few items at a time ────────────── */
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

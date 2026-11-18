@@ -754,7 +754,7 @@ defmodule ToreWeb.RecipeLive do
   defp render_detail(assigns) do
     ~H"""
     <article>
-      <%!-- The dish, with its name on the dark foot of the photograph --%>
+      <%!-- The dish, with its name in white on the darkened foot of the photograph --%>
       <div class="relative h-[58svh] min-h-[360px] max-h-[560px] w-full overflow-hidden">
         <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
         <img
@@ -764,7 +764,7 @@ defmodule ToreWeb.RecipeLive do
           class="absolute inset-0 size-full object-cover"
           style={"view-transition-name: dish-#{@selected.id}"}
         />
-        <div class="photo-foot absolute inset-x-0 bottom-0 h-3/5" aria-hidden="true"></div>
+        <div :if={@selected.image_path} class="photo-shade absolute inset-0" aria-hidden="true"></div>
 
         <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
           <.link
@@ -847,8 +847,10 @@ defmodule ToreWeb.RecipeLive do
           </div>
         </div>
 
-        <div class="absolute inset-x-0 bottom-0 px-5 pb-1">
-          <h1 class="reveal t-display" style="--i: 1">{@selected.title}</h1>
+        <div class="absolute inset-x-0 bottom-0 px-5 pb-5">
+          <h1 class={["reveal t-display", @selected.image_path && "on-photo-text"]} style="--i: 1">
+            {@selected.title}
+          </h1>
         </div>
       </div>
 
