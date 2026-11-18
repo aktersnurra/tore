@@ -117,6 +117,22 @@ defmodule ToreWeb.CookLive do
     {:noreply, update(socket, :timers, &Enum.reject(&1, fn t -> t.id == id end))}
   end
 
+  defp done_card(nil), do: nil
+
+  defp done_card(%{used: used}) do
+    %{
+      text: gettext("Cooked"),
+      needs:
+        if(used == [],
+          do: [],
+          else: [
+            gettext("Used up at home: %{things}.", things: Enum.map_join(used, ", ", & &1.name))
+          ]
+        ),
+      undo: "undo_done"
+    }
+  end
+
   defp go(socket, to) do
     %{recipe: recipe, close_to: close_to, servings: servings, swaps: swaps} = socket.assigns
     params = [step: to + 1, from: close_to, servings: servings] ++ BeforeCooking.to_param(swaps)
@@ -225,43 +241,8 @@ defmodule ToreWeb.CookLive do
         close_to={@close_to}
         timers={@timers}
         on_done="done"
+        done={done_card(@done)}
       />
-
-      <%!-- Cooked: what's gone from the pantry now, with Undo, and the way out --%>
-      <div
-        :if={@done}
-        id="cook-done"
-        class="fixed inset-0 z-[80] flex flex-col justify-center bg-[var(--bg)] px-5"
-      >
-        <div class="mx-auto w-full max-w-2xl">
-          <p class="t-eyebrow">{@recipe.title}</p>
-          <p class="t-display settle mt-2 flex items-center gap-3">
-            <.icon name="ph-check-circle-fill" class="size-9 text-[color:var(--done)]" />
-            {gettext("Cooked")}
-          </p>
-          <p
-            :if={@done.used != []}
-            class="mt-4 text-[color:var(--muted)]"
-            style="font-size: 16px; line-height: 1.5;"
-          >
-            {gettext("Used up at home: %{things}.",
-              things: @done.used |> Enum.map(& &1.name) |> Enum.join(", ")
-            )}
-          </p>
-          <div class="mt-8 flex flex-wrap items-center gap-5">
-            <.link navigate={@close_to} class="pill pill-lg pill-lamp press" data-role="close-done">
-              {gettext("Close")}
-            </.link>
-            <button
-              type="button"
-              phx-click="undo_done"
-              class="press font-semibold text-[color:var(--accent-ink)]"
-            >
-              {gettext("Undo")}
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div
         :if={!@cards}

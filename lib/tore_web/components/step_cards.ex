@@ -27,6 +27,13 @@ defmodule ToreWeb.StepCards do
     default: nil,
     doc: "an event the last card's button sends instead of going to `close_to`"
 
+  attr :done, :map,
+    default: nil,
+    doc: """
+    After `on_done`: `%{text:, needs:, undo:}`, shown as a last card in the same place, with
+    Close where Done was and Undo (the `undo` event) where the step buttons were. Nothing moves.
+    """
+
   attr :timers, :list,
     default: nil,
     doc: """
@@ -38,7 +45,7 @@ defmodule ToreWeb.StepCards do
   def deck(assigns) do
     assigns =
       assign(assigns,
-        card: Enum.at(assigns.cards, assigns.index),
+        card: assigns.done || Enum.at(assigns.cards, assigns.index),
         last: length(assigns.cards) - 1
       )
 
@@ -106,13 +113,18 @@ defmodule ToreWeb.StepCards do
       <%!-- The card. Tapping it is the same as Next. --%>
       <button
         type="button"
-        phx-click="step"
+        phx-click={!@done && "step"}
         phx-value-to={min(@index + 1, @last)}
         data-role="step-card"
         class="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center overflow-y-auto px-5 py-6 text-left"
       >
         <%!-- Keyed by position, so each new step arrives instead of swapping in place --%>
-        <span id={"#{@id}-card-#{@index}"} class="reveal block">
+        <span id={if @done, do: "#{@id}-done", else: "#{@id}-card-#{@index}"} class="reveal block">
+          <.icon
+            :if={@done}
+            name="ph-check-circle-fill"
+            class="mb-2 size-10 text-[color:var(--done)]"
+          />
           <span :if={@card[:label]} class="t-eyebrow block" style="font-size: 15px;">
             {@card.label}
           </span>
@@ -145,7 +157,10 @@ defmodule ToreWeb.StepCards do
         </span>
       </button>
 
-      <div :if={@card[:minutes] && @timers != nil} class="mx-auto w-full max-w-2xl px-5 pb-2">
+      <div
+        :if={!@done && @card[:minutes] && @timers != nil}
+        class="mx-auto w-full max-w-2xl px-5 pb-2"
+      >
         <button
           type="button"
           phx-click="start_timer"
@@ -158,7 +173,27 @@ defmodule ToreWeb.StepCards do
       </div>
 
       <footer class="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <%!-- Done: Undo takes the step buttons' width, Close takes Done's place --%>
         <button
+          :if={@done}
+          type="button"
+          phx-click={@done.undo}
+          data-role="undo-done"
+          class="press inline-flex h-14 w-[7.5rem] shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--sunken)] text-[16px] font-semibold text-[color:var(--text)]"
+        >
+          <.icon name="ph-arrow-counter-clockwise" class="size-5" />
+          {gettext("Undo")}
+        </button>
+        <.link
+          :if={@done}
+          navigate={@close_to}
+          data-role="close-done"
+          class="pill press h-14 flex-1 bg-[color:var(--done)] text-[17px] text-[color:var(--bg)]"
+        >
+          {gettext("Close")}
+        </.link>
+        <button
+          :if={!@done}
           type="button"
           phx-click="step"
           phx-value-to={max(@index - 1, 0)}
@@ -169,6 +204,7 @@ defmodule ToreWeb.StepCards do
           <.icon name="ph-caret-left" class="size-6" />
         </button>
         <button
+          :if={!@done}
           type="button"
           phx-click="toggle_overview"
           aria-label={gettext("All steps")}
@@ -177,7 +213,7 @@ defmodule ToreWeb.StepCards do
           <.icon name="ph-list-bullets" class="size-6" />
         </button>
         <button
-          :if={@index < @last}
+          :if={!@done and @index < @last}
           type="button"
           phx-click="step"
           phx-value-to={@index + 1}
@@ -186,7 +222,7 @@ defmodule ToreWeb.StepCards do
           {gettext("Next")}
         </button>
         <.link
-          :if={@index == @last and !@on_done}
+          :if={!@done and @index == @last and !@on_done}
           navigate={@close_to}
           class="pill press h-14 flex-1 bg-[color:var(--done)] text-[17px] text-[color:var(--bg)]"
         >
@@ -194,7 +230,7 @@ defmodule ToreWeb.StepCards do
           {gettext("Done")}
         </.link>
         <button
-          :if={@index == @last and @on_done}
+          :if={!@done and @index == @last and @on_done}
           type="button"
           phx-click={@on_done}
           data-role="done"

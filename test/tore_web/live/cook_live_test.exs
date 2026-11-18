@@ -100,8 +100,12 @@ defmodule ToreWeb.CookLiveTest do
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == ["vitlök"]
     assert Recipes.get!(home_scope(), recipe.id).last_used_at
 
-    view |> element("#cook-done button", "Ångra") |> render_click()
-    refute has_element?(view, "#cook-done")
+    assert has_element?(view, ~s([data-role="close-done"]))
+    refute has_element?(view, ~s([data-role="done"]))
+
+    view |> element(~s([data-role="undo-done"])) |> render_click()
+    refute has_element?(view, ~s([data-role="undo-done"]))
+    assert has_element?(view, ~s([data-role="done"]))
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == []
     refute Recipes.get!(home_scope(), recipe.id).last_used_at
   end
