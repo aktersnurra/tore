@@ -202,7 +202,9 @@ defmodule ToreWeb.RecipeLiveTest do
 
       assert lv |> element(~s([data-role="servings"])) |> render() =~ "6"
       assert lv |> element(~s([data-role="amount"])) |> render() =~ "600 g"
-      assert has_element?(lv, ~s(a[data-role="start-cooking"][href*="servings=6"]))
+      # Pasta isn't all at home, so Cook now asks first; the servings go along.
+      lv |> element(~s(button[data-role="start-cooking"])) |> render_click()
+      assert has_element?(lv, ~s(a[data-role="cook-anyway"][href*="servings=6"]))
     end
 
     test "it goes on a day of the week, and Undo puts the day back", %{
@@ -478,6 +480,87 @@ defmodule ToreWeb.RecipeLiveTest do
       list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
       {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
       assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
+    end
+  end
+
+  describe "before cooking" do
+    setup do
+      {:ok, stew} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Kycklinggryta",
+            recipe_type: :meal,
+            ingredients: [%{name: "kyckling"}, %{name: "gul lök"}, %{name: "crème fraîche"}]
+          },
+          image: false
+        )
+
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "kyckling"})
+      %{stew: stew}
+    end
+
+    test "with everything at home, Cook now goes straight to cook mode", %{conn: conn, user: user} do
+      {:ok, buns} =
+        Recipes.create(home_scope(), %{title: "Bullar", ingredients: [%{name: "salt"}]},
+          image: false
+        )
+
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: buns.id]}")
+      assert view |> element(~s(a[data-role="start-cooking"])) |> render() =~ "/cook"
+    end
+
+    test "ticking what you have is free; all ticked, you cook", %{
+      conn: conn,
+      user: user,
+      stew: stew
+    } do
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: stew.id]}")
+
+      view |> element(~s(button[data-role="start-cooking"])) |> render_click()
+      assert has_element?(view, ~s([data-role="before-cooking"]))
+      assert has_element?(view, ~s([data-role="cook-anyway"]))
+      refute has_element?(view, ~s([data-role="cook-with"]))
+
+      view |> element(~s([data-missing="gul lök"] button)) |> render_click()
+      view |> element(~s([data-missing="crème fraîche"] button)) |> render_click()
+
+      assert view |> element(~s([data-role="cook-with"])) |> render() =~ "Laga nu"
+      refute has_element?(view, "#before-cooking-check")
+      refute has_element?(view, ~s([data-role="cook-anyway"]))
+    end
+
+    test "Check asks once for the rest and cooks with the swaps", %{
+      conn: conn,
+      user: user,
+      stew: stew
+    } do
+      Mox.set_mox_global()
+
+      Mox.expect(Tore.MockLLM, :text, fn _system, user_msg, _opts ->
+        sent = Jason.decode!(user_msg)
+        assert sent["missing"] == ["crème fraîche"]
+        assert sent["they_have"] == "gräddfil"
+
+        {:ok,
+         %{
+           "swaps" => [
+             %{"for" => "crème fraîche", "use" => "gräddfil", "note" => "Rör ner på låg värme."}
+           ]
+         }, %{}}
+      end)
+
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: stew.id]}")
+      view |> element(~s(button[data-role="start-cooking"])) |> render_click()
+      view |> element(~s([data-missing="gul lök"] button)) |> render_click()
+      view |> element("#before-cooking-check") |> render_submit(%{offered: "gräddfil"})
+
+      assert render_async(view) =~ "Rör ner på låg värme."
+      link = view |> element(~s([data-role="cook-with"])) |> render()
+      assert link =~ "Laga med det här"
+      assert link =~ "swaps[0][use]=gr%C3%A4ddfil"
+      assert has_element?(view, ~s([data-role="cook-anyway"]))
+      assert Tore.Pantry.at_home(home_scope(), ["gräddfil"]).missing == ["gräddfil"]
     end
   end
 

@@ -106,6 +106,11 @@ defmodule ToreWeb.HomeLiveTest do
       list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
       {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
       assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
+
+      # Cook now asks about what's missing first, and comes back here from cook mode.
+      view |> element(~s(button[data-role="start-cooking"])) |> render_click()
+      assert view |> element(~s([data-missing="kanel"])) |> render() =~ "kanel"
+      assert has_element?(view, ~s(a[data-role="cook-anyway"][href*="from=%2Ftoday"]))
     end
   end
 

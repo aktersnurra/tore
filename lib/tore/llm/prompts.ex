@@ -795,6 +795,61 @@ defmodule Tore.LLM.Prompts do
   appetising, not glossy. No text, no hands, no people, no logos.\
   """
 
+  @doc """
+  What to use instead of what's missing, before someone starts cooking: what they say they
+  have first, then the pantry, never anything else. One answer per missing ingredient.
+  """
+  def swaps(payload, locale) do
+    language = Map.get(@locale_names, locale, "English")
+
+    system = """
+    Someone is about to cook a recipe and some of its ingredients aren't at home. For each one
+    in "missing", say what to use instead.
+    - Pick from "they_have" (what they just told you they have) first, then from "pantry".
+      Never suggest anything that is in neither: then "use" is null.
+    - If what they have doesn't work for that ingredient in this dish, "use" is null and the
+      note says why.
+    - If the dish is fine without it, "use" is null and the note says to leave it out.
+    - "note" is one short sentence: the amount, and any change to how it's used. null when it's
+      the same amount, used the same way.
+    - "for" is the missing ingredient exactly as given. One entry per missing ingredient.
+    - Write "use" and "note" in #{language}.
+    Respond with a JSON object only. No prose.
+    """
+
+    {system, Jason.encode!(payload)}
+  end
+
+  def swaps_schema do
+    %{
+      type: "json_schema",
+      json_schema: %{
+        name: "swaps",
+        strict: true,
+        schema: %{
+          type: "object",
+          required: ["swaps"],
+          additionalProperties: false,
+          properties: %{
+            swaps: %{
+              type: "array",
+              items: %{
+                type: "object",
+                required: ["for", "use", "note"],
+                additionalProperties: false,
+                properties: %{
+                  for: %{type: "string"},
+                  use: %{type: ["string", "null"]},
+                  note: %{type: ["string", "null"]}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  end
+
   @doc "The image model's prompt: the dish as described, taken in Tore's one house style."
   @spec food_photo(String.t()) :: String.t()
   def food_photo(dish) when is_binary(dish), do: String.trim(dish) <> "\n\n" <> @house_style

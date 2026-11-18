@@ -18,6 +18,7 @@ defmodule ToreWeb.HomeLive do
        week_start: week_start,
        today_key: today_key,
        tonight_sheet: false,
+       before_cooking: false,
        choices: nil,
        changed: nil
      )
@@ -144,12 +145,22 @@ defmodule ToreWeb.HomeLive do
 
           <div class="reveal mt-5 flex gap-2" style="--i: 3">
             <.link
+              :if={@home.missing == []}
               navigate={~p"/recipes/#{@tonight_recipe.id}/cook?from=/today"}
               class="pill pill-lamp press"
               data-role="start-cooking"
             >
               <.icon name="ph-fire-fill" /> {gettext("Cook now")}
             </.link>
+            <button
+              :if={@home.missing != []}
+              type="button"
+              phx-click="before_cooking"
+              class="pill pill-lamp press"
+              data-role="start-cooking"
+            >
+              <.icon name="ph-fire-fill" /> {gettext("Cook now")}
+            </button>
             <button type="button" phx-click="something_else" class="pill press">
               <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
             </button>
@@ -226,6 +237,17 @@ defmodule ToreWeb.HomeLive do
           </div>
         </section>
       </.page>
+
+      <.live_component
+        :if={@before_cooking and @tonight_recipe != nil}
+        module={ToreWeb.BeforeCooking}
+        id="before-cooking"
+        scope={@current_scope}
+        recipe={@tonight_recipe}
+        missing={@home.missing}
+        cook_params={[from: "/today"]}
+        on_close="close_before_cooking"
+      />
 
       <%!-- Something else tonight: a few dishes to choose between, or none --%>
       <.bottom_sheet :if={@choices} id="choices-sheet" on_close="close_choices" class="px-5">
@@ -352,6 +374,13 @@ defmodule ToreWeb.HomeLive do
   end
 
   def handle_event("close_choices", _params, socket), do: {:noreply, assign(socket, choices: nil)}
+
+  # Cook now, when something isn't at home: first the sheet that asks about it.
+  def handle_event("before_cooking", _params, socket),
+    do: {:noreply, assign(socket, before_cooking: true)}
+
+  def handle_event("close_before_cooking", _params, socket),
+    do: {:noreply, assign(socket, before_cooking: false)}
 
   # Tonight becomes the chosen dish, for the servings it had; Undo puts tonight back.
   def handle_event("choose_tonight", %{"id" => id}, socket) do

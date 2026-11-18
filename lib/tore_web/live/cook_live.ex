@@ -3,12 +3,15 @@ defmodule ToreWeb.CookLive do
   Cook mode: a recipe as cards to step through at the stove. The first card is what to take
   out; then one card per step, with what it uses and how long it takes. `?step=` holds the
   position, so a reload or the back button lands on the same card.
+
+  `?swaps=` carries what the sheet before cooking settled on (`ToreWeb.BeforeCooking`): each
+  swapped ingredient reads "rödlök instead of gul lök", with how to use it.
   """
 
   use ToreWeb, :live_view
 
   alias Tore.Recipes
-  alias ToreWeb.StepCards
+  alias ToreWeb.{BeforeCooking, StepCards}
 
   @impl true
   def mount(%{"id" => id} = params, _session, socket) do
@@ -28,6 +31,7 @@ defmodule ToreWeb.CookLive do
        failed: false,
        overview: false,
        servings: servings(params["servings"], recipe),
+       swaps: BeforeCooking.from_param(params["swaps"]),
        timers: [],
        close_to: ToreWeb.SafeReturn.path(params["from"], ~p"/recipes")
      )}
@@ -40,8 +44,11 @@ defmodule ToreWeb.CookLive do
 
   @impl true
   def handle_info({:cook_steps, {:ok, steps}}, socket) do
-    %{recipe: recipe, servings: servings} = socket.assigns
-    cards = [needs_card(recipe, servings) | Enum.map(steps, &card(&1, recipe, servings))]
+    %{recipe: recipe, servings: servings, swaps: swaps} = socket.assigns
+
+    cards = [
+      needs_card(recipe, servings, swaps) | Enum.map(steps, &card(&1, recipe, servings, swaps))
+    ]
 
     {:noreply, assign(socket, cards: cards, index: min(socket.assigns.index, length(cards) - 1))}
   end
@@ -81,14 +88,12 @@ defmodule ToreWeb.CookLive do
   end
 
   defp go(socket, to) do
-    %{recipe: recipe, close_to: close_to} = socket.assigns
+    %{recipe: recipe, close_to: close_to, servings: servings, swaps: swaps} = socket.assigns
+    params = [step: to + 1, from: close_to, servings: servings] ++ BeforeCooking.to_param(swaps)
 
     socket
     |> assign(overview: false)
-    |> push_patch(
-      to:
-        ~p"/recipes/#{recipe.id}/cook?#{[step: to + 1, from: close_to, servings: socket.assigns.servings]}"
-    )
+    |> push_patch(to: ~p"/recipes/#{recipe.id}/cook?#{params}")
   end
 
   # `?step=` counts from 1, like the counter on the screen.
@@ -109,21 +114,47 @@ defmodule ToreWeb.CookLive do
     end
   end
 
-  defp needs_card(recipe, servings) do
+  defp needs_card(recipe, servings, swaps) do
     %{
       text: gettext("Take this out"),
-      needs: Enum.map(recipe.recipe_ingredients, &ingredient_line(&1, recipe, servings))
+      needs:
+        Enum.map(recipe.recipe_ingredients, fn ri ->
+          ri |> ingredient_line(recipe, servings) |> swapped(ri.ingredient.name, swaps)
+        end)
     }
   end
 
-  defp card(step, recipe, servings) do
+  defp card(step, recipe, servings, swaps) do
     %{
       label: step["phase"] && String.capitalize(step["phase"]),
-      text: step["action"],
+      text: Enum.reduce(swaps, step["action"], &swap_text/2),
       minutes: positive(step["duration_minutes"]),
-      needs: Enum.map(step["ingredients"] || [], &need_line(&1, recipe, servings))
+      needs:
+        Enum.map(step["ingredients"] || [], fn name ->
+          name |> need_line(recipe, servings) |> swapped(name, swaps)
+        end)
     }
   end
+
+  # "1 st gul lök" becomes "1 st rödlök instead of gul lök · Halva mängden."
+  defp swapped(line, name, swaps) do
+    case Enum.find(swaps, &same_name?(&1.for, name)) do
+      nil ->
+        line
+
+      swap ->
+        instead = gettext("%{use} instead of %{for}", use: swap.use, for: swap.for)
+        line = Regex.replace(~r/#{Regex.escape(swap.for)}/iu, line, fn _ -> instead end)
+
+        if swap.note, do: line <> " · " <> swap.note, else: line
+    end
+  end
+
+  # The step's own words name the ingredient as the recipe does; they get the swap's name.
+  defp swap_text(swap, text) when is_binary(text),
+    do: Regex.replace(~r/#{Regex.escape(swap.for)}/iu, text, fn _ -> swap.use end)
+
+  defp swap_text(_swap, text), do: text
 
   defp positive(n) when is_number(n) and n > 0, do: n
   defp positive(_), do: nil

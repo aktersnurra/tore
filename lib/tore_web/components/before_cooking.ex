@@ -1,0 +1,289 @@
+defmodule ToreWeb.BeforeCooking do
+  @moduledoc """
+  The sheet Cook now opens when Tore thinks something isn't at home. Tick what you do have; say
+  what you'd use instead and Kolla asks once for all of it (`Tore.Recipes.Swaps`); then cook
+  with the swaps, or anyway. The swaps travel to cook mode in its address. Nothing is saved.
+
+      <.live_component
+        module={ToreWeb.BeforeCooking}
+        id="before-cooking"
+        scope={@current_scope}
+        recipe={@recipe}
+        missing={@home.missing}
+        cook_params={[servings: 4, from: "/today"]}
+        on_close="close_before_cooking"
+      />
+  """
+
+  use ToreWeb, :live_component
+
+  alias Tore.Recipes.Swaps
+
+  @impl true
+  def mount(socket) do
+    {:ok,
+     assign(socket,
+       had: MapSet.new(),
+       offered: "",
+       swaps: nil,
+       checking: false,
+       failed: nil,
+       listed: MapSet.new()
+     )}
+  end
+
+  @impl true
+  def update(assigns, socket) do
+    {:ok, socket |> assign(assigns) |> assign(ai?: Tore.LLM.available?(assigns.scope))}
+  end
+
+  @impl true
+  def handle_event("tick", %{"name" => name}, socket) do
+    had = socket.assigns.had
+    had = if name in had, do: MapSet.delete(had, name), else: MapSet.put(had, name)
+    {:noreply, assign(socket, had: had, swaps: nil, failed: nil)}
+  end
+
+  def handle_event("check", %{"offered" => offered}, socket) do
+    %{scope: scope, recipe: recipe} = socket.assigns
+
+    case still_missing(socket.assigns) do
+      [] ->
+        {:noreply, socket}
+
+      missing ->
+        {:noreply,
+         socket
+         |> assign(offered: offered, checking: true, swaps: nil, failed: nil)
+         |> start_async(:check, fn -> Swaps.check(scope, recipe, missing, offered) end)}
+    end
+  end
+
+  def handle_event("put_on_list", %{"name" => name}, socket) do
+    scope = socket.assigns.scope
+    list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(Tore.Clock.today()))
+    Tore.Shop.add_item(scope, list_id, name, nil, nil, scope.user_id)
+    {:noreply, update(socket, :listed, &MapSet.put(&1, name))}
+  end
+
+  @impl true
+  def handle_async(:check, {:ok, {:ok, swaps}}, socket),
+    do: {:noreply, assign(socket, swaps: swaps, checking: false)}
+
+  def handle_async(:check, {:ok, {:error, reason}}, socket),
+    do: {:noreply, assign(socket, failed: failure(reason), checking: false)}
+
+  def handle_async(:check, {:exit, _reason}, socket),
+    do: {:noreply, assign(socket, failed: failure(nil), checking: false)}
+
+  defp failure(reason) do
+    Tore.LLM.refusal_text(reason) || gettext("Couldn't check. Nothing has changed.")
+  end
+
+  defp still_missing(%{missing: missing, had: had}), do: Enum.reject(missing, &(&1 in had))
+
+  # Cook mode's address, with the swaps that have something to use.
+  defp cook_path(recipe, params, swaps) do
+    swaps = Enum.filter(swaps || [], & &1.use)
+    ~p"/recipes/#{recipe.id}/cook?#{params ++ to_param(swaps)}"
+  end
+
+  @doc "Swaps as cook mode's `?swaps=`: none adds nothing."
+  @spec to_param([map()]) :: keyword()
+  def to_param([]), do: []
+
+  def to_param(swaps) do
+    [
+      swaps:
+        swaps
+        |> Enum.with_index()
+        |> Map.new(fn {swap, i} ->
+          {to_string(i),
+           Map.reject(
+             %{"for" => swap.for, "use" => swap.use, "note" => swap.note},
+             &is_nil(elem(&1, 1))
+           )}
+        end)
+    ]
+  end
+
+  @doc """
+  Swaps back from the address, keeping only what makes sense there: a name for a name, a short
+  note, a dozen at most.
+  """
+  @spec from_param(term()) :: [%{for: String.t(), use: String.t(), note: String.t() | nil}]
+  def from_param(%{} = param) do
+    param
+    |> Enum.sort_by(fn {i, _} ->
+      with {n, ""} <- Integer.parse(to_string(i)), do: n, else: (_ -> 0)
+    end)
+    |> Enum.flat_map(fn
+      {_i, %{"for" => for, "use" => use} = swap} when is_binary(for) and is_binary(use) ->
+        [%{for: short(for, 60), use: short(use, 60), note: short(swap["note"], 200)}]
+
+      _ ->
+        []
+    end)
+    |> Enum.take(12)
+  end
+
+  def from_param(_param), do: []
+
+  defp short(text, max) when is_binary(text), do: String.slice(text, 0, max)
+  defp short(_text, _max), do: nil
+
+  defp swap_for(nil, _name), do: nil
+  defp swap_for(swaps, name), do: Enum.find(swaps, &(&1.for == name))
+
+  attr :swap, :map, required: true
+  attr :listed, :boolean, required: true
+  attr :target, :any, required: true
+
+  # Under a missing thing: what to use instead, and how; or that nothing fits, and the list.
+  defp swap_line(assigns) do
+    ~H"""
+    <div
+      class="settle pb-1 pl-8 text-[color:var(--muted)]"
+      style="font-size: 14.5px; line-height: 1.45;"
+      data-role="swap"
+    >
+      <p :if={@swap.use} class="flex flex-wrap items-center gap-x-2">
+        <span class="font-semibold text-[color:var(--text)]">
+          <.icon name="ph-arrow-right" class="size-3.5" /> {@swap.use}
+        </span>
+        <span :if={@swap.at_home} class="tag tag-green">{gettext("At home")}</span>
+      </p>
+      <p :if={@swap.note}>{@swap.note}</p>
+      <p :if={!@swap.use and !@swap.note}>{gettext("Nothing at home fits.")}</p>
+      <button
+        :if={!@swap.use and !@listed}
+        type="button"
+        phx-click="put_on_list"
+        phx-value-name={@swap.for}
+        phx-target={@target}
+        class="press mt-0.5 font-semibold text-[color:var(--accent-ink)] hover:underline"
+      >
+        {gettext("Put on the list")}
+      </button>
+      <p :if={@listed} class="settle font-semibold text-[color:var(--done)]">
+        <.icon name="ph-check" class="size-3.5" /> {gettext("On the list")}
+      </p>
+    </div>
+    """
+  end
+
+  @impl true
+  def render(assigns) do
+    assigns = assign(assigns, :left, still_missing(assigns))
+
+    ~H"""
+    <div>
+      <.bottom_sheet id={@id} on_close={@on_close}>
+        <div class="overflow-y-auto px-5" data-role="before-cooking">
+          <h2 class="t-title">{gettext("Before you start")}</h2>
+          <p class="mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
+            {gettext("Tore can't find these at home. Tick what you have.")}
+          </p>
+
+          <ul class="mt-3">
+            <li
+              :for={name <- @missing}
+              class={["tick-row py-1", name in @had && "is-checked"]}
+              data-missing={name}
+            >
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={to_string(name in @had)}
+                phx-click="tick"
+                phx-value-name={name}
+                phx-target={@myself}
+                class="press press-soft flex min-h-11 w-full items-center gap-3 text-left"
+              >
+                <span class="tick-box">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5.5 12.5l4.2 4.2L18.5 8" />
+                  </svg>
+                </span>
+                <span class="text-[color:var(--text)]" style="font-size: 16px;">{name}</span>
+              </button>
+
+              <.swap_line
+                :if={name not in @had and swap_for(@swaps, name)}
+                swap={swap_for(@swaps, name)}
+                listed={name in @listed}
+                target={@myself}
+              />
+            </li>
+          </ul>
+
+          <form
+            :if={@ai? and @left != []}
+            id={"#{@id}-check"}
+            phx-submit="check"
+            phx-target={@myself}
+            class="mt-4"
+          >
+            <label for={"#{@id}-offered"} class="t-eyebrow">
+              {gettext("Have something instead?")}
+            </label>
+            <div class="mt-2 flex gap-2">
+              <input
+                id={"#{@id}-offered"}
+                type="text"
+                name="offered"
+                value={@offered}
+                placeholder={gettext("e.g. red onion, sour cream")}
+                autocomplete="off"
+                class="h-11 min-w-0 flex-1 rounded-[var(--r-md)] bg-[var(--sunken)] px-4 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+                style="font-size: 16px;"
+              />
+              <button type="submit" class="pill press" disabled={@checking} data-role="check-swaps">
+                {gettext("Check")}
+              </button>
+            </div>
+          </form>
+
+          <p
+            :if={@checking}
+            role="status"
+            class="mt-3 flex items-center gap-2 text-[color:var(--muted)]"
+            style="font-size: 14px;"
+          >
+            <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
+            {gettext("Checking what you can use…")}
+          </p>
+          <p
+            :if={@failed}
+            role="alert"
+            class="mt-3 text-[color:var(--muted)]"
+            style="font-size: 14px;"
+          >
+            {@failed}
+          </p>
+
+          <div class="mt-6 flex flex-wrap items-center gap-4">
+            <.link
+              :if={@left == [] or @swaps}
+              navigate={cook_path(@recipe, @cook_params, @left != [] && @swaps)}
+              data-role="cook-with"
+              class="pill pill-lamp press"
+            >
+              <.icon name="ph-fire-fill" />
+              {if @left == [], do: gettext("Cook now"), else: gettext("Cook with these")}
+            </.link>
+            <.link
+              :if={@left != []}
+              navigate={cook_path(@recipe, @cook_params, nil)}
+              data-role="cook-anyway"
+              class="press font-semibold text-[color:var(--muted)] hover:underline"
+            >
+              {gettext("Cook anyway")}
+            </.link>
+          </div>
+        </div>
+      </.bottom_sheet>
+    </div>
+    """
+  end
+end

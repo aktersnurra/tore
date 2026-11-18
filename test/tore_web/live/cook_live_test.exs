@@ -67,6 +67,25 @@ defmodule ToreWeb.CookLiveTest do
     assert html =~ "Klar"
   end
 
+  test "swaps from the sheet before cooking are in the cards, and stay while stepping", %{
+    conn: conn,
+    recipe: recipe
+  } do
+    swaps = %{"0" => %{"for" => "vitlök", "use" => "vitlökspulver", "note" => "1 tsk."}}
+    {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?#{[swaps: swaps]}")
+
+    assert eventually(view, "2 klyftor vitlökspulver i stället för vitlök · 1 tsk.")
+
+    html = view |> element(~s([data-role="step-card"])) |> render_click()
+    assert html =~ "Skiva vitlökspulver"
+    assert html =~ "vitlökspulver i stället för vitlök"
+
+    assert_patch(
+      view,
+      ~p"/recipes/#{recipe.id}/cook?#{[step: 2, from: "/recipes", servings: 4, swaps: swaps]}"
+    )
+  end
+
   test "a reload lands on the same card", %{conn: conn, recipe: recipe} do
     {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
 

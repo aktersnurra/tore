@@ -223,31 +223,6 @@ defmodule Tore.Recipes do
     end
   end
 
-  @spec suggest_substitution(Scope.t(), String.t(), String.t()) ::
-          {:ok, %{suggestion: String.t(), updated_steps: String.t() | nil}} | {:error, term()}
-  def suggest_substitution(%Scope{} = scope, missing, recipe_context) do
-    system = """
-    You are a practical cooking assistant. The user is missing an ingredient mid-cook.
-    Suggest a realistic substitution they can make right now with common kitchen items.
-    If the substitution requires changing the steps, include brief updated instructions.
-    Return JSON only: {"suggestion": "...", "updated_steps": "..." or null}
-    Keep the suggestion to 1-2 sentences. Be direct and practical.
-    """
-
-    user = "Recipe: #{recipe_context}\nMissing ingredient: #{missing}"
-
-    case Tore.LLM.text(scope, system, user, feature: :suggest_substitution) do
-      {:ok, %{"suggestion" => suggestion} = data, _usage} ->
-        {:ok, %{suggestion: suggestion, updated_steps: data["updated_steps"]}}
-
-      {:ok, _, _} ->
-        {:error, :invalid_response}
-
-      {:error, _} = err ->
-        err
-    end
-  end
-
   @doc """
   The steps cook mode walks through, in order: maps with `"phase"`, `"order"`, `"action"`,
   `"ingredients"` (names) and `"duration_minutes"`.

@@ -33,6 +33,7 @@ defmodule ToreWeb.RecipeLive do
        show_more_filters: false,
        ingredient_rows: [],
        show_recipe_menu: false,
+       before_cooking: false,
        servings: nil,
        week: nil,
        put: nil
@@ -254,6 +255,13 @@ defmodule ToreWeb.RecipeLive do
 
   def handle_event("add_missing", _params, socket), do: {:noreply, socket}
 
+  # Cook now, when something isn't at home: first the sheet that asks about it.
+  def handle_event("before_cooking", _params, socket),
+    do: {:noreply, assign(socket, before_cooking: true)}
+
+  def handle_event("close_before_cooking", _params, socket),
+    do: {:noreply, assign(socket, before_cooking: false)}
+
   def handle_event("servings", %{"by" => by}, socket) do
     servings = (socket.assigns.servings + String.to_integer(by)) |> max(1) |> min(24)
     {:noreply, assign(socket, servings: servings)}
@@ -412,7 +420,8 @@ defmodule ToreWeb.RecipeLive do
       opened: id,
       form: nil,
       error: nil,
-      show_recipe_menu: false
+      show_recipe_menu: false,
+      before_cooking: false
     )
   end
 
@@ -426,7 +435,8 @@ defmodule ToreWeb.RecipeLive do
       importing: false,
       import_error: nil,
       error: nil,
-      show_recipe_menu: false
+      show_recipe_menu: false,
+      before_cooking: false
     )
   end
 
@@ -930,6 +940,7 @@ defmodule ToreWeb.RecipeLive do
         <%!-- What you can do with it, before anything to read --%>
         <div class="reveal scroll-quiet -mx-5 mt-5 flex gap-2 overflow-x-auto px-5" style="--i: 3">
           <.link
+            :if={@home.missing == []}
             navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
             data-role="start-cooking"
             class="pill pill-lamp press"
@@ -937,6 +948,16 @@ defmodule ToreWeb.RecipeLive do
             <.icon name="ph-fire-fill" />
             {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
           </.link>
+          <button
+            :if={@home.missing != []}
+            type="button"
+            phx-click="before_cooking"
+            data-role="start-cooking"
+            class="pill pill-lamp press"
+          >
+            <.icon name="ph-fire-fill" />
+            {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
+          </button>
           <button
             :if={@selected.recipe_type == :meal}
             type="button"
@@ -950,6 +971,17 @@ defmodule ToreWeb.RecipeLive do
         </div>
 
         <%!-- Which day: the next seven, each with what it has now. --%>
+        <.live_component
+          :if={@before_cooking}
+          module={ToreWeb.BeforeCooking}
+          id="before-cooking"
+          scope={@current_scope}
+          recipe={@selected}
+          missing={@home.missing}
+          cook_params={[servings: @servings]}
+          on_close="close_before_cooking"
+        />
+
         <div :if={@week} id="week-days" class="reveal mt-4" data-role="week-days">
           <p class="t-eyebrow mb-2">{gettext("Which day?")}</p>
           <ul class="menu-lines">
