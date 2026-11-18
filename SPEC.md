@@ -26,6 +26,7 @@
 - **Naming:** the project is *Tore*. Any remaining reference to Scullion or Family in code is legacy and slated for deletion (see §Removed in Rewrite).
 - **2026-11-11:** The app opens where the household needs it. A decision model (Jev, a fourth model tier, §A.8, Pattern C) picks the screen `/` opens on and the quick swaps above a chat box that sits at the bottom of every screen, with a ≡ menu in place of the navigation bars (§Interfaces). The pick is the latest applied `:home_pick_run`; a fixed rule picks without AI. Capture can suggest its own swaps with a `quick_swaps` tool.
 - **2026-11-15:** Fewer screens, and a tab bar. Today · Plan · Tore · Shop · Recipes replaces the chat bar and its ≡ menu; Tore, in the middle, opens Capture over the current screen, and the quick swaps live there now. Recipes are saved straight away with undo, so the review page (`/review`, `/runs/:id`) is gone (§A.6.1). Spending moved under the shopping list, diet and allergies into Settings, and the pantry and costs pages and `/cooking` were removed. The palette is Gjutjärn and Dagsljus (docs/specs/ui.md §4).
+- **2026-11-19:** Cooking, start to finish. Before cooking, what isn't at home is asked about once (`ToreWeb.BeforeCooking`, `Tore.Recipes.Swaps`); Done in cook mode uses up what the dinner took (`Tore.Pantry.use_up/2`); Today then shows tomorrow, and the home pick also chooses Today's one note (§Interfaces).
 - **2026-11-17:** Pages, collections and the research's eight fixes (`.docs/plans/notion-feel.md`). A recipe is a page with property rows and belongs to a collection: dinner, baking, sauces & sides, or assemblies (`recipe_type` `:meal | :baking | :component | :assembly`; imports classify it). Only dinners are planned or suggested for a day. Every recipe's picture is generated in one house style (`Tore.LLM.Prompts.food_photo/1`); a page's own photo is fetched only for MCP saves. Today's "Something else" offers three dinners to choose between, with Undo; Plan can plan the open days in one tap; Shop has one add field that reads "2 l mjölk", Make the list, and says which dinner each item is for. Capture gained `can_i_make` (a dish against the pantry), and a recipe page shows the same check as "At home". Cook mode has step timers and takes the servings chosen on the page; a hand-written recipe's steps are written when it's saved.
 
 ---
@@ -919,15 +920,21 @@ alternatives, never the plan.
 is the latest applied `:home_pick_run` (`Tore.Home`):
 
 - **The pick.** One Pattern C call asks the decision model a choice among the screens that make
-  sense now (Today, Plan, Shop) and a yes/no per quick swap that makes sense now. The state it reads is worked out in
-  code: weekday and time, tonight, what's unplanned this week and next, the list, this week's
-  plan and the household memory. Below 0.6 confidence, or when the call fails
+  sense now (Today, Plan, Shop), a yes/no per quick swap that makes sense now, and a choice of
+  Today's note. The state it reads is worked out in
+  code: weekday and time, tonight, tomorrow and what it needs that's neither at home nor on a
+  list, what's unplanned this week and next, the list, when the latest shopping trips began
+  (`Tore.Shop.Walk.trip_starts/1`), this week's plan and the household memory.
+- **The note.** Code works out which notes are true (`Tore.Home.notes_for/1`): tomorrow needs
+  things to buy, there's something on the list, tomorrow isn't planned. The model chooses one
+  or none; Today writes it from the facts, with its action. It is never the model's text. Below 0.6 confidence, or when the call fails
   for any reason but the gate, the run stores the fixed rule's pick.
-- **When.** Only when someone opens `/` and the pick is stale: older than an hour, or older than
+- **When.** Only when someone opens `/` or Today, or finishes cooking, and the pick is stale: older than an hour, or older than
   another run applied since. The open starts a new pick in the background for next time, at most
   one per ten minutes per household, and never without AI. There's no cron.
 - **The fixed rule.** Saturday before 14:00 → Shop; Sunday from 16:00 →
-  Plan; otherwise Today. Its swaps open the other main screens.
+  Plan; otherwise Today. Its swaps open the other main screens. Its note: what tomorrow needs
+  from 14:00, the list on Saturday morning, an open tomorrow from 17:00.
 - **Times** come from `Tore.Clock`, the server's local clock: set `TZ` to the household's time
   zone. Every calendar date in the app (today, this week, tonight, a receipt's or a pantry item's
   date) comes from it, so the pick and the screens agree on the day. Stored timestamps stay UTC.
@@ -952,8 +959,28 @@ the right holds the page's own actions behind ⋯ (`<.page_menu>`). The menu is 
 - Tonight's dinner, as its recipe page: cover, icon, title, properties (the day, collection,
   time, servings, what's missing at home with Put on the list), Cook now and Something else,
   then the ingredients. A night marked as eating out says so instead of showing a dinner.
-- ⋯: Open the recipe, Ask about tonight, No dinner tonight.
+- Once tonight's dinner is cooked (Done in cook mode), or from 21:00 (`:evening_over`), Today is
+  tomorrow's page instead, with a line that tonight's was cooked. Open the recipe and Something
+  else; no Cook now.
+- The home pick's note, when there is one and the page doesn't already say it.
+- Cook now, when something is missing, opens the sheet before cooking (below).
+- ⋯: Open the recipe, Ask about tonight, No dinner tonight (tomorrow).
 - Long-press on tonight for its object sheet.
+
+### Before cooking, and Done
+
+- **Before cooking** (`ToreWeb.BeforeCooking`, from Cook now on Today or a recipe): what Tore
+  can't find at home, each to tick as had (free), and one field for what you'd use instead.
+  Check is one model call for all the rest (`Tore.Recipes.Swaps`): a swap per missing thing,
+  from what was typed first, then the pantry, never anything else, with how to use it; or that
+  nothing fits, with Put on the list. Cook with these carries the swaps to cook mode in
+  `?swaps=`. Nothing is saved: one red onion today says nothing about next week.
+- **Done** (cook mode's last card) marks the recipe cooked and the pantry rows the dinner took as
+  missing, the swaps' in place of what they stood for (`Tore.Pantry.use_up/2`). Dry goods,
+  spices and condiments outlast a dinner and stay. A missing row isn't at home until it's bought
+  again. Done shows what's gone, with Undo.
+- **In Capture**, "I don't have Y, I have Z" is `can_i_make` with `lacking` and `instead`: the same
+  swaps on its card, and Cook now carries them.
 
 ### Planner (`/plan`)
 

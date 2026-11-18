@@ -632,9 +632,52 @@ Title    — the dish
 Props    — Day (Tonight tag + date) · Collection · Time (and ready by) · Servings ·
            At home (missing things as red tags, Put on the list)
 Actions  — [Cook now] [Something else]
+Note     — the home pick's one note, with its action, when there is one
 Ingredients, for tonight's servings
 ⋯        — Open the recipe · Ask about tonight · No dinner tonight
 ```
+
+### After dinner (2026-11-19)
+
+Once tonight is cooked (Done in cook mode), or from 21:00, Today is tomorrow, because that's
+what can still be sorted out this evening:
+
+```md
+✓ Kycklinggryta, lagad ikväll
+[cover] Laxpasta
+Day      [Tomorrow] tor 19
+At home  Saknas: [lax] [dill]   Put on the list
+[Open the recipe] [Something else]
+```
+
+No Cook now and no ready-by time for tomorrow. An open tomorrow reads "Tomorrow is open".
+
+### The note
+
+At most one line, chosen by the home pick among notes code knows are true: "Buy lax and dill
+before tomorrow · Put on the list", "6 things on the list · Open the list", "Tomorrow's dinner
+isn't planned yet · Plan it". The model picks which, if any, fits the hour and the household's
+habits; it never writes the words. Not shown when the page already says it.
+
+### Before cooking (2026-11-19)
+
+Cook now with something missing opens a sheet; with everything at home it goes straight to
+cook mode:
+
+```md
+Before you start
+Tore can't find these at home. Tick what you have.
+☐ Gul lök
+☐ Crème fraîche
+Have something instead?  [rödlök, gräddfil     ] [Check]
+  Gul lök → rödlök
+  Crème fraîche → gräddfil · stir in on low heat
+[Cook with these]  Cook anyway
+```
+
+Ticks are free and only count for this cook. Check is one model call for all of it. Nothing is
+saved. Cook mode shows "rödlök instead of gul lök" where it's used. Its last card, Done, says
+what's now used up at home, with Undo.
 
 ### Empty state
 
@@ -1709,8 +1752,9 @@ surface.
 Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4.2).
 
 - **A recipe is a page:** cover photo, title, then quiet property rows (Collection, Time,
-  Servings as a stepper that scales the amounts, At home, Source, Last made), then the
-  actions (Cook/Bake now, Put on the week, Missing something?, Ask Tore), then sections.
+  Servings as a stepper that scales the amounts, At home, Source, Last made), then two
+  actions (Cook/Bake now, Put on the week), then sections. Ask Tore and the star are in ⋯;
+  what's missing is asked about when cooking starts.
 - **At home** checks the recipe against the pantry with no model: "All of it", or what's
   missing with Put on the list.
 - **Collections** are Dinner, Baking, Sauces & sides and Assemblies, each with a Phosphor

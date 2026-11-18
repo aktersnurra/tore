@@ -7,6 +7,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Cooking, start to finish (2026-11-19)
+
+- A recipe has two actions, Cook now and Put on the week; Ask Tore and the star are in ⋯.
+- Before you start: when Tore thinks something isn't at home, Cook now asks first. Tick what you do have, say what you'd use instead ("rödlök, gräddfil"), and Check asks once for all of it: a swap per missing thing, from what you said and the pantry only, with how to use it. Cook mode shows "rödlök i stället för gul lök". Nothing is saved.
+- The same in the chat: "I don't have crème fraîche, I have gräddfil" gets the swaps on the card, and Cook now carries them.
+- Done in cook mode uses up what the dinner took from the pantry (not the flour, spices or sauces), with Undo. Buying it again brings it back.
+- After dinner, or from 21:00, Today is tomorrow: its dish, what to buy for it, and a line that tonight's was cooked.
+- Today's one note, chosen by the home pick from notes code knows are true: buy what tomorrow needs, the list when you usually shop, an unplanned tomorrow.
+
 ### The Notion look (2026-11-18)
 
 - Papper: ink on white, graphite when the phone is dark. The main action is ink; colour comes from photos and from tags that mean something (orange dinner, yellow baking, green sauces and done, blue assemblies and the week, red tonight or missing, purple leftovers, grey quiet). Buttons are soft rectangles.
