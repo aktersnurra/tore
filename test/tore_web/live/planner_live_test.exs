@@ -340,8 +340,9 @@ defmodule ToreWeb.PlannerLiveTest do
       html = render_click(button)
       assert html =~ "Planerar de lediga dagarna…"
 
-      assert eventually_renders(view, "Planerade resten av veckan.")
-      refute render(view) =~ "Planerar de lediga dagarna…"
+      # pi's words arrive before it settles, and settling ends the loading state.
+      assert eventually_renders(view, "Planerade resten av veckan.", 80)
+      assert eventually(fn -> not (render(view) =~ "Planerar de lediga dagarna…") end)
 
       [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
       assert header["session"] == "chat"
@@ -563,6 +564,13 @@ defmodule ToreWeb.PlannerLiveTest do
       Process.sleep(25)
       eventually_renders(view, substr, attempts - 1)
     end
+  end
+
+  defp eventually(fun, attempts \\ 80)
+  defp eventually(_fun, 0), do: false
+
+  defp eventually(fun, attempts) do
+    fun.() || (Process.sleep(25) && eventually(fun, attempts - 1))
   end
 
   test "links to this week's prep", %{conn: conn, user: user} do

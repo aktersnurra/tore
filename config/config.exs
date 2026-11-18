@@ -11,10 +11,13 @@ config :tore,
   ecto_repos: [Tore.Repo],
   generators: [timestamp_type: :utc_datetime]
 
-# SQLite has one writer at a time. A write transaction takes the write lock when it begins, so
-# concurrent writers queue for it instead of failing when a deferred one tries to upgrade a read.
-# Writers wait up to the busy timeout for their turn.
+# SQLite has one writer at a time, so Tore.Repo is one connection: writers queue for it in the
+# BEAM and each starts the moment the last commits, where a bigger pool leaves them sleeping in
+# SQLite's busy handler. Pages that ever need reads beside the writes get a read-only repo of
+# their own. A write transaction takes the lock when it begins, so a deferred one can't fail
+# upgrading a read; the busy timeout covers anything else on the file, such as a backup.
 config :tore, Tore.Repo,
+  pool_size: 1,
   default_transaction_mode: :immediate,
   busy_timeout: 5_000
 

@@ -47,12 +47,45 @@ defmodule Tore.Harness.Runs do
     end)
   end
 
-  @doc "Opens a run with a proposal already made, by Capture or over MCP. No LLM call."
+  @doc """
+  Runs a proposal already made, by Capture or over MCP. No LLM call, so nothing needs to see the
+  run while it is open: the row, the resolve, verify and apply, and the row's outcome go in one
+  transaction. When it rolls back, the failed run is written after it.
+  """
   @spec submit(Scope.t(), module(), Tore.Harness.Kind.proposal(), map()) :: result()
   def submit(%Scope{} = scope, kind, proposal, ctx) do
     ctx = Map.put(ctx, :scope, scope)
-    run = open!(scope, kind, ctx)
-    guard(run, kind, fn -> settle(run, kind, proposal, ctx) end)
+    run = opened(scope, kind, ctx, :verifying)
+
+    try do
+      Repo.transaction(fn ->
+        # Stored first: a kind's writes may point at the run.
+        run = Repo.insert!(run)
+        {action, extra} = submitted(kind, proposal, Map.put(ctx, :run, run))
+        {:ok, changes} = Transition.next(run, action, now())
+        {:ok, run} = move(run, Map.merge(changes, extra))
+        run
+      end)
+    catch
+      class, reason -> {:crashed, logged(run, class, reason, __STACKTRACE__)}
+    end
+    |> case do
+      {:ok, stored} ->
+        committed(stored, kind)
+
+      {:error, {:fail, code, repair}} ->
+        committed(stored!(run, {:fail, code, nil, repair}, %{}), kind)
+
+      {:error, {:step_failed, reason}} ->
+        code = if reason in @refusals, do: reason, else: :internal_error
+        Logger.warning("#{run.kind} #{run.id} failed: #{inspect(reason, limit: 20)}")
+        committed(stored!(run, {:fail, code, nil, nil}, %{}), kind)
+        {:error, {:step_failed, reason}}
+
+      {:crashed, reason} ->
+        committed(stored!(run, {:fail, :internal_error, nil, nil}, %{}), kind)
+        {:error, {:run_crashed, reason}}
+    end
   end
 
   @doc """
@@ -184,6 +217,29 @@ defmodule Tore.Harness.Runs do
     end
   end
 
+  # What a submitted proposal comes to, as the transition that ends its run. Inside the submit
+  # transaction: a step that fails rolls the kind's writes back.
+  defp submitted(kind, proposal, ctx) do
+    with {:ok, proposal} <- resolve(kind, proposal, ctx),
+         :ok <- kind.verify(proposal, ctx) do
+      case kind.review_question(proposal) do
+        nil -> applied(kind, proposal, ctx)
+        question -> {{:review, question}, %{artifacts: List.wrap(proposal)}}
+      end
+    else
+      {:fail, code, repair} -> {{:fail, code, nil, repair}, %{artifacts: List.wrap(proposal)}}
+      {:error, reason} -> Repo.rollback({:step_failed, reason})
+    end
+  end
+
+  defp applied(kind, proposal, ctx) do
+    case kind.apply_proposal(proposal, ctx) do
+      {:ok, undo, artifacts} -> {{:apply, undo}, %{artifacts: artifacts}}
+      {:fail, code, repair} -> Repo.rollback({:fail, code, repair})
+      {:error, reason} -> Repo.rollback({:step_failed, reason})
+    end
+  end
+
   defp resolve(kind, proposal, ctx) do
     if function_exported?(kind, :resolve, 2),
       do: kind.resolve(proposal, ctx),
@@ -295,28 +351,31 @@ defmodule Tore.Harness.Runs do
   # ----- rows --------------------------------------------------------------------------------
 
   defp open!(scope, kind, ctx) do
+    run = scope |> opened(kind, ctx, :gathering_context) |> Repo.insert!()
+    broadcast(run)
+    run
+  end
+
+  # The run as it opens, not yet stored.
+  defp opened(scope, kind, ctx, phase) do
     # A kind missing from the registry couldn't be confirmed, discarded or reverted later.
     ^kind = Kinds.fetch!(kind.kind())
     %{input: input, actor: actor} = kind.open(ctx)
     # Who asked, when the caller says (`:mcp`); otherwise the kind's own.
     actor = Map.get(ctx, :actor, actor)
 
-    run =
-      scope
-      |> KitchenRun.open(
-        %{
-          kind: kind.kind(),
-          surface: kind.surface(),
-          actor: actor,
-          input: input,
-          phase: :gathering_context
-        },
-        now()
-      )
-      |> Repo.insert!()
+    scope
+    |> KitchenRun.open(
+      %{kind: kind.kind(), surface: kind.surface(), actor: actor, input: input, phase: phase},
+      now()
+    )
+    |> Ecto.Changeset.apply_action!(:insert)
+  end
 
-    broadcast(run)
-    run
+  # Stores a run whose transaction rolled back, already moved through `action`: one insert.
+  defp stored!(run, action, extra) do
+    {:ok, changes} = Transition.next(run, action, now())
+    run |> KitchenRun.change(Map.merge(changes, extra)) |> Repo.insert!()
   end
 
   defp phase!(run, phase) do
