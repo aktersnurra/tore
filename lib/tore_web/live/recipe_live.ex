@@ -1015,12 +1015,16 @@ defmodule ToreWeb.RecipeLive do
                   {ToreWeb.Dates.weekday(day.date)}
                   <span class="num font-normal text-[color:var(--muted)]">{day.date.day}</span>
                 </span>
+                <%!-- The day just chosen is green with a tick; a day that had it before is plain --%>
                 <span class={[
-                  "truncate",
-                  day.recipe_id == @selected.id && "text-[color:var(--done)] font-semibold",
+                  "flex min-w-0 items-center gap-1.5",
+                  @put && @put.date == day.date && "text-[color:var(--done)] font-semibold",
+                  !(@put && @put.date == day.date) && day.recipe_id == @selected.id &&
+                    "text-[color:var(--text)]",
                   day.recipe_id != @selected.id && "text-[color:var(--muted)]"
                 ]}>
-                  {day.title || gettext("Free")}
+                  <.icon :if={@put && @put.date == day.date} name="ph-check" class="size-4 shrink-0" />
+                  <span class="truncate">{day.title || gettext("Free")}</span>
                 </span>
               </button>
             </li>
