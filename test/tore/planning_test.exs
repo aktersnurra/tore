@@ -470,4 +470,84 @@ defmodule Tore.PlanningTest do
       assert slots == %{}
     end
   end
+
+  describe "days off and lunch days" do
+    test "marking days off spans weeks, and marking one again changes nothing" do
+      # Thursday to the next Tuesday: two plans.
+      days = Enum.map(0..5, &Date.add(~D[2026-07-16], &1))
+      assert :ok = Planning.mark_days_off(home_scope(), days)
+
+      {:ok, first} =
+        Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-07-16]))
+
+      {:ok, second} =
+        Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-07-20]))
+
+      assert Enum.sort(first.days_off, Date) == Enum.slice(days, 0..3)
+      assert Enum.sort(second.days_off, Date) == Enum.slice(days, 4..5)
+
+      assert :ok = Planning.mark_days_off(home_scope(), [~D[2026-07-16]])
+
+      count = fn ->
+        Tore.Repo.aggregate(Tore.EventStore.Event, :count, Tore.Scope.repo_opts(home_scope()))
+      end
+
+      before = count.()
+      assert :ok = Planning.mark_days_off(home_scope(), [~D[2026-07-16]])
+      assert count.() == before
+    end
+
+    test "clearing a day off" do
+      :ok = Planning.mark_days_off(home_scope(), [~D[2026-07-16], ~D[2026-07-17]])
+      :ok = Planning.clear_days_off(home_scope(), [~D[2026-07-17]])
+
+      {:ok, plan} =
+        Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-07-16]))
+
+      assert MapSet.to_list(plan.days_off) == [~D[2026-07-16]]
+    end
+
+    test "lunch is offered on weekends, holidays and days off" do
+      :ok = Planning.mark_days_off(home_scope(), [~D[2026-07-16]])
+
+      {:ok, plan} =
+        Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-07-16]))
+
+      assert Tore.Planning.State.lunch_day?(plan, ~D[2026-07-16])
+      assert Tore.Planning.State.lunch_day?(plan, ~D[2026-07-18])
+      refute Tore.Planning.State.lunch_day?(plan, ~D[2026-07-15])
+
+      {:ok, may} =
+        Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), ~D[2026-05-11]))
+
+      # Kristi himmelsfärdsdag 2026
+      assert Tore.Planning.State.lunch_day?(may, ~D[2026-05-14])
+    end
+
+    test "a lunch is its own slot beside the day's dinner" do
+      sat = ~D[2026-05-02]
+      plan = Tore.Streams.plan(home_scope(), sat)
+
+      {:ok, _} =
+        Planning.assign_recipe(home_scope(), plan, Tore.Streams.slot_key(sat), recipe(1), 4)
+
+      {:ok, _} =
+        Planning.assign_recipe(
+          home_scope(),
+          plan,
+          Tore.Streams.slot_key(sat, :lunch),
+          recipe(2),
+          2
+        )
+
+      {:ok, state} = Planning.load_plan(home_scope(), plan)
+
+      assert %{
+               "sat_dinner" => %{recipe_id: dinner},
+               "sat_lunch" => %{recipe_id: lunch, servings: 2}
+             } = state.slots
+
+      assert {dinner, lunch} == {recipe(1), recipe(2)}
+    end
+  end
 end

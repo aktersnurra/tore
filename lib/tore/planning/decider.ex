@@ -69,6 +69,21 @@ defmodule Tore.Planning.Decider do
     end
   end
 
+  # Only what changes: a day already off isn't marked again.
+  def decide(%Commands.MarkDaysOff{dates: dates}, state) do
+    case Enum.reject(dates, &MapSet.member?(state.days_off, Date.from_iso8601!(&1))) do
+      [] -> {:ok, []}
+      new -> {:ok, [%Events.DaysOffMarked{dates: new}]}
+    end
+  end
+
+  def decide(%Commands.ClearDaysOff{dates: dates}, state) do
+    case Enum.filter(dates, &MapSet.member?(state.days_off, Date.from_iso8601!(&1))) do
+      [] -> {:ok, []}
+      off -> {:ok, [%Events.DaysOffCleared{dates: off}]}
+    end
+  end
+
   defp pick(nil, kept), do: kept
   defp pick("", _kept), do: nil
   defp pick(given, _kept) when is_binary(given), do: String.trim(given)
@@ -129,6 +144,15 @@ defmodule Tore.Planning.Decider do
 
     %{state | slots: Map.put(state.slots, sk, slot)}
   end
+
+  def evolve(state, %Events.DaysOffMarked{dates: dates}),
+    do: %{state | days_off: Enum.into(dates, state.days_off, &Date.from_iso8601!/1)}
+
+  def evolve(state, %Events.DaysOffCleared{dates: dates}),
+    do: %{
+      state
+      | days_off: MapSet.difference(state.days_off, MapSet.new(dates, &Date.from_iso8601!/1))
+    }
 
   def evolve(state, %Events.LeftoverMarked{slot_key: sk}) do
     %{state | slots: update_in(state.slots, [sk], &Map.put(&1, :leftover, true))}

@@ -84,6 +84,25 @@ defmodule Tore.Harness.Verifier.PlanVerifierTest do
     assert :ok = PlanVerifier.verify(d, ctx(plan))
   end
 
+  test "a dinner can be the leftovers of that day's lunch, not the other way round" do
+    plan =
+      %State{}
+      |> Decider.evolve(%Events.RecipeAssigned{slot_key: "sat_lunch", recipe_id: 1, servings: 2})
+      |> Decider.evolve(%Events.RecipeAssigned{slot_key: "sat_dinner", recipe_id: 1, servings: 2})
+      |> Decider.evolve(%Events.LeftoverMarked{slot_key: "sat_dinner"})
+
+    assert :ok = PlanVerifier.verify(diff([ev("sat_dinner", "LeftoverMarked")]), ctx(plan))
+
+    plan =
+      %State{}
+      |> Decider.evolve(%Events.RecipeAssigned{slot_key: "sat_dinner", recipe_id: 1, servings: 2})
+      |> Decider.evolve(%Events.RecipeAssigned{slot_key: "sat_lunch", recipe_id: 1, servings: 2})
+      |> Decider.evolve(%Events.LeftoverMarked{slot_key: "sat_lunch"})
+
+    assert {:fail, :leftover_no_source, _} =
+             PlanVerifier.verify(diff([ev("sat_lunch", "LeftoverMarked")]), ctx(plan))
+  end
+
   test "fails when a swapped-in recipe contains an ingredient someone is allergic to" do
     {:ok, r} =
       Tore.Recipes.create(home_scope(), %{

@@ -8,6 +8,9 @@ defmodule Tore.Planning.Events do
   # say where and what it cost. Older events have none.
   defmodule MealSkipped, do: defstruct([:slot_key, :reason, :place, :amount])
   defmodule LeftoverMarked, do: defstruct([:slot_key])
+  # dates: ISO dates, as JSON keeps them.
+  defmodule DaysOffMarked, do: defstruct([:dates])
+  defmodule DaysOffCleared, do: defstruct([:dates])
 
   @type t ::
           %RecipeAssigned{}
@@ -17,6 +20,8 @@ defmodule Tore.Planning.Events do
           | %SlotUnpinned{}
           | %MealSkipped{}
           | %LeftoverMarked{}
+          | %DaysOffMarked{}
+          | %DaysOffCleared{}
 
   @modules Map.new(
              [
@@ -26,7 +31,9 @@ defmodule Tore.Planning.Events do
                SlotPinned,
                SlotUnpinned,
                MealSkipped,
-               LeftoverMarked
+               LeftoverMarked,
+               DaysOffMarked,
+               DaysOffCleared
              ],
              &{&1 |> Module.split() |> List.last(), &1}
            )

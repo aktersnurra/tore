@@ -26,17 +26,32 @@ defmodule Tore.Streams do
   def monday(%Date{} = date), do: Date.add(date, 1 - Date.day_of_week(date))
 
   @doc """
-  The dinner slot key for `date`'s weekday.
+  The slot key for `date`'s weekday and `meal`, dinner unless lunch is asked for.
 
       iex> Tore.Streams.slot_key(~D[2026-06-15])
       "mon_dinner"
 
-      iex> Tore.Streams.slot_key(~D[2026-06-21])
-      "sun_dinner"
+      iex> Tore.Streams.slot_key(~D[2026-06-21], :lunch)
+      "sun_lunch"
   """
-  @spec slot_key(Date.t()) :: String.t()
-  def slot_key(%Date{} = date),
-    do: "#{Enum.at(@days, Date.day_of_week(date) - 1)}_dinner"
+  @spec slot_key(Date.t(), :dinner | :lunch) :: String.t()
+  def slot_key(%Date{} = date, meal \\ :dinner) when meal in [:dinner, :lunch],
+    do: "#{Enum.at(@days, Date.day_of_week(date) - 1)}_#{meal}"
+
+  @doc """
+  Where a slot falls in the week, for ordering: its day, then lunch before dinner.
+
+      iex> Tore.Streams.slot_order("sat_lunch") < Tore.Streams.slot_order("sat_dinner")
+      true
+
+      iex> Tore.Streams.slot_order("fri_dinner") < Tore.Streams.slot_order("sat_lunch")
+      true
+  """
+  @spec slot_order(String.t()) :: {non_neg_integer(), 0 | 1}
+  def slot_order(slot_key) do
+    [day, meal] = String.split(slot_key, "_", parts: 2)
+    {Enum.find_index(@days, &(&1 == day)) || length(@days), if(meal == "lunch", do: 0, else: 1)}
+  end
 
   @doc "The ISO week number of `date`."
   @spec week_number(Date.t()) :: 1..53

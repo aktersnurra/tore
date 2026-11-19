@@ -8,6 +8,9 @@ defmodule Tore.Planning.Commands do
   # place and amount: nil keeps what the day has, "" clears it. amount is a number or text.
   defmodule EatOut, do: defstruct([:slot_key, :place, :amount])
   defmodule MarkLeftover, do: defstruct([:slot_key])
+  # dates: ISO dates in the plan's week.
+  defmodule MarkDaysOff, do: defstruct([:dates])
+  defmodule ClearDaysOff, do: defstruct([:dates])
 
   @type t ::
           %AssignRecipe{}
@@ -18,4 +21,6 @@ defmodule Tore.Planning.Commands do
           | %SkipMeal{}
           | %EatOut{}
           | %MarkLeftover{}
+          | %MarkDaysOff{}
+          | %ClearDaysOff{}
 end

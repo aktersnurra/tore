@@ -9,8 +9,6 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
   alias Tore.Planning.State
   alias Tore.Household.Preferences
 
-  @day_order ~w(mon tue wed thu fri sat sun)
-
   @type fail_code ::
           :slot_pinned
           | :servings_missing
@@ -95,19 +93,14 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
   defp positive_int?(n) when is_integer(n) and n > 0, do: true
   defp positive_int?(_), do: false
 
+  # Earlier in time: an earlier day, or that day's lunch before its dinner.
   defp has_earlier_source?(slot_key, plan_state) do
-    idx = day_index(slot_key)
+    at = Tore.Streams.slot_order(slot_key)
 
     Enum.any?(plan_state.slots, fn {k, slot} ->
-      day_index(k) < idx and slot.recipe_id != nil and not slot.skipped and not slot.leftover
+      Tore.Streams.slot_order(k) < at and slot.recipe_id != nil and not slot.skipped and
+        not slot.leftover
     end)
-  end
-
-  # Slot keys are always "<day>_<meal>" with a known day, so the fallback index
-  # (length(@day_order)) is unreachable in practice; it keeps day_index total.
-  defp day_index(slot_key) do
-    day = slot_key |> String.split("_", parts: 2) |> hd()
-    Enum.find_index(@day_order, &(&1 == day)) || length(@day_order)
   end
 
   defp violates?(_scope, nil, _banned), do: false

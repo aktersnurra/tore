@@ -340,6 +340,32 @@ defmodule Tore.Planning do
     plan_id |> Streams.week_start() |> Date.add(Enum.find_index(days, &(&1 == day)))
   end
 
+  @doc """
+  Marks `dates` as days the household is off, in whichever weeks they fall. Lunch is offered on
+  them (`State.lunch_day?/2`); nothing else changes.
+  """
+  @spec mark_days_off(Scope.t(), [Date.t()]) :: :ok | {:error, term()}
+  def mark_days_off(%Scope{} = scope, dates),
+    do: each_week(scope, dates, &%Commands.MarkDaysOff{dates: &1})
+
+  @doc "Takes `dates` off the days off."
+  @spec clear_days_off(Scope.t(), [Date.t()]) :: :ok | {:error, term()}
+  def clear_days_off(%Scope{} = scope, dates),
+    do: each_week(scope, dates, &%Commands.ClearDaysOff{dates: &1})
+
+  defp each_week(scope, dates, command) do
+    dates
+    |> Enum.uniq()
+    |> Enum.sort(Date)
+    |> Enum.group_by(&Streams.monday/1)
+    |> Enum.reduce_while(:ok, fn {monday, days}, :ok ->
+      case run(scope, Streams.plan(scope, monday), command.(Enum.map(days, &Date.to_iso8601/1))) do
+        {:ok, _events} -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
   defp run(scope, plan_id, command) do
     with {:ok, state} <- EventStore.load(scope, plan_id, Decider),
          {:ok, events} <- Decider.decide(command, state),
