@@ -74,6 +74,8 @@ config :tore, Tore.Scheduler,
     {"30 3 * * *", {Tore.Recipes, :draw_missing_pictures, []}},
     {"0 4 * * 0", {Tore.Harness.InboxSweeper, :sweep_weekly, []}},
     {"0 6 * * 6", {Tore.Agent, :run_weekly, ["weekly_reflection"]}},
+    # New dinners from the web, saved before the coming week is planned.
+    {"0 7 * * 4", {Tore.Agent, :run_weekly, ["find_recipes"]}},
     # The coming week's offers, then its plan: Friday to Sunday mornings, and Sunday's deadline.
     {"0 9 * * 0,5,6", {Tore.WeekAhead, :run, []}},
     {"0 18 * * 0", {Tore.WeekAhead, :run, []}}
