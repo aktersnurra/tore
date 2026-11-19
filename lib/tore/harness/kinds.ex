@@ -8,6 +8,7 @@ defmodule Tore.Harness.Kinds do
              Tore.Harness.Kinds.PantryUpdate,
              Tore.Harness.Kinds.PlanEdit,
              Tore.Harness.Kinds.Receipt,
+             Tore.Harness.Kinds.RecipeEdit,
              Tore.Harness.Kinds.RecipeIngestion,
              Tore.Harness.Kinds.SetPlanSlot,
              Tore.Harness.Kinds.ShopEdit

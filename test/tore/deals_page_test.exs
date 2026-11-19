@@ -39,8 +39,7 @@ defmodule Tore.DealsPageTest do
     {:ok, recipe} =
       Recipes.create(
         home_scope(),
-        %{title: title, base_servings: 4, ingredients: [%{name: ingredient, quantity: 1}]},
-        image: false
+        %{title: title, base_servings: 4, ingredients: [%{name: ingredient, quantity: 1}]}
       )
 
     today = Tore.Clock.today()

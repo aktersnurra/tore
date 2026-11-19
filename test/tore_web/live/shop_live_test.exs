@@ -135,8 +135,7 @@ defmodule ToreWeb.ShopLiveTest do
       {:ok, tacos} =
         Tore.Recipes.create(
           home_scope(),
-          %{title: "Tacos", ingredients: [%{name: "tortilla", quantity: 8, unit: "st"}]},
-          image: false
+          %{title: "Tacos", ingredients: [%{name: "tortilla", quantity: 8, unit: "st"}]}
         )
 
       today = Tore.Clock.today()

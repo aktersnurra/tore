@@ -37,6 +37,8 @@ defmodule Tore.Mcp do
     Tools.PutTogether,
     Tools.DeleteReceipt,
     Tools.SaveRecipe,
+    Tools.UpdateRecipe,
+    Tools.DrawRecipePicture,
     Tools.LogReceipt,
     Tools.Undo
   ]

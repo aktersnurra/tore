@@ -1,11 +1,7 @@
 defmodule Tore.Recipes.PartsTest do
   use Tore.DataCase, async: false
 
-  import Mox
-
   alias Tore.Recipes
-
-  setup :verify_on_exit!
 
   defp recipe(title, servings, ingredients, type \\ :component) do
     {:ok, recipe} =
@@ -19,8 +15,7 @@ defmodule Tore.Recipes.PartsTest do
             Enum.map(ingredients, fn {name, quantity, unit} ->
               %{name: name, quantity: quantity && Decimal.new(quantity), unit: unit}
             end)
-        },
-        image: false
+        }
       )
 
     recipe
@@ -112,21 +107,11 @@ defmodule Tore.Recipes.PartsTest do
     assert {"Smör", "290", "g"} in amounts(meal)
   end
 
-  test "a meal's cooking order is written from its parts' steps, once", %{
-    bearnaise: bearnaise,
-    entrecote: entrecote
-  } do
-    {:ok, _} =
-      Recipes.update(home_scope(), bearnaise, %{
-        steps:
-          Jason.encode!([
-            %{"order" => 1, "phase" => "SÅS", "action" => "Smält smöret"},
-            %{"order" => 2, "phase" => "SÅS", "action" => "Vispa i äggulorna"}
-          ])
-      })
-
-    {:ok, _} = Recipes.update(home_scope(), entrecote, %{instructions: "Stek köttet. Låt vila."})
-
+  test "pi writes a meal's cooking order: the steps are saved, the ingredients stay its parts'",
+       %{
+         bearnaise: bearnaise,
+         entrecote: entrecote
+       } do
     {:ok, meal} =
       Recipes.put_together(home_scope(), %{
         title: "Entrecote med bearnaise",
@@ -134,27 +119,46 @@ defmodule Tore.Recipes.PartsTest do
         part_ids: [entrecote.id, bearnaise.id]
       })
 
-    expect(Tore.MockLLM, :text, 1, fn system, user, _opts ->
-      assert system =~ "ready at the same time"
-      payload = Jason.decode!(user)
+    before = amounts(Recipes.get!(home_scope(), meal.id))
 
-      assert [
-               %{"title" => "Stekt entrecote", "instructions" => "Stek köttet. Låt vila."},
-               %{"title" => "Bearnaise", "steps" => ["Smält smöret", "Vispa i äggulorna"]}
-             ] = payload["parts"]
+    request = fn name, args ->
+      %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => name, "arguments" => args}
+      }
+    end
 
-      {:ok,
-       %{
-         "steps" => [
-           %{"phase" => "SÅS", "order" => 1, "action" => "Smält smöret", "ingredients" => []},
-           %{"phase" => "KÖTT", "order" => 2, "action" => "Stek köttet", "ingredients" => []}
-         ]
-       }, %{}}
-    end)
+    {:reply, %{"result" => %{"structuredContent" => read}}} =
+      Tore.Mcp.handle(home_scope(), request.("get_recipe", %{"recipe_id" => meal.id}))
 
-    assert {:ok, [%{"action" => "Smält smöret"}, %{"action" => "Stek köttet"}]} =
-             Recipes.cook_steps(home_scope(), meal)
+    read = read |> Jason.encode!() |> Jason.decode!()
+    assert [%{"title" => "Stekt entrecote"}, %{"title" => "Bearnaise"}] = read["parts"]
 
-    assert {:ok, [_, _]} = Recipes.cook_steps(home_scope(), Recipes.get!(home_scope(), meal.id))
+    steps = [
+      %{"phase" => "BEARNAISE", "order" => 1, "action" => "Smält smöret", "ingredients" => []},
+      %{"phase" => "KÖTT", "order" => 2, "action" => "Stek köttet", "ingredients" => []}
+    ]
+
+    edit =
+      read
+      |> Map.take(~w(title ingredients))
+      |> Map.merge(%{"recipe_id" => meal.id, "steps" => steps})
+
+    {:reply, %{"result" => %{"isError" => false, "structuredContent" => %{run_id: run_id}}}} =
+      Tore.Mcp.handle(home_scope(), request.("update_recipe", edit))
+
+    meal_now = Recipes.get!(home_scope(), meal.id)
+
+    assert [%{"action" => "Smält smöret"}, %{"action" => "Stek köttet"}] =
+             Recipes.cook_steps(meal_now)
+
+    assert amounts(meal_now) == before
+
+    {:ok, _} = Tore.Harness.Runs.revert(home_scope(), run_id)
+    meal_now = Recipes.get!(home_scope(), meal.id)
+    assert Recipes.cook_steps(meal_now) == []
+    assert amounts(meal_now) == before
   end
 end

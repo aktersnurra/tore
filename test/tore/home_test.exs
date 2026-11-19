@@ -35,7 +35,7 @@ defmodule Tore.HomeTest do
 
   defp plan_tonight(scope) do
     {:ok, recipe} =
-      Recipes.create(scope, %{title: "Lax", base_servings: 4, ingredients: []}, image: false)
+      Recipes.create(scope, %{title: "Lax", base_servings: 4, ingredients: []})
 
     {:ok, _} =
       Planning.assign_recipe(scope, Streams.plan(scope, @monday), "tue_dinner", recipe.id, 4)
@@ -101,8 +101,7 @@ defmodule Tore.HomeTest do
           %{
             title: "Laxpasta",
             ingredients: [%{name: "lax"}, %{name: "dill"}, %{name: "pasta"}]
-          },
-          image: false
+          }
         )
 
       {:ok, _} =

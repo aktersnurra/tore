@@ -37,6 +37,7 @@ defmodule Tore.Mcp.Tools.PutTogether do
 
     case Recipes.put_together(scope, attrs) do
       {:ok, meal} ->
+        Recipes.finish(scope, meal.id)
         {:ok, %{done: "Put together #{meal.title}.", recipe_id: meal.id}}
 
       {:error, :too_few_parts} ->

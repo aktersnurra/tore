@@ -470,6 +470,9 @@ defmodule Tore.Harness.Runs do
     :ok
   end
 
+  defp undo_step!(scope, {:restore_recipe, id, before}),
+    do: :ok = Tore.Recipes.restore(scope, id, before)
+
   # An item someone has since removed from the list is already undone.
   defp undo_step!(scope, {:remove_shop_item, list_id, item_id}),
     do: shop_undo!(scope, list_id, %Tore.Shop.Commands.RemoveItem{item_id: item_id})

@@ -5,7 +5,8 @@ defmodule Tore.Agent do
   has no loop of its own here; the task file and `harness/AGENTS.md` are the instructions, the
   MCP tools and their verifiers are the limits.
 
-  A job is for a week when it has one, so a schedule can tell it has run (`ran?/3`).
+  A job is for a week when it has one, so a schedule can tell it has run (`ran?/3`). `details`
+  follow the task's instructions, such as which recipe a `finish_recipe` job is for.
   """
 
   import Ecto.Query
@@ -41,11 +42,29 @@ defmodule Tore.Agent do
   end
 
   @doc """
+  Starts `task` for the household and returns at once; nobody waits for it. Tests run it in
+  place (`config :tore, :agent_in_background, false`), since a task outliving its test loses the
+  test's database connection.
+  """
+  @spec start(Scope.t(), String.t(), String.t() | nil) :: :ok
+  def start(%Scope{} = scope, task, details \\ nil) when is_map_key(@tasks, task) do
+    if Application.get_env(:tore, :agent_in_background, true) do
+      {:ok, _pid} =
+        Task.Supervisor.start_child(Tore.TaskSupervisor, fn -> run(scope, task, nil, details) end)
+    else
+      run(scope, task, nil, details)
+    end
+
+    :ok
+  end
+
+  @doc """
   Runs `task` for the household and waits for it, which takes from seconds to minutes. `week` is
   the Monday of the week the job is for, when it is for one.
   """
-  @spec run(Scope.t(), String.t(), Date.t() | nil) :: {:ok, Job.t()} | {:error, atom()}
-  def run(%Scope{} = scope, task, week \\ nil) when is_map_key(@tasks, task) do
+  @spec run(Scope.t(), String.t(), Date.t() | nil, String.t() | nil) ::
+          {:ok, Job.t()} | {:error, atom()}
+  def run(%Scope{} = scope, task, week \\ nil, details \\ nil) when is_map_key(@tasks, task) do
     with :ok <- Pi.check(scope) do
       job =
         Repo.insert!(%Job{
@@ -59,7 +78,11 @@ defmodule Tore.Agent do
       # (get_context) counts them.
       if task == "plan_week", do: Tore.Prices.Estimate.missing(scope)
 
-      prompt = "Background job: #{task}.\n\n" <> Map.fetch!(@tasks, task)
+      prompt =
+        ["Background job: #{task}.", Map.fetch!(@tasks, task), details]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.join("\n\n")
+
       # A session of its own: a fresh conversation, counted as the task.
       {:ok, finish(job, Pi.run(scope, "#{task}-#{job.id}", prompt, timeout: @timeout))}
     end

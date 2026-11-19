@@ -29,7 +29,7 @@ defmodule Tore.Capture.DeleteTest do
   end
 
   test "delete_recipe deletes it, and says so when there's none", %{ctx: ctx} do
-    {:ok, soup} = Recipes.create(home_scope(), %{title: "Soppa", base_servings: 4}, image: false)
+    {:ok, soup} = Recipes.create(home_scope(), %{title: "Soppa", base_servings: 4})
 
     assert Dispatch.delete_recipe(soup.id, ctx).text =~ "Soppa"
     assert Recipes.get(home_scope(), soup.id) == nil

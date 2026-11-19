@@ -6,7 +6,7 @@
 # prompt>". get_messages answers the conversation so far, which starts as $FAKE_PI_HISTORY.
 set -eu
 IFS= read -r header
-printf '%s\n' "$header" >"$FAKE_PI_LOG"
+printf '%s\n' "$header" >>"$FAKE_PI_LOG"
 history="$FAKE_PI_LOG.messages"
 printf '%s\n' "${FAKE_PI_HISTORY:-[]}" >"$history"
 

@@ -3,13 +3,18 @@ defmodule Tore.Mcp.Tools.GetRecipe do
   @behaviour Tore.Mcp.Tool
 
   alias Tore.Recipes
-  alias Tore.Recipes.Recipe
 
   @impl true
   def name, do: "get_recipe"
 
   @impl true
-  def description, do: "One recipe in full: its ingredients, steps, servings and times."
+  def description,
+    do: """
+    One recipe in full, in the shape save_recipe and update_recipe take, so you can change it \
+    and send it back: ingredients, steps, servings, times, collection and tags. `has_picture` \
+    says whether it has a picture. `instructions` is its running text, which is all a \
+    hand-written recipe has until its steps are written.\
+    """
 
   @impl true
   def schema,
@@ -35,15 +40,18 @@ defmodule Tore.Mcp.Tools.GetRecipe do
       recipe_id: recipe.id,
       title: recipe.title,
       description: recipe.description,
-      servings: recipe.base_servings,
-      prep_minutes: recipe.prep_time_minutes,
-      cook_minutes: recipe.cook_time_minutes,
+      recipe_type: recipe.recipe_type,
+      base_servings: recipe.base_servings,
+      prep_time_minutes: recipe.prep_time_minutes,
+      cook_time_minutes: recipe.cook_time_minutes,
       source_url: recipe.source_url,
+      has_picture: recipe.image_path != nil,
+      tags: Enum.map(recipe.tags, & &1.name),
       ingredients:
         for ri <- recipe.recipe_ingredients do
-          %{name: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit, notes: ri.notes}
+          %{item: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}
         end,
-      steps: Recipe.decode_steps(recipe),
+      steps: Recipes.cook_steps(recipe),
       instructions: recipe.instructions,
       parts: for(part <- recipe.parts, do: %{id: part.id, title: part.title})
     }

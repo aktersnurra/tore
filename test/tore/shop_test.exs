@@ -213,8 +213,7 @@ defmodule Tore.ShopTest do
       {:ok, r} =
         Tore.Recipes.create(
           home_scope(),
-          %{title: title, ingredients: Enum.map(names, &%{name: &1})},
-          image: false
+          %{title: title, ingredients: Enum.map(names, &%{name: &1})}
         )
 
       r

@@ -33,7 +33,11 @@ defmodule Tore.Mcp.ReadToolsTest do
         base_servings: 4,
         prep_time_minutes: 10,
         cook_time_minutes: 20,
-        steps: Jason.encode!(["Koka pastan.", "Riv osten."]),
+        steps:
+          Jason.encode!([
+            %{"phase" => "KOK", "order" => 2, "action" => "Riv osten.", "ingredients" => ["Ost"]},
+            %{"phase" => "KOK", "order" => 1, "action" => "Koka pastan.", "ingredients" => []}
+          ]),
         ingredients: ingredients
       })
 
@@ -99,14 +103,17 @@ defmodule Tore.Mcp.ReadToolsTest do
     assert length(all) == 2
   end
 
-  test "get_recipe gives ingredients and steps, and refuses a recipe that isn't there" do
+  test "get_recipe gives the recipe as save_recipe takes it, and refuses one that isn't there" do
     pasta = recipe("Pasta")
 
     assert %{
              "title" => "Pasta",
-             "servings" => 4,
-             "ingredients" => [%{"name" => "Ost", "unit" => "st"}],
-             "steps" => ["Koka pastan.", "Riv osten."]
+             "recipe_type" => "meal",
+             "base_servings" => 4,
+             "prep_time_minutes" => 10,
+             "has_picture" => false,
+             "ingredients" => [%{"item" => "Ost", "unit" => "st"}],
+             "steps" => [%{"action" => "Koka pastan."}, %{"action" => "Riv osten."}]
            } = ok(home_scope(), "get_recipe", %{"recipe_id" => pasta.id})
 
     assert %{"isError" => true} = call(home_scope(), "get_recipe", %{"recipe_id" => 0})

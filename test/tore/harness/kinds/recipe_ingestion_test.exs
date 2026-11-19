@@ -72,55 +72,46 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
     assert %RecipeProposal{base_servings: 4, image_url: nil} = proposal
   end
 
-  test "a linked recipe's picture is drawn in the house style, not taken from the page", %{
-    ctx: ctx
-  } do
-    Application.put_env(:tore, :recipe_images_in_background, true)
-    on_exit(fn -> Application.put_env(:tore, :recipe_images_in_background, false) end)
+  describe "a linked recipe's picture" do
+    import Tore.FakePi
+    setup :fake_pi
 
-    Tore.Storage.Mock.reset()
+    test "is drawn by pi in the house style, not taken from the page", %{
+      ctx: ctx,
+      pi_log: log
+    } do
+      page = """
+      <html><head><script type="application/ld+json">
+      {"@type": "Recipe", "name": "Morotssoppa", "image": "https://example.com/soppa.jpg",
+       "recipeYield": "4", "recipeIngredient": ["6 morötter"], "recipeInstructions": ["Koka."]}
+      </script></head></html>
+      """
 
-    page = """
-    <html><head><script type="application/ld+json">
-    {"@type": "Recipe", "name": "Morotssoppa", "image": "https://example.com/soppa.jpg",
-     "recipeYield": "4", "recipeIngredient": ["6 morötter"], "recipeInstructions": ["Koka."]}
-    </script></head></html>
-    """
+      test_pid = self()
 
-    test_pid = self()
+      stub(Tore.MockHTTP, :fetch, fn
+        "https://example.com/soppa" ->
+          {:ok, page}
 
-    stub(Tore.MockHTTP, :fetch, fn
-      "https://example.com/soppa" ->
-        {:ok, page}
+        "https://example.com/soppa.jpg" ->
+          send(test_pid, :picture_fetched)
+          {:ok, <<255, 216, 255, 0>>}
+      end)
 
-      "https://example.com/soppa.jpg" ->
-        send(test_pid, :picture_fetched)
-        {:ok, <<255, 216, 255, 0>>}
-    end)
+      stub(Tore.MockLLM, :text, fn _, _, _ ->
+        {:ok, Map.put(@soup, "image_url", "https://example.com/soppa.jpg"), @usage}
+      end)
 
-    # Reading the recipe, then describing the dish for its picture.
-    stub(Tore.MockLLM, :text, fn _, _, _ ->
-      {:ok,
-       @soup
-       |> Map.put("image_url", "https://example.com/soppa.jpg")
-       |> Map.put("prompt", "A bowl of carrot soup."), @usage}
-    end)
+      %{run_stream_id: id} = Dispatch.import_recipe_from_url("https://example.com/soppa", ctx)
 
-    %{run_stream_id: id} = Dispatch.import_recipe_from_url("https://example.com/soppa", ctx)
+      assert %KitchenRun{artifacts: [%RecipeProposal{} = proposal]} = Runs.get(home_scope(), id)
+      assert proposal.source_url == "https://example.com/soppa"
 
-    assert %KitchenRun{artifacts: [%RecipeProposal{} = proposal]} = Runs.get(home_scope(), id)
-    assert proposal.source_url == "https://example.com/soppa"
-
-    [recipe] = Recipes.list(home_scope())
-    assert eventually(fn -> Recipes.get(home_scope(), recipe.id).image_path end)
-    refute_received :picture_fetched
-  end
-
-  defp eventually(fun, tries \\ 50) do
-    cond do
-      value = fun.() -> value
-      tries == 0 -> nil
-      true -> Process.sleep(10) && eventually(fun, tries - 1)
+      [recipe] = Recipes.list(home_scope())
+      prompt = Enum.find(pi_records(log), &(&1["type"] == "prompt"))["message"]
+      assert prompt =~ "Background job: finish_recipe."
+      assert prompt =~ "Recipe #{recipe.id}."
+      refute_received :picture_fetched
     end
   end
 
@@ -132,8 +123,7 @@ defmodule Tore.Harness.Kinds.RecipeIngestionTest do
           title: "Morotssoppa",
           base_servings: 4,
           ingredients: [%{name: "morot", quantity: Decimal.new(6), unit: "st"}]
-        },
-        image: false
+        }
       )
 
     assert %KitchenRun{status: :failed, failure_code: :near_duplicate} = from_photo(ctx)

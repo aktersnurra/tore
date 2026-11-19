@@ -58,7 +58,7 @@ defmodule Tore.Harness.Kinds.Planner do
     # On confirm the scope is the person confirming; a weekly run opened as the system has no user.
     user_id = scope.user_id || run.user_id
 
-    with {:ok, recipe} <- Recipes.create(scope, recipe_attrs(proposal, user_id), image: false) do
+    with {:ok, recipe} <- Recipes.create(scope, recipe_attrs(proposal, user_id)) do
       {:ok, {:steps, [{:delete_recipe, recipe.id}]}, [proposal]}
     end
   end
@@ -67,16 +67,10 @@ defmodule Tore.Harness.Kinds.Planner do
   def after_commit(%{status: :applied} = run) do
     scope = Scope.for_household(run.household_id)
 
-    # A confirmed recipe gets its picture now that the recipe is committed, generated in Tore's
-    # house style so the library looks like one cookbook; a page's own photo isn't used. MCP
-    # never reaches the server's model, so a recipe saved over MCP takes its page's photo, or
-    # stays without one.
-    image_url = Enum.find_value(run.artifacts, &(match?(%RecipeProposal{}, &1) && &1.image_url))
-    image_url = if run.actor == :mcp, do: image_url
-
+    # A saved recipe gets its picture, drawn in Tore's house style so the library looks like one
+    # cookbook, and its cook steps if it came without: pi does both once the recipe is committed.
     with {:steps, steps} <- run.undo,
-         true <- image_url != nil or run.actor != :mcp,
-         do: for({:delete_recipe, id} <- steps, do: Recipes.start_image(scope, id, image_url))
+         do: for({:delete_recipe, id} <- steps, do: Recipes.finish(scope, id))
 
     Planning.announce(scope)
   end

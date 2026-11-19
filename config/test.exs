@@ -64,7 +64,7 @@ config :tore, :oidc_start_worker, false
 # A run kind that exists only for Tore.Harness.RunsTest.
 config :tore, :extra_run_kinds, [Tore.Harness.TestKind]
 config :tore, :fail_interrupted_runs_at_boot, false
-config :tore, :recipe_images_in_background, false
+config :tore, :agent_in_background, false
 config :tore, :draw_missing_pictures, false
 
 # Today switches to tomorrow at 21:00; in tests only when a test says so, whatever the hour.

@@ -10,6 +10,9 @@ defmodule ToreWeb.CookLive do
 
   use ToreWeb, :live_view
 
+  # How long pi gets to write a recipe's steps before the page says it couldn't.
+  @steps_timeout :timer.minutes(3)
+
   alias Tore.Recipes
   alias ToreWeb.{BeforeCooking, StepCards}
 
@@ -17,21 +20,31 @@ defmodule ToreWeb.CookLive do
   def mount(%{"id" => id} = params, _session, socket) do
     scope = socket.assigns.current_scope
     recipe = Recipes.get!(scope, String.to_integer(id))
+    steps = Recipes.cook_steps(recipe)
 
-    # A recipe that only has running text gets its steps written by the model the first time.
-    # Only once the page is live: mount also runs for the first plain render.
-    if connected?(socket) do
-      ToreWeb.Background.run(fn -> Recipes.cook_steps(scope, recipe) end, &{:cook_steps, &1})
-    end
+    # A recipe that only has running text gets its steps from pi, which saves them on the recipe
+    # (`{:recipe_changed, id}`). Only once the page is live: mount also runs for the first plain
+    # render.
+    failed =
+      if steps == [] and connected?(socket) do
+        Phoenix.PubSub.subscribe(Tore.PubSub, Recipes.topic(scope))
+        Process.send_after(self(), :steps_timeout, @steps_timeout)
+        Tore.Pi.check(scope) != :ok or Recipes.finish(scope, recipe.id) != :ok
+      else
+        false
+      end
+
+    servings = servings(params["servings"], recipe)
+    swaps = BeforeCooking.from_param(params["swaps"])
 
     {:ok,
      assign(socket,
        recipe: recipe,
-       cards: nil,
-       failed: false,
+       cards: cards(steps, recipe, servings, swaps),
+       failed: failed,
        overview: false,
-       servings: servings(params["servings"], recipe),
-       swaps: BeforeCooking.from_param(params["swaps"]),
+       servings: servings,
+       swaps: swaps,
        timers: [],
        done: nil,
        close_to: ToreWeb.SafeReturn.path(params["from"], ~p"/recipes")
@@ -44,18 +57,36 @@ defmodule ToreWeb.CookLive do
   end
 
   @impl true
-  def handle_info({:cook_steps, {:ok, steps}}, socket) do
-    %{recipe: recipe, servings: servings, swaps: swaps} = socket.assigns
+  def handle_info({:recipe_changed, id}, %{assigns: %{recipe: %{id: id}, cards: nil}} = socket) do
+    %{current_scope: scope, servings: servings, swaps: swaps} = socket.assigns
+    recipe = Recipes.get!(scope, id)
 
-    cards = [
-      needs_card(recipe, servings, swaps) | Enum.map(steps, &card(&1, recipe, servings, swaps))
-    ]
+    case cards(Recipes.cook_steps(recipe), recipe, servings, swaps) do
+      nil ->
+        {:noreply, socket}
 
-    {:noreply, assign(socket, cards: cards, index: min(socket.assigns.index, length(cards) - 1))}
+      cards ->
+        {:noreply,
+         assign(socket,
+           recipe: recipe,
+           cards: cards,
+           failed: false,
+           index: min(socket.assigns.index, length(cards) - 1)
+         )}
+    end
   end
 
-  def handle_info({:cook_steps, {:error, _reason}}, socket),
+  def handle_info(:steps_timeout, %{assigns: %{cards: nil}} = socket),
     do: {:noreply, assign(socket, failed: true)}
+
+  def handle_info(_message, socket), do: {:noreply, socket}
+
+  defp cards([], _recipe, _servings, _swaps), do: nil
+
+  defp cards(steps, recipe, servings, swaps),
+    do: [
+      needs_card(recipe, servings, swaps) | Enum.map(steps, &card(&1, recipe, servings, swaps))
+    ]
 
   @impl true
   def handle_event("step", %{"to" => to}, socket),

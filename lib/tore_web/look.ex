@@ -4,7 +4,7 @@ defmodule ToreWeb.Look do
   icon for the dish, on its collection's tint (ui.md §4.3).
 
   The icon is read from the dish's name, in Swedish or English, and otherwise the collection's
-  own: no model is asked. A picture is drawn for every recipe (`Tore.Recipes.start_image/3`), so
+  own: no model is asked. pi draws a picture for every recipe (`Tore.Recipes.finish/3`), so
   the tinted icon is what shows while it's being drawn, or if drawing failed.
   """
 

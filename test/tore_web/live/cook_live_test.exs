@@ -1,11 +1,8 @@
 defmodule ToreWeb.CookLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
-  import Mox
 
   alias Tore.Recipes
-
-  setup :verify_on_exit!
 
   setup %{conn: conn} do
     user = user_fixture(name: "Gustaf")
@@ -86,20 +83,13 @@ defmodule ToreWeb.CookLiveTest do
         part_ids: [pasta.id, sauce.id]
       })
 
-    expect(Tore.MockLLM, :text, fn _system, _user, _opts ->
-      {:ok,
-       %{
-         "steps" => [
-           %{
-             "phase" => "TOMATSÅS",
-             "order" => 1,
-             "action" => "Koka tomaterna",
-             "ingredients" => []
-           },
-           %{"phase" => "PASTA", "order" => 2, "action" => "Fräs vitlöken", "ingredients" => []}
-         ]
-       }, %{}}
-    end)
+    # The order pi wrote for it (`finish_recipe`).
+    steps = [
+      %{"phase" => "TOMATSÅS", "order" => 1, "action" => "Koka tomaterna", "ingredients" => []},
+      %{"phase" => "PASTA", "order" => 2, "action" => "Fräs vitlöken", "ingredients" => []}
+    ]
+
+    {:ok, _} = Recipes.update(home_scope(), meal, %{steps: Jason.encode!(steps)})
 
     {:ok, view, _html} = live(conn, ~p"/recipes/#{meal.id}/cook")
 
@@ -182,13 +172,37 @@ defmodule ToreWeb.CookLiveTest do
   end
 
   test "says so when a recipe without steps can't get them", %{conn: conn} do
+    # No pi in this test, so nothing can write them.
     {:ok, recipe} = Recipes.create(home_scope(), %{title: "Soppa", recipe_type: :meal})
-    expect(Tore.MockLLM, :text, fn _system, _user, _opts -> {:error, :timeout} end)
 
     {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook")
 
     assert eventually(view, "Det gick inte att skriva stegen")
     assert render(view) =~ "Receptet är oförändrat"
+  end
+
+  describe "a recipe without steps" do
+    import Tore.FakePi
+    setup :fake_pi
+
+    test "asks pi for them, and they show when pi saves them", %{conn: conn, pi_log: log} do
+      {:ok, recipe} =
+        Recipes.create(home_scope(), %{title: "Soppa", recipe_type: :meal, instructions: "Koka."})
+
+      {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook")
+      assert render(view) =~ "Skriver stegen"
+
+      assert Enum.any?(
+               pi_records(log),
+               &(&1["type"] == "prompt" and &1["message"] =~ "Recipe #{recipe.id}.")
+             )
+
+      steps = [%{"phase" => "KOK", "order" => 1, "action" => "Koka soppan", "ingredients" => []}]
+      {:ok, _} = Recipes.update(home_scope(), recipe, %{steps: Jason.encode!(steps)})
+      send(view.pid, {:recipe_changed, recipe.id})
+
+      assert eventually(view, "Ta fram det här")
+    end
   end
 
   test "another household's recipe can't be opened", %{conn: conn} do

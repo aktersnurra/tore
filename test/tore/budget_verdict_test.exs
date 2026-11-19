@@ -44,8 +44,7 @@ defmodule Tore.BudgetVerdictTest do
           title: "Middag #{week_start}",
           base_servings: 4,
           ingredients: [%{name: "i #{week_start}", quantity: 1}]
-        },
-        image: false
+        }
       )
 
     Repo.update_all(
@@ -183,8 +182,7 @@ defmodule Tore.BudgetVerdictTest do
             title: "Lax",
             base_servings: 4,
             ingredients: [%{name: "Lax", quantity: 1, unit: "kg"}]
-          },
-          image: false
+          }
         )
 
       salmon =
@@ -232,8 +230,7 @@ defmodule Tore.BudgetVerdictTest do
             title: "Lax",
             base_servings: 4,
             ingredients: [%{name: "Lax", quantity: 1, unit: "kg"}]
-          },
-          image: false
+          }
         )
 
       salmon =

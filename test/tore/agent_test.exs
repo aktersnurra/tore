@@ -40,8 +40,7 @@ defmodule Tore.AgentTest do
           title: "Soppa",
           base_servings: 4,
           ingredients: [%{name: "Lök", quantity: 2, unit: "st"}]
-        },
-        image: false
+        }
       )
 
     Mox.expect(Tore.MockLLM, :text, fn _system, user, opts ->

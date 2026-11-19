@@ -79,7 +79,7 @@ defmodule ToreWeb.HomeLiveTest do
       seed_tonight_recipe()
 
       {:ok, soup} =
-        Tore.Recipes.create(home_scope(), %{title: "Ärtsoppa", recipe_type: :meal}, image: false)
+        Tore.Recipes.create(home_scope(), %{title: "Ärtsoppa", recipe_type: :meal})
 
       lunch_key = Tore.Streams.slot_key(Tore.Clock.today(), :lunch)
       Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), lunch_key, soup.id, 4)
@@ -112,8 +112,7 @@ defmodule ToreWeb.HomeLiveTest do
             recipe_type: :baking,
             base_servings: 4,
             ingredients: [%{name: "smör", quantity: "100", unit: "g"}, %{name: "kanel"}]
-          },
-          image: false
+          }
         )
 
       Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), buns.id, 8)
@@ -160,9 +159,7 @@ defmodule ToreWeb.HomeLiveTest do
 
     defp dish(title) do
       {:ok, recipe} =
-        Tore.Recipes.create(home_scope(), %{title: title, ingredients: [%{name: "lax"}]},
-          image: false
-        )
+        Tore.Recipes.create(home_scope(), %{title: title, ingredients: [%{name: "lax"}]})
 
       recipe
     end
@@ -311,7 +308,7 @@ defmodule ToreWeb.HomeLiveTest do
   describe "something else tonight" do
     defp dinner(title, type \\ :meal) do
       {:ok, r} =
-        Tore.Recipes.create(home_scope(), %{title: title, recipe_type: type}, image: false)
+        Tore.Recipes.create(home_scope(), %{title: title, recipe_type: type})
 
       r
     end

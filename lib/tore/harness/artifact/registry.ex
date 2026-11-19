@@ -5,6 +5,7 @@ defmodule Tore.Harness.Artifact.Registry do
     MemoryBatch,
     PantryBeliefUpdate,
     PlanDiff,
+    RecipeEdit,
     RecipeProposal,
     ShopChange
   }
@@ -15,6 +16,7 @@ defmodule Tore.Harness.Artifact.Registry do
     "MemoryBatch" => MemoryBatch,
     "PantryBeliefUpdate" => PantryBeliefUpdate,
     "PlanDiff" => PlanDiff,
+    "RecipeEdit" => RecipeEdit,
     "RecipeProposal" => RecipeProposal,
     "ShopChange" => ShopChange
   }

@@ -28,8 +28,7 @@ defmodule Tore.Budget.ForecastTest do
           recipe_type: :meal,
           base_servings: 4,
           ingredients: [%{name: title <> " i", quantity: 1, unit: "st"}]
-        },
-        image: false
+        }
       )
 
     Repo.update_all(

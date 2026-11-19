@@ -119,8 +119,7 @@ defmodule Tore.PlanningTest do
       {:ok, oxfile} =
         Recipes.create(
           home_scope(),
-          %{title: "Oxfilé", ingredients: [%{name: "oxfilé"}, %{name: "potatis"}]},
-          image: false
+          %{title: "Oxfilé", ingredients: [%{name: "oxfilé"}, %{name: "potatis"}]}
         )
 
       {:ok, _} = Planning.assign_recipe(home_scope(), plan_id(), "mon_dinner", oxfile.id, 4)

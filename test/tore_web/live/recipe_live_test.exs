@@ -186,8 +186,7 @@ defmodule ToreWeb.RecipeLiveTest do
             recipe_type: :meal,
             base_servings: 4,
             ingredients: [%{name: "Spaghetti", quantity: Decimal.new(400), unit: "g"}]
-          },
-          image: false
+          }
         )
 
       %{pasta: pasta}
@@ -262,7 +261,7 @@ defmodule ToreWeb.RecipeLiveTest do
 
     test "baking is started, not planned", %{conn: conn, user: user} do
       {:ok, buns} =
-        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)
+        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking})
 
       {:ok, lv, html} = live(authed(conn, user), "/recipes?id=#{buns.id}")
 
@@ -275,7 +274,7 @@ defmodule ToreWeb.RecipeLiveTest do
   describe "collections" do
     test "Bakning shows the baking, and only that", %{conn: conn, user: user, recipe: recipe} do
       {:ok, _} =
-        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)
+        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking})
 
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
 
@@ -294,7 +293,7 @@ defmodule ToreWeb.RecipeLiveTest do
       recipe: recipe
     } do
       {:ok, _} =
-        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking}, image: false)
+        Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking})
 
       {:ok, lv, html} = live(authed(conn, user), "/recipes")
       assert has_element?(lv, ~s([data-view="gallery"][aria-selected="true"]))
@@ -329,8 +328,8 @@ defmodule ToreWeb.RecipeLiveTest do
     end
   end
 
-  describe "live image update" do
-    test "renders the proxy src when an image broadcast arrives", %{conn: conn, user: user} do
+  describe "live recipe update" do
+    test "shows a picture pi drew once the recipe changes", %{conn: conn, user: user} do
       # A recipe with no image — inserted directly so no async image task fires.
       {:ok, recipe} =
         %Tore.Recipes.Recipe{
@@ -343,11 +342,15 @@ defmodule ToreWeb.RecipeLiveTest do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       refute render(lv) =~ "/images/recipes/#{recipe.id}"
 
+      {:ok, _} =
+        Recipes.update(home_scope(), recipe, %{
+          image_path: "households/#{home_scope().household_id}/recipes/#{recipe.id}/abc.jpg"
+        })
+
       Phoenix.PubSub.broadcast(
         Tore.PubSub,
         Tore.Recipes.topic(home_scope()),
-        {:recipe_image, recipe.id,
-         "households/#{home_scope().household_id}/recipes/#{recipe.id}/abc.jpg"}
+        {:recipe_changed, recipe.id}
       )
 
       assert render(lv) =~ "/images/recipes/#{recipe.id}"
@@ -491,8 +494,7 @@ defmodule ToreWeb.RecipeLiveTest do
             title: "Kanelbullar",
             recipe_type: :baking,
             ingredients: [%{name: "smör"}, %{name: "kanel"}]
-          },
-          image: false
+          }
         )
 
       {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
@@ -528,8 +530,7 @@ defmodule ToreWeb.RecipeLiveTest do
             title: "Kycklinggryta",
             recipe_type: :meal,
             ingredients: [%{name: "kyckling"}, %{name: "gul lök"}, %{name: "crème fraîche"}]
-          },
-          image: false
+          }
         )
 
       {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "kyckling"})
@@ -538,9 +539,7 @@ defmodule ToreWeb.RecipeLiveTest do
 
     test "with everything at home, Cook now goes straight to cook mode", %{conn: conn, user: user} do
       {:ok, buns} =
-        Recipes.create(home_scope(), %{title: "Bullar", ingredients: [%{name: "salt"}]},
-          image: false
-        )
+        Recipes.create(home_scope(), %{title: "Bullar", ingredients: [%{name: "salt"}]})
 
       {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: buns.id]}")
       assert view |> element(~s(a[data-role="start-cooking"])) |> render() =~ "/cook"
@@ -600,16 +599,15 @@ defmodule ToreWeb.RecipeLiveTest do
     end
   end
 
-  describe "steps for cook mode" do
-    test "are written when a hand-written recipe is saved", %{conn: conn, user: user} do
-      Mox.set_mox_global()
+  describe "a hand-written recipe" do
+    import Tore.FakePi
+    setup :fake_pi
 
-      # Saving also asks about the picture and the new ingredient; one answer serves all three.
-      Mox.stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
-        steps = [%{"order" => 1, "action" => "Koka linserna", "ingredients" => ["linser"]}]
-        {:ok, %{"steps" => steps, "prompt" => "A bowl of soup.", "section" => "dry_goods"}, %{}}
-      end)
-
+    test "is finished by pi once saved: steps and a picture", %{
+      conn: conn,
+      user: user,
+      pi_log: log
+    } do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "new_recipe")
 
@@ -628,11 +626,9 @@ defmodule ToreWeb.RecipeLiveTest do
       })
 
       [recipe] = Recipes.search(home_scope(), "Linssoppa")
-
-      assert Enum.any?(1..50, fn _ ->
-               Process.sleep(10)
-               Recipes.get!(home_scope(), recipe.id).steps != nil
-             end)
+      prompt = Enum.find(pi_records(log), &(&1["type"] == "prompt"))["message"]
+      assert prompt =~ "Background job: finish_recipe."
+      assert prompt =~ "Recipe #{recipe.id}."
     end
   end
 
@@ -647,8 +643,7 @@ defmodule ToreWeb.RecipeLiveTest do
             base_servings: 4,
             steps: Jason.encode!([%{"order" => 1, "phase" => "SÅS", "action" => "Smält smöret"}]),
             ingredients: [%{name: "Smör", quantity: Decimal.new(200), unit: "g"}]
-          },
-          image: false
+          }
         )
 
       {:ok, meat} =
@@ -660,15 +655,13 @@ defmodule ToreWeb.RecipeLiveTest do
             base_servings: 2,
             instructions: "Stek köttet.",
             ingredients: [%{name: "Entrecote", quantity: Decimal.new(400), unit: "g"}]
-          },
-          image: false
+          }
         )
 
       {:ok, meal} =
         Recipes.put_together(
           home_scope(),
-          %{title: "Entrecote med bearnaise", servings: 4, part_ids: [meat.id, sauce.id]},
-          image: false
+          %{title: "Entrecote med bearnaise", servings: 4, part_ids: [meat.id, sauce.id]}
         )
 
       %{sauce: sauce, meat: meat, meal: meal}

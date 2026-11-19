@@ -54,7 +54,8 @@ defmodule Tore.LLM.PiTest do
     System.put_env("FAKE_PI_REPLY", "{}")
     assert {:ok, %{}, _} = LLM.text(home_scope(), "sys", "user")
 
-    assert [%{"model" => "anthropic/claude-haiku-5-5"} | _] = pi_records(log)
+    assert %{"model" => "anthropic/claude-haiku-5-5"} =
+             Enum.find(pi_records(log), &(&1["oneshot"] == true))
   end
 
   test "a reply in a Markdown fence is read, and one that isn't JSON is an error" do

@@ -1,5 +1,4 @@
 defmodule Tore.Recipes do
-  require Logger
   import Ecto.Query
   alias Tore.{Repo, Scope}
   alias Tore.Recipes.{Recipe, Ingredient, RecipeIngredient, RecipePart, Tag}
@@ -10,17 +9,26 @@ defmodule Tore.Recipes do
   # An ingredient name will never contain this, so joined names split cleanly.
   @fp_sep "\x1f"
 
+  # Every recipe picture is taken the same way, so the library reads as one cookbook in Tore's
+  # cast-iron palette. pi only describes the dish; this sets the light, surface and frame.
+  @house_style """
+  Editorial cookbook photograph, vertical 3:4 frame, shot from about 45 degrees. The dish sits \
+  on a dark, matte charcoal stoneware or seasoned cast-iron surface. Soft, warm light from a \
+  single window on one side, deep warm shadows, gentle amber highlights. Muted natural colours; \
+  the food is the brightest thing in the frame. Plain matte ceramic or the dish's own pan, at \
+  most one quiet prop such as linen or a wooden spoon. Shallow depth of field, natural and \
+  appetising, not glossy. No text, no hands, no people, no logos.\
+  """
+
+  @snapshot_fields ~w(title description instructions steps recipe_type base_servings prep_time_minutes cook_time_minutes source_url image_path)a
+
   @doc "The topic a household's recipe changes are broadcast on."
   @spec topic(Scope.t()) :: String.t()
   def topic(%Scope{household_id: id}), do: "recipes:household:#{id}"
 
-  @doc """
-  Creates a recipe and starts making its picture. Inside an outer transaction, such as a run's,
-  pass `image: false` and call `start_image/2` once it commits, since the task can't see the
-  recipe before then.
-  """
-  @spec create(Scope.t(), map(), keyword()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
-  def create(%Scope{} = scope, attrs, opts \\ []) do
+  @doc "Creates a recipe. Its picture and missing cook steps come from pi (`finish/3`)."
+  @spec create(Scope.t(), map()) :: {:ok, Recipe.t()} | {:error, Ecto.Changeset.t()}
+  def create(%Scope{} = scope, attrs) do
     {tag_names, attrs} = Map.pop(attrs, :tags, [])
     {ingredients, attrs} = Map.pop(attrs, :ingredients, [])
 
@@ -35,9 +43,6 @@ defmodule Tore.Recipes do
     end)
     |> case do
       {:ok, recipe} ->
-        if Keyword.get(opts, :image, true),
-          do: maybe_generate_image(scope, recipe, Map.get(attrs, :image_url))
-
         {:ok, get!(scope, recipe.id)}
 
       {:error, reason} ->
@@ -92,21 +97,16 @@ defmodule Tore.Recipes do
   @doc """
   Puts a meal together from recipes the household has (`part_ids`, in order): a dinner whose
   ingredients are its parts', and which follows them when they change. A part can't have parts
-  of its own. The meal's cooking order is written the first time it's cooked
-  (`cook_steps/2`).
+  of its own. The caller has pi write its cooking order and draw its picture (`finish/3`); when a
+  part changes, the order is cleared and written again the next time the meal is cooked.
   """
   @spec put_together(
           Scope.t(),
-          %{title: String.t(), servings: pos_integer(), part_ids: [integer()]},
-          keyword()
+          %{title: String.t(), servings: pos_integer(), part_ids: [integer()]}
         ) ::
           {:ok, Recipe.t()}
           | {:error, :too_few_parts | :unknown_parts | :nested | Ecto.Changeset.t()}
-  def put_together(
-        %Scope{} = scope,
-        %{title: title, servings: servings, part_ids: ids},
-        opts \\ []
-      ) do
+  def put_together(%Scope{} = scope, %{title: title, servings: servings, part_ids: ids}) do
     ids = Enum.uniq(ids)
     parts = get_many(scope, ids)
 
@@ -114,11 +114,11 @@ defmodule Tore.Recipes do
       length(ids) < 2 -> {:error, :too_few_parts}
       length(parts) < length(ids) -> {:error, :unknown_parts}
       Enum.any?(parts, &(&1.parts != [])) -> {:error, :nested}
-      true -> insert_meal(scope, title, servings, ids, opts)
+      true -> insert_meal(scope, title, servings, ids)
     end
   end
 
-  defp insert_meal(scope, title, servings, ids, opts) do
+  defp insert_meal(scope, title, servings, ids) do
     Repo.transaction(fn ->
       with {:ok, meal} <-
              insert_recipe(scope, %{title: title, base_servings: servings, recipe_type: :meal}) do
@@ -133,7 +133,6 @@ defmodule Tore.Recipes do
     end)
     |> case do
       {:ok, meal} ->
-        if Keyword.get(opts, :image, true), do: start_image(scope, meal.id)
         {:ok, get!(scope, meal.id)}
 
       {:error, reason} ->
@@ -232,13 +231,18 @@ defmodule Tore.Recipes do
   def get(%Scope{} = scope, id), do: Repo.get(Recipe, id, Scope.repo_opts(scope))
 
   @doc """
-  Titles and ingredient names for every recipe, for duplicate detection.
+  Titles and ingredient names for every recipe but `except_id`, for duplicate detection.
   Keeps `RecipeProposalVerifier` pure — it compares against this, it does not
   query.
   """
-  @spec catalog_fingerprints(Scope.t()) :: [%{title: String.t(), ingredient_names: [String.t()]}]
-  def catalog_fingerprints(%Scope{} = scope) do
+  @spec catalog_fingerprints(Scope.t(), integer() | nil) :: [
+          %{title: String.t(), ingredient_names: [String.t()]}
+        ]
+  def catalog_fingerprints(%Scope{} = scope, except_id \\ nil) do
+    except = if except_id, do: dynamic([r], r.id != ^except_id), else: true
+
     from(r in Recipe,
+      where: ^except,
       left_join: ri in RecipeIngredient,
       on: ri.recipe_id == r.id,
       left_join: i in Ingredient,
@@ -356,68 +360,111 @@ defmodule Tore.Recipes do
 
   @doc """
   The steps cook mode walks through, in order: maps with `"phase"`, `"order"`, `"action"`,
-  `"ingredients"` (names) and `"duration_minutes"`.
-
-  An imported recipe already has them. One that only has running text gets them written by the
-  model the first time it's cooked, and they're kept on the recipe from then on.
+  `"ingredients"` (names) and `"duration_minutes"`. Empty for a recipe pi hasn't written steps
+  for yet (`finish/3`).
   """
-  @spec cook_steps(Scope.t(), Recipe.t()) :: {:ok, [map()]} | {:error, term()}
-  def cook_steps(%Scope{} = scope, %Recipe{} = recipe) do
-    case Recipe.decode_steps(recipe) do
-      [] -> write_cook_steps(scope, recipe)
-      steps -> {:ok, Enum.sort_by(steps, & &1["order"])}
-    end
+  @spec cook_steps(Recipe.t()) :: [map()]
+  def cook_steps(%Recipe{} = recipe),
+    do: recipe |> Recipe.decode_steps() |> Enum.sort_by(& &1["order"])
+
+  @doc """
+  Has pi finish a recipe in the background (`harness/tasks/finish_recipe.md`): write its cook
+  steps when it has none, and draw its picture when it has none. `details` says what else, such
+  as "Its instructions were changed by hand." The changes arrive as `{:recipe_changed, id}`.
+  """
+  @spec finish(Scope.t(), integer(), String.t() | nil) :: :ok
+  def finish(%Scope{} = scope, recipe_id, details \\ nil) when is_integer(recipe_id) do
+    Tore.Agent.start(scope, "finish_recipe", Enum.join(["Recipe #{recipe_id}.", details], " "))
   end
 
-  defp write_cook_steps(scope, recipe) do
-    recipe = Repo.preload(recipe, recipe_ingredients: :ingredient)
-
-    payload = %{
-      title: recipe.title,
-      instructions: recipe.instructions,
-      ingredients:
-        Enum.map(recipe.recipe_ingredients, fn ri ->
-          %{item: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}
-        end),
-      parts: Enum.map(recipe.parts, &part_for_steps/1)
-    }
-
-    {system, user} = Tore.LLM.Prompts.cook_steps(payload, Tore.Household.locale(scope))
-
-    case Tore.LLM.text(scope, system, user,
-           response_format: Tore.LLM.Prompts.cook_steps_schema(),
-           feature: :cook_mode
-         ) do
-      {:ok, %{"steps" => [_ | _] = steps}, _usage} ->
-        steps = Enum.sort_by(steps, & &1["order"])
-
-        Repo.update_all(
-          from(r in Recipe, where: r.id == ^recipe.id),
-          [set: [steps: Jason.encode!(steps)]],
-          Scope.repo_opts(scope)
-        )
-
-        {:ok, steps}
-
-      {:ok, _, _} ->
-        {:error, :invalid_response}
-
-      {:error, _} = err ->
-        err
+  @doc """
+  Has pi draw every recipe's picture again, one at a time, for every household. Each picture is a
+  paid image call, so this is run by hand on the server
+  (`bin/tore eval "Tore.Recipes.restyle_images()"`), never by the app.
+  """
+  @spec restyle_images() :: :ok
+  def restyle_images do
+    for id <- Tore.Household.list_ids(), scope = Scope.for_household(id), recipe <- list(scope) do
+      Tore.Agent.run(scope, "finish_recipe", nil, "Recipe #{recipe.id}. Draw its picture again.")
     end
+
+    :ok
   end
 
-  # A part as the step writer reads it: its own steps when it has them, otherwise its text.
-  defp part_for_steps(part) do
-    case Recipe.decode_steps(part) do
-      [] ->
-        %{title: part.title, instructions: part.instructions}
+  @doc """
+  Draws a picture of `dish` in Tore's one house style and stores it for the recipe, without
+  setting it: `update_picture` in a run does that, so undo puts the old one back. `dish`
+  describes only the finished food; the light, surface and frame are fixed here, so the library
+  reads as one cookbook.
+  """
+  @spec draw_picture(Scope.t(), integer(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  def draw_picture(%Scope{} = scope, recipe_id, dish) when is_binary(dish) do
+    key = "households/#{scope.household_id}/recipes/#{recipe_id}/#{Ecto.UUID.generate()}.jpg"
 
-      steps ->
+    with {:ok, binary} <-
+           @image_gen.generate_food_image(String.trim(dish) <> "\n\n" <> @house_style),
+         {:ok, _url} <-
+           Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, binary,
+             content_type: "image/jpeg"
+           ),
+         do: {:ok, key}
+  end
+
+  @doc """
+  The recipe as it is now, as JSON, for undo to put back with `restore/3`: its fields, picture,
+  tags and ingredients.
+  """
+  @spec snapshot(Recipe.t()) :: map()
+  def snapshot(%Recipe{} = recipe) do
+    recipe = Repo.preload(recipe, [:tags, recipe_ingredients: :ingredient])
+
+    recipe
+    |> Map.take(@snapshot_fields)
+    |> Map.update!(:recipe_type, &(&1 && Atom.to_string(&1)))
+    |> Map.put(:tags, Enum.map(recipe.tags, & &1.name))
+    |> Map.put(
+      :ingredients,
+      for ri <- recipe.recipe_ingredients do
         %{
-          title: part.title,
-          steps: steps |> Enum.sort_by(& &1["order"]) |> Enum.map(& &1["action"])
+          "name" => ri.ingredient.name,
+          "quantity" => ri.quantity && Decimal.to_string(ri.quantity),
+          "unit" => ri.unit,
+          "notes" => ri.notes
         }
+      end
+    )
+    |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+  end
+
+  @doc "The keys `snapshot/1` gives."
+  @spec snapshot_keys() :: [String.t()]
+  def snapshot_keys, do: Enum.map(@snapshot_fields, &Atom.to_string/1) ++ ~w(tags ingredients)
+
+  @doc "Puts a recipe back as `snapshot/1` took it. A recipe since deleted stays deleted."
+  @spec restore(Scope.t(), integer(), map()) :: :ok
+  def restore(%Scope{} = scope, recipe_id, snapshot) do
+    case get(scope, recipe_id) do
+      nil ->
+        :ok
+
+      recipe ->
+        attrs =
+          Map.new(@snapshot_fields, &{&1, snapshot[Atom.to_string(&1)]})
+          |> Map.put(:tags, snapshot["tags"])
+          |> Map.put(
+            :ingredients,
+            for i <- snapshot["ingredients"] do
+              %{
+                name: i["name"],
+                quantity: i["quantity"] && Decimal.new(i["quantity"]),
+                unit: i["unit"],
+                notes: i["notes"]
+              }
+            end
+          )
+
+        {:ok, _} = __MODULE__.update(scope, recipe, attrs)
+        :ok
     end
   end
 
@@ -563,92 +610,23 @@ defmodule Tore.Recipes do
   end
 
   @doc """
-  Starts making the picture of a recipe created with `image: false`: fetched from `image_url`
-  when there is one, otherwise generated in Tore's house style (`Tore.LLM.Prompts.food_photo/1`).
-  Only a recipe saved over MCP passes `image_url`; everything else is generated, so the library
-  looks like one cookbook.
+  Has pi draw a picture for each recipe that has none, in every household: one whose picture
+  failed when it was saved, or one from before pictures were drawn. `Tore.Scheduler` runs it at
+  night, so no recipe stays without a photo for long. Each picture is a paid call, so it does
+  nothing where `config :tore, :draw_missing_pictures, false` (dev and test).
   """
-  @spec start_image(Scope.t(), integer(), String.t() | nil) :: :ok
-  def start_image(%Scope{} = scope, recipe_id, image_url \\ nil) do
-    case get(scope, recipe_id) do
-      nil -> :ok
-      recipe -> maybe_generate_image(scope, recipe, image_url)
+  @spec draw_missing_pictures() :: :ok
+  def draw_missing_pictures do
+    if Application.get_env(:tore, :draw_missing_pictures, true) do
+      for id <- Tore.Household.list_ids(),
+          scope = Scope.for_household(id),
+          recipe <-
+            Repo.all(from(r in Recipe, where: is_nil(r.image_path)), Scope.repo_opts(scope)) do
+        Tore.Agent.run(scope, "finish_recipe", nil, "Recipe #{recipe.id}.")
+      end
     end
 
     :ok
-  end
-
-  # Off in tests (`config :tore, :recipe_images_in_background, false`), where the task would outlive
-  # the test that owns its database connection and mocks. `generate_image/3` is tested directly.
-  defp maybe_generate_image(scope, recipe, image_url) do
-    if Application.get_env(:tore, :recipe_images_in_background, true) do
-      loaded =
-        scope |> with_parts([Repo.preload(recipe, recipe_ingredients: :ingredient)]) |> hd()
-
-      Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-        with {:error, reason} <- generate_image(scope, loaded, image_url) do
-          Logger.warning("no picture for recipe #{recipe.id}: #{inspect(reason)}")
-        end
-      end)
-    end
-  end
-
-  @doc """
-  Draws every recipe's picture again in the house style, one at a time, for every household.
-  Each picture is a paid image call, so this is run by hand on the server
-  (`bin/tore eval "Tore.Recipes.restyle_images()"`), never by the app. Returns how many were
-  drawn and how many failed (a failed one keeps its old picture).
-  """
-  @spec restyle_images() :: %{drawn: non_neg_integer(), failed: non_neg_integer()}
-  def restyle_images, do: draw_each(fn scope -> list(scope) end)
-
-  @doc """
-  Draws a picture for each recipe that has none, in every household: one whose picture failed
-  when it was saved, or one from before pictures were drawn. `Tore.Scheduler` runs it at night,
-  so no recipe stays without a photo for long. Each picture is a paid call, so it does nothing
-  where `config :tore, :draw_missing_pictures, false` (dev and test).
-  """
-  @spec draw_missing_pictures() :: %{drawn: non_neg_integer(), failed: non_neg_integer()}
-  def draw_missing_pictures do
-    if Application.get_env(:tore, :draw_missing_pictures, true),
-      do: draw_each(&without_picture/1),
-      else: %{drawn: 0, failed: 0}
-  end
-
-  defp without_picture(scope),
-    do: Repo.all(from(r in Recipe, where: is_nil(r.image_path)), Scope.repo_opts(scope))
-
-  # One picture at a time, for the recipes `pick` gives in each household.
-  defp draw_each(pick) do
-    for id <- Tore.Household.list_ids(),
-        scope = Scope.for_household(id),
-        recipe <- scope |> pick.() |> Repo.preload(recipe_ingredients: :ingredient) do
-      generate_image(scope, recipe, nil)
-    end
-    |> Enum.frequencies_by(&(&1 == :ok))
-    |> then(&%{drawn: Map.get(&1, true, 0), failed: Map.get(&1, false, 0)})
-  end
-
-  @spec generate_image(Scope.t(), Recipe.t(), String.t() | nil) :: :ok | {:error, term()}
-  def generate_image(%Scope{} = scope, recipe, image_url) do
-    storage = Tore.Storage.client()
-    key = "households/#{scope.household_id}/recipes/#{recipe.id}/#{Ecto.UUID.generate()}.jpg"
-
-    with {:ok, binary} <- fetch_or_generate(scope, recipe, image_url),
-         {:ok, _url} <-
-           storage.put_object(Tore.Storage.Buckets.recipes(), key, binary,
-             content_type: "image/jpeg"
-           ) do
-      Repo.update_all(
-        from(r in Recipe, where: r.id == ^recipe.id),
-        [set: [image_path: key]],
-        Scope.repo_opts(scope)
-      )
-
-      Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:recipe_image, recipe.id, key})
-
-      :ok
-    end
   end
 
   # Two paths in, one shape out. Whether the deterministic parser succeeded
@@ -697,60 +675,6 @@ defmodule Tore.Recipes do
       {:ok, _, _} -> {:error, :not_a_recipe}
       {:error, _} = err -> err
     end
-  end
-
-  defp fetch_or_generate(_scope, _recipe, image_url)
-       when is_binary(image_url) and image_url != "" do
-    @http.fetch(image_url)
-  end
-
-  defp fetch_or_generate(scope, recipe, _image_url) do
-    with {:ok, dish} <- write_image_prompt(scope, recipe) do
-      @image_gen.generate_food_image(Tore.LLM.Prompts.food_photo(dish))
-    end
-  end
-
-  defp write_image_prompt(scope, recipe) do
-    locale = Tore.Household.locale(scope)
-    payload = recipe_for_image_prompt(recipe)
-    {system, user} = Tore.LLM.Prompts.write_image_prompt(payload, locale)
-
-    case Tore.LLM.text(scope, system, user,
-           response_format: Tore.LLM.Prompts.write_image_prompt_schema(),
-           feature: :image_prompt
-         ) do
-      {:ok, %{"prompt" => prompt}, _usage} when is_binary(prompt) and prompt != "" ->
-        {:ok, prompt}
-
-      {:ok, _, _} ->
-        {:error, :invalid_response}
-
-      {:error, _} = err ->
-        err
-    end
-  end
-
-  # Shrink the recipe to what the image-prompt writer actually needs.
-  defp recipe_for_image_prompt(recipe) do
-    %{
-      title: recipe.title,
-      instructions: recipe.instructions,
-      ingredients:
-        recipe
-        |> Map.get(:recipe_ingredients, [])
-        |> List.wrap()
-        |> Enum.map(fn ri ->
-          name =
-            case ri do
-              %{ingredient: %{name: n}} -> n
-              %{name: n} -> n
-              _ -> nil
-            end
-
-          %{name: name}
-        end)
-        |> Enum.reject(&is_nil(&1.name))
-    }
   end
 
   # ── Query filters ──────────────────────────────────────────────────────────

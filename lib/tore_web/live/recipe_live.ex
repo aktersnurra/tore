@@ -182,7 +182,7 @@ defmodule ToreWeb.RecipeLive do
       nil ->
         case Recipes.create(socket.assigns.current_scope, attrs) do
           {:ok, recipe} ->
-            write_steps(socket.assigns.current_scope, recipe, nil)
+            Recipes.finish(socket.assigns.current_scope, recipe.id)
             {:noreply, socket |> assign(form: nil, error: nil) |> reload_recipes()}
 
           {:error, changeset} ->
@@ -192,7 +192,13 @@ defmodule ToreWeb.RecipeLive do
       recipe ->
         case Recipes.update(socket.assigns.current_scope, recipe, attrs) do
           {:ok, updated} ->
-            write_steps(socket.assigns.current_scope, updated, recipe.instructions)
+            if updated.instructions != recipe.instructions,
+              do:
+                Recipes.finish(
+                  socket.assigns.current_scope,
+                  recipe.id,
+                  "Its instructions were changed by hand: write its steps again from them."
+                )
 
             {:noreply,
              socket
@@ -270,6 +276,8 @@ defmodule ToreWeb.RecipeLive do
 
     case Recipes.put_together(scope, attrs) do
       {:ok, meal} ->
+        Recipes.finish(scope, meal.id)
+
         {:noreply,
          socket
          |> assign(compose: nil, recipes: Recipes.list(scope))
@@ -364,9 +372,13 @@ defmodule ToreWeb.RecipeLive do
      socket |> assign(show_recipe_menu: false) |> put_favorite(recipe.id, !recipe.favorite)}
   end
 
-  # The picture arrives on its own when it's made (`{:recipe_image, id, key}`).
+  # The picture arrives on its own when pi has drawn it (`{:recipe_changed, id}`).
   def handle_event("make_image", _params, socket) do
-    Recipes.start_image(socket.assigns.current_scope, socket.assigns.selected.id)
+    Recipes.finish(
+      socket.assigns.current_scope,
+      socket.assigns.selected.id,
+      "Draw its picture again."
+    )
 
     {:noreply,
      socket
@@ -398,26 +410,22 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, ingredient_rows: rows)}
   end
 
-  def handle_info({:steps_written, _result}, socket), do: {:noreply, socket}
+  # pi changed a recipe, or undo put it back: what's on screen shows it as it is now.
+  def handle_info({:recipe_changed, id}, socket) do
+    socket = reload_recipes(socket)
+
+    case socket.assigns.selected do
+      %{id: ^id} ->
+        {:noreply, assign(socket, selected: Recipes.get!(socket.assigns.current_scope, id))}
+
+      _other ->
+        {:noreply, socket}
+    end
+  end
 
   # A star set here or on another phone.
   def handle_info({:recipe_favorite, id, favorite?}, socket),
     do: {:noreply, put_favorite(socket, id, favorite?)}
-
-  def handle_info({:recipe_image, id, key}, socket) do
-    recipes =
-      Enum.map(socket.assigns.recipes, fn recipe ->
-        if recipe.id == id, do: %{recipe | image_path: key}, else: recipe
-      end)
-
-    selected =
-      case socket.assigns.selected do
-        %{id: ^id} = selected -> %{selected | image_path: key}
-        other -> other
-      end
-
-    {:noreply, assign(socket, recipes: recipes, selected: selected)}
-  end
 
   # An import still running when the sheet closes lands in the list without opening.
   def handle_info({:recipe_imported, result}, socket) do
@@ -448,19 +456,6 @@ defmodule ToreWeb.RecipeLive do
   end
 
   # ── Render ─────────────────────────────────────────────────────────────────
-
-  # Cook mode's steps are written when a hand-written recipe is saved, and again when its
-  # instructions change, so starting it later is instant.
-  defp write_steps(scope, recipe, instructions_before) do
-    written? = recipe.steps != nil and recipe.instructions == instructions_before
-
-    if recipe.instructions not in [nil, ""] and not written? do
-      ToreWeb.Background.run(
-        fn -> Recipes.cook_steps(scope, %{recipe | steps: nil}) end,
-        &{:steps_written, &1}
-      )
-    end
-  end
 
   defp undo_put(%{assigns: %{put: %{} = put}} = socket) do
     :ok = Tore.Planning.restore_slots(socket.assigns.current_scope, put.plan_id, put.before)

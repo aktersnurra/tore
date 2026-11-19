@@ -7,53 +7,66 @@ defmodule Tore.RecipesTest do
   setup :set_mox_from_context
   setup :verify_on_exit!
 
-  setup do
-    # Recipes.generate_image/2 calls Tore.LLM.text to write an image-gen
-    # prompt before invoking the image gen stub. Any prompt-string is fine
-    # for these tests.
-    stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
-      {:ok, %{"prompt" => "A plate of food."}, %{}}
-    end)
-
-    :ok
-  end
-
   defp recipe_attrs(overrides \\ %{}) do
     Map.merge(%{title: "Test Recipe", recipe_type: :meal}, overrides)
   end
 
-  describe "generate_image/2" do
-    test "stores the S3 object key in image_path, not a URL" do
+  describe "draw_picture/3" do
+    test "draws the dish in the house style and stores it, without setting it" do
       Tore.Storage.Mock.reset()
       {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
 
-      :ok = Recipes.generate_image(home_scope(), recipe, nil)
+      assert {:ok, key} =
+               Recipes.draw_picture(home_scope(), recipe.id, "Cinnamon buns in a tin. ")
 
-      reloaded = Recipes.get!(home_scope(), recipe.id)
+      assert_received {:image_prompt, prompt}
+      assert prompt =~ ~r/\ACinnamon buns in a tin\.\n\nEditorial cookbook photograph/
+      assert prompt =~ "cast-iron"
 
-      assert String.starts_with?(
-               reloaded.image_path,
-               "households/#{home_scope().household_id}/recipes/#{recipe.id}/"
-             )
-
-      assert String.ends_with?(reloaded.image_path, ".jpg")
-      refute String.contains?(reloaded.image_path, "://")
+      assert key =~ ~r"\Ahouseholds/#{home_scope().household_id}/recipes/#{recipe.id}/.+\.jpg\z"
+      assert {:ok, _png} = Tore.Storage.Mock.get_object(Tore.Storage.Buckets.recipes(), key)
+      assert Recipes.get!(home_scope(), recipe.id).image_path == nil
     end
+  end
 
-    test "broadcasts {:recipe_image, id, key} on the recipes topic" do
-      Tore.Storage.Mock.reset()
-      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
-      Phoenix.PubSub.subscribe(Tore.PubSub, Recipes.topic(home_scope()))
+  describe "snapshot/1 and restore/3" do
+    test "put a recipe back as it was, ingredients, tags and picture too" do
+      {:ok, recipe} =
+        Recipes.create(
+          home_scope(),
+          recipe_attrs(%{
+            instructions: "Koka.",
+            image_path: "old.jpg",
+            tags: ["snabbt"],
+            ingredients: [%{name: "Lök", quantity: Decimal.new("1.5"), unit: "st"}]
+          })
+        )
 
-      :ok = Recipes.generate_image(home_scope(), recipe, nil)
+      before = recipe |> Recipes.snapshot() |> Jason.encode!() |> Jason.decode!()
+      assert Enum.sort(Map.keys(before)) == Enum.sort(Recipes.snapshot_keys())
 
-      assert_receive {:recipe_image, recipe_id, key}
-      assert recipe_id == recipe.id
+      {:ok, _} =
+        Recipes.update(home_scope(), recipe, %{
+          title: "Annat",
+          instructions: nil,
+          image_path: "new.jpg",
+          tags: [],
+          ingredients: [%{name: "Morot", quantity: nil, unit: nil}]
+        })
 
-      assert String.starts_with?(
-               key,
-               "households/#{home_scope().household_id}/recipes/#{recipe.id}/"
-             )
+      assert :ok = Recipes.restore(home_scope(), recipe.id, before)
+
+      restored = Recipes.get!(home_scope(), recipe.id)
+
+      assert {restored.title, restored.instructions, restored.image_path} ==
+               {"Test Recipe", "Koka.", "old.jpg"}
+
+      assert Enum.map(restored.tags, & &1.name) == ["snabbt"]
+
+      assert [%{ingredient: %{name: "Lök"}, quantity: q, unit: "st"}] =
+               restored.recipe_ingredients
+
+      assert Decimal.equal?(q, Decimal.new("1.5"))
     end
   end
 
@@ -69,42 +82,38 @@ defmodule Tore.RecipesTest do
     end
   end
 
-  describe "the house style" do
-    test "every picture is the dish as described, taken the same way" do
-      bun = Tore.LLM.Prompts.food_photo("Cinnamon buns with pearl sugar in a tin. ")
-      sauce = Tore.LLM.Prompts.food_photo("A jar of béarnaise with a spoon lifted from it.")
+  describe "restyle_images/0" do
+    import Tore.FakePi
+    setup :fake_pi
 
-      assert String.starts_with?(bun, "Cinnamon buns with pearl sugar in a tin.\n\n")
-      style = fn prompt -> prompt |> String.split("\n\n", parts: 2) |> List.last() end
-      assert style.(bun) == style.(sauce)
-      assert style.(bun) =~ "cast-iron"
+    test "has pi draw every recipe again, one job each", %{pi_log: log} do
+      {:ok, a} = Recipes.create(home_scope(), recipe_attrs(%{title: "A"}))
+      {:ok, b} = Recipes.create(home_scope(), recipe_attrs(%{title: "B"}))
+
+      assert :ok = Recipes.restyle_images()
+
+      prompts = for %{"type" => "prompt", "message" => m} <- pi_records(log), do: m
+
+      for recipe <- [a, b],
+          do: assert(Enum.any?(prompts, &(&1 =~ "Recipe #{recipe.id}. Draw its picture again.")))
     end
 
-    test "restyle_images draws every recipe again and counts them" do
-      Tore.Storage.Mock.reset()
-      {:ok, a} = Recipes.create(home_scope(), recipe_attrs(%{title: "A"}), image: false)
-      {:ok, _b} = Recipes.create(home_scope(), recipe_attrs(%{title: "B"}), image: false)
+    test "draw_missing_pictures has pi draw only the recipes without one, and only where it's on",
+         %{pi_log: log} do
+      {:ok, bare} = Recipes.create(home_scope(), recipe_attrs(%{title: "A"}))
+      {:ok, drawn} = Recipes.create(home_scope(), recipe_attrs(%{title: "B"}))
+      {:ok, _} = Recipes.update(home_scope(), drawn, %{image_path: "households/1/recipes/b.jpg"})
 
-      assert %{drawn: 2, failed: 0} = Recipes.restyle_images()
-      assert Recipes.get!(home_scope(), a.id).image_path
-    end
-
-    test "draw_missing_pictures draws only the recipes without one, and only where it's on" do
-      Tore.Storage.Mock.reset()
-      {:ok, bare} = Recipes.create(home_scope(), recipe_attrs(%{title: "A"}), image: false)
-      {:ok, drawn} = Recipes.create(home_scope(), recipe_attrs(%{title: "B"}), image: false)
-      :ok = Recipes.generate_image(home_scope(), drawn, nil)
-      had = Recipes.get!(home_scope(), drawn.id).image_path
-
-      assert %{drawn: 0, failed: 0} = Recipes.draw_missing_pictures()
-      refute Recipes.get!(home_scope(), bare.id).image_path
+      assert :ok = Recipes.draw_missing_pictures()
+      refute File.exists?(log)
 
       Application.put_env(:tore, :draw_missing_pictures, true)
       on_exit(fn -> Application.put_env(:tore, :draw_missing_pictures, false) end)
 
-      assert %{drawn: 1, failed: 0} = Recipes.draw_missing_pictures()
-      assert Recipes.get!(home_scope(), bare.id).image_path
-      assert Recipes.get!(home_scope(), drawn.id).image_path == had
+      assert :ok = Recipes.draw_missing_pictures()
+      prompts = for %{"type" => "prompt", "message" => m} <- pi_records(log), do: m
+      assert Enum.any?(prompts, &(&1 =~ "Recipe #{bare.id}."))
+      refute Enum.any?(prompts, &(&1 =~ "Recipe #{drawn.id}."))
     end
   end
 
@@ -351,8 +360,8 @@ defmodule Tore.RecipesTest do
     end
   end
 
-  describe "cook_steps/2" do
-    test "are the recipe's own steps, in order, without asking the model" do
+  describe "cook_steps/1" do
+    test "are the recipe's own steps, in order" do
       steps = [
         %{"phase" => "COOKING", "order" => 2, "action" => "Fry", "ingredients" => []},
         %{"phase" => "MISE EN PLACE", "order" => 1, "action" => "Chop", "ingredients" => []}
@@ -361,51 +370,14 @@ defmodule Tore.RecipesTest do
       {:ok, recipe} =
         Recipes.create(home_scope(), Map.put(recipe_attrs(), :steps, Jason.encode!(steps)))
 
-      assert {:ok, [%{"action" => "Chop"}, %{"action" => "Fry"}]} =
-               Recipes.cook_steps(home_scope(), recipe)
+      assert [%{"action" => "Chop"}, %{"action" => "Fry"}] = Recipes.cook_steps(recipe)
     end
 
-    test "are written once for a recipe that only has running text, then kept" do
+    test "are none for a recipe pi hasn't written them for" do
       {:ok, recipe} =
         Recipes.create(home_scope(), Map.put(recipe_attrs(), :instructions, "Chop. Then fry."))
 
-      expect(Tore.MockLLM, :text, 1, fn _system, user, _opts ->
-        assert user =~ "Chop. Then fry."
-
-        {:ok,
-         %{
-           "steps" => [
-             %{
-               "phase" => "MISE EN PLACE",
-               "order" => 1,
-               "action" => "Chop",
-               "ingredients" => [],
-               "duration_minutes" => nil
-             },
-             %{
-               "phase" => "COOKING",
-               "order" => 2,
-               "action" => "Fry",
-               "ingredients" => [],
-               "duration_minutes" => 5
-             }
-           ]
-         }, %{}}
-      end)
-
-      assert {:ok, [%{"action" => "Chop"}, %{"action" => "Fry"}]} =
-               Recipes.cook_steps(home_scope(), recipe)
-
-      # The second time they come from the recipe.
-      assert {:ok, [_, _]} =
-               Recipes.cook_steps(home_scope(), Recipes.get!(home_scope(), recipe.id))
-    end
-
-    test "say so when the model can't be reached" do
-      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
-      expect(Tore.MockLLM, :text, fn _system, _user, _opts -> {:error, :timeout} end)
-
-      assert {:error, :timeout} = Recipes.cook_steps(home_scope(), recipe)
+      assert Recipes.cook_steps(recipe) == []
     end
   end
 
@@ -496,17 +468,6 @@ defmodule Tore.RecipesTest do
   end
 
   describe "households" do
-    test "a new recipe image is broadcast only to its own household" do
-      Tore.Storage.Mock.reset()
-      other = scope_fixture(household_fixture())
-      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
-      Phoenix.PubSub.subscribe(Tore.PubSub, Recipes.topic(other))
-
-      :ok = Recipes.generate_image(home_scope(), recipe, nil)
-
-      refute_received {:recipe_image, _, _}
-    end
-
     test "a household sees only its own recipes" do
       other = scope_fixture(household_fixture())
       {:ok, mine} = Recipes.create(home_scope(), recipe_attrs(%{title: "Ärtsoppa"}))

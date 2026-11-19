@@ -14,8 +14,7 @@ defmodule Tore.Recipes.SwapsTest do
           title: "Kycklinggryta",
           recipe_type: :meal,
           ingredients: [%{name: "gul lök"}, %{name: "crème fraîche"}, %{name: "timjan"}]
-        },
-        image: false
+        }
       )
 
     {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "oregano"})

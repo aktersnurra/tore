@@ -44,6 +44,7 @@ defmodule Tore.Harness.Undo do
           | {:restore_memory, added_ids :: [integer()], forgotten_ids :: [integer()]}
           | {:delete_receipt, receipt_id :: integer()}
           | {:delete_recipe, recipe_id :: integer()}
+          | {:restore_recipe, recipe_id :: integer(), snapshot :: map()}
           | {:remove_shop_item, list_id :: String.t(), item_id :: String.t()}
           | {:uncheck_shop_item, list_id :: String.t(), item_id :: String.t()}
 
@@ -102,6 +103,9 @@ defmodule Tore.Harness.Undo do
   defp encode_step({:delete_receipt, id}) when is_integer(id), do: %{"delete_receipt" => id}
   defp encode_step({:delete_recipe, id}) when is_integer(id), do: %{"delete_recipe" => id}
 
+  defp encode_step({:restore_recipe, id, before}) when is_integer(id) and is_map(before),
+    do: %{"restore_recipe" => %{"recipe_id" => id, "before" => before}}
+
   defp encode_step({shop, list_id, item_id})
        when shop in [:remove_shop_item, :uncheck_shop_item] and is_binary(list_id) and
               is_binary(item_id),
@@ -136,6 +140,11 @@ defmodule Tore.Harness.Undo do
 
       {"delete_recipe", id} when is_integer(id) ->
         {:delete_recipe, id}
+
+      {"restore_recipe", args} ->
+        %{"recipe_id" => id, "before" => before} = exact!(args, ~w(recipe_id before))
+        true = is_integer(id)
+        {:restore_recipe, id, exact!(before, Tore.Recipes.snapshot_keys())}
 
       {shop, args} when shop in ["remove_shop_item", "uncheck_shop_item"] ->
         %{"list_id" => list_id, "item_id" => item_id} = exact!(args, ~w(list_id item_id))

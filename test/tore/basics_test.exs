@@ -66,8 +66,7 @@ defmodule Tore.BasicsTest do
       {:ok, recipe} =
         Recipes.create(
           home_scope(),
-          %{title: "Gratäng", base_servings: 4, ingredients: [%{name: "Grädde", quantity: 2}]},
-          image: false
+          %{title: "Gratäng", base_servings: 4, ingredients: [%{name: "Grädde", quantity: 2}]}
         )
 
       for n <- [3, 2, 1] do
@@ -177,8 +176,7 @@ defmodule Tore.BasicsTest do
             title: "Pannkakor",
             base_servings: 4,
             ingredients: [%{name: "Mjölk", quantity: 1, unit: "l"}]
-          },
-          image: false
+          }
         )
 
       {:ok, _} =

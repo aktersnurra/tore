@@ -30,8 +30,7 @@ defmodule Tore.PricesTest do
           recipe_type: :meal,
           base_servings: servings,
           ingredients: ingredients
-        },
-        image: false
+        }
       )
 
     recipe

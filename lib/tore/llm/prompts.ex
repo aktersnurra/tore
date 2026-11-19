@@ -143,52 +143,6 @@ defmodule Tore.LLM.Prompts do
   - Respond with a JSON object only. No prose.
   """
 
-  @doc "Turns a recipe written as running text into the steps cook mode walks through."
-  def cook_steps(recipe, locale \\ nil) do
-    system = """
-    You turn a recipe into the steps a cook follows at the stove, one card per step.
-    Return a JSON object: {"steps": [...]}, each step shaped like this:
-      {
-        "phase": "cooking phase name in ALL CAPS (e.g. MISE EN PLACE, SAUCE, COOKING, SERVING)",
-        "order": 1,
-        "action": "one clear, atomic cooking action",
-        "ingredients": ["ingredient names used in this step"],
-        "duration_minutes": null
-      }
-    Rules:
-    - The steps array is sorted in the exact order a cook performs them, start to finish.
-    - "order" is one global counter starting at 1.
-    - Preparation (MISE EN PLACE) comes before any cooking phase.
-    - Each step is one atomic action, written as a short instruction. Never combine actions.
-    - Do not skip anything the recipe says, and do not invent steps it doesn't imply.
-    - A step's "ingredients" are the names it uses, exactly as in the ingredient list.
-    - "duration_minutes" only when the step has an explicit wait or cooking time.
-    - A recipe with "parts" is a meal of several dishes: cook them together so everything is
-      ready at the same time. Start what takes longest, and do the quick parts while it cooks
-      or rests. Name each step's phase after its part.
-    #{translation_instruction(locale)}
-    Respond with a JSON object only. No prose.
-    """
-
-    {system, Jason.encode!(recipe)}
-  end
-
-  def cook_steps_schema do
-    %{
-      type: "json_schema",
-      json_schema: %{
-        name: "cook_steps",
-        strict: true,
-        schema: %{
-          type: "object",
-          required: ["steps"],
-          additionalProperties: false,
-          properties: %{steps: @recipe_json_schema.properties.steps}
-        }
-      }
-    }
-  end
-
   def extract_recipe(html, locale \\ nil) do
     system = """
     You are a recipe extractor. Given raw HTML from a recipe webpage, extract the recipe.
@@ -245,36 +199,6 @@ defmodule Tore.LLM.Prompts do
       language ->
         "- Translate ALL text field VALUES (title, description, tags, step phases, step actions, ingredient names) into #{language}. Keep units as-is (g, ml, msk, tsk, etc.). NEVER translate JSON keys — only values."
     end
-  end
-
-  @doc """
-  Generate a variant of an existing recipe (simpler, vegetarian, scaled to a
-  different number of servings, …). The result is a complete recipe in the
-  Tore schema, surfaced as a proposal — never auto-committed.
-  """
-  def generate_recipe_variant(source_recipe, instruction, locale \\ nil) do
-    system = """
-    You adapt an existing recipe. The user gives you a source recipe and an
-    instruction describing how to change it. Produce the complete adapted recipe.
-
-    Return a JSON object matching this exact structure:
-    #{@recipe_schema}
-    Rules:
-    #{@recipe_rules}
-    - the adapted recipe must stand alone: full ingredients and full steps, not a diff against the source
-    - give it a title that says how it differs from the source
-    - keep every change traceable to the instruction — change nothing the user did not ask for
-    - when the instruction changes servings, scale every quantity accordingly and set base_servings to the requested number
-    #{translation_instruction(locale)}
-    """
-
-    user =
-      Jason.encode!(%{
-        source_recipe: source_recipe,
-        instruction: instruction
-      })
-
-    {system, user}
   end
 
   def check_recipe_html(html) do
@@ -551,33 +475,6 @@ defmodule Tore.LLM.Prompts do
     EEx.eval_file(path, assigns: Map.to_list(assigns))
   end
 
-  # Strict JSON-schema so OpenRouter's structured-output mode enforces the
-  # `{"prompt": "..."}` shape — no defensive parsing on the caller.
-  @write_image_prompt_schema %{
-    type: "object",
-    required: ["prompt"],
-    additionalProperties: false,
-    properties: %{prompt: %{type: "string"}}
-  }
-
-  def write_image_prompt_schema do
-    %{
-      type: "json_schema",
-      json_schema: %{name: "image_prompt", strict: true, schema: @write_image_prompt_schema}
-    }
-  end
-
-  # Every recipe picture is taken the same way, so the library reads as one cookbook in Tore's
-  # cast-iron palette. The model only describes the dish; this sets the light, surface and frame.
-  @house_style """
-  Editorial cookbook photograph, vertical 3:4 frame, shot from about 45 degrees. The dish sits \
-  on a dark, matte charcoal stoneware or seasoned cast-iron surface. Soft, warm light from a \
-  single window on one side, deep warm shadows, gentle amber highlights. Muted natural colours; \
-  the food is the brightest thing in the frame. Plain matte ceramic or the dish's own pan, at \
-  most one quiet prop such as linen or a wooden spoon. Shallow depth of field, natural and \
-  appetising, not glossy. No text, no hands, no people, no logos.\
-  """
-
   @doc """
   What to use instead of what's missing, before someone starts cooking: what they say they
   have first, then the pantry, never anything else. One answer per missing ingredient.
@@ -631,64 +528,5 @@ defmodule Tore.LLM.Prompts do
         }
       }
     }
-  end
-
-  @doc "The image model's prompt: the dish as described, taken in Tore's one house style."
-  @spec food_photo(String.t()) :: String.t()
-  def food_photo(dish) when is_binary(dish), do: String.trim(dish) <> "\n\n" <> @house_style
-
-  @doc """
-  Build a system + user prompt pair that asks a text LLM to describe what `recipe` looks like
-  when it's done, for `food_photo/1`. Only the dish: light, surface and framing are fixed.
-
-  Use with `Tore.LLM.text/3` and `write_image_prompt_schema/0` as the
-  `:response_format`. The reply will be `%{"prompt" => "<the description>"}`.
-  """
-  def write_image_prompt(recipe, locale \\ nil) do
-    system = """
-    You describe a finished dish for an image-generation model, in 30-60 words of natural
-    English (the image model speaks English).
-
-    Describe only the food: the finished dish in the vessel that suits it (plate, bowl, jar,
-    tin, board, the pan it was made in), its colours and textures, the garnish that belongs with
-    it, and what shows best (a cut bun showing its swirl, a spoon of sauce lifted from the jar).
-    Do not describe light, background, surface, camera angle or mood; those are fixed.
-    Do not invent ingredients or details that contradict the recipe.
-    No markdown, no preamble: just the description as one paragraph.
-    #{locale_hint(locale)}
-    """
-
-    ingredients_line =
-      case recipe[:ingredients] || recipe["ingredients"] do
-        list when is_list(list) and list != [] ->
-          names =
-            list
-            |> Enum.take(12)
-            |> Enum.map(fn i -> Map.get(i, :name) || Map.get(i, "name") || "" end)
-            |> Enum.reject(&(&1 == ""))
-            |> Enum.join(", ")
-
-          "Ingredients: #{names}"
-
-        _ ->
-          ""
-      end
-
-    instructions_excerpt =
-      case recipe[:instructions] || recipe["instructions"] do
-        s when is_binary(s) and s != "" -> "Method excerpt: #{String.slice(s, 0, 400)}"
-        _ -> ""
-      end
-
-    user =
-      [
-        "Title: #{recipe[:title] || recipe["title"] || ""}",
-        ingredients_line,
-        instructions_excerpt
-      ]
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.join("\n")
-
-    {system, user}
   end
 end
