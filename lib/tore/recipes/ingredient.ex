@@ -10,6 +10,8 @@ defmodule Tore.Recipes.Ingredient do
     field :shelf_life_days, :integer
     field :estimated_price, :decimal
     field :estimated_unit, :string
+    # A scanned pack's photo (`Tore.Pantry.Scan`), as a storage key.
+    field :image_path, :string
     field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
     timestamps()

@@ -71,6 +71,41 @@ defmodule Tore.Pantry.ScanTest do
     {:ok, _} = Runs.revert(scope, run_id)
   end
 
+  @photo "https://images.openfoodfacts.org/images/products/731/086/500/4703/front_sv.3.200.jpg"
+
+  test "a new product's photo is kept for its ingredient, once" do
+    scope = home_scope()
+    milk = ingredient(scope, "Mjölk")
+    open_food_facts(%{"product_name_sv" => "Mellanmjölk", "image_front_small_url" => @photo})
+    expect(Tore.MockHTTP, :fetch, fn @photo -> {:ok, "jpeg bytes"} end)
+
+    canonicalised(%{
+      "raw_name" => "Mellanmjölk",
+      "catalogue_name" => "Mjölk",
+      "matched_key" => "mjolk"
+    })
+
+    assert {:ok, %{change: :added}} = Scan.scan(scope, list_id(), @milk, user_id: nil)
+
+    assert {:ok, "jpeg bytes"} = Pantry.picture(scope, milk.id)
+  end
+
+  test "a photo that won't come doesn't stop the scan" do
+    scope = home_scope()
+    milk = ingredient(scope, "Mjölk")
+    open_food_facts(%{"product_name_sv" => "Mellanmjölk", "image_front_small_url" => @photo})
+    expect(Tore.MockHTTP, :fetch, fn @photo -> {:error, {:http_error, 503}} end)
+
+    canonicalised(%{
+      "raw_name" => "Mellanmjölk",
+      "catalogue_name" => "Mjölk",
+      "matched_key" => "mjolk"
+    })
+
+    assert {:ok, %{change: :added}} = Scan.scan(scope, list_id(), @milk, user_id: nil)
+    assert Pantry.picture(scope, milk.id) == :none
+  end
+
   test "a new product that is its own ingredient gets one, with its section" do
     scope = home_scope()
     open_food_facts(%{"product_name" => "Kvarg naturell", "quantity" => "500 g"})

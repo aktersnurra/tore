@@ -63,6 +63,7 @@ defmodule ToreWeb.Router do
     pipe_through [:browser, :require_auth]
 
     get "/images/recipes/:id", RecipeImageController, :show
+    get "/images/ingredients/:id", IngredientImageController, :show
     get "/", HomeController, :show
 
     live_session :welcome, on_mount: [{ToreWeb.Live.Auth, :require_authenticated}] do

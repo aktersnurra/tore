@@ -12,6 +12,8 @@ defmodule Tore.Repo.Migrations.CreateIngredients do
       # The model's guess at a typical price, per kg, l or st, when nothing better is known.
       add :estimated_price, :decimal
       add :estimated_unit, :string
+      # The storage key of a scanned pack's photo, from Open Food Facts.
+      add :image_path, :string
       timestamps()
     end
 

@@ -79,6 +79,30 @@ defmodule ToreWeb.PantryLiveTest do
     assert view |> element("[data-item]") |> render() =~ "2 l"
   end
 
+  test "a scanned pack shows its photo, served by Tore", %{conn: conn} do
+    milk = kept("Mjölk", "dairy")
+    key = "households/#{milk.household_id}/products/#{milk.ingredient_id}/front.jpg"
+    {:ok, _} = Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, "jpeg")
+
+    {:ok, _} =
+      Tore.Repo.get!(
+        Tore.Recipes.Ingredient,
+        milk.ingredient_id,
+        Tore.Scope.repo_opts(home_scope())
+      )
+      |> Ecto.Changeset.change(image_path: key)
+      |> Tore.Repo.update()
+
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+
+    assert has_element?(
+             view,
+             ~s([data-item="#{milk.id}"] img[src="/images/ingredients/#{milk.ingredient_id}?v=front"])
+           )
+
+    assert conn |> get(~p"/images/ingredients/#{milk.ingredient_id}") |> response(200) == "jpeg"
+  end
+
   test "the menu has Hemma under the household, with how much is at home", %{conn: conn} do
     kept("Mjölk", "dairy")
     {:ok, view, _html} = live(conn, ~p"/plan")

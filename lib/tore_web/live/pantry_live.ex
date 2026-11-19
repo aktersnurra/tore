@@ -10,6 +10,7 @@ defmodule ToreWeb.PantryLive do
 
   alias Tore.Pantry
   alias Tore.Pantry.PantryItem
+  alias Tore.Recipes.Ingredient
 
   # Where things are kept, in the order shown; what's used up is folded at the bottom.
   @groups [:fridge, :produce, :freezer, :cupboard, :gone]
@@ -58,7 +59,8 @@ defmodule ToreWeb.PantryLive do
     )
   end
 
-  # One row: where it belongs, its picture, a line under the name, and what to say about it.
+  # One row: where it belongs, its picture (the pack's photo once one was scanned, otherwise the
+  # category's icon), a line under the name, and what to say about it.
   defp row(%PantryItem{} = item, today, now) do
     belief = PantryItem.effective_belief(item, now, today)
     category = (item.ingredient && item.ingredient.category) || item.category
@@ -67,9 +69,16 @@ defmodule ToreWeb.PantryLive do
       item: item,
       group: if(belief == :missing, do: :gone, else: group(category)),
       icon: kept_icon(category),
+      picture: picture(item.ingredient),
       status: status(item, belief, today)
     }
   end
+
+  # The photo's address carries which photo it is, so a new one isn't hidden by the cached old one.
+  defp picture(%Ingredient{id: id, image_path: key}) when is_binary(key),
+    do: ~p"/images/ingredients/#{id}?#{[v: Path.basename(key, ".jpg")]}"
+
+  defp picture(_ingredient), do: nil
 
   # A date it has outlived, then one close at hand, then a doubt about whether it's there.
   defp status(_item, :missing, _today), do: :gone
@@ -226,11 +235,23 @@ defmodule ToreWeb.PantryLive do
               data-item={row.item.id}
               class="flex min-h-[52px] items-center gap-3 py-1.5"
             >
-              <span class={[
-                "flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)]",
-                "tint-#{tint(row.group)}",
-                row.group == :gone && "opacity-60"
-              ]}>
+              <img
+                :if={row.picture}
+                src={row.picture}
+                alt=""
+                class={[
+                  "size-9 shrink-0 rounded-[var(--r-md)] bg-white object-contain p-0.5 ring-1 ring-[color:var(--hairline)]",
+                  row.group == :gone && "opacity-60"
+                ]}
+              />
+              <span
+                :if={!row.picture}
+                class={[
+                  "flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)]",
+                  "tint-#{tint(row.group)}",
+                  row.group == :gone && "opacity-60"
+                ]}
+              >
                 <span class={[row.icon, "size-5"]}></span>
               </span>
               <span class="min-w-0 flex-1">

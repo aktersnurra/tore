@@ -1259,8 +1259,10 @@ page asks to be done.
 - One line to put something away, as on Shop: "1 l mjölk". It's sure from then on.
 - Groups, each a tag that folds like Shop's sections: Kyl (dairy, meat, fish, deli), Frukt
   & grönt, Frys, Skafferi (the rest), and Slut folded shut at the bottom.
-- A row: a small picture (the category's icon on its group's tint), the name, the amount or
-  when it was bought, and at most one thing said about it at the end.
+- A row: a small picture, the name, the amount or when it was bought, and at most one thing
+  said about it at the end. The picture is the pack's photo once one was scanned (from Open
+  Food Facts, kept by Tore and served from `/images/ingredients/:id`), otherwise the
+  category's icon on its group's tint.
 
 ### What a row says
 

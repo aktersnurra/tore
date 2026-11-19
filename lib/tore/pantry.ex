@@ -1,5 +1,6 @@
 defmodule Tore.Pantry do
   import Ecto.Query
+  require Logger
   alias Tore.{Repo, Scope}
   alias Tore.Pantry.{Expiry, PantryItem}
   alias Tore.Recipes.Ingredient
@@ -491,6 +492,44 @@ defmodule Tore.Pantry do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil -> {:error, :not_found}
       item -> {:ok, item}
+    end
+  end
+
+  @doc """
+  Keeps the photo of a scanned pack for its ingredient, unless it has one. The photo is a
+  nicety: one that won't come is logged and the scan goes on without it.
+  """
+  @spec keep_picture(Scope.t(), Ingredient.t(), String.t()) :: :ok
+  def keep_picture(%Scope{} = scope, %Ingredient{image_path: nil} = ingredient, url) do
+    key = "households/#{scope.household_id}/products/#{ingredient.id}/#{Ecto.UUID.generate()}.jpg"
+    http = Application.fetch_env!(:tore, :http_client)
+    storage = Tore.Storage.client()
+
+    with {:ok, body} when is_binary(body) <- http.fetch(url),
+         {:ok, _url} <-
+           storage.put_object(Tore.Storage.Buckets.recipes(), key, body,
+             content_type: "image/jpeg"
+           ) do
+      ingredient |> Ecto.Changeset.change(image_path: key) |> Repo.update!()
+      :ok
+    else
+      failed ->
+        Logger.warning("Couldn't keep the photo for #{ingredient.name}: #{inspect(failed)}")
+        :ok
+    end
+  end
+
+  def keep_picture(%Scope{}, %Ingredient{}, _url), do: :ok
+
+  @doc "The photo kept for an ingredient, if there is one."
+  @spec picture(Scope.t(), integer()) :: {:ok, binary()} | :none
+  def picture(%Scope{} = scope, ingredient_id) do
+    with %Ingredient{image_path: key} when is_binary(key) <-
+           Repo.get(Ingredient, ingredient_id, Scope.repo_opts(scope)),
+         {:ok, body} <- Tore.Storage.client().get_object(Tore.Storage.Buckets.recipes(), key) do
+      {:ok, body}
+    else
+      _ -> :none
     end
   end
 
