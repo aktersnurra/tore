@@ -17,7 +17,8 @@ defmodule Tore.Mcp.Tools.LogReceipt do
   def description,
     do: """
     Logs a grocery receipt you read: the store, the purchase date, the total in kronor, and its \
-    lines as printed. Receipts record spending only; they don't change the pantry or the list.\
+    lines as printed. Give each line the shop section it belongs to; the budget page groups by it. \
+    Receipts record spending only; they don't change the pantry or the list.\
     """
 
   @impl true
@@ -36,7 +37,8 @@ defmodule Tore.Mcp.Tools.LogReceipt do
               "name" => %{"type" => "string"},
               "quantity" => %{"type" => "number"},
               "unit" => %{"type" => "string"},
-              "price" => %{"type" => "number"}
+              "price" => %{"type" => "number"},
+              "section" => %{"type" => "string", "enum" => Tore.Recipes.Ingredient.sections()}
             },
             "required" => ["name"],
             "additionalProperties" => false
@@ -76,7 +78,7 @@ defmodule Tore.Mcp.Tools.LogReceipt do
       quantity: Tore.Types.decimal(line["quantity"]),
       unit: line["unit"],
       total_price: Tore.Types.decimal(line["price"]),
-      category: nil
+      category: line["section"]
     }
   end
 end

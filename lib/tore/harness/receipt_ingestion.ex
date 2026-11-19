@@ -60,8 +60,6 @@ defmodule Tore.Harness.ReceiptIngestion do
     )
   end
 
-  @cost_categories ~w[dairy meat produce frozen dry_goods canned herbs_spices condiments other]
-
   defp to_cost_line_item(it) do
     %{
       product_name: it.name,
@@ -75,6 +73,7 @@ defmodule Tore.Harness.ReceiptIngestion do
   # Defensive: if the LLM returns a category outside our enum (locale label,
   # made-up string, etc.) fall back to "other" rather than dropping it or
   # crashing the changeset — "other" is what the enum exists for.
-  defp sanitise_category(c) when c in @cost_categories, do: c
-  defp sanitise_category(_), do: "other"
+  defp sanitise_category(c) do
+    if c in Tore.Recipes.Ingredient.sections(), do: c, else: "other"
+  end
 end

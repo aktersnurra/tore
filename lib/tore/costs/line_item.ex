@@ -2,7 +2,7 @@ defmodule Tore.Costs.LineItem do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias Tore.Pantry.PantryItem
+  alias Tore.Recipes.Ingredient
 
   schema "line_items" do
     field :product_name, :string
@@ -10,6 +10,7 @@ defmodule Tore.Costs.LineItem do
     field :unit, :string
     field :unit_price, :decimal
     field :total_price, :decimal
+    # The shop section the line belongs to (`Ingredient.sections/0`), as on Shop.
     field :category, :string
     belongs_to :receipt, Tore.Costs.Receipt
     timestamps()
@@ -27,6 +28,6 @@ defmodule Tore.Costs.LineItem do
       :receipt_id
     ])
     |> validate_required([:product_name, :receipt_id])
-    |> validate_inclusion(:category, PantryItem.category_values())
+    |> validate_inclusion(:category, Ingredient.sections())
   end
 end

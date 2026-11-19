@@ -43,6 +43,37 @@ defmodule Tore.CostsTest do
     assert hd(loaded.line_items).product_name == "Mjölk"
   end
 
+  describe "a line's section" do
+    setup %{user_id: user_id} do
+      {:ok, receipt} =
+        Costs.log_receipt(home_scope(), %{
+          date: Tore.Clock.today(),
+          user_id: user_id,
+          total_amount: Decimal.new("60.00"),
+          line_items: [
+            %{product_name: "Laxfilé", total_price: Decimal.new("40.00"), category: "fish"},
+            %{product_name: "Surdegsbröd", total_price: Decimal.new("20.00"), category: "bread"}
+          ]
+        })
+
+      %{lines: Tore.Repo.preload(receipt, :line_items).line_items}
+    end
+
+    test "is one of the shop's sections", %{lines: lines} do
+      assert Enum.map(lines, & &1.category) |> Enum.sort() == ["bread", "fish"]
+    end
+
+    test "can be moved to another section, not to one the shop doesn't have", %{lines: [lax | _]} do
+      assert {:ok, %{category: "meat"}} = Costs.set_line_section(home_scope(), lax.id, "meat")
+      assert {:error, %Ecto.Changeset{}} = Costs.set_line_section(home_scope(), lax.id, "Kött")
+    end
+
+    test "can't be moved from another household", %{lines: [lax | _]} do
+      other = scope_fixture(household_fixture())
+      assert {:error, :not_found} = Costs.set_line_section(other, lax.id, "meat")
+    end
+  end
+
   test "log_receipt/1 returns error on missing required fields" do
     assert {:error, _} = Costs.log_receipt(home_scope(), %{store_name: "ICA"})
   end

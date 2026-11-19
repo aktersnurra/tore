@@ -146,6 +146,18 @@ defmodule Tore.Costs do
     end
   end
 
+  @doc "Moves a receipt line to another of the shop's sections (`Ingredient.sections/0`)."
+  @spec set_line_section(Scope.t(), integer(), String.t()) ::
+          {:ok, LineItem.t()} | {:error, :not_found | Ecto.Changeset.t()}
+  def set_line_section(%Scope{} = scope, line_id, section) do
+    from(l in LineItem, join: r in Receipt, on: r.id == l.receipt_id, where: l.id == ^line_id)
+    |> Repo.one(Scope.repo_opts(scope))
+    |> case do
+      nil -> {:error, :not_found}
+      line -> line |> LineItem.changeset(%{category: section}) |> Repo.update()
+    end
+  end
+
   @doc "What the household paid towards the week starting `week_start`, or nil with no receipt."
   @spec spent_in_week(Scope.t(), Date.t()) :: Decimal.t() | nil
   def spent_in_week(%Scope{} = scope, %Date{} = week_start) do

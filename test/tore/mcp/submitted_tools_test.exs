@@ -87,10 +87,23 @@ defmodule Tore.Mcp.SubmittedToolsTest do
         "store" => "ICA Supermarket",
         "date" => Date.to_iso8601(Tore.Clock.today()),
         "total" => 312.5,
-        "lines" => [%{"name" => "MJÖLK 1.5L", "quantity" => 2}, %{"name" => "Bröd"}]
+        "lines" => [
+          %{"name" => "MJÖLK 1.5L", "quantity" => 2, "section" => "dairy"},
+          %{"name" => "Bröd"}
+        ]
       })
 
     assert %KitchenRun{actor: :mcp, status: :applied} = Runs.get(scope, result["run_id"])
+
+    # The section Claude gave is kept; a line without one is Other until it's moved.
+    [receipt] = Costs.recent_receipts(scope, 5)
+
+    assert receipt
+           |> Tore.Repo.preload(:line_items)
+           |> Map.fetch!(:line_items)
+           |> Enum.map(&{&1.product_name, &1.category})
+           |> Enum.sort() ==
+             [{"Bröd", "other"}, {"MJÖLK 1.5L", "dairy"}]
 
     assert [%{store_name: "ICA Supermarket", total_amount: total}] =
              Costs.recent_receipts(scope, 5)
