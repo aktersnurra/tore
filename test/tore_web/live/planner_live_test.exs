@@ -566,4 +566,71 @@ defmodule ToreWeb.PlannerLiveTest do
 
     assert html =~ "phx-click=\"generate_guide\""
   end
+
+  describe "lunch" do
+    # Next week: every day is still ahead. 2026-11-23..29 has no holiday.
+    defp next_week do
+      today = Tore.Clock.today()
+      Date.add(today, 8 - Date.day_of_week(today))
+    end
+
+    defp lunch_rows(lv),
+      do: lv |> render() |> then(&Regex.scan(~r/data-role="lunch"/, &1)) |> length()
+
+    test "offered on the weekend, and on a day off, which says so", %{conn: conn, user: user} do
+      {:ok, lv, _} = live(authed(conn, user), "/plan")
+      render_click(lv, "next_week", %{})
+      assert lunch_rows(lv) == 2
+
+      :ok = Planning.mark_days_off(home_scope(), [Date.add(next_week(), 1)])
+      {:ok, lv, _} = live(authed(conn, user), "/plan")
+      render_click(lv, "next_week", %{})
+
+      assert lunch_rows(lv) == 3
+      assert has_element?(lv, "#slot-tue_dinner [data-role=day-off]", "Fridag")
+    end
+
+    test "+ Lunch plans one above the day's dinner", %{conn: conn, user: user, recipe: recipe} do
+      {:ok, lv, _} = live(authed(conn, user), "/plan")
+      render_click(lv, "next_week", %{})
+
+      lv |> element("#slot-sat_dinner [data-role=lunch]") |> render_click()
+      assert render(lv) =~ "Lördag · Lunch"
+      refute has_element?(lv, "button", "Hoppa över middagen")
+      assert has_element?(lv, "[data-role=add-lunch]") == false
+
+      render_click(lv, "pick_recipe", %{"id" => to_string(recipe.id)})
+      render_click(lv, "close_slot", %{})
+
+      {:ok, plan} = Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), next_week()))
+      assert %{recipe_id: id} = plan.slots["sat_lunch"]
+      assert id == recipe.id
+      refute Map.has_key?(plan.slots, "sat_dinner")
+      assert has_element?(lv, "#slot-sat_dinner [data-role=lunch]", recipe.title)
+    end
+
+    test "any day's sheet adds one, and a lunch's sheet removes it", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      {:ok, lv, _} = live(authed(conn, user), "/plan")
+      render_click(lv, "next_week", %{})
+      refute has_element?(lv, "#slot-wed_dinner [data-role=lunch]")
+
+      render_click(lv, "open_slot", %{"slot_key" => "wed_dinner"})
+      lv |> element("[data-role=add-lunch]") |> render_click()
+      assert render(lv) =~ "Onsdag · Lunch"
+
+      render_click(lv, "pick_recipe", %{"id" => to_string(recipe.id)})
+      render_click(lv, "close_slot", %{})
+      assert has_element?(lv, "#slot-wed_dinner [data-role=lunch]", recipe.title)
+
+      render_click(lv, "open_slot", %{"slot_key" => "wed_lunch"})
+      lv |> element("[data-role=remove-lunch]") |> render_click()
+
+      {:ok, plan} = Planning.load_plan(home_scope(), Tore.Streams.plan(home_scope(), next_week()))
+      refute Map.has_key?(plan.slots, "wed_lunch")
+    end
+  end
 end

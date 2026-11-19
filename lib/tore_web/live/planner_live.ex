@@ -288,7 +288,14 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_event("remove_meal", %{"slot_key" => sk}, socket) do
     Planning.remove_recipe(socket.assigns.current_scope, socket.assigns.plan_id, sk)
-    {:noreply, socket}
+    {:noreply, assign(socket, slot_action: nil)}
+  end
+
+  # From a day's dinner sheet to its lunch, saving the dinner first.
+  def handle_event("open_lunch", _params, socket) do
+    socket = auto_save_slot(socket)
+    [day, _meal] = String.split(socket.assigns.slot_action.slot_key, "_", parts: 2)
+    handle_event("open_slot", %{"slot_key" => "#{day}_lunch"}, socket)
   end
 
   def handle_event("set_week_mode", %{"mode" => mode}, socket) do
@@ -697,6 +704,8 @@ defmodule ToreWeb.PlannerLive do
     recipe = recipe_by_id(assigns.recipes, slot[:recipe_id])
     is_today = assigns.date == assigns.today
     pinned = Map.has_key?(assigns.plan_state.pins, assigns.slot_key)
+    lunch_key = "#{assigns.day}_lunch"
+    lunch = Map.get(assigns.plan_state.slots, lunch_key)
 
     assigns =
       assign(assigns,
@@ -704,7 +713,14 @@ defmodule ToreWeb.PlannerLive do
         recipe: recipe,
         is_today: is_today,
         cooked: cooked_on?(recipe, assigns.date),
-        pinned: pinned
+        pinned: pinned,
+        lunch_key: lunch_key,
+        lunch: recipe_by_id(assigns.recipes, lunch[:recipe_id]),
+        # Lunch is offered on weekends, holidays and days off, never filled in by itself.
+        offer_lunch:
+          State.lunch_day?(assigns.plan_state, assigns.date) and
+            Date.compare(assigns.date, assigns.today) != :lt,
+        day_off: MapSet.member?(assigns.plan_state.days_off, assigns.date)
       )
 
     ~H"""
@@ -715,6 +731,32 @@ defmodule ToreWeb.PlannerLive do
         @focused && "rounded-[var(--r-md)] ring-2 ring-[color:var(--accent)]"
       ]}
     >
+      <div
+        :if={@lunch || @offer_lunch}
+        id={"lunch-#{@lunch_key}-#{(@lunch && @lunch.id) || "open"}"}
+        data-role="lunch"
+        phx-click="open_slot"
+        phx-value-slot_key={@lunch_key}
+        class="row-hover press-soft -mx-2 grid min-h-8 cursor-pointer grid-cols-[3rem_1fr] items-center gap-2 rounded-[var(--r-sm)] px-2 pt-1.5"
+        role="button"
+        tabindex="0"
+        aria-label={gettext("Edit %{label}", label: slot_label(@lunch_key))}
+      >
+        <span></span>
+        <span :if={@lunch} class="flex min-w-0 items-center gap-2" style="font-size: 13.5px;">
+          <span class="w-11 shrink-0 text-[color:var(--muted)]" style="font-size: 12px;">
+            {gettext("Lunch")}
+          </span>
+          <span class="truncate text-[color:var(--text)]">{@lunch.title}</span>
+        </span>
+        <span
+          :if={!@lunch}
+          class="flex items-center gap-1.5 text-[color:var(--subtle)]"
+          style="font-size: 13px;"
+        >
+          <.icon name="ph-plus" class="size-3.5" /> {gettext("Lunch")}
+        </span>
+      </div>
       <div
         id={"day-#{@slot_key}-#{(@recipe && @recipe.id) || "open"}"}
         phx-click="open_slot"
@@ -739,6 +781,13 @@ defmodule ToreWeb.PlannerLive do
             !@is_today && "text-[color:var(--text)]"
           ]}>
             {@date.day}
+          </span>
+          <span
+            :if={@day_off}
+            data-role="day-off"
+            class="block text-[11px] text-[color:var(--muted)]"
+          >
+            {gettext("Day off")}
           </span>
         </span>
 
@@ -955,7 +1004,9 @@ defmodule ToreWeb.PlannerLive do
         selected_recipe: selected,
         suggested_ids: suggested_ids,
         other_recipes: other_recipes,
-        days_after: days_after(sa.slot_key)
+        days_after: days_after(sa.slot_key),
+        lunch?: String.ends_with?(sa.slot_key, "_lunch"),
+        lunch_key: String.replace(sa.slot_key, ~r/_dinner$/, "_lunch")
       )
 
     ~H"""
@@ -1096,6 +1147,30 @@ defmodule ToreWeb.PlannerLive do
               </button>
 
               <button
+                :if={@lunch? and Map.has_key?(@plan_state.slots, @slot_action.slot_key)}
+                type="button"
+                phx-click="remove_meal"
+                phx-value-slot_key={@slot_action.slot_key}
+                data-role="remove-lunch"
+                class="inline-flex items-center gap-2 rounded-[var(--r-pill)] px-3 h-8 text-[color:var(--muted)] transition-colors hover:text-[var(--text)] hover:bg-[color:var(--hairline)]"
+                style="font-size: var(--t-meta);"
+              >
+                <.icon name="ph-x-circle" class="size-4" /> {gettext("Remove lunch")}
+              </button>
+
+              <button
+                :if={!@lunch? and !Map.has_key?(@plan_state.slots, @lunch_key)}
+                type="button"
+                phx-click="open_lunch"
+                data-role="add-lunch"
+                class="inline-flex items-center gap-2 rounded-[var(--r-pill)] px-3 h-8 text-[color:var(--muted)] transition-colors hover:text-[var(--text)] hover:bg-[color:var(--hairline)]"
+                style="font-size: var(--t-meta);"
+              >
+                <.icon name="ph-plus" class="size-4" /> {gettext("Lunch")}
+              </button>
+
+              <button
+                :if={!@lunch?}
                 type="button"
                 phx-click="toggle_skipped"
                 class={[
@@ -1115,6 +1190,7 @@ defmodule ToreWeb.PlannerLive do
               </button>
 
               <button
+                :if={!@lunch?}
                 type="button"
                 phx-click="toggle_eating_out"
                 class={[
