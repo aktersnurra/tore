@@ -443,6 +443,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* The menu slides in from the left edge */
 @keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
 .drawer { animation: drawer-in var(--dur-slow) var(--ease-out) both; }
+/* A receipt slides in from the right: over the page on a phone, beside it on a laptop */
+@keyframes peek-in { from { transform: translateX(100%); } to { transform: none; } }
+.peek { animation: peek-in var(--dur-slow) var(--ease-out) both; }
 .menu-sec { margin: 16px 6px 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .menu-row {
   display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 6px;

@@ -6,15 +6,27 @@ defmodule ToreWeb.BudgetLive do
   """
   use ToreWeb, :live_view
 
-  alias Tore.{Budget, Money, Streams}
+  alias Tore.{Budget, Costs, Money, Streams}
 
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(editing: false, budget_error: nil, budget_text: "")
+     |> assign(editing: false, budget_error: nil, budget_text: "", receipt: nil, picking: nil)
      |> load()}
   end
+
+  # A receipt opens over the page: beside it on a laptop, over all of it on a phone.
+  @impl true
+  def handle_params(%{"id" => id}, _uri, socket) do
+    case Costs.get_receipt(socket.assigns.current_scope, String.to_integer(id)) do
+      nil -> {:noreply, push_navigate(socket, to: ~p"/budget")}
+      receipt -> {:noreply, assign(socket, receipt: receipt, picking: nil)}
+    end
+  end
+
+  def handle_params(_params, _uri, socket),
+    do: {:noreply, assign(socket, receipt: nil, picking: nil)}
 
   defp load(socket) do
     week = Streams.monday(Tore.Clock.today())
@@ -27,6 +39,27 @@ defmodule ToreWeb.BudgetLive do
 
     {:noreply,
      assign(socket, editing: true, budget_error: nil, budget_text: budget && Money.format(budget))}
+  end
+
+  def handle_event("close_receipt", _, socket),
+    do: {:noreply, push_patch(socket, to: ~p"/budget")}
+
+  # Tapping a line opens where it can move; tapping it again closes that.
+  def handle_event("pick_line", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    {:noreply, assign(socket, picking: if(socket.assigns.picking == id, do: nil, else: id))}
+  end
+
+  def handle_event("move_line", %{"id" => id, "section" => section}, socket) do
+    {:ok, _} =
+      Costs.set_line_section(socket.assigns.current_scope, String.to_integer(id), section)
+
+    {:noreply, socket |> assign(picking: nil) |> reload_receipt() |> load()}
+  end
+
+  def handle_event("move_week", _, socket) do
+    {:ok, _} = Costs.move_receipt_week(socket.assigns.current_scope, socket.assigns.receipt.id)
+    {:noreply, socket |> reload_receipt() |> load()}
   end
 
   def handle_event("cancel_budget", _, socket),
@@ -47,6 +80,12 @@ defmodule ToreWeb.BudgetLive do
          assign(socket, budget_error: gettext("Enter an amount in kronor."), budget_text: text)}
     end
   end
+
+  defp reload_receipt(socket),
+    do:
+      assign(socket,
+        receipt: Costs.get_receipt(socket.assigns.current_scope, socket.assigns.receipt.id)
+      )
 
   # Spaces and a decimal comma are fine ("2 000", "1999,50").
   defp parse_amount(text) do
@@ -211,10 +250,11 @@ defmodule ToreWeb.BudgetLive do
           <section :if={@page.receipts != []}>
             <h2 class="t-head">{gettext("Receipts")}</h2>
             <div class="mt-2">
-              <div
+              <.link
                 :for={receipt <- @page.receipts}
+                patch={~p"/budget/receipts/#{receipt.id}"}
                 data-role="receipt"
-                class="flex min-h-11 items-center gap-2.5 border-b border-[color:var(--hairline)]"
+                class="row-hover -mx-1.5 flex min-h-11 items-center gap-2.5 rounded-[var(--r-sm)] border-b border-[color:var(--hairline)] px-1.5"
                 style="font-size: 14.5px;"
               >
                 <span class="w-20 shrink-0 text-[color:var(--muted)]" style="font-size: 13px;">
@@ -227,13 +267,174 @@ defmodule ToreWeb.BudgetLive do
                 <span class="num font-medium">
                   {Money.format(receipt.total_amount || Decimal.new(0))} kr
                 </span>
-              </div>
+              </.link>
             </div>
           </section>
         </div>
       </.page>
+      <.receipt_sheet :if={@receipt} receipt={@receipt} picking={@picking} />
     </Layouts.app>
     """
+  end
+
+  attr :receipt, :map, required: true
+  attr :picking, :integer, default: nil
+
+  defp receipt_sheet(assigns) do
+    assigns = assign(assigns, groups: receipt_groups(assigns.receipt.line_items))
+
+    ~H"""
+    <div
+      class="scrim fixed inset-0 z-40 hidden bg-[rgb(15_15_15/0.18)] lg:block"
+      phx-click="close_receipt"
+      aria-hidden="true"
+    >
+    </div>
+    <aside
+      data-role="receipt-sheet"
+      aria-label={gettext("Receipt")}
+      phx-window-keydown="close_receipt"
+      phx-key="Escape"
+      class="peek fixed inset-0 z-50 overflow-y-auto bg-[var(--bg)] lg:left-auto lg:w-[470px] lg:shadow-[var(--shadow-pop)]"
+    >
+      <div class="flex h-14 items-center px-4">
+        <button
+          type="button"
+          phx-click="close_receipt"
+          data-role="close-receipt"
+          aria-label={gettext("Close")}
+          class="icon-btn press -ml-2"
+        >
+          <.icon name="ph-caret-left" class="size-5 lg:hidden" />
+          <.icon name="ph-x" class="hidden size-5 lg:block" />
+        </button>
+        <span class="ml-1 font-medium" style="font-size: 15px;">{gettext("Receipt")}</span>
+      </div>
+      <div class="px-5 pb-10 lg:px-7">
+        <h2 class="t-title">{@receipt.store_name || gettext("Receipt")}</h2>
+        <dl class="mt-4 grid grid-cols-[7rem_1fr] gap-y-2" style="font-size: 14.5px;">
+          <dt class="flex items-center gap-2 text-[color:var(--muted)]">
+            <.icon name="ph-storefront" class="size-4" />{gettext("Store")}
+          </dt>
+          <dd class="flex items-center gap-2">
+            <span class="store-i" aria-hidden="true">{initial(@receipt.store_name)}</span>
+            {@receipt.store_name || "–"}
+          </dd>
+          <dt class="flex items-center gap-2 text-[color:var(--muted)]">
+            <.icon name="ph-calendar-blank" class="size-4" />{gettext("Date")}
+          </dt>
+          <dd>{ToreWeb.Dates.long(@receipt.date)}</dd>
+          <dt class="flex items-center gap-2 text-[color:var(--muted)]">
+            <.icon name="ph-tag" class="size-4" />{gettext("Week")}
+          </dt>
+          <dd>
+            <button
+              type="button"
+              id={"receipt-week-#{@receipt.week_start}"}
+              phx-click="move_week"
+              data-role="receipt-week"
+              aria-label={gettext("Count it towards the other week")}
+              class="tag tag-grey press settle"
+            >
+              {gettext("Week %{n}", n: Streams.week_number(@receipt.week_start))}
+              <.icon name="ph-arrows-left-right" />
+            </button>
+          </dd>
+          <dt class="flex items-center gap-2 text-[color:var(--muted)]">
+            <.icon name="ph-shopping-cart" class="size-4" />{gettext("Total")}
+          </dt>
+          <dd class="num font-semibold">
+            {Money.format(@receipt.total_amount || Decimal.new(0))} kr
+          </dd>
+        </dl>
+
+        <p :if={@groups == []} class="mt-6 text-[color:var(--muted)]" style="font-size: 15px;">
+          {gettext("This receipt has no lines.")}
+        </p>
+        <section :for={{section, lines, subtotal} <- @groups} data-role="receipt-group" class="mt-6">
+          <div class="flex items-center justify-between">
+            <span class={"tag tag-#{ToreWeb.Look.section_tint(section)}"}>
+              {ToreWeb.Look.section_label(section)}
+            </span>
+            <span class="num text-[color:var(--muted)]" style="font-size: 13px;">
+              {ore(subtotal)}
+            </span>
+          </div>
+          <div :for={line <- lines} class="relative border-b border-[color:var(--hairline)]">
+            <button
+              type="button"
+              phx-click="pick_line"
+              phx-value-id={line.id}
+              data-role="receipt-line"
+              aria-expanded={to_string(@picking == line.id)}
+              class="row-hover flex min-h-11 w-full items-center gap-3 rounded-[var(--r-sm)] text-left"
+              style="font-size: 14.5px;"
+            >
+              <span class="min-w-0 flex-1 truncate">
+                {line.product_name}
+                <span
+                  :if={amount(line) != ""}
+                  class="ml-1 text-[color:var(--muted)]"
+                  style="font-size: 13px;"
+                >
+                  {amount(line)}
+                </span>
+              </span>
+              <span class="num">{line.total_price && ore(line.total_price)}</span>
+            </button>
+            <div
+              :if={@picking == line.id}
+              role="listbox"
+              aria-label={gettext("Section for %{name}", name: line.product_name)}
+              class="settle mb-2 max-h-72 overflow-y-auto rounded-[var(--r-lg)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-card)]"
+            >
+              <p class="px-2 py-1 text-[color:var(--muted)]" style="font-size: 12px;">
+                {gettext("Move to")}
+              </p>
+              <button
+                :for={option <- Tore.Recipes.Ingredient.sections()}
+                type="button"
+                role="option"
+                aria-selected={to_string(option == (line.category || "other"))}
+                phx-click="move_line"
+                phx-value-id={line.id}
+                phx-value-section={option}
+                data-role="move-to"
+                class="row-hover flex h-9 w-full items-center justify-between rounded-[var(--r-sm)] px-2"
+              >
+                <span class={"tag tag-#{ToreWeb.Look.section_tint(option)}"}>
+                  {ToreWeb.Look.section_label(option)}
+                </span>
+                <.icon :if={option == (line.category || "other")} name="ph-check" class="size-4" />
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </aside>
+    """
+  end
+
+  # A receipt's lines by section, the costliest section first.
+  defp receipt_groups(lines) do
+    lines
+    |> Enum.group_by(&(&1.category || "other"))
+    |> Enum.map(fn {section, lines} ->
+      {section, lines, Enum.reduce(lines, Decimal.new(0), &Decimal.add(&1.total_price || 0, &2))}
+    end)
+    |> Enum.sort_by(&elem(&1, 2), {:desc, Decimal})
+  end
+
+  # "109,00": a receipt's own amounts, öre and all.
+  defp ore(amount),
+    do: amount |> Decimal.round(2) |> Decimal.to_string(:normal) |> String.replace(".", ",")
+
+  defp amount(%{quantity: nil, unit: nil}), do: ""
+  defp amount(%{quantity: nil, unit: unit}), do: unit
+
+  defp amount(%{quantity: qty, unit: unit}) do
+    qty = qty |> Decimal.normalize() |> Decimal.to_string(:normal) |> String.replace(".", ",")
+    String.trim("#{qty} #{unit}")
   end
 
   attr :status, :map, required: true

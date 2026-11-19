@@ -140,6 +140,58 @@ defmodule ToreWeb.BudgetLiveTest do
       refute html =~ ~s(data-role="receipt")
     end
 
+    test "a receipt opens with its lines by section, and a line can be moved", %{conn: conn} do
+      receipt =
+        receipt(week_start(), "412", [
+          {"Kycklinglårfilé", "109", "meat"},
+          {"Laxfilé", "79.9", "meat"},
+          {"Mjölk", "18.9", "dairy"}
+        ])
+
+      {:ok, view, _html} = live(conn, ~p"/budget")
+      view |> element(~s([data-role="receipt"]), "412 kr") |> render_click()
+      assert_patch(view, ~p"/budget/receipts/#{receipt.id}")
+
+      sheet = view |> element(~s([data-role="receipt-sheet"])) |> render()
+      assert sheet =~ "ICA Supermarket" and sheet =~ "412 kr"
+      assert view |> element(~s([data-role="receipt-group"]), "Kött") |> render() =~ "188,90"
+
+      # Laxfilé was fish all along.
+      view |> element(~s([data-role="receipt-line"]), "Laxfilé") |> render_click()
+
+      view
+      |> element(~s([data-role="move-to"][phx-value-section="fish"]))
+      |> render_click()
+
+      assert view |> element(~s([data-role="receipt-group"]), "Fisk") |> render() =~ "Laxfilé"
+      assert view |> element(~s([data-role="receipt-group"]), "Kött") |> render() =~ "109,00"
+
+      # The week it counts towards moves to the next, and back.
+      view |> element(~s([data-role="receipt-week"])) |> render_click()
+
+      assert Tore.Costs.get_receipt(home_scope(), receipt.id).week_start ==
+               Date.add(week_start(), 7)
+
+      view |> element(~s([data-role="close-receipt"])) |> render_click()
+      assert_patch(view, ~p"/budget")
+      refute has_element?(view, ~s([data-role="receipt-sheet"]))
+    end
+
+    test "another household's receipt doesn't open", %{conn: conn} do
+      other = scope_fixture(household_fixture())
+
+      {:ok, theirs} =
+        Tore.Costs.log_receipt(other, %{
+          date: week_start(),
+          store_name: "Willys",
+          total_amount: Decimal.new(10),
+          user_id: user_fixture().id
+        })
+
+      assert {:error, {:live_redirect, %{to: "/budget"}}} =
+               live(conn, ~p"/budget/receipts/#{theirs.id}")
+    end
+
     test "is in the menu and on Plan's budget line, and no longer in Settings", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/plan")
       assert has_element?(view, ~s(a[href="/budget"] [data-role="week-estimate"]))
