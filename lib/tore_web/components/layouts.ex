@@ -20,7 +20,7 @@ defmodule ToreWeb.Layouts do
     ~H"""
     <main class={[
       "min-h-screen px-4 py-4 md:px-6 md:py-6",
-      @socket && "pb-28"
+      @socket && "pb-28 lg:ml-[248px] lg:pb-6"
     ]}>
       {render_slot(@inner_block)}
     </main>

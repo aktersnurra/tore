@@ -517,7 +517,7 @@ defmodule ToreWeb.RecipeLive do
       socket={@socket}
       current_user={@current_user}
     >
-      <.page max_width={:md}>
+      <.page max_width={:xl}>
         <.top_bar />
         <div class="mb-5">
           <header class="pt-1">
@@ -690,7 +690,10 @@ defmodule ToreWeb.RecipeLive do
           </div>
 
           <%!-- Gallery: two to a row, 4:5 pictures, the name on the picture --%>
-          <ul :if={@view == :gallery} class="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3">
+          <ul
+            :if={@view == :gallery}
+            class="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
             <li
               :for={{recipe, i} <- Enum.with_index(recipes)}
               class="reveal"
@@ -798,17 +801,33 @@ defmodule ToreWeb.RecipeLive do
           </ul>
         </section>
 
+        <%!-- A recipe is a page over the list; on a wide screen it fills the space beside the sidebar. --%>
         <div
           :if={@selected != nil or @form != nil or @adding or @compose != nil}
-          class="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
+          class={[
+            "fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4",
+            recipe_page?(assigns) && "lg:left-[248px] lg:items-stretch lg:p-0"
+          ]}
           phx-window-keydown="close"
           phx-key="Escape"
         >
-          <div class="scrim absolute inset-0 hidden bg-black/50 md:block" phx-click="close"></div>
-          <div class={[
-            "relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[28px] md:shadow-[var(--shadow-pop)]",
-            (@form || @adding || @compose) && "sheet"
-          ]}>
+          <div
+            class={[
+              "scrim absolute inset-0 hidden bg-black/50 md:block",
+              recipe_page?(assigns) && "lg:hidden"
+            ]}
+            phx-click="close"
+          >
+          </div>
+          <div
+            data-role={recipe_page?(assigns) && "recipe-page"}
+            class={[
+              "relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[28px] md:shadow-[var(--shadow-pop)]",
+              recipe_page?(assigns) &&
+                "lg:h-full lg:max-h-none lg:max-w-none lg:rounded-none lg:shadow-none",
+              (@form || @adding || @compose) && "sheet"
+            ]}
+          >
             <%= cond do %>
               <% @form -> %>
                 <div class="p-6">{render_form(assigns)}</div>
@@ -827,11 +846,15 @@ defmodule ToreWeb.RecipeLive do
     """
   end
 
+  # A recipe on its own, not the form, the link panel or Sätt ihop over it.
+  defp recipe_page?(assigns),
+    do: assigns.selected != nil and !(assigns.form || assigns.adding || assigns.compose)
+
   defp render_detail(assigns) do
     ~H"""
     <article>
       <%!-- The dish, with its name in white on the darkened foot of the photograph --%>
-      <div class="relative h-[58svh] min-h-[360px] max-h-[560px] w-full overflow-hidden">
+      <div class="relative h-[58svh] min-h-[360px] max-h-[560px] w-full overflow-hidden lg:h-[40vh] lg:min-h-[260px] lg:max-h-[400px]">
         <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
         <img
           :if={@selected.image_path}
@@ -842,7 +865,7 @@ defmodule ToreWeb.RecipeLive do
         />
         <div :if={@selected.image_path} class="photo-shade absolute inset-0" aria-hidden="true"></div>
 
-        <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+        <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+1rem)] lg:px-6">
           <.link
             patch={~p"/recipes"}
             aria-label={gettext("Back")}
@@ -923,16 +946,16 @@ defmodule ToreWeb.RecipeLive do
           </div>
         </div>
 
-        <div class="absolute inset-x-0 bottom-0 px-5 pb-5">
+        <div class="absolute inset-x-0 bottom-0 px-5 pb-5 lg:px-16 lg:pb-7">
           <h1 class={["reveal t-display", @selected.image_path && "on-photo-text"]} style="--i: 1">
             {@selected.title}
           </h1>
         </div>
       </div>
 
-      <div class="px-5 pb-28">
+      <div class="px-5 pb-28 lg:max-w-[1180px] lg:px-16 lg:pb-16">
         <%!-- The page's properties: quiet rows, a label and its value. Servings is a stepper. --%>
-        <dl class="props reveal mt-4" style="--i: 2">
+        <dl class="props reveal mt-4 lg:max-w-2xl" style="--i: 2">
           <div>
             <dt><.icon name="ph-squares-four" /> {gettext("Collection")}</dt>
             <dd data-role="collection">
@@ -1062,7 +1085,7 @@ defmodule ToreWeb.RecipeLive do
         </dl>
 
         <%!-- What you can do with it, before anything to read --%>
-        <div class="reveal -mx-5 mt-5 flex gap-2 overflow-x-auto px-5" style="--i: 3">
+        <div class="reveal -mx-5 mt-5 flex gap-2 overflow-x-auto px-5 lg:mx-0 lg:px-0" style="--i: 3">
           <.link
             :if={@home.missing == []}
             navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
@@ -1106,7 +1129,7 @@ defmodule ToreWeb.RecipeLive do
           on_close="close_before_cooking"
         />
 
-        <div :if={@week} id="week-days" class="reveal mt-4" data-role="week-days">
+        <div :if={@week} id="week-days" class="reveal mt-4 lg:max-w-xl" data-role="week-days">
           <p class="t-eyebrow mb-2">{gettext("Which day?")}</p>
           <ul class="menu-lines">
             <li :for={day <- @week} class="flex items-center gap-3 py-1">
@@ -1157,109 +1180,118 @@ defmodule ToreWeb.RecipeLive do
 
         <p
           :if={@selected.description not in [nil, ""]}
-          class="reveal mt-5 text-[color:var(--muted)]"
+          class="reveal mt-5 text-[color:var(--muted)] lg:max-w-[65ch]"
           style="--i: 4; font-size: 15px; line-height: 1.55;"
         >
           {@selected.description}
         </p>
 
-        <%!-- Ingredients for the servings above: the name on the left, the amount on the right --%>
-        <section :if={@selected.recipe_ingredients != []} class="reveal mt-9" style="--i: 4">
-          <h2 class="t-head mb-3">{gettext("Ingredients")}</h2>
-          <ul :if={@selected.parts == []} class="menu-lines">
-            <.ingredient_line
-              :for={ri <- @selected.recipe_ingredients}
-              ri={ri}
-              base={@selected.base_servings}
-              servings={@servings}
-            />
-          </ul>
-          <%!-- A meal of parts: each part's own, for the servings chosen --%>
-          <div :for={part <- @selected.parts} data-part={part.id} class="mb-6 last:mb-0">
-            <h3 class="t-eyebrow mb-1">{part.title}</h3>
-            <ul class="menu-lines">
+        <%!-- On a wide screen the ingredients sit beside the method, both in view while cooking --%>
+        <div
+          data-role="recipe-body"
+          class={[
+            @selected.recipe_ingredients != [] &&
+              "lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-x-16"
+          ]}
+        >
+          <%!-- Ingredients for the servings above: the name on the left, the amount on the right --%>
+          <section :if={@selected.recipe_ingredients != []} class="reveal mt-9" style="--i: 4">
+            <h2 class="t-head mb-3">{gettext("Ingredients")}</h2>
+            <ul :if={@selected.parts == []} class="menu-lines">
               <.ingredient_line
-                :for={ri <- part.recipe_ingredients}
+                :for={ri <- @selected.recipe_ingredients}
                 ri={ri}
-                base={part.base_servings}
+                base={@selected.base_servings}
                 servings={@servings}
               />
             </ul>
-          </div>
-        </section>
+            <%!-- A meal of parts: each part's own, for the servings chosen --%>
+            <div :for={part <- @selected.parts} data-part={part.id} class="mb-6 last:mb-0">
+              <h3 class="t-eyebrow mb-1">{part.title}</h3>
+              <ul class="menu-lines">
+                <.ingredient_line
+                  :for={ri <- part.recipe_ingredients}
+                  ri={ri}
+                  base={part.base_servings}
+                  servings={@servings}
+                />
+              </ul>
+            </div>
+          </section>
 
-        <%!-- A meal of parts before its first cook: each part's method; one order is written then --%>
-        <section
-          :if={@selected.parts != [] and is_nil(@selected.steps)}
-          data-role="part-methods"
-          class="mt-9"
-        >
-          <h2 class="t-head mb-1">{gettext("Method")}</h2>
-          <p class="mb-5 text-[color:var(--muted)]" style="font-size: 15px;">
-            {gettext("Tore puts the parts in one order when you start cooking.")}
-          </p>
-          <div :for={part <- @selected.parts} class="mb-7 last:mb-0">
-            <h3 class="t-eyebrow mb-3">{part.title}</h3>
-            <ol :if={part_actions(part) != []} class="list-decimal space-y-3 pl-5">
-              <li
-                :for={action <- part_actions(part)}
-                class="text-[color:var(--text)]"
-                style="font-size: 16px; line-height: 1.55;"
-              >
-                {action}
-              </li>
-            </ol>
-            <p
-              :if={part_actions(part) == [] and part.instructions}
-              class="whitespace-pre-line text-[color:var(--text)]"
-              style="font-size: 16px; line-height: 1.55;"
-            >
-              {part.instructions}
+          <%!-- A meal of parts before its first cook: each part's method; one order is written then --%>
+          <section
+            :if={@selected.parts != [] and is_nil(@selected.steps)}
+            data-role="part-methods"
+            class="mt-9"
+          >
+            <h2 class="t-head mb-1">{gettext("Method")}</h2>
+            <p class="mb-5 text-[color:var(--muted)]" style="font-size: 15px;">
+              {gettext("Tore puts the parts in one order when you start cooking.")}
             </p>
-          </div>
-        </section>
-
-        <%!-- The method: a real sequence, so it is numbered --%>
-        <section
-          :if={
-            (@selected.steps || @selected.instructions) &&
-              !(@selected.parts != [] and is_nil(@selected.steps))
-          }
-          class="mt-9"
-        >
-          <h2 class="t-head mb-4">{gettext("Method")}</h2>
-          <%= if grouped_steps(@selected) != [] do %>
-            <div :for={{phase, steps} <- grouped_steps(@selected)} class="mb-7 last:mb-0">
-              <h3 :if={phase} class="t-eyebrow mb-3">{phase}</h3>
-              <ol class="space-y-5">
-                <li :for={step <- steps} class="flex gap-4">
-                  <span
-                    class="num w-6 shrink-0 text-right font-semibold text-[color:var(--subtle)]"
-                    style="font-size: 20px; line-height: 1.3;"
-                  >
-                    {step["order"]}
-                  </span>
-                  <div class="flex-1">
-                    <p class="text-[color:var(--text)]" style="font-size: 16px; line-height: 1.55;">
-                      {step["action"]}
-                    </p>
-                    <p
-                      :if={step["duration_minutes"]}
-                      class="num mt-1 text-[color:var(--muted)]"
-                      style="font-size: 13px;"
-                    >
-                      {gettext("%{minutes} min", minutes: step["duration_minutes"])}
-                    </p>
-                  </div>
+            <div :for={part <- @selected.parts} class="mb-7 last:mb-0">
+              <h3 class="t-eyebrow mb-3">{part.title}</h3>
+              <ol :if={part_actions(part) != []} class="list-decimal space-y-3 pl-5">
+                <li
+                  :for={action <- part_actions(part)}
+                  class="text-[color:var(--text)]"
+                  style="font-size: 16px; line-height: 1.55;"
+                >
+                  {action}
                 </li>
               </ol>
+              <p
+                :if={part_actions(part) == [] and part.instructions}
+                class="whitespace-pre-line text-[color:var(--text)]"
+                style="font-size: 16px; line-height: 1.55;"
+              >
+                {part.instructions}
+              </p>
             </div>
-          <% else %>
-            <div class="prose prose-sm max-w-none text-[color:var(--text)]">
-              {raw(MDEx.to_html!(@selected.instructions || ""))}
-            </div>
-          <% end %>
-        </section>
+          </section>
+
+          <%!-- The method: a real sequence, so it is numbered --%>
+          <section
+            :if={
+              (@selected.steps || @selected.instructions) &&
+                !(@selected.parts != [] and is_nil(@selected.steps))
+            }
+            class="mt-9"
+          >
+            <h2 class="t-head mb-4">{gettext("Method")}</h2>
+            <%= if grouped_steps(@selected) != [] do %>
+              <div :for={{phase, steps} <- grouped_steps(@selected)} class="mb-7 last:mb-0">
+                <h3 :if={phase} class="t-eyebrow mb-3">{phase}</h3>
+                <ol class="space-y-5">
+                  <li :for={step <- steps} class="flex gap-4">
+                    <span
+                      class="num w-6 shrink-0 text-right font-semibold text-[color:var(--subtle)]"
+                      style="font-size: 20px; line-height: 1.3;"
+                    >
+                      {step["order"]}
+                    </span>
+                    <div class="flex-1">
+                      <p class="text-[color:var(--text)]" style="font-size: 16px; line-height: 1.55;">
+                        {step["action"]}
+                      </p>
+                      <p
+                        :if={step["duration_minutes"]}
+                        class="num mt-1 text-[color:var(--muted)]"
+                        style="font-size: 13px;"
+                      >
+                        {gettext("%{minutes} min", minutes: step["duration_minutes"])}
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            <% else %>
+              <div class="prose prose-sm max-w-none text-[color:var(--text)]">
+                {raw(MDEx.to_html!(@selected.instructions || ""))}
+              </div>
+            <% end %>
+          </section>
+        </div>
       </div>
     </article>
     """

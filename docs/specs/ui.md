@@ -182,8 +182,14 @@ that asks to be kept.
 
 ### 3.3 Navigation behavior
 
-The same on phone, tablet and desktop: the tab bar at the bottom, the chat as a sheet that
-rises over the screen. The bar stays put across navigation.
+On a phone and a narrow tablet: the tab bar at the bottom, the chat as a sheet that rises over
+the screen. The bar stays put across navigation.
+
+From 1024 px wide (2026-11-19, "On a laptop" in the Tore kitchen pages mockup) the tab bar
+gives way to a **sidebar** that stays open, 248 px on the left: the household, the four tabs,
+then the menu's sections (this week, favourites, collections, the household), and Ask Tore at
+its foot. Only where you are is lit. A tab's top bar has no menu button there. The phone is
+unchanged.
 
 ---
 
@@ -444,20 +450,11 @@ Menu:
 
 ### Desktop shell
 
-```md
-Left rail:
-- Tore wordmark
-- Today
-- Plan
-- Shop
-- Capture
-- Settings
-
-Main:
-- Max width depends on surface
-- Plan may use full width
-- Today/Shop/Capture stay readable and centered
-```
+The sidebar (§3.3), then the page beside it. Recipes widens to five pictures a row. A recipe
+is a full page beside the sidebar instead of a window over the list: the cover runs the width
+with the name on it, and the ingredients sit in a column to the left of the method. Plan, Shop,
+Hemma and Today stay readable and centered for now; Plan with the month beside the week, and
+Tore as a column on the right, are next.
 
 ## 5.2 Card types
 
@@ -1447,12 +1444,7 @@ Plan can show 7-day horizontal board.
 
 ## Desktop
 
-```md
-Left rail
-Centered content for Today/Shop/Capture
-Full-width board for Plan
-Keyboard shortcuts allowed
-```
+See §3.3 and the desktop shell in §5.1.
 
 WCAG’s reflow guidance also matters for the web app: content should adapt without loss of information/functionality and avoid two-dimensional scrolling except where the layout itself requires it. ([W3C][4])
 

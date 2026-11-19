@@ -486,11 +486,14 @@ defmodule ToreWeb.CoreComponents do
         aria-label={gettext("Menu")}
         aria-controls="menu"
         data-role="open-menu"
-        class={["press", if(@on_photo, do: "on-photo", else: "icon-btn -ml-2")]}
+        class={["press lg:hidden", if(@on_photo, do: "on-photo", else: "icon-btn -ml-2")]}
       >
         <.icon name="ph-sidebar-simple" class="size-5" />
       </button>
-      <div class={["flex items-center gap-1", !@on_photo && "-mr-2"]}>{render_slot(@actions)}</div>
+      <%!-- The sidebar takes the menu's place on a wide screen; the actions keep to the right. --%>
+      <div class={["ml-auto flex items-center gap-1", !@on_photo && "-mr-2"]}>
+        {render_slot(@actions)}
+      </div>
     </div>
     """
   end

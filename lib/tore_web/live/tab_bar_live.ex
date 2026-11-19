@@ -7,9 +7,14 @@ defmodule ToreWeb.TabBarLive do
   rest of this week, starred recipes, the collections, the household's settings and Ask Tore.
   What's in it is read when it opens.
 
+  On a wide screen (1024 px and up) the tab bar gives way to a sidebar that stays open: the
+  tabs, then the menu's sections, then Ask Tore. Its sections are read on every navigation, and
+  only when the screen is wide.
+
   It is a sticky LiveView in `Layouts.app`, so it survives live navigation. It isn't routed, so
   it can't see the page's URL: a hook reports `location.pathname` after every navigation, which
-  marks the current tab and tells the chat where to go back to.
+  marks the current tab and tells the chat where to go back to. It also says whether the screen
+  is wide.
   """
 
   use ToreWeb, :live_view
@@ -26,14 +31,23 @@ defmodule ToreWeb.TabBarLive do
           nil
       end
 
-    {:ok, assign(socket, path: "/", return_to: "/", scope: scope, menu: nil), layout: false}
+    {:ok, assign(socket, path: "/", return_to: "/", scope: scope, menu: nil, side: nil),
+     layout: false}
   end
 
-  # Every navigation reports where it landed, and closes the menu if it led there.
+  # Every navigation reports where it landed, and closes the menu if it led there. On a wide
+  # screen the sidebar's sections are read again, so they show what just changed.
   @impl true
-  def handle_event("here", %{"path" => path} = here, socket) when is_binary(path),
-    do:
-      {:noreply, assign(socket, path: path, return_to: path <> (here["search"] || ""), menu: nil)}
+  def handle_event("here", %{"path" => path} = here, socket) when is_binary(path) do
+    side =
+      case {here["wide"], socket.assigns.scope} do
+        {true, %Tore.Scope{} = scope} -> menu(scope, Tore.Clock.today())
+        _narrow -> nil
+      end
+
+    {:noreply,
+     assign(socket, path: path, return_to: path <> (here["search"] || ""), menu: nil, side: side)}
+  end
 
   def handle_event("open_menu", _, %{assigns: %{scope: %Tore.Scope{} = scope}} = socket),
     do: {:noreply, assign(socket, menu: menu(scope, Tore.Clock.today()))}
@@ -114,7 +128,7 @@ defmodule ToreWeb.TabBarLive do
       phx-hook=".Here"
       data-role="tab-bar"
       aria-label={gettext("Tabs")}
-      class="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[var(--bg)] from-60% to-transparent"
+      class="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[var(--bg)] from-60% to-transparent lg:hidden"
     >
       <div class="mx-auto flex max-w-md items-end justify-between px-3 pt-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)]">
         <%= for tab <- @tabs do %>
@@ -153,19 +167,28 @@ defmodule ToreWeb.TabBarLive do
         <% end %>
       </div>
     </nav>
+    <.sidebar side={@side} path={@path} return_to={@return_to} />
     <.menu :if={@menu} menu={@menu} path={@path} return_to={@return_to} />
     <script :type={Phoenix.LiveView.ColocatedHook} name=".Here">
       export default {
         mounted() {
+          // The same width as Tailwind's lg, where the sidebar shows.
+          this.wide = window.matchMedia("(min-width: 1024px)")
           this.report = () =>
-            this.pushEvent("here", {path: window.location.pathname, search: window.location.search})
+            this.pushEvent("here", {
+              path: window.location.pathname,
+              search: window.location.search,
+              wide: this.wide.matches
+            })
           this.report()
           window.addEventListener("phx:page-loading-stop", this.report)
+          this.wide.addEventListener("change", this.report)
           // A tab's top bar asks for the menu (<.top_bar>).
           this.el.addEventListener("tore:menu", () => this.pushEvent("open_menu", {}))
         },
         destroyed() {
           window.removeEventListener("phx:page-loading-stop", this.report)
+          this.wide.removeEventListener("change", this.report)
         }
       }
     </script>
@@ -191,112 +214,177 @@ defmodule ToreWeb.TabBarLive do
         class="drawer absolute inset-y-0 left-0 flex w-[min(320px,85vw)] flex-col bg-[var(--surface)] shadow-[var(--shadow-pop)]"
       >
         <div class="flex-1 overflow-y-auto px-2.5 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-4">
-          <div class="flex h-11 items-center gap-2.5 px-1.5">
-            <.page_icon
-              icon="ph-house-simple-duotone"
-              tint="orange"
-              class="size-7 rounded-[var(--r-sm)]"
-            />
-            <span class="truncate font-semibold text-[color:var(--text)]" style="font-size: 15px;">
-              {@menu.household}
-            </span>
-          </div>
-
-          <p class="menu-sec">{gettext("This week")}</p>
-          <.link
-            :for={day <- @menu.week}
-            navigate={day_href(day)}
-            data-role="menu-day"
-            class={["menu-row row-hover", day.today? && "is-current"]}
-          >
-            <span
-              class="mx-1.5 size-2.5 shrink-0 rounded-[3px]"
-              style={"background: var(#{cond do
-                day.today? and day.recipe != nil -> "--tag-red-ink"
-                day.recipe != nil -> "--tag-blue-ink"
-                true -> "--subtle"
-              end})"}
-            >
-            </span>
-            <span class={["truncate", !day.recipe && "text-[color:var(--muted)]"]}>
-              {day_line(day)}
-            </span>
-            <span class="menu-count">{day_mark(day)}</span>
-          </.link>
-
-          <%= if @menu.favorites != [] do %>
-            <p class="menu-sec">{gettext("Favourites")}</p>
-            <.link
-              :for={recipe <- @menu.favorites}
-              navigate={~p"/recipes?#{[id: recipe.id]}"}
-              data-role="menu-favorite"
-              class="menu-row row-hover"
-            >
-              <span class={[
-                "size-5 shrink-0",
-                ToreWeb.Look.icon(recipe),
-                "ink-#{ToreWeb.Look.tint(recipe.recipe_type)}"
-              ]}>
-              </span>
-              <span class="truncate">{recipe.title}</span>
-            </.link>
-          <% end %>
-
-          <p class="menu-sec">{gettext("Collections")}</p>
-          <.link
-            :for={{type, count} <- @menu.collections}
-            navigate={~p"/recipes?#{[type: type]}"}
-            data-role="menu-collection"
-            class="menu-row row-hover"
-          >
-            <span class={[
-              "size-5 shrink-0",
-              ToreWeb.Look.collection_icon(type),
-              "ink-#{ToreWeb.Look.tint(type)}"
-            ]}>
-            </span>
-            <span class="truncate">{collection_label(type)}</span>
-            <span class="menu-count num">{count}</span>
-          </.link>
-
-          <p class="menu-sec">{gettext("Household")}</p>
-          <.link navigate={~p"/pantry"} data-role="menu-pantry" class="menu-row row-hover">
-            <span class="ph-house-simple-duotone size-5 shrink-0 text-[color:var(--tag-orange-ink)]">
-            </span>
-            <span class="truncate">{gettext("At home")}</span>
-            <span class="menu-count num">{@menu.at_home}</span>
-          </.link>
-          <.link navigate={~p"/settings#members"} class="menu-row row-hover">
-            <span class="ph-users-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
-            {gettext("Members")}
-          </.link>
-          <.link navigate={~p"/settings#diet"} class="menu-row row-hover">
-            <span class="ph-leaf-duotone size-5 shrink-0 text-[color:var(--tag-green-ink)]"></span>
-            {gettext("Diet and allergies")}
-          </.link>
-          <.link navigate={~p"/settings#budget"} class="menu-row row-hover">
-            <span class="ph-piggy-bank-duotone size-5 shrink-0 text-[color:var(--tag-yellow-ink)]">
-            </span>
-            {gettext("Weekly budget")}
-          </.link>
-          <.link navigate={~p"/settings"} data-role="menu-settings" class="menu-row row-hover">
-            <span class="ph-gear-six-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
-            {gettext("Settings")}
-          </.link>
+          <.household name={@menu.household} />
+          <.sections menu={@menu} />
         </div>
 
         <div class="px-2.5 pt-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          <.link
-            navigate={~p"/capture?#{[return_to: @return_to]}"}
-            class="press flex h-11 items-center gap-2.5 rounded-full bg-[var(--bg)] px-4 text-[color:var(--muted)] shadow-[var(--shadow-card)]"
-            style="font-size: 15px;"
-          >
-            <.icon name="ph-chat-circle" class="size-5" />
-            {gettext("Ask Tore")}
-          </.link>
+          <.ask_tore return_to={@return_to} />
         </div>
       </nav>
     </div>
+    """
+  end
+
+  attr :side, :map, default: nil
+  attr :path, :string, required: true
+  attr :return_to, :string, required: true
+
+  # The sidebar on a wide screen. The tabs and Ask Tore are there from the first paint; the
+  # sections come once the hook has said the screen is wide.
+  defp sidebar(assigns) do
+    assigns = assign(assigns, tabs: Enum.reject(tabs(), &(&1 == :tore)))
+
+    ~H"""
+    <aside
+      id="sidebar"
+      data-role="sidebar"
+      aria-label={gettext("Menu")}
+      class="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-[color:var(--hairline)] bg-[var(--surface)] lg:flex"
+    >
+      <div class="flex-1 overflow-y-auto px-2.5 pt-2 pb-4">
+        <.household :if={@side} name={@side.household} />
+        <div :if={!@side} class="h-11"></div>
+        <.link
+          :for={{href, {icon, icon_on}, label} <- @tabs}
+          navigate={href}
+          aria-current={if current?(href, @path), do: "page"}
+          data-role="side-tab"
+          class={["menu-row row-hover", current?(href, @path) && "is-current"]}
+        >
+          <.icon name={if current?(href, @path), do: icon_on, else: icon} class="size-5 shrink-0" />
+          {label}
+        </.link>
+        <.sections :if={@side} menu={@side} tonight_lit={false} />
+      </div>
+      <div class="px-2.5 pt-2 pb-4">
+        <.ask_tore return_to={@return_to} />
+      </div>
+    </aside>
+    """
+  end
+
+  attr :name, :string, required: true
+
+  defp household(assigns) do
+    ~H"""
+    <div class="flex h-11 items-center gap-2.5 px-1.5">
+      <.page_icon
+        icon="ph-house-simple-duotone"
+        tint="orange"
+        class="size-7 rounded-[var(--r-sm)]"
+      />
+      <span class="truncate font-semibold text-[color:var(--text)]" style="font-size: 15px;">
+        {@name}
+      </span>
+    </div>
+    """
+  end
+
+  attr :menu, :map, required: true
+
+  attr :tonight_lit, :boolean,
+    default: true,
+    doc: "the drawer lights tonight's row; the sidebar lights only where you are"
+
+  # What the menu holds, in the drawer and in the sidebar alike.
+  defp sections(assigns) do
+    ~H"""
+    <p class="menu-sec">{gettext("This week")}</p>
+    <.link
+      :for={day <- @menu.week}
+      navigate={day_href(day)}
+      data-role="menu-day"
+      class={["menu-row row-hover", @tonight_lit && day.today? && "is-current"]}
+    >
+      <span
+        class="mx-1.5 size-2.5 shrink-0 rounded-[3px]"
+        style={"background: var(#{cond do
+          day.today? and day.recipe != nil -> "--tag-red-ink"
+          day.recipe != nil -> "--tag-blue-ink"
+          true -> "--subtle"
+        end})"}
+      >
+      </span>
+      <span class={["truncate", !day.recipe && "text-[color:var(--muted)]"]}>
+        {day_line(day)}
+      </span>
+      <span class="menu-count">{day_mark(day)}</span>
+    </.link>
+
+    <%= if @menu.favorites != [] do %>
+      <p class="menu-sec">{gettext("Favourites")}</p>
+      <.link
+        :for={recipe <- @menu.favorites}
+        navigate={~p"/recipes?#{[id: recipe.id]}"}
+        data-role="menu-favorite"
+        class="menu-row row-hover"
+      >
+        <span class={[
+          "size-5 shrink-0",
+          ToreWeb.Look.icon(recipe),
+          "ink-#{ToreWeb.Look.tint(recipe.recipe_type)}"
+        ]}>
+        </span>
+        <span class="truncate">{recipe.title}</span>
+      </.link>
+    <% end %>
+
+    <p class="menu-sec">{gettext("Collections")}</p>
+    <.link
+      :for={{type, count} <- @menu.collections}
+      navigate={~p"/recipes?#{[type: type]}"}
+      data-role="menu-collection"
+      class="menu-row row-hover"
+    >
+      <span class={[
+        "size-5 shrink-0",
+        ToreWeb.Look.collection_icon(type),
+        "ink-#{ToreWeb.Look.tint(type)}"
+      ]}>
+      </span>
+      <span class="truncate">{collection_label(type)}</span>
+      <span class="menu-count num">{count}</span>
+    </.link>
+
+    <p class="menu-sec">{gettext("Household")}</p>
+    <.link navigate={~p"/pantry"} data-role="menu-pantry" class="menu-row row-hover">
+      <span class="ph-house-simple-duotone size-5 shrink-0 text-[color:var(--tag-orange-ink)]"></span>
+      <span class="truncate">{gettext("At home")}</span>
+      <span class="menu-count num">{@menu.at_home}</span>
+    </.link>
+    <.link navigate={~p"/settings#members"} class="menu-row row-hover">
+      <span class="ph-users-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
+      {gettext("Members")}
+    </.link>
+    <.link navigate={~p"/settings#diet"} class="menu-row row-hover">
+      <span class="ph-leaf-duotone size-5 shrink-0 text-[color:var(--tag-green-ink)]"></span>
+      {gettext("Diet and allergies")}
+    </.link>
+    <.link navigate={~p"/settings#budget"} class="menu-row row-hover">
+      <span class="ph-piggy-bank-duotone size-5 shrink-0 text-[color:var(--tag-yellow-ink)]"></span>
+      {gettext("Weekly budget")}
+    </.link>
+    <.link navigate={~p"/settings"} data-role="menu-settings" class="menu-row row-hover">
+      <span class="ph-gear-six-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
+      {gettext("Settings")}
+    </.link>
+    """
+  end
+
+  attr :return_to, :string, required: true
+
+  defp ask_tore(assigns) do
+    ~H"""
+    <.link
+      navigate={~p"/capture?#{[return_to: @return_to]}"}
+      data-role="menu-ask"
+      class="press flex h-11 items-center gap-2.5 rounded-full bg-[var(--bg)] px-4 text-[color:var(--muted)] shadow-[var(--shadow-card)]"
+      style="font-size: 15px;"
+    >
+      <.icon name="ph-chat-circle" class="size-5" />
+      {gettext("Ask Tore")}
+    </.link>
     """
   end
 end

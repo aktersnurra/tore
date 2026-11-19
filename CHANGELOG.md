@@ -7,6 +7,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### On a laptop: sidebar and recipe pages (2026-11-19)
+
+- From 1024 px wide the tab bar becomes a sidebar that stays open: the tabs, this week, favourites, collections, the household and Ask Tore.
+- A recipe opens as a full page beside it, with the ingredients next to the method. Recipes shows up to five pictures a row.
+- The phone is unchanged.
+
 ### Meals put together from parts (2026-11-19)
 
 - A dinner can be put together from other recipes: Entrecote med bearnaise from Bearnaise, Stekt entrecote, Pommes i airfryer and Tomatsallad. It follows its parts, so changing the bearnaise changes the meal.
