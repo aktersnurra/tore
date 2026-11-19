@@ -153,6 +153,16 @@ defmodule Tore.Capture.Dispatch do
   defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_pinned}, date, _diff, _),
     do: pinned_bubble(date)
 
+  defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_eating_out}, date, _diff, _) do
+    %{
+      role: :assistant,
+      text:
+        gettext("You're eating out on %{day}, so I left it. Clear the day first to cook there.",
+          day: long_day_for(date)
+        )
+    }
+  end
+
   defp slot_bubble(%KitchenRun{failure_code: code}, _date, _diff, _),
     do: error_bubble(:plan, code)
 

@@ -66,6 +66,9 @@ defmodule ToreWeb.Components.ReceiptLive do
   defp failure_message(:slot_pinned),
     do: gettext("That day is pinned, so Tore left it as it was.")
 
+  defp failure_message(:slot_eating_out),
+    do: gettext("You're eating out that day, so Tore left it as it was.")
+
   defp failure_message(:servings_missing),
     do: gettext("A meal was missing servings, so nothing was changed.")
 

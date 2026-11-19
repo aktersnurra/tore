@@ -148,6 +148,20 @@ defmodule Tore.Mcp.WriteToolsTest do
     assert off.(next_monday)
   end
 
+  test "no dinner goes on a day out until the day is cleared", %{scope: scope} do
+    pasta = recipe("Pasta")
+    by_mcp!(scope, ok(scope, "change_day", %{"date" => day(4), "action" => "eat_out"}))
+
+    result = ok(scope, "set_dinner", %{"date" => day(4), "recipe_id" => pasta.id})
+    assert result["run_id"] == nil
+    assert result["done"] =~ "eating out"
+    assert slot(scope, "fri_dinner").reason == "eating_out"
+
+    by_mcp!(scope, ok(scope, "change_day", %{"date" => day(4), "action" => "clear"}))
+    by_mcp!(scope, ok(scope, "set_dinner", %{"date" => day(4), "recipe_id" => pasta.id}))
+    assert slot(scope, "fri_dinner").recipe_id == pasta.id
+  end
+
   test "change_day skips, sets servings, eats out and clears", %{scope: scope} do
     pasta = recipe("Pasta")
     {:ok, _} = Planning.assign_recipe(scope, plan(scope), "thu_dinner", pasta.id, 4)

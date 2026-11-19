@@ -30,6 +30,7 @@ defmodule Tore.Harness.Kinds.Planner do
 
     PlanVerifier.verify(diff, %{
       plan_state: Enum.reduce(diff.plan_events, plan, &Decider.evolve(&2, &1)),
+      plan_before: plan,
       preferences: Household.get_preferences(scope),
       scope: scope
     })

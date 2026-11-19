@@ -11,16 +11,24 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
 
   @type fail_code ::
           :slot_pinned
+          | :slot_eating_out
           | :servings_missing
           | :skip_not_explicit
           | :leftover_no_source
           | :dietary_violation
   @type repair_action :: {:edit_plan, [String.t()]}
-  @type ctx :: %{plan_state: State.t(), preferences: Preferences.t(), scope: Tore.Scope.t()}
+  # `plan_state` is the plan with the diff applied; `plan_before`, when given, the plan without it.
+  @type ctx :: %{
+          required(:plan_state) => State.t(),
+          optional(:plan_before) => State.t(),
+          required(:preferences) => Preferences.t(),
+          required(:scope) => Tore.Scope.t()
+        }
 
   @spec verify(PlanDiff.t(), ctx()) :: :ok | {:fail, fail_code(), repair_action()}
   def verify(%PlanDiff{events: events}, ctx) do
     with :ok <- check_pins(events, ctx.plan_state),
+         :ok <- check_eating_out(events, ctx[:plan_before]),
          :ok <- check_servings(events),
          :ok <- check_skips(events, ctx.plan_state),
          :ok <- check_leftovers(events, ctx.plan_state),
@@ -38,6 +46,18 @@ defmodule Tore.Harness.Verifier.PlanVerifier do
       |> Enum.filter(&(&1 in pinned))
 
     fail_if(touched, :slot_pinned)
+  end
+
+  # A dinner doesn't go on a day the household eats out; to cook after all, the day is cleared
+  # first.
+  defp check_eating_out(_events, nil), do: :ok
+
+  defp check_eating_out(events, plan_before) do
+    events
+    |> Enum.filter(&(&1.event_type in ["RecipeAssigned", "RecipeSwapped"]))
+    |> Enum.map(& &1.slot_key)
+    |> Enum.filter(&State.eating_out?(plan_before.slots[&1]))
+    |> fail_if(:slot_eating_out)
   end
 
   defp check_servings(events) do
