@@ -12,7 +12,14 @@ defmodule Tore.FakePi do
   @command Path.expand("bin/fake-pi", __DIR__)
 
   def fake_pi(_context) do
-    log = Path.join(System.tmp_dir!(), "fake-pi-#{System.unique_integer([:positive])}")
+    # unique_integer repeats from run to run; the OS pid keeps a stale log from an earlier run,
+    # such as one that was killed, from passing for this test's.
+    log =
+      Path.join(
+        System.tmp_dir!(),
+        "fake-pi-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
     previous = Application.get_env(:tore, :pi)
 
     Application.put_env(:tore, :pi,
