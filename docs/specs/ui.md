@@ -147,9 +147,11 @@ Every main screen has the same tab bar at the bottom, each tab an icon with its 
 - **The top bar** is the same on every tab (2026-11-18): the sidebar icon on the left opens the
   menu; the right holds this page's own actions behind ⋯. Page shortcuts live in the page:
   search in Recipes' toolbar, the scanner at the end of Shop's add line.
-- **The menu** is a drawer from the left, read when it opens: the rest of this week (tonight
-  marked, open days quiet), starred recipes, the collections with their counts, the
-  household (members, diet and allergies, weekly budget, settings) and Ask Tore at its foot.
+- **The menu** is a drawer from the left, read when it opens: Ask Tore first, as a soft field
+  under the household's name (like search in Notion), then the rest of this week (tonight
+  marked, open days quiet), starred recipes, the collections with their counts, and the
+  household's pages (At home, Weekly budget). Settings sits alone at its foot (2026-11-19):
+  configuration, not a page you use every week; members and diet are inside it.
   It closes on the scrim, on Escape, or when one of its links is followed. Tap only; no edge
   swipe.
 - **Settings** is reached from the menu. It holds members, diet and allergies, the
@@ -186,9 +188,9 @@ On a phone and a narrow tablet: the tab bar at the bottom, the chat as a sheet t
 the screen. The bar stays put across navigation.
 
 From 1024 px wide (2026-11-19, "On a laptop" in the Tore kitchen pages mockup) the tab bar
-gives way to a **sidebar** that stays open, 248 px on the left: the household, the four tabs,
-then the menu's sections (this week, favourites, collections, the household), and Ask Tore at
-its foot. Only where you are is lit. A tab's top bar has no menu button there. The phone is
+gives way to a **sidebar** that stays open, 248 px on the left: the household, the tabs in the
+phone's order with Tore as a row between Plan and Shop, then the menu's sections (this week,
+favourites, collections, the household's pages), and Settings alone at its foot. Only where you are is lit. A tab's top bar has no menu button there. The phone is
 unchanged.
 
 ---

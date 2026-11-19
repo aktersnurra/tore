@@ -63,8 +63,9 @@ defmodule ToreWeb.TabBarLiveTest do
       assert has_element?(view, ~s([data-role="open-menu"])), "no menu on #{path}"
     end
 
+    # Settings lives in the menu's foot now, not on the page.
     {:ok, view, _html} = live(conn, ~p"/today")
-    refute render(view) =~ "ph-gear-six"
+    refute view |> element("main") |> render() =~ "ph-gear-six"
   end
 
   describe "the menu" do
@@ -118,6 +119,13 @@ defmodule ToreWeb.TabBarLiveTest do
              |> render() =~ ~r/>\s*0\s*</
 
       assert has_element?(bar(view), ~s([data-role="menu-settings"][href="/settings"]))
+
+      # Ask Tore leads, under the household; Members and diet live inside Settings.
+      menu = bar(view) |> element(~s([data-role="menu"])) |> render()
+      [before_week, _] = String.split(menu, ~s(data-role="menu-day"), parts: 2)
+      assert before_week =~ ~s(data-role="menu-ask")
+      refute menu =~ "/settings#members"
+      refute menu =~ "/settings#diet"
     end
 
     test "closes on the scrim, on Escape, and when a link is followed", %{conn: conn} do
@@ -145,7 +153,7 @@ defmodule ToreWeb.TabBarLiveTest do
       :ok
     end
 
-    test "holds the tabs and Ask Tore, and marks where you are", %{conn: conn} do
+    test "holds the tabs with Tore among them, and marks where you are", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/today")
       render_hook(bar(view), "here", %{"path" => "/recipes", "wide" => true})
 
@@ -156,15 +164,23 @@ defmodule ToreWeb.TabBarLiveTest do
         )
         |> Enum.map(fn match -> Enum.find(tl(match), &(&1 != "")) end)
 
-      assert tabs == ["/today", "/plan", "/shop", "/recipes"]
+      assert tabs == ["/today", "/plan", "/capture?return_to=%2Frecipes", "/shop", "/recipes"]
 
       assert bar(view)
              |> element(~s([data-role="sidebar"] a[aria-current="page"]))
              |> render() =~ ~s(href="/recipes")
 
-      assert bar(view)
-             |> element(~s([data-role="sidebar"] [data-role="menu-ask"]))
-             |> render() =~ ~s(href="/capture?return_to=%2Frecipes")
+      # Settings sits alone at the foot; Tore is a row with the tabs, not a bar.
+      refute has_element?(bar(view), ~s([data-role="sidebar"] [data-role="menu-ask"]))
+
+      assert has_element?(
+               bar(view),
+               ~s([data-role="sidebar"] [data-role="side-foot"] [data-role="menu-settings"])
+             )
+
+      refute bar(view)
+             |> element(~s([data-role="sidebar"] [data-role="menu-sections"]))
+             |> render() =~ ~s(data-role="menu-settings")
     end
 
     test "shows the menu's sections, read again on every move", %{conn: conn} do

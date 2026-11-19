@@ -9,7 +9,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### On a laptop: sidebar and recipe pages (2026-11-19)
 
-- From 1024 px wide the tab bar becomes a sidebar that stays open: the tabs, this week, favourites, collections, the household and Ask Tore.
+- From 1024 px wide the tab bar becomes a sidebar that stays open: the tabs with Tore among them, this week, favourites, collections and the household's pages, with Settings alone at the foot.
+- The phone menu opens on Ask Tore, under the household's name; Settings moves to its foot, and members and diet are reached inside Settings.
 - A recipe opens as a full page beside it, with the ingredients next to the method. Recipes shows up to five pictures a row.
 - The phone is unchanged.
 

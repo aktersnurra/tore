@@ -215,11 +215,12 @@ defmodule ToreWeb.TabBarLive do
       >
         <div class="flex-1 overflow-y-auto px-2.5 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-4">
           <.household name={@menu.household} />
+          <.ask_tore return_to={@return_to} />
           <.sections menu={@menu} />
         </div>
 
         <div class="px-2.5 pt-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          <.ask_tore return_to={@return_to} />
+          <.settings_row />
         </div>
       </nav>
     </div>
@@ -230,10 +231,14 @@ defmodule ToreWeb.TabBarLive do
   attr :path, :string, required: true
   attr :return_to, :string, required: true
 
-  # The sidebar on a wide screen. The tabs and Ask Tore are there from the first paint; the
-  # sections come once the hook has said the screen is wide.
+  # The sidebar on a wide screen. The tabs, Tore among them, and Settings are there from the
+  # first paint; the sections come once the hook has said the screen is wide.
   defp sidebar(assigns) do
-    assigns = assign(assigns, tabs: Enum.reject(tabs(), &(&1 == :tore)))
+    tore =
+      {~p"/capture?#{[return_to: assigns.return_to]}", {"ph-chat-circle", "ph-chat-circle-fill"},
+       "Tore"}
+
+    assigns = assign(assigns, tabs: Enum.map(tabs(), &if(&1 == :tore, do: tore, else: &1)))
 
     ~H"""
     <aside
@@ -255,10 +260,12 @@ defmodule ToreWeb.TabBarLive do
           <.icon name={if current?(href, @path), do: icon_on, else: icon} class="size-5 shrink-0" />
           {label}
         </.link>
-        <.sections :if={@side} menu={@side} tonight_lit={false} />
+        <div :if={@side} data-role="menu-sections">
+          <.sections menu={@side} tonight_lit={false} />
+        </div>
       </div>
-      <div class="px-2.5 pt-2 pb-4">
-        <.ask_tore return_to={@return_to} />
+      <div class="px-2.5 pt-2 pb-4" data-role="side-foot">
+        <.settings_row />
       </div>
     </aside>
     """
@@ -353,20 +360,22 @@ defmodule ToreWeb.TabBarLive do
       <span class="truncate">{gettext("At home")}</span>
       <span class="menu-count num">{@menu.at_home}</span>
     </.link>
-    <.link navigate={~p"/settings#members"} class="menu-row row-hover">
-      <span class="ph-users-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
-      {gettext("Members")}
-    </.link>
-    <.link navigate={~p"/settings#diet"} class="menu-row row-hover">
-      <span class="ph-leaf-duotone size-5 shrink-0 text-[color:var(--tag-green-ink)]"></span>
-      {gettext("Diet and allergies")}
-    </.link>
     <.link navigate={~p"/settings#budget"} class="menu-row row-hover">
       <span class="ph-piggy-bank-duotone size-5 shrink-0 text-[color:var(--tag-yellow-ink)]"></span>
       {gettext("Weekly budget")}
     </.link>
-    <.link navigate={~p"/settings"} data-role="menu-settings" class="menu-row row-hover">
-      <span class="ph-gear-six-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
+    """
+  end
+
+  # Settings sits apart at the foot: configuration, not a page you use every week.
+  defp settings_row(assigns) do
+    ~H"""
+    <.link
+      navigate={~p"/settings"}
+      data-role="menu-settings"
+      class="menu-row row-hover text-[color:var(--muted)]"
+    >
+      <span class="ph-gear-six-duotone size-5 shrink-0"></span>
       {gettext("Settings")}
     </.link>
     """
@@ -374,15 +383,16 @@ defmodule ToreWeb.TabBarLive do
 
   attr :return_to, :string, required: true
 
+  # First in the drawer, like search in Notion: a soft field, not a floating bar.
   defp ask_tore(assigns) do
     ~H"""
     <.link
       navigate={~p"/capture?#{[return_to: @return_to]}"}
       data-role="menu-ask"
-      class="press flex h-11 items-center gap-2.5 rounded-full bg-[var(--bg)] px-4 text-[color:var(--muted)] shadow-[var(--shadow-card)]"
-      style="font-size: 15px;"
+      class="press mb-1.5 flex h-9 items-center gap-2 rounded-[var(--r-sm)] bg-[var(--sunken)] px-2.5 text-[color:var(--muted)]"
+      style="font-size: 14px;"
     >
-      <.icon name="ph-chat-circle" class="size-5" />
+      <.icon name="ph-chat-circle" class="size-4" />
       {gettext("Ask Tore")}
     </.link>
     """
