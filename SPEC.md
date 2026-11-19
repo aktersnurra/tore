@@ -901,10 +901,18 @@ week. The receipt row on Shop shows its week and a tap moves it to the other. "W
 receipt, the plan screen gives the verdict in place of the estimate: "Spent 1 940 of 2 000 kr, about 5 % above the
 estimate". With nothing paid there is no verdict and no reminder.
 
-**Calibration** (`Tore.Budget.adjustment/2`): the mean of what was paid minus what was estimated (dinners and open
+**Calibration** (`Tore.Budget.Forecast.OpenDays.adjustment/1`): the mean of what was paid minus what was estimated (dinners and open
 days), over the latest four earlier weeks that had dinners planned and receipts, once there are two. It is added to the dinners' estimate to give
 what the week is expected to cost, which is what the budget, the planner's retry and the plan screen hold against.
 It absorbs basics, pack sizes and what's already at home.
+
+**Forecast** (`Tore.Budget.Forecast`, 2026-11-20): what a week is expected to cost is a rung of a ladder
+(`.docs/specs/budget-forecast.md`), each rung a pure function of `Forecast.Facts`, what Tore knew at a moment
+(`as_of`): plan events, receipts and offers count from when they were stored, so a past week can be predicted as it
+stood. Basics, the model's price estimates and product matches keep no history and are read as they stand. The live
+rung is `OpenDays` (the calibration above); `Baseline` counts no open days. `backtest/2` predicts each finished week
+from its Monday and reports each rung's mean absolute error, and its range coverage once a rung gives a range. A rung
+drives the page only once it beats the one below.
 
 **Basics** (`Tore.Basics`) are what the household buys regularly beyond its dinners, so the list and the estimate
 cover the whole shop. One is learned when an ingredient was ticked off the list in three or more of the last twelve

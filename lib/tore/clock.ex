@@ -26,4 +26,16 @@ defmodule Tore.Clock do
     |> :calendar.universal_time_to_local_time()
     |> NaiveDateTime.from_erl!()
   end
+
+  @doc "The stored (UTC) moment of the household's local time `local`, which must exist."
+  @spec utc(NaiveDateTime.t()) :: NaiveDateTime.t()
+  def utc(%NaiveDateTime{} = local) do
+    [utc | _] =
+      local
+      |> NaiveDateTime.truncate(:second)
+      |> NaiveDateTime.to_erl()
+      |> :calendar.local_time_to_universal_time_dst()
+
+    NaiveDateTime.from_erl!(utc)
+  end
 end

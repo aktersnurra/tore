@@ -44,13 +44,21 @@ defmodule Tore.Deals do
 
   @doc """
   The deals that can count for the week starting `week_start`: those still running on its Monday
-  or later and seen before it ended, at the stores the household uses and has switched on. A past
-  week is priced as it was, never from offers that came later.
+  or later and seen before it ended (and by `as_of`, a UTC moment), at the stores the household
+  uses and has switched on. A past week is priced as it was, never from offers that came later.
   """
-  @spec valid_in_week(Scope.t(), Date.t()) :: [Deal.t()]
-  def valid_in_week(%Scope{} = scope, %Date{} = week_start) do
+  @spec valid_in_week(Scope.t(), Date.t(), NaiveDateTime.t()) :: [Deal.t()]
+  def valid_in_week(
+        %Scope{} = scope,
+        %Date{} = week_start,
+        as_of \\ NaiveDateTime.utc_now()
+      ) do
     seen_by = week_end(week_start)
-    scope |> valid_from(week_start) |> where([d], d.inserted_at < ^seen_by) |> all(scope)
+
+    scope
+    |> valid_from(week_start)
+    |> where([d], d.inserted_at < ^seen_by and d.inserted_at <= ^as_of)
+    |> all(scope)
   end
 
   @doc "The moment the week starting `week_start` ends: the next Monday at midnight."

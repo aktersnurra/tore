@@ -11,8 +11,8 @@ defmodule Tore.Planning do
   @spec topic(Scope.t()) :: String.t()
   def topic(%Scope{household_id: id}), do: "plan:household:#{id}"
 
-  def load_plan(%Scope{} = scope, plan_id) do
-    EventStore.load(scope, plan_id, Decider)
+  def load_plan(%Scope{} = scope, plan_id, as_of \\ nil) do
+    EventStore.load(scope, plan_id, Decider, as_of)
   end
 
   @doc """

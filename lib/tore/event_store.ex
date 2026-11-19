@@ -16,12 +16,19 @@ defmodule Tore.EventStore do
     end
   end
 
-  @spec load(Scope.t(), String.t(), module()) :: {:ok, term()}
-  def load(%Scope{} = scope, stream_id, decider) do
+  @doc """
+  The stream's state from its events, or from those stored by `until` (a UTC moment), to see it
+  as it stood then.
+  """
+  @spec load(Scope.t(), String.t(), module(), NaiveDateTime.t() | nil) :: {:ok, term()}
+  def load(%Scope{} = scope, stream_id, decider, until \\ nil) do
     events_module = events_module_for(decider)
 
+    query = from(e in Event, where: e.stream_id == ^stream_id, order_by: [asc: e.id])
+    query = if until, do: where(query, [e], e.inserted_at <= ^until), else: query
+
     state =
-      from(e in Event, where: e.stream_id == ^stream_id, order_by: [asc: e.id])
+      query
       |> Repo.all(Scope.repo_opts(scope))
       |> Enum.reduce(decider.initial(), fn raw, acc ->
         event = deserialize(events_module, raw.event_type, raw.data)

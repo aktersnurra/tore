@@ -4,10 +4,15 @@ defmodule Tore.BudgetVerdictTest do
   import Ecto.Query
 
   alias Tore.{Budget, Costs, Planning, Recipes, Shop, Streams}
+  alias Tore.Budget.Forecast.{Facts, OpenDays}
 
   @week ~D[2026-11-02]
 
   defp d(s), do: Decimal.new(s)
+
+  # What the budget adds for what recent weeks paid beyond their plans, as known at `as_of`.
+  defp adjustment(week_start, as_of \\ NaiveDateTime.utc_now()),
+    do: OpenDays.adjustment(Facts.load(home_scope(), week_start, as_of))
 
   defp tick(week_start) do
     list = Streams.shop_list(home_scope(), week_start)
@@ -140,12 +145,12 @@ defmodule Tore.BudgetVerdictTest do
       planned(@week, "1000")
 
       receipt(Date.add(w1, 3), "1100")
-      assert Budget.adjustment(home_scope(), @week) == nil
+      assert adjustment(@week) == nil
       assert %{expected: expected} = Budget.status(home_scope(), @week)
       assert Decimal.eq?(expected, 1000)
 
       receipt(Date.add(w2, 3), "1300")
-      assert Budget.adjustment(home_scope(), @week) == d("200.00")
+      assert adjustment(@week) == d("200.00")
       assert %{expected: expected} = Budget.status(home_scope(), @week)
       assert Decimal.eq?(expected, 1200)
     end
@@ -159,9 +164,15 @@ defmodule Tore.BudgetVerdictTest do
       receipt(Date.add(w2, 3), "1300")
       receipt(Date.add(@week, 1), "200")
 
+      # All of it known well before; only which weeks had ended by the time asked differs.
+      opts = Tore.Scope.repo_opts(home_scope())
+      Repo.update_all(Tore.EventStore.Event, [set: [inserted_at: ~N[2026-10-01 00:00:00]]], opts)
+      Repo.update_all(Costs.Receipt, [set: [inserted_at: ~N[2026-10-01 00:00:00]]], opts)
+      at = &Tore.Clock.utc(NaiveDateTime.new!(&1, ~T[12:00:00]))
+
       next = Date.add(@week, 7)
-      assert Budget.adjustment(home_scope(), next, Date.add(@week, 5)) == d("200.00")
-      assert Budget.adjustment(home_scope(), next, next) == d("-133.33")
+      assert adjustment(next, at.(Date.add(@week, 5))) == d("200.00")
+      assert adjustment(next, at.(next)) == d("-133.33")
     end
 
     test "a weekend shop for the week doesn't price that week's own estimate" do
@@ -210,7 +221,7 @@ defmodule Tore.BudgetVerdictTest do
       receipt(Date.add(w2, 3), "1100")
       receipt(Date.add(@week, -4), "2500")
 
-      assert Budget.adjustment(home_scope(), @week) == d("100.00")
+      assert adjustment(@week) == d("100.00")
     end
 
     test "a week's estimate never learns from its own receipts" do

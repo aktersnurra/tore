@@ -32,15 +32,24 @@ defmodule Tore.Prices do
   @type line :: %{ingredient_id: integer(), quantity: Decimal.t() | nil, unit: String.t() | nil}
   @type cost :: %{amount: Decimal.t(), priced: non_neg_integer(), total: non_neg_integer()}
 
-  @doc "Every source's prices for `ingredient_ids` in the week starting `week_start`."
-  @spec for_ingredients(Scope.t(), [integer()], Date.t()) :: prices()
-  def for_ingredients(%Scope{} = scope, ingredient_ids, %Date{} = week_start) do
+  @doc """
+  Every source's prices for `ingredient_ids` in the week starting `week_start`, from offers and
+  receipts Tore had by `as_of` (a UTC moment). The model's estimates have no history and are read
+  as they stand.
+  """
+  @spec for_ingredients(Scope.t(), [integer()], Date.t(), NaiveDateTime.t()) :: prices()
+  def for_ingredients(
+        %Scope{} = scope,
+        ingredient_ids,
+        %Date{} = week_start,
+        as_of \\ NaiveDateTime.utc_now()
+      ) do
     ids = MapSet.new(ingredient_ids)
 
     [
-      deal: deal_prices(scope, week_start),
-      paid: paid_prices(scope, week_start),
-      regular: regular_prices(scope, week_start),
+      deal: deal_prices(scope, week_start, as_of),
+      paid: paid_prices(scope, week_start, as_of),
+      regular: regular_prices(scope, week_start, as_of),
       estimate: estimates(scope, ingredient_ids)
     ]
     |> Enum.reduce(%{}, fn {source, by_ingredient}, acc ->
@@ -145,9 +154,9 @@ defmodule Tore.Prices do
   # ---- Sources ---------------------------------------------------------------
 
   # The cheapest offer per unit among the deals running in the week.
-  defp deal_prices(scope, week_start) do
+  defp deal_prices(scope, week_start, as_of) do
     scope
-    |> Deals.valid_in_week(week_start)
+    |> Deals.valid_in_week(week_start, as_of)
     |> by_ingredient(scope, & &1.product_name, &deal_forms/1)
     |> Map.new(fn {id, forms} -> {id, Enum.reduce(forms, &cheapest/2)} end)
   end
@@ -163,11 +172,13 @@ defmodule Tore.Prices do
   # counted towards earlier weeks: a week's estimate never learns from its own receipts, a
   # weekend shop for it included, so it can be worked out again later and compared with what was
   # paid.
-  defp paid_prices(scope, week_start) do
+  defp paid_prices(scope, week_start, as_of) do
     from(l in LineItem,
       join: r in Receipt,
       on: r.id == l.receipt_id,
-      where: not is_nil(l.total_price) and l.quantity > 0 and r.week_start < ^week_start,
+      where:
+        not is_nil(l.total_price) and l.quantity > 0 and r.week_start < ^week_start and
+          r.inserted_at <= ^as_of,
       order_by: [desc: r.date, desc: l.id],
       limit: 500,
       select: l
@@ -185,8 +196,9 @@ defmodule Tore.Prices do
   end
 
   # The latest regular price per ingredient, from any offer the household's stores had seen by
-  # the week's end. It is per the offer's unit; the comparison price scales by the same discount.
-  defp regular_prices(scope, week_start) do
+  # the week's end, and by `as_of`. It is per the offer's unit; the comparison price scales by the
+  # same discount.
+  defp regular_prices(scope, week_start, as_of) do
     seen_by = Deals.week_end(week_start)
 
     from(d in Deal,
@@ -194,7 +206,7 @@ defmodule Tore.Prices do
       on: s.name == d.store,
       join: hs in HouseholdStore,
       on: hs.store_id == s.id,
-      where: not is_nil(d.regular_price) and d.inserted_at < ^seen_by,
+      where: not is_nil(d.regular_price) and d.inserted_at < ^seen_by and d.inserted_at <= ^as_of,
       order_by: [desc: d.valid_until],
       distinct: true
     )
