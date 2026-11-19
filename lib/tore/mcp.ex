@@ -32,6 +32,7 @@ defmodule Tore.Mcp do
     Tools.MatchDeals,
     Tools.MarkCooked,
     Tools.DeleteRecipe,
+    Tools.PutTogether,
     Tools.DeleteReceipt,
     Tools.SaveRecipe,
     Tools.LogReceipt,

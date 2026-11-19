@@ -69,7 +69,7 @@ defmodule Tore.Mcp.WriteToolsTest do
     names = Enum.map(tools, & &1["name"])
 
     for name <-
-          ~w(set_dinner change_day add_to_list check_off remove_from_list make_list add_to_pantry remove_from_pantry update_memory mark_cooked delete_recipe delete_receipt undo),
+          ~w(set_dinner change_day add_to_list check_off remove_from_list make_list add_to_pantry remove_from_pantry update_memory mark_cooked delete_recipe delete_receipt put_together undo),
         do: assert(name in names, name)
   end
 
@@ -186,6 +186,38 @@ defmodule Tore.Mcp.WriteToolsTest do
                  %{"action" => "patch", "old_text" => "inget sådant", "content" => "x"}
                ]
              })
+  end
+
+  test "put_together makes a meal of the household's recipes, and says what's wrong", %{
+    scope: scope
+  } do
+    sauce = recipe("Bearnaise")
+    meat = recipe("Stekt entrecote")
+
+    result =
+      ok(scope, "put_together", %{
+        "title" => "Entrecote med bearnaise",
+        "servings" => 4,
+        "part_ids" => [meat.id, sauce.id]
+      })
+
+    assert result["done"] =~ "Entrecote med bearnaise"
+    meal = Recipes.get!(scope, result["recipe_id"])
+    assert Enum.map(meal.parts, & &1.title) == ["Stekt entrecote", "Bearnaise"]
+
+    assert ok(scope, "get_recipe", %{"recipe_id" => meal.id})["parts"] == [
+             %{"id" => meat.id, "title" => "Stekt entrecote"},
+             %{"id" => sauce.id, "title" => "Bearnaise"}
+           ]
+
+    assert %{"isError" => true} =
+             error =
+             call(scope, "put_together", %{"title" => "X", "part_ids" => [sauce.id, 999_999]})
+
+    assert inspect(error) =~ "save_recipe"
+
+    assert %{"isError" => true} =
+             call(scope, "put_together", %{"title" => "X", "part_ids" => [meal.id, sauce.id]})
   end
 
   test "mark_cooked, delete_recipe and delete_receipt", %{scope: scope} do

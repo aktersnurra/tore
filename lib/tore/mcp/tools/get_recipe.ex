@@ -44,7 +44,8 @@ defmodule Tore.Mcp.Tools.GetRecipe do
           %{name: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit, notes: ri.notes}
         end,
       steps: Recipe.decode_steps(recipe),
-      instructions: recipe.instructions
+      instructions: recipe.instructions,
+      parts: for(part <- recipe.parts, do: %{id: part.id, title: part.title})
     }
   end
 end
