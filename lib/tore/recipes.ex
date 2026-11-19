@@ -279,6 +279,7 @@ defmodule Tore.Recipes do
     |> filter_type(opts[:type])
     |> filter_max_minutes(opts[:max_minutes])
     |> filter_weeknight(opts[:weeknight_friendly])
+    |> filter_without_parts(opts[:without_parts])
     |> apply_sort(opts[:sort])
     |> Repo.all(Scope.repo_opts(scope))
     |> Repo.preload([:tags])
@@ -805,6 +806,12 @@ defmodule Tore.Recipes do
     from r in query,
       where: coalesce(r.prep_time_minutes, 0) + coalesce(r.cook_time_minutes, 0) <= ^max
   end
+
+  # What can be a part: a recipe that isn't itself put together from parts.
+  defp filter_without_parts(query, true),
+    do: from(r in query, where: r.id not in subquery(from(p in RecipePart, select: p.recipe_id)))
+
+  defp filter_without_parts(query, _), do: query
 
   defp filter_weeknight(query, true) do
     query

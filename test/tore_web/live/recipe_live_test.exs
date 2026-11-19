@@ -703,5 +703,31 @@ defmodule ToreWeb.RecipeLiveTest do
       assert view |> element(~s([data-role="part-of"])) |> render() =~
                ~s(href="/recipes?id=#{meal.id}")
     end
+
+    test "Sätt ihop puts a new meal together from the recipes picked", %{
+      conn: conn,
+      user: user,
+      sauce: sauce,
+      meat: meat,
+      meal: meal
+    } do
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes")
+      view |> element(~s([data-role="new-recipe"])) |> render_click()
+      view |> element(~s([data-role="compose"])) |> render_click()
+
+      # A meal that has parts isn't offered as one.
+      refute has_element?(view, ~s(#compose input[value="#{meal.id}"]))
+
+      assert view |> form("#compose", %{title: "Middag", part_ids: [sauce.id]}) |> render_submit() =~
+               "Välj minst två"
+
+      view
+      |> form("#compose", %{title: "Biff med bearnaise", part_ids: [meat.id, sauce.id]})
+      |> render_submit()
+
+      new = Enum.find(Recipes.list(home_scope()), &(&1.title == "Biff med bearnaise"))
+      assert Enum.map(Recipes.get!(home_scope(), new.id).parts, & &1.id) == [meat.id, sauce.id]
+      assert has_element?(view, ~s([data-role="parts"]))
+    end
   end
 end

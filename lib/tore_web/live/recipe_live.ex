@@ -23,6 +23,7 @@ defmodule ToreWeb.RecipeLive do
        form: nil,
        error: nil,
        adding: false,
+       compose: nil,
        importing: false,
        import_error: nil,
        import_url: "",
@@ -239,6 +240,55 @@ defmodule ToreWeb.RecipeLive do
     end
   end
 
+  # Sätt ihop: a dinner from recipes the household has. Sauces and sides come first, since
+  # that's what a dinner is usually put together from.
+  def handle_event("compose", _, socket) do
+    options =
+      socket.assigns.current_scope
+      |> Recipes.list(without_parts: true, sort: :alphabetical)
+      |> Enum.sort_by(&(&1.recipe_type != :component))
+
+    {:noreply,
+     assign(socket, adding: false, compose: %{options: options, servings: 4, error: nil})}
+  end
+
+  def handle_event("compose_servings", %{"by" => by}, socket) do
+    compose = socket.assigns.compose
+    servings = (compose.servings + String.to_integer(by)) |> max(1) |> min(24)
+    {:noreply, assign(socket, compose: %{compose | servings: servings})}
+  end
+
+  def handle_event("put_together", params, socket) do
+    scope = socket.assigns.current_scope
+    compose = socket.assigns.compose
+
+    attrs = %{
+      title: String.trim(params["title"] || ""),
+      servings: compose.servings,
+      part_ids: Enum.map(params["part_ids"] || [], &String.to_integer/1)
+    }
+
+    case Recipes.put_together(scope, attrs) do
+      {:ok, meal} ->
+        {:noreply,
+         socket
+         |> assign(compose: nil, recipes: Recipes.list(scope))
+         |> push_patch(to: ~p"/recipes?#{[id: meal.id]}")}
+
+      {:error, :too_few_parts} ->
+        {:noreply, assign(socket, compose: %{compose | error: gettext("Pick at least two.")})}
+
+      {:error, %Ecto.Changeset{}} ->
+        {:noreply, assign(socket, compose: %{compose | error: gettext("Give it a name.")})}
+
+      {:error, _} ->
+        {:noreply,
+         assign(socket,
+           compose: %{compose | error: gettext("Couldn't put it together. Try again.")}
+         )}
+    end
+  end
+
   def handle_event("close", _, socket) do
     if socket.assigns.selected,
       do: {:noreply, push_patch(socket, to: ~p"/recipes")},
@@ -451,6 +501,7 @@ defmodule ToreWeb.RecipeLive do
       selected: nil,
       form: nil,
       adding: false,
+      compose: nil,
       importing: false,
       import_error: nil,
       error: nil,
@@ -748,7 +799,7 @@ defmodule ToreWeb.RecipeLive do
         </section>
 
         <div
-          :if={@selected != nil or @form != nil or @adding}
+          :if={@selected != nil or @form != nil or @adding or @compose != nil}
           class="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
           phx-window-keydown="close"
           phx-key="Escape"
@@ -756,13 +807,15 @@ defmodule ToreWeb.RecipeLive do
           <div class="scrim absolute inset-0 hidden bg-black/50 md:block" phx-click="close"></div>
           <div class={[
             "relative h-full w-full overflow-y-auto bg-[var(--bg)] md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[28px] md:shadow-[var(--shadow-pop)]",
-            (@form || @adding) && "sheet"
+            (@form || @adding || @compose) && "sheet"
           ]}>
             <%= cond do %>
               <% @form -> %>
                 <div class="p-6">{render_form(assigns)}</div>
               <% @adding -> %>
                 <div class="p-6">{render_link(assigns)}</div>
+              <% @compose -> %>
+                <div class="p-6">{render_compose(assigns)}</div>
               <% @selected -> %>
                 {render_detail(assigns)}
               <% true -> %>
@@ -1352,6 +1405,113 @@ defmodule ToreWeb.RecipeLive do
         >
           {gettext("Write it yourself")}
         </button>
+      </form>
+      <button
+        type="button"
+        phx-click="compose"
+        data-role="compose"
+        class="press w-full py-2 text-center text-[color:var(--muted)] hover:text-[color:var(--text)]"
+        style="font-size: var(--t-meta);"
+      >
+        {gettext("Put together from other recipes")}
+      </button>
+    </div>
+    """
+  end
+
+  defp render_compose(assigns) do
+    ~H"""
+    <div>
+      <div class="flex items-center justify-between">
+        <h2 class="font-semibold tracking-tight text-[var(--text)]" style="font-size: var(--t-h1);">
+          {gettext("Put together")}
+        </h2>
+        <button
+          type="button"
+          phx-click="close"
+          aria-label={gettext("Close")}
+          class="press size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--muted)] hover:bg-[color:var(--hairline)]"
+        >
+          <.icon name="ph-x" class="size-5" />
+        </button>
+      </div>
+      <p class="mt-1 text-[color:var(--muted)]">
+        {gettext("Pick the parts of a dinner. It follows them when they change.")}
+      </p>
+
+      <form id="compose" phx-submit="put_together" class="mt-5">
+        <input
+          type="text"
+          name="title"
+          autocomplete="off"
+          placeholder={gettext("Name, e.g. Entrecote with béarnaise")}
+          aria-label={gettext("Name")}
+          phx-mounted={JS.focus()}
+          class="w-full rounded-full border border-[color:var(--hairline)] bg-[var(--surface)] px-5 py-3 text-[var(--text)]"
+        />
+
+        <div class="mt-4 flex items-center justify-between">
+          <span class="text-[color:var(--muted)]">{gettext("Servings")}</span>
+          <span class="flex items-center gap-2">
+            <button
+              type="button"
+              phx-click="compose_servings"
+              phx-value-by="-1"
+              disabled={@compose.servings <= 1}
+              aria-label={gettext("Fewer servings")}
+              class="step-btn press"
+            >
+              <.icon name="ph-minus" class="size-4" />
+            </button>
+            <span class="num w-8 text-center font-semibold">{@compose.servings}</span>
+            <button
+              type="button"
+              phx-click="compose_servings"
+              phx-value-by="1"
+              disabled={@compose.servings >= 24}
+              aria-label={gettext("More servings")}
+              class="step-btn press"
+            >
+              <.icon name="ph-plus" class="size-4" />
+            </button>
+          </span>
+        </div>
+
+        <ul class="menu-lines mt-4">
+          <li :for={recipe <- @compose.options}>
+            <label class="flex cursor-pointer items-center gap-3 py-3">
+              <input
+                type="checkbox"
+                name="part_ids[]"
+                value={recipe.id}
+                class="size-5 shrink-0 accent-[color:var(--text)]"
+              />
+              <span class="min-w-0 flex-1 truncate text-[color:var(--text)]">{recipe.title}</span>
+              <span class={["tag shrink-0", "tag-#{ToreWeb.Look.tint(recipe.recipe_type)}"]}>
+                {type_label(recipe.recipe_type)}
+              </span>
+            </label>
+          </li>
+        </ul>
+
+        <p
+          :if={@compose.error}
+          role="alert"
+          class="settle mt-3 text-[color:var(--warn)]"
+          style="font-size: var(--t-meta);"
+        >
+          {@compose.error}
+        </p>
+        <div class="sticky bottom-0 -mx-6 mt-4 bg-[var(--bg)] px-6 py-3">
+          <.button
+            type="submit"
+            variant={:primary}
+            full
+            phx-disable-with={gettext("Putting it together…")}
+          >
+            {gettext("Put together")}
+          </.button>
+        </div>
       </form>
     </div>
     """
