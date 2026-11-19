@@ -23,11 +23,14 @@ defmodule ToreWeb.PiReply do
     Phoenix.Component.assign(socket, pi_reply: nil, pi_working: nil)
   end
 
-  @doc "Asks pi `message`; `working` names what it's doing until it is done."
-  def ask(socket, message, working) do
+  @doc """
+  Asks pi `message`; `working` names what it's doing until it is done. `opts` go to `Tore.Pi.ask/4`
+  (`:images`).
+  """
+  def ask(socket, message, working, opts \\ []) do
     scope = socket.assigns.current_scope
 
-    case Pi.ask(scope, Pi.chat_session(scope), message) do
+    case Pi.ask(scope, Pi.chat_session(scope), message, opts) do
       :ok ->
         Phoenix.Component.assign(socket, pi_reply: "", pi_working: working)
 

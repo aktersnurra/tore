@@ -2,15 +2,13 @@ defmodule Tore.Capture.Dispatch do
   @moduledoc """
   The writes behind Tore's MCP tools, each through a run where it can be undone, answering
   with a bubble: the words to say and, when it can be undone, the run's id
-  (`Tore.Mcp.Tool` turns it into the tool's result). The shopping list's receipt photo and the
-  Recipes screen's link import call `read_receipt/2` and `import_recipe_from_url/2` directly.
+  (`Tore.Mcp.Tool` turns it into the tool's result).
   """
 
   use Gettext, backend: ToreWeb.Gettext
 
-  alias Tore.Capture.Uploads
   alias Tore.Costs
-  alias Tore.Harness.Artifact.{CostEntry, MemoryBatch}
+  alias Tore.Harness.Artifact.MemoryBatch
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Kinds
   alias Tore.Household.Memory
@@ -24,43 +22,6 @@ defmodule Tore.Capture.Dispatch do
 
   @type ctx :: %{required(:scope) => Tore.Scope.t(), optional(:actor) => :mcp}
   @type bubble :: map()
-
-  # ── receipt ────────────────────────────────────────────────────────────
-
-  @type receipt_result ::
-          {:saved, run_id :: String.t(), text :: String.t()}
-          | {:duplicate, text :: String.t()}
-          | {:failed, text :: String.t()}
-
-  @doc """
-  Reads a receipt photo and says what came of it, with the words to show for it. For a caller
-  that is not the chat, such as the shopping list; `ingest_receipt/2` is the same as a chat bubble.
-  """
-  @spec read_receipt(Tore.Scope.t(), binary()) :: receipt_result()
-  def read_receipt(%Tore.Scope{} = scope, image) when is_binary(image) do
-    result =
-      with_dedup(image, scope, "receipt", fn ->
-        case Runs.start(scope, Kinds.Receipt, %{image_binary: image}) do
-          {:ok, %KitchenRun{status: :applied} = run} ->
-            {:ok, {:saved, run.id, receipt_text(run)}}
-
-          {:ok, %KitchenRun{status: :failed, failure_code: code}} ->
-            {:failed, {:failed, error_text(:receipt, code)}}
-
-          {:error, reason} ->
-            {:failed, {:failed, error_text(:receipt, reason)}}
-        end
-      end)
-
-    with :duplicate <- result, do: {:duplicate, duplicate_text()}
-  end
-
-  defp receipt_text(%KitchenRun{artifacts: [%CostEntry{} = cost]}) do
-    gettext("Saved the receipt from %{store}: %{total} kr.",
-      store: cost.store_name,
-      total: Decimal.to_string(Decimal.round(cost.total, 2), :normal)
-    )
-  end
 
   # ── plan slot mutation ─────────────────────────────────────────────────
 
@@ -629,31 +590,6 @@ defmodule Tore.Capture.Dispatch do
     do: gettext("Forgot: %{text}", text: text)
 
   # ── helpers ────────────────────────────────────────────────────────────
-
-  # The hash is recorded before the photo is read, so two uploads of the same bytes at once
-  # can't both start a run. A photo whose reading failed is forgotten again, so it can be
-  # retried.
-  defp with_dedup(image, scope, kind, run_fn) do
-    hash = Uploads.content_hash(image)
-    upload_id = KitchenRun.new_id()
-
-    case Uploads.record(scope, hash, upload_id, kind) do
-      {:ok, ^upload_id} ->
-        case run_fn.() do
-          {:ok, result} ->
-            result
-
-          {:failed, result} ->
-            Uploads.forget(scope, hash)
-            result
-        end
-
-      {:duplicate, _upload_id} ->
-        :duplicate
-    end
-  end
-
-  defp duplicate_text, do: gettext("You've already uploaded this photo.")
 
   defp current_shop_list_id(ctx), do: Streams.shop_list(ctx.scope, Tore.Clock.today())
 

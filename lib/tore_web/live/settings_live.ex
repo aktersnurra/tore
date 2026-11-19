@@ -151,11 +151,6 @@ defmodule ToreWeb.SettingsLive do
   defp memory_part_label("notes"), do: gettext("Notes")
 
   defp feature_label("canonicalise_pantry"), do: gettext("Pantry item matching")
-  defp feature_label("capture"), do: gettext("Chat")
-  defp feature_label("check_recipe_html"), do: gettext("Recipe page check")
-  defp feature_label("classify_item"), do: gettext("Shopping list sorting")
-  defp feature_label("extract_recipe"), do: gettext("Recipe import")
-  defp feature_label("filter_pantry"), do: gettext("Pantry check for the shopping list")
   defp feature_label("generate_prep_guide"), do: gettext("Prep guide")
   defp feature_label("home_pick"), do: gettext("Home screen pick")
   defp feature_label("pi_chat"), do: gettext("Chat")
@@ -163,9 +158,6 @@ defmodule ToreWeb.SettingsLive do
   defp feature_label("pi_find_recipes"), do: gettext("Recipe search on the web")
   defp feature_label("pi_plan_week"), do: gettext("Planning")
   defp feature_label("pi_weekly_reflection"), do: gettext("Memory review")
-  defp feature_label("parse_receipt"), do: gettext("Receipt parsing")
-  defp feature_label("planner"), do: gettext("Planning")
-  defp feature_label("recipe_web_search"), do: gettext("Recipe search on the web")
   defp feature_label("suggest_recipe"), do: gettext("Recipe suggestions")
   defp feature_label("suggest_substitution"), do: gettext("Substitution suggestions")
   defp feature_label(f), do: f

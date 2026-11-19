@@ -107,43 +107,6 @@ defmodule Tore.Capture.DispatchTest do
     end
   end
 
-  describe "the same photo twice" do
-    test "says it was already uploaded, without a link to nowhere" do
-      household_id = home_scope().household_id
-      image = <<255, 216, 255, 1, 2, 3>>
-
-      {:ok, _} =
-        Tore.Capture.Uploads.record(
-          Tore.Scope.for_household(household_id),
-          Tore.Capture.Uploads.content_hash(image),
-          "kr_seen",
-          "receipt"
-        )
-
-      assert {:duplicate, text} =
-               Dispatch.read_receipt(Tore.Scope.for_household(household_id), image)
-
-      assert text =~ "already uploaded"
-    end
-
-    test "is read again when the first try failed" do
-      test_pid = self()
-
-      Mox.expect(Tore.MockLLM, :vision, 2, fn _images, _system, _user, _opts ->
-        send(test_pid, :read)
-        {:error, :timeout}
-      end)
-
-      image = <<255, 216, 255, 9, 9, 9>>
-
-      assert {:failed, _} = Dispatch.read_receipt(home_scope(), image)
-      assert {:failed, _} = Dispatch.read_receipt(home_scope(), image)
-
-      assert_received :read
-      assert_received :read
-    end
-  end
-
   describe "mark_eating_out/3" do
     setup do
       user = user_fixture(name: "Tester")

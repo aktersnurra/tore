@@ -159,62 +159,6 @@ defmodule Tore.LLM.Prompts do
     }
   end
 
-  def parse_receipt(locale \\ nil) do
-    system = """
-    You are a receipt parser. Given a photo of a grocery receipt:
-    1. Extract the store name (if visible).
-    2. Extract the total amount paid (the final total).
-    3. Extract the purchase date printed on the receipt, in ISO 8601
-       (yyyy-mm-dd). If the receipt shows a locale-specific format
-       (DD/MM/YYYY, MM-DD-YY, etc.), convert to ISO. If no date is
-       visible, return null — do not guess.
-    4. Extract each purchased grocery item with name, quantity, unit, and
-       total_price: what the row cost in total, after any discount printed
-       directly under it. Null if the row shows no amount.
-       - Omit administrative line items: shopping bags, deposit/pant, returns,
-         loyalty discounts, fees. These are not products.
-       - Include food AND kitchen/cooking consumables a household would track
-         (e.g. baking parchment, foil, plastic wrap, cling film, baking cups,
-         paper towels used for cooking). These categorise as "other".
-       - Keep product names exactly as written on the receipt — do not translate.
-       - Use the unit conventions natural to the receipt's language.
-       - Column alignment matters: each quantity belongs to the row it sits
-         on. Before emitting, sanity-check that you have not pulled a number
-         from a neighbouring row. If two adjacent items share the same name,
-         emit two separate rows with their own quantities — do not merge.
-
-    Quantity policy:
-    - Weight-priced row (decimal quantity with a per-kg/per-lb price): emit the
-      weight as-is, do not multiply.
-      (e.g. a row showing "0.835" against a per-kg price → quantity 0.835, unit "kg".)
-    - Pack-encoded name (a suffix like "10P", "4P", "6X33CL" indicating pack
-      size): when the customer bought K such packs and the pack size is
-      unambiguous, report TOTAL UNITS (K × pack_size) as a count, not packs.
-      (e.g. an item name ending in "10P" bought ×2 → quantity 20, unit is the
-      local count unit such as "pcs"/"st"/"Stk". NOT quantity 2.)
-      If pack size is ambiguous, fall back to K packages.
-    - Plain integer quantity with no weight/pack hint: simple count.
-      (e.g. quantity "3" of an item with no pack code → quantity 3, count unit.)
-    - If a row has a quantity, ALWAYS emit a unit — decimals with per-weight
-      pricing → "kg"/"lb"; integer counts → the locale's count unit ("st"/"pcs"/etc).
-      Only emit a null unit when quantity is also null (item unidentifiable).
-    #{locale_hint(locale)}
-    Respond with a JSON object only. No prose.
-    """
-
-    user = "Extract the store name, total, and grocery items from this receipt."
-    {system, user}
-  end
-
-  defp locale_hint(nil), do: ""
-
-  defp locale_hint(locale) do
-    case Map.get(@locale_names, locale) do
-      nil -> ""
-      name -> "\nThis receipt is from a #{name}-speaking region."
-    end
-  end
-
   @estimate_prices_schema %{
     type: "object",
     required: ["items"],

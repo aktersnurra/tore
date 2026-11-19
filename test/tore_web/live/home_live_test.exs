@@ -254,8 +254,9 @@ defmodule ToreWeb.HomeLiveTest do
       refute render(view) =~ ~s(phx-submit="tonight_command")
       assert eventually(fn -> has_element?(view, ~s([data-role="pi-reply"]), "Klart.") end)
 
-      [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
+      [header | commands] = pi_records(log)
       assert header["session"] == "chat-#{user.id}"
+      %{"message" => message} = Enum.find(commands, &(&1["type"] == "prompt"))
       assert message =~ "From the Today screen, about tonight's dinner"
       assert message =~ Date.to_iso8601(Tore.Clock.today())
       assert message =~ "make it vegetarian"

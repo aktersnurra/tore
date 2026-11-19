@@ -128,6 +128,19 @@ defmodule Tore.Mcp.SubmittedToolsTest do
     assert Decimal.equal?(Costs.spent_in_week(scope, last_week), 1900)
   end
 
+  test "the same receipt twice is logged once" do
+    scope = %{home_scope() | user_id: user_fixture().id}
+    receipt = %{"store" => "ICA", "date" => Date.to_iso8601(Tore.Clock.today()), "total" => 89.5}
+
+    ok(scope, "log_receipt", receipt)
+
+    assert %{"isError" => true, "content" => [%{"text" => text}]} =
+             call(scope, "log_receipt", receipt)
+
+    assert text =~ "duplicate_receipt"
+    assert [_one] = Costs.recent_receipts(scope, 5)
+  end
+
   test "a receipt from the future, or without a total, is refused and says why" do
     tomorrow = Tore.Clock.today() |> Date.add(1) |> Date.to_iso8601()
 

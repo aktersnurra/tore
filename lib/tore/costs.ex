@@ -62,6 +62,17 @@ defmodule Tore.Costs do
     |> NaiveDateTime.add(-offset_minutes, :minute)
   end
 
+  @doc "Whether a receipt from `store` on `date` for `total` is already logged."
+  @spec receipt_logged?(Scope.t(), String.t(), Date.t(), Decimal.t()) :: boolean()
+  def receipt_logged?(%Scope{} = scope, store, %Date{} = date, %Decimal{} = total) do
+    Repo.exists?(
+      from(r in Receipt,
+        where: r.store_name == ^store and r.date == ^date and r.total_amount == ^total
+      ),
+      Scope.repo_opts(scope)
+    )
+  end
+
   @spec recent_receipts(Scope.t(), integer()) :: [Receipt.t()]
   def recent_receipts(%Scope{} = scope, n) do
     Repo.all(from(r in Receipt, order_by: [desc: r.date], limit: ^n), Scope.repo_opts(scope))
@@ -238,35 +249,6 @@ defmodule Tore.Costs do
     |> Repo.one(Scope.repo_opts(scope))
   end
 
-  def parse_receipt(%Scope{} = scope, image_binary, locale) do
-    {system, user} = Tore.LLM.Prompts.parse_receipt(locale)
-
-    with {:ok, data, _usage} <-
-           Tore.LLM.vision(scope, [{:image, image_binary}], system, user,
-             response_format: Tore.LLM.Prompts.receipt_json_schema(),
-             feature: :parse_receipt
-           ) do
-      items =
-        Enum.map(data["items"] || [], fn it ->
-          %{
-            name: it["name"],
-            quantity: receipt_to_decimal(it["quantity"]),
-            unit: it["unit"],
-            total_price: receipt_to_decimal(it["total_price"]),
-            category: it["category"]
-          }
-        end)
-
-      {:ok,
-       %{
-         total: receipt_to_decimal(data["total"]),
-         store_name: data["store_name"],
-         purchase_date: parse_iso_date(data["purchase_date"]),
-         items: items
-       }}
-    end
-  end
-
   @doc "Deletes a receipt and its line items. Undoing a receipt run does this."
   @spec delete_receipt(Scope.t(), integer()) :: :ok | {:error, :not_found}
   def delete_receipt(%Scope{} = scope, id) do
@@ -275,17 +257,6 @@ defmodule Tore.Costs do
       {0, _} -> {:error, :not_found}
     end
   end
-
-  defp parse_iso_date(nil), do: nil
-
-  defp parse_iso_date(str) when is_binary(str) do
-    case Date.from_iso8601(str) do
-      {:ok, date} -> date
-      _ -> nil
-    end
-  end
-
-  defp parse_iso_date(_), do: nil
 
   @doc "The days eaten out in a month, newest first, as the plans hold them: `%{date, place, amount}`."
   @spec eating_out_in_month(Scope.t(), integer(), integer()) :: [map()]
@@ -319,12 +290,6 @@ defmodule Tore.Costs do
 
     Decimal.add(grocery, dining)
   end
-
-  defp receipt_to_decimal(nil), do: nil
-  defp receipt_to_decimal(%Decimal{} = d), do: d
-  defp receipt_to_decimal(n) when is_float(n), do: Decimal.from_float(n)
-  defp receipt_to_decimal(n) when is_integer(n), do: Decimal.new(n)
-  defp receipt_to_decimal(s) when is_binary(s), do: Decimal.new(s)
 
   defp to_decimal(nil), do: Decimal.new(0)
   defp to_decimal(%Decimal{} = d), do: d

@@ -44,16 +44,23 @@ defmodule ToreWeb.ShopLive do
      )}
   end
 
+  # pi reads the receipt in the person's chat and logs it (`log_receipt`); the spending updates when
+  # it does, and what pi says shows in the note.
   def handle_progress(:receipt_photo, %{done?: true} = entry, socket) do
-    image = consume_uploaded_entry(socket, entry, fn %{path: path} -> {:ok, File.read!(path)} end)
-    scope = socket.assigns.current_scope
+    image =
+      consume_uploaded_entry(socket, entry, fn %{path: path} ->
+        {:ok, {entry.client_type, File.read!(path)}}
+      end)
 
-    ToreWeb.Background.run(
-      fn -> Tore.Capture.Dispatch.read_receipt(scope, image) end,
-      &{:receipt_read, &1}
-    )
+    socket =
+      ToreWeb.PiReply.ask(
+        socket,
+        "From the Shop screen: a photo of a receipt. Log it.",
+        gettext("Reading the receipt…"),
+        images: [image]
+      )
 
-    {:noreply, assign(socket, scanning: true)}
+    {:noreply, assign(socket, scanning: socket.assigns.pi_working != nil)}
   end
 
   def handle_progress(:receipt_photo, _entry, socket), do: {:noreply, socket}
@@ -204,8 +211,12 @@ defmodule ToreWeb.ShopLive do
   def handle_event("scanner_failed", _params, socket),
     do: {:noreply, update(socket, :scanner, &(&1 && %{&1 | camera: :failed}))}
 
-  def handle_info({:pi, _session, event}, socket),
-    do: {:noreply, ToreWeb.PiReply.event(socket, event)}
+  def handle_info({:pi, _session, event}, socket) do
+    socket = ToreWeb.PiReply.event(socket, event)
+
+    {:noreply,
+     assign(socket, scanning: socket.assigns.scanning and socket.assigns.pi_working != nil)}
+  end
 
   def handle_info({:list_made, %{error: true, text: text}}, socket),
     do: {:noreply, socket |> assign(making_list: false) |> put_flash(:error, text)}
@@ -223,21 +234,6 @@ defmodule ToreWeb.ShopLive do
 
   # A receipt saved or undone anywhere changes the month's spending.
   def handle_info({:run_changed, _run}, socket), do: {:noreply, reload_spending(socket)}
-
-  def handle_info({:receipt_read, {:saved, _run_id, text}}, socket),
-    do:
-      {:noreply, socket |> reload_spending() |> assign(scanning: false) |> put_flash(:info, text)}
-
-  # A duplicate photo or a failure: the reply says which.
-  def handle_info({:receipt_read, {tag, text}}, socket) when tag in [:duplicate, :failed],
-    do: {:noreply, socket |> assign(scanning: false) |> put_flash(:error, text)}
-
-  def handle_info({:receipt_read, {:error, :crashed}}, socket) do
-    {:noreply,
-     socket
-     |> assign(scanning: false)
-     |> put_flash(:error, gettext("Tore couldn't finish that. Try again in a moment."))}
-  end
 
   def handle_info({:scanned, _code, _result}, %{assigns: %{scanner: nil}} = socket),
     do: {:noreply, socket}
@@ -338,7 +334,8 @@ defmodule ToreWeb.ShopLive do
           </p>
         </header>
 
-        <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
+        <%!-- A receipt being read shows by its button instead. --%>
+        <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={!@scanning && @pi_working} />
 
         <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
              (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end. --%>

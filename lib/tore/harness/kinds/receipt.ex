@@ -1,16 +1,16 @@
 defmodule Tore.Harness.Kinds.Receipt do
   @moduledoc """
-  A receipt photo becomes a logged receipt. `ctx` holds `:image_binary`, and optionally `:date`.
-  A typed total is submitted with its `CostEntry` and no lines, and `:week_start` names its week.
+  A receipt pi read from a photo, or a total someone said, becomes a logged receipt
+  (`log_receipt`). A typed total has no lines, and `:week_start` in `ctx` names its week.
 
-  It applies straight away; a reading without a store, date or total fails instead. Undo deletes
-  the receipt. Once it commits, its lines' products are matched to ingredients for prices
-  (`Tore.Prices.Products`), with the model unless it came over MCP.
+  It applies straight away; one without a store, date or total fails instead, and so does one
+  already logged (the same store, date and total). Undo deletes the receipt. Once it commits, its
+  lines' products are matched to ingredients for prices (`Tore.Prices.Products`).
   """
 
   @behaviour Tore.Harness.Kind
 
-  alias Tore.{Household, Scope}
+  alias Tore.{Costs, Scope}
   alias Tore.Prices.Products
   alias Tore.Harness.Artifact.CostEntry
   alias Tore.Harness.ReceiptIngestion
@@ -26,14 +26,13 @@ defmodule Tore.Harness.Kinds.Receipt do
   def open(_ctx), do: %{input: %{}, actor: :user}
 
   @impl true
-  def propose(_run, %{scope: scope, image_binary: image} = ctx) do
-    with {:ok, parsed} <- ReceiptIngestion.parse(scope, image, Household.locale(scope)) do
-      {:ok, ReceiptIngestion.build_cost_entry(parsed, date: ctx[:date])}
+  def verify(%CostEntry{} = cost, %{scope: scope}) do
+    with :ok <- CostEntryVerifier.verify(cost) do
+      if Costs.receipt_logged?(scope, cost.store_name, cost.date, cost.total),
+        do: {:fail, :duplicate_receipt, :reject},
+        else: :ok
     end
   end
-
-  @impl true
-  def verify(%CostEntry{} = cost, _ctx), do: CostEntryVerifier.verify(cost)
 
   @impl true
   def review_question(%CostEntry{}), do: nil

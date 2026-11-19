@@ -5,13 +5,11 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
 
   alias Tore.{Costs, Pantry}
   alias Tore.Harness.{KitchenRun, Runs}
-  alias Tore.Harness.Artifact.PantryBeliefUpdate
+  alias Tore.Harness.Artifact.{CostEntry, PantryBeliefUpdate}
   alias Tore.Harness.Kinds.{PantryUpdate, Receipt}
   alias Tore.Recipes.Ingredient
 
   setup :verify_on_exit!
-
-  @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
 
   defp names, do: home_scope() |> Pantry.list_inventory() |> Enum.map(& &1.name) |> Enum.sort()
 
@@ -156,21 +154,22 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
 
     defp member, do: Process.get(:scope)
 
-    defp read(receipt) do
-      expect(Tore.MockLLM, :vision, fn _, _, _, _ -> {:ok, receipt, @usage} end)
+    # A receipt as pi read it and logged it (log_receipt).
+    defp log(store, total, lines \\ []) do
+      cost = %CostEntry{
+        store_name: store,
+        date: ~D[2026-11-04],
+        total: Decimal.new(total),
+        line_items: lines
+      }
+
+      Runs.submit(member(), Receipt, cost, %{actor: :mcp})
     end
 
-    defp start, do: Runs.start(member(), Receipt, %{image_binary: <<1>>})
-
     test "applies straight away, and undo deletes the receipt" do
-      read(%{
-        "total" => 89.5,
-        "store_name" => "ICA",
-        "purchase_date" => "2026-11-04",
-        "items" => [%{"name" => "MJÖLK", "quantity" => 2}]
-      })
+      assert {:ok, %KitchenRun{status: :applied, surface: :shop} = run} =
+               log("ICA", "89.5", [%{name: "MJÖLK", quantity: Decimal.new(2)}])
 
-      assert {:ok, %KitchenRun{status: :applied, surface: :shop} = run} = start()
       assert run == Runs.get(member(), run.id)
       assert [%{store_name: "ICA", total_amount: total}] = Costs.recent_receipts(member(), 5)
       assert Decimal.equal?(total, Decimal.new("89.5"))
@@ -180,14 +179,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "undo still works after the receipt was deleted by hand" do
-      read(%{
-        "total" => 10,
-        "store_name" => "ICA",
-        "purchase_date" => "2026-11-04",
-        "items" => []
-      })
-
-      {:ok, run} = start()
+      {:ok, run} = log("ICA", "10")
       [receipt] = Costs.recent_receipts(member(), 5)
       :ok = Costs.delete_receipt(member(), receipt.id)
 
@@ -198,17 +190,21 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       list_id = Tore.Streams.shop_list(member(), ~D[2026-11-02])
       {:ok, _} = Tore.Shop.add_item(member(), list_id, "Mjölk", Decimal.new(1), "l", nil)
 
-      read(%{
-        "total" => 89.5,
-        "store_name" => "ICA",
-        "purchase_date" => "2026-11-04",
-        "items" => [
-          %{"name" => "MJÖLK 1.5L", "quantity" => 2, "unit" => "st", "total_price" => 35.8},
-          %{"name" => "ÄGG 12P", "quantity" => 1, "unit" => "st", "total_price" => 53.7}
-        ]
-      })
-
-      assert {:ok, %KitchenRun{status: :applied}} = start()
+      assert {:ok, %KitchenRun{status: :applied}} =
+               log("ICA", "89.5", [
+                 %{
+                   name: "MJÖLK 1.5L",
+                   quantity: Decimal.new(2),
+                   unit: "st",
+                   total_price: Decimal.new("35.8")
+                 },
+                 %{
+                   name: "ÄGG 12P",
+                   quantity: Decimal.new(1),
+                   unit: "st",
+                   total_price: Decimal.new("53.7")
+                 }
+               ])
 
       receipt =
         Repo.one!(Tore.Costs.Receipt, Tore.Scope.repo_opts(member())) |> Repo.preload(:line_items)
@@ -228,9 +224,7 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
     end
 
     test "with no store it fails, logging nothing" do
-      read(%{"total" => 10, "store_name" => nil, "purchase_date" => "2026-11-04", "items" => []})
-
-      assert {:ok, %KitchenRun{status: :failed, failure_code: :missing_store}} = start()
+      assert {:ok, %KitchenRun{status: :failed, failure_code: :missing_store}} = log(nil, "10")
       assert Costs.recent_receipts(member(), 5) == []
     end
   end

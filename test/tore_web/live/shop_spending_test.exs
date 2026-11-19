@@ -4,7 +4,6 @@ defmodule ToreWeb.ShopSpendingTest do
   import Mox
 
   alias Tore.{Costs, Planning}
-  alias Tore.Capture.Uploads
 
   setup :set_mox_global
   setup :verify_on_exit!
@@ -13,14 +12,6 @@ defmodule ToreWeb.ShopSpendingTest do
     user = user_fixture(name: "Tester")
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
-  end
-
-  defp eventually(fun, attempts \\ 100) do
-    cond do
-      fun.() -> true
-      attempts == 0 -> flunk("Timed out waiting for condition")
-      true -> Process.sleep(20) && eventually(fun, attempts - 1)
-    end
   end
 
   defp this_month(day), do: Tore.Clock.today() |> Date.beginning_of_month() |> Date.add(day - 1)
@@ -78,6 +69,9 @@ defmodule ToreWeb.ShopSpendingTest do
   end
 
   describe "a receipt photo" do
+    import Tore.FakePi
+    setup :fake_pi
+
     defp upload(lv) do
       photo =
         file_input(lv, "#receipt-photo-form", :receipt_photo, [
@@ -87,44 +81,52 @@ defmodule ToreWeb.ShopSpendingTest do
       render_upload(photo, "receipt.jpg")
     end
 
-    test "saves a receipt that adds up, and says so", %{conn: conn} do
-      expect(Tore.MockLLM, :vision, fn _images, _system, _user, _opts ->
-        {:ok,
-         %{
-           "total" => 89.5,
-           "store_name" => "ICA",
-           "purchase_date" => "2026-11-05",
-           "items" => [
-             %{"name" => "Mjölk", "quantity" => 1, "unit" => "st", "category" => "dairy"}
-           ]
-         }, %{prompt_tokens: 1, completion_tokens: 1, cost_usd: 0.0}}
+    test "goes to pi in the person's chat, and the spending shows what pi logs", %{
+      conn: conn,
+      user: user,
+      pi_log: log
+    } do
+      hold(log)
+      {:ok, lv, _html} = live(conn, "/shop")
+      upload(lv)
+      assert render(lv) =~ "Läser kvittot"
+
+      assert_eventually(fn ->
+        Enum.any?(pi_records(log), &(&1["type"] == "prompt" and &1["message"] =~ "receipt"))
       end)
 
-      {:ok, lv, _html} = live(conn, "/shop")
-      upload(lv)
+      prompt = Enum.find(pi_records(log), &(&1["type"] == "prompt"))
 
-      eventually(fn -> lv |> element("#spending") |> render() =~ "ICA" end)
-      assert [%{store_name: "ICA"}] = Costs.recent_receipts(home_scope(), 5)
+      assert [%{"type" => "image", "mimeType" => "image/jpeg", "data" => data}] =
+               prompt["images"]
+
+      assert Base.decode64!(data) == "receipt-bytes"
+
+      # pi logs it, as log_receipt does.
+      scope = %{home_scope() | user_id: user.id}
+
+      {:reply, %{"result" => %{"isError" => false}}} =
+        Tore.Mcp.handle(scope, %{
+          "jsonrpc" => "2.0",
+          "id" => 1,
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "log_receipt",
+            "arguments" => %{
+              "store" => "ICA",
+              "date" => Date.to_iso8601(Tore.Clock.today()),
+              "total" => 89.5
+            }
+          }
+        })
+
+      assert_eventually(fn -> lv |> element("#spending") |> render() =~ "ICA" end)
+      release(log)
+      assert_eventually(fn -> not (render(lv) =~ "Läser kvittot") end)
+      assert render(lv) =~ "echo: From the Shop screen"
     end
 
-    test "says so when the photo was already uploaded", %{conn: conn} do
-      household_id = home_scope().household_id
-
-      Uploads.record(
-        Tore.Scope.for_household(household_id),
-        Uploads.content_hash("receipt-bytes"),
-        "kr_seen",
-        "receipt"
-      )
-
-      {:ok, lv, _html} = live(conn, "/shop")
-      upload(lv)
-
-      assert_eventually(fn -> render(lv) =~ "redan laddat upp" end)
-      assert Costs.recent_receipts(home_scope(), 5) == []
-    end
-
-    defp assert_eventually(check, tries \\ 40) do
+    defp assert_eventually(check, tries \\ 200) do
       cond do
         check.() ->
           :ok
