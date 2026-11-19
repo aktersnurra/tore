@@ -114,6 +114,20 @@ defmodule Tore.Mcp.SubmittedToolsTest do
     assert Costs.recent_receipts(scope, 5) == []
   end
 
+  test "a total said with no receipt counts for the week it names" do
+    scope = %{home_scope() | user_id: user_fixture().id}
+    last_week = Tore.Clock.today() |> Tore.Streams.monday() |> Date.add(-7)
+
+    ok(scope, "log_receipt", %{
+      "store" => "Veckohandling",
+      "date" => Date.to_iso8601(Tore.Clock.today()),
+      "total" => 1900,
+      "week" => Date.to_iso8601(Date.add(last_week, 2))
+    })
+
+    assert Decimal.equal?(Costs.spent_in_week(scope, last_week), 1900)
+  end
+
   test "a receipt from the future, or without a total, is refused and says why" do
     tomorrow = Tore.Clock.today() |> Date.add(1) |> Date.to_iso8601()
 
