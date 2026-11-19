@@ -676,8 +676,10 @@ Have something instead?  [rödlök, gräddfil     ] [Check]
 ```
 
 Ticks are free and only count for this cook. Check is one model call for all of it. Nothing is
-saved. Cook mode shows "rödlök instead of gul lök" where it's used. Its last card, Done, says
-what's now used up at home, with Undo.
+saved. Cook mode shows "rödlök instead of gul lök" where it's used, and the step text uses
+the swap's name for the whole word ("Skiva vitlöken" → "Skiva vitlökspulver"). Done turns the
+last card into "Cooked" with what's now used up at home; nothing moves: Close takes Done's
+place and Undo the step buttons'.
 
 ### Empty state
 
@@ -1754,7 +1756,10 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
 - **A recipe is a page:** cover photo, title, then quiet property rows (Collection, Time,
   Servings as a stepper that scales the amounts, At home, Source, Last made), then two
   actions (Cook/Bake now, Put on the week), then sections. Ask Tore and the star are in ⋯;
-  what's missing is asked about when cooking starts.
+  what's missing is asked about when cooking starts. The name is on the cover photo.
+- **Put on the week** lists the next seven days. Tapping a day puts the dish there (green,
+  with a tick); another day moves it, the same day again takes it off. "On Saturday · Undo"
+  stays on one line under the days. A day that had the dish before shows it in plain text.
 - **At home** checks the recipe against the pantry with no model: "All of it", or what's
   missing with Put on the list.
 - **Collections** are Dinner, Baking, Sauces & sides and Assemblies, each with a Phosphor

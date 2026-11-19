@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixes after trying it on the phone (2026-11-19)
+
+- The dish's name is on its photograph on a recipe page and on Today.
+- No scrollbars anywhere.
+- Put on the week: another day moves the dish, the same day again takes it off; Undo sits on one line under the days.
+- Done in cook mode stays in place: Close where Done was, Undo where the step buttons were.
+- A name already on the shopping list isn't added again by Put on the list.
+- Plan no longer shows an old run's card, or a question nothing can answer, when it opens.
+- A swap replaces the whole word in a step ("vitlökspulver", not "vitlökspulveren").
+
 ### Cooking, start to finish (2026-11-19)
 
 - A recipe has two actions, Cook now and Put on the week; Ask Tore and the star are in ⋯.
