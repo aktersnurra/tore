@@ -2,7 +2,7 @@ defmodule Tore.Recipes do
   require Logger
   import Ecto.Query
   alias Tore.{Repo, Scope}
-  alias Tore.Recipes.{Recipe, Ingredient, RecipeIngredient, Tag}
+  alias Tore.Recipes.{Recipe, Ingredient, RecipeIngredient, RecipePart, Tag}
 
   @http Application.compile_env(:tore, :http_client)
   @image_gen Application.compile_env(:tore, :image_gen_client)
@@ -58,6 +58,7 @@ defmodule Tore.Recipes do
       with {:ok, updated} <- do_update(recipe, attrs),
            {:ok, updated} <- maybe_update_tags(scope, updated, tag_names),
            {:ok, updated} <- maybe_update_ingredients(scope, updated, ingredients) do
+        clear_orders_with(scope, updated.id)
         updated
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -69,11 +70,15 @@ defmodule Tore.Recipes do
     end
   end
 
+  @doc "The recipe with its ingredients, and a meal's parts with theirs (`with_parts/2`)."
   @spec get!(Scope.t(), term()) :: Recipe.t()
   def get!(%Scope{} = scope, id) do
-    Recipe
-    |> Repo.get!(id, Scope.repo_opts(scope))
-    |> Repo.preload([:tags, recipe_ingredients: :ingredient])
+    recipe =
+      Recipe
+      |> Repo.get!(id, Scope.repo_opts(scope))
+      |> Repo.preload([:tags, recipe_ingredients: :ingredient])
+
+    scope |> with_parts([recipe]) |> hd()
   end
 
   @doc "The household's recipes with these ids, ingredients loaded. Ids it doesn't have are left out."
@@ -81,6 +86,133 @@ defmodule Tore.Recipes do
   def get_many(%Scope{} = scope, ids) do
     from(r in Recipe, where: r.id in ^Enum.uniq(ids), preload: [recipe_ingredients: :ingredient])
     |> Repo.all(Scope.repo_opts(scope))
+    |> then(&with_parts(scope, &1))
+  end
+
+  @doc """
+  Puts a meal together from recipes the household has (`part_ids`, in order): a dinner whose
+  ingredients are its parts', and which follows them when they change. A part can't have parts
+  of its own. The meal's cooking order is written the first time it's cooked
+  (`cook_steps/2`).
+  """
+  @spec put_together(
+          Scope.t(),
+          %{title: String.t(), servings: pos_integer(), part_ids: [integer()]},
+          keyword()
+        ) ::
+          {:ok, Recipe.t()}
+          | {:error, :too_few_parts | :unknown_parts | :nested | Ecto.Changeset.t()}
+  def put_together(
+        %Scope{} = scope,
+        %{title: title, servings: servings, part_ids: ids},
+        opts \\ []
+      ) do
+    ids = Enum.uniq(ids)
+    parts = get_many(scope, ids)
+
+    cond do
+      length(ids) < 2 -> {:error, :too_few_parts}
+      length(parts) < length(ids) -> {:error, :unknown_parts}
+      Enum.any?(parts, &(&1.parts != [])) -> {:error, :nested}
+      true -> insert_meal(scope, title, servings, ids, opts)
+    end
+  end
+
+  defp insert_meal(scope, title, servings, ids, opts) do
+    Repo.transaction(fn ->
+      with {:ok, meal} <-
+             insert_recipe(scope, %{title: title, base_servings: servings, recipe_type: :meal}) do
+        for {part_id, position} <- Enum.with_index(ids, 1) do
+          Repo.insert!(%RecipePart{recipe_id: meal.id, part_id: part_id, position: position})
+        end
+
+        meal
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> case do
+      {:ok, meal} ->
+        if Keyword.get(opts, :image, true), do: start_image(scope, meal.id)
+        {:ok, get!(scope, meal.id)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # A meal's parts, and their ingredients as the meal's: each part's scaled from its servings to
+  # the meal's, then the same ingredient in the same unit added up. Recipes without parts are
+  # left as they are. `recipes` have their ingredients loaded.
+  defp with_parts(scope, recipes) do
+    links =
+      Repo.all(
+        from(p in RecipePart,
+          where: p.recipe_id in ^Enum.map(recipes, & &1.id),
+          order_by: p.position
+        )
+      )
+
+    if links == [] do
+      recipes
+    else
+      parts =
+        from(r in Recipe,
+          where: r.id in ^Enum.uniq(Enum.map(links, & &1.part_id)),
+          preload: [recipe_ingredients: :ingredient]
+        )
+        |> Repo.all(Scope.repo_opts(scope))
+        |> Map.new(&{&1.id, &1})
+
+      by_meal = Enum.group_by(links, & &1.recipe_id, & &1.part_id)
+
+      Enum.map(recipes, fn recipe ->
+        case by_meal[recipe.id] do
+          nil -> recipe
+          part_ids -> put_parts(recipe, for(id <- part_ids, part = parts[id], do: part))
+        end
+      end)
+    end
+  end
+
+  defp put_parts(meal, parts) do
+    from_parts =
+      Enum.flat_map(parts, fn part ->
+        for ri <- part.recipe_ingredients do
+          %{ri | quantity: scale_part(ri.quantity, part.base_servings, meal.base_servings)}
+        end
+      end)
+
+    %{meal | parts: parts, recipe_ingredients: add_up(meal.recipe_ingredients ++ from_parts)}
+  end
+
+  defp scale_part(quantity, _base, nil), do: quantity
+  defp scale_part(quantity, base, servings), do: scale_quantity(quantity, base, servings)
+
+  # The same ingredient in the same unit is one row, in the order it first appears. A row with no
+  # amount ("some dragon") adds nothing to one that has one.
+  defp add_up(rows) do
+    rows
+    |> Enum.group_by(&{&1.ingredient_id, &1.unit && String.downcase(&1.unit)})
+    |> Map.values()
+    |> Enum.sort_by(fn [first | _] -> Enum.find_index(rows, &(&1 == first)) end)
+    |> Enum.map(fn [first | _] = same ->
+      amounts = for %{quantity: %Decimal{} = q} <- same, do: q
+      %{first | quantity: if(amounts == [], do: nil, else: Enum.reduce(amounts, &Decimal.add/2))}
+    end)
+  end
+
+  # A part changed, so the meals that have it need their cooking order written again.
+  defp clear_orders_with(scope, part_id) do
+    meal_ids = Repo.all(from(p in RecipePart, where: p.part_id == ^part_id, select: p.recipe_id))
+
+    if meal_ids != [] do
+      Repo.update_all(
+        from(r in Recipe, where: r.id in ^meal_ids),
+        [set: [steps: nil]],
+        Scope.repo_opts(scope)
+      )
+    end
   end
 
   @doc "The recipe, or nil when there's none with that id in this household."
@@ -436,7 +568,8 @@ defmodule Tore.Recipes do
   # the test that owns its database connection and mocks. `generate_image/3` is tested directly.
   defp maybe_generate_image(scope, recipe, image_url) do
     if Application.get_env(:tore, :recipe_images_in_background, true) do
-      loaded = Repo.preload(recipe, recipe_ingredients: :ingredient)
+      loaded =
+        scope |> with_parts([Repo.preload(recipe, recipe_ingredients: :ingredient)]) |> hd()
 
       Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
         with {:error, reason} <- generate_image(scope, loaded, image_url) do

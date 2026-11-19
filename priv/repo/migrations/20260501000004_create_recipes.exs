@@ -22,5 +22,17 @@ defmodule Tore.Repo.Migrations.CreateRecipes do
     end
 
     create index(:recipes, [:household_id])
+
+    # A meal put together from other recipes, its parts in order. The meal follows them: its
+    # ingredients are worked out from the parts when it's loaded (`Tore.Recipes`).
+    create table(:recipe_parts) do
+      add :recipe_id, references(:recipes, on_delete: :delete_all), null: false
+      add :part_id, references(:recipes, on_delete: :delete_all), null: false
+      add :position, :integer, null: false
+      timestamps()
+    end
+
+    create index(:recipe_parts, [:recipe_id])
+    create index(:recipe_parts, [:part_id])
   end
 end

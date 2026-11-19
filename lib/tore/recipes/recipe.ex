@@ -19,6 +19,9 @@ defmodule Tore.Recipes.Recipe do
     field :created_by, :integer
     field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
+    # A meal put together from other recipes: its parts in order, loaded by `Tore.Recipes`, which
+    # also gives the meal their ingredients.
+    field :parts, :any, virtual: true, default: []
 
     many_to_many :tags, Tore.Recipes.Tag,
       join_through: Tore.Recipes.RecipeTag,

@@ -24,7 +24,7 @@ defmodule Tore.Mcp.Tools.GetRecipe do
   def call(scope, %{"recipe_id" => id}) when is_integer(id) do
     case Recipes.get(scope, id) do
       nil -> {:error, "No recipe #{id} in this household. Find one with search_recipes."}
-      recipe -> {:ok, full(Tore.Repo.preload(recipe, recipe_ingredients: :ingredient))}
+      recipe -> {:ok, full(Recipes.get!(scope, recipe.id))}
     end
   end
 
