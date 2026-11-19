@@ -475,6 +475,11 @@ defmodule ToreWeb.CoreComponents do
   """
   attr :on_photo, :boolean, default: false
   attr :class, :any, default: nil
+
+  attr :title, :string,
+    default: nil,
+    doc: "the page's name, for a page whose heading says something else"
+
   slot :actions
 
   def top_bar(assigns) do
@@ -490,6 +495,13 @@ defmodule ToreWeb.CoreComponents do
       >
         <.icon name="ph-sidebar-simple" class="size-5" />
       </button>
+      <span
+        :if={@title}
+        class="truncate font-medium text-[color:var(--text)]"
+        style="font-size: 15px;"
+      >
+        {@title}
+      </span>
       <%!-- The sidebar takes the menu's place on a wide screen; the actions keep to the right. --%>
       <div class={["ml-auto flex items-center gap-1", !@on_photo && "-mr-2"]}>
         {render_slot(@actions)}

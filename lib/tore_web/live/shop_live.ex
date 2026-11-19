@@ -441,8 +441,8 @@ defmodule ToreWeb.ShopLive do
         <section :for={{section, section_items} <- @groups} class="mt-4">
           <.group_head
             id={"items-#{section}"}
-            label={section_label(section)}
-            tint={section_tint(section)}
+            label={ToreWeb.Look.section_label(section)}
+            tint={ToreWeb.Look.section_tint(section)}
             count={length(section_items)}
           />
           <ul id={"items-#{section}"} class="pl-6" phx-hook=".Tick">
@@ -636,16 +636,6 @@ defmodule ToreWeb.ShopLive do
 
   defp scan_line(%{change: :failed}), do: gettext("Couldn't look that code up. Try again.")
 
-  # Sections take the tint of what's in them; most of the shop is quiet grey.
-  defp section_tint(section) when section in [:produce, :herbs_spices], do: "green"
-  defp section_tint(section) when section in [:dairy, :frozen, :fish], do: "blue"
-
-  defp section_tint(section) when section in [:dry_goods, :bread, :canned, :condiments],
-    do: "yellow"
-
-  defp section_tint(section) when section in [:meat, :deli], do: "orange"
-  defp section_tint(_section), do: "grey"
-
   attr :item, :map, required: true
   attr :dinner, :string, default: nil
 
@@ -767,21 +757,6 @@ defmodule ToreWeb.ShopLive do
       {section, Enum.sort_by(grouped[section], &String.downcase(&1.name))}
     end)
   end
-
-  defp section_label(:produce), do: gettext("Produce")
-  defp section_label(:meat), do: gettext("Meat")
-  defp section_label(:fish), do: gettext("Fish & Seafood")
-  defp section_label(:dairy), do: gettext("Dairy & Eggs")
-  defp section_label(:deli), do: gettext("Deli")
-  defp section_label(:frozen), do: gettext("Frozen")
-  defp section_label(:bread), do: gettext("Bread")
-  defp section_label(:canned), do: gettext("Canned Goods")
-  defp section_label(:beverages), do: gettext("Beverages")
-  defp section_label(:herbs_spices), do: gettext("Herbs & Spices")
-  defp section_label(:condiments), do: gettext("Condiments & Oils")
-  defp section_label(:household), do: gettext("Household")
-  defp section_label(:dry_goods), do: gettext("Dry Goods")
-  defp section_label(:other), do: gettext("Other")
 
   defp qty_label(%{quantity: nil, unit: nil}), do: ""
   defp qty_label(%{quantity: nil, unit: unit}), do: unit

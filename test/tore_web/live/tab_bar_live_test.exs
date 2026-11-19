@@ -124,6 +124,7 @@ defmodule ToreWeb.TabBarLiveTest do
       menu = bar(view) |> element(~s([data-role="menu"])) |> render()
       [before_week, _] = String.split(menu, ~s(data-role="menu-day"), parts: 2)
       assert before_week =~ ~s(data-role="menu-ask")
+      assert menu =~ ~s(href="/budget")
       refute menu =~ "/settings#members"
       refute menu =~ "/settings#diet"
     end

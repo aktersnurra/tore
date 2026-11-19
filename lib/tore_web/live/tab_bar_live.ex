@@ -360,7 +360,7 @@ defmodule ToreWeb.TabBarLive do
       <span class="truncate">{gettext("At home")}</span>
       <span class="menu-count num">{@menu.at_home}</span>
     </.link>
-    <.link navigate={~p"/settings#budget"} class="menu-row row-hover">
+    <.link navigate={~p"/budget"} data-role="menu-budget" class="menu-row row-hover">
       <span class="ph-piggy-bank-duotone size-5 shrink-0 text-[color:var(--tag-yellow-ink)]"></span>
       {gettext("Weekly budget")}
     </.link>

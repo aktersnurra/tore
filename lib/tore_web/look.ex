@@ -9,6 +9,7 @@ defmodule ToreWeb.Look do
   """
 
   use Phoenix.Component
+  use Gettext, backend: ToreWeb.Gettext
   alias Phoenix.LiveView.JS
 
   @collections [:meal, :baking, :component, :assembly]
@@ -156,4 +157,38 @@ defmodule ToreWeb.Look do
     </span>
     """
   end
+
+  @doc "A shop section's name, as on Shop. A string section is one of `Ingredient.sections/0`."
+  @spec section_label(atom() | String.t()) :: String.t()
+  def section_label(section) when is_binary(section),
+    do: section_label(String.to_existing_atom(section))
+
+  def section_label(:produce), do: gettext("Produce")
+  def section_label(:meat), do: gettext("Meat")
+  def section_label(:fish), do: gettext("Fish & Seafood")
+  def section_label(:dairy), do: gettext("Dairy & Eggs")
+  def section_label(:deli), do: gettext("Deli")
+  def section_label(:frozen), do: gettext("Frozen")
+  def section_label(:bread), do: gettext("Bread")
+  def section_label(:canned), do: gettext("Canned Goods")
+  def section_label(:beverages), do: gettext("Beverages")
+  def section_label(:herbs_spices), do: gettext("Herbs & Spices")
+  def section_label(:condiments), do: gettext("Condiments & Oils")
+  def section_label(:household), do: gettext("Household")
+  def section_label(:dry_goods), do: gettext("Dry Goods")
+  def section_label(:other), do: gettext("Other")
+
+  @doc "A shop section's tint: the tint of what's in it; most of the shop is quiet grey."
+  @spec section_tint(atom() | String.t()) :: String.t()
+  def section_tint(section) when is_binary(section),
+    do: section_tint(String.to_existing_atom(section))
+
+  def section_tint(section) when section in [:produce, :herbs_spices], do: "green"
+  def section_tint(section) when section in [:dairy, :frozen, :fish], do: "blue"
+
+  def section_tint(section) when section in [:dry_goods, :bread, :canned, :condiments],
+    do: "yellow"
+
+  def section_tint(section) when section in [:meat, :deli], do: "orange"
+  def section_tint(_section), do: "grey"
 end

@@ -30,11 +30,8 @@ defmodule ToreWeb.SettingsLive do
        stores: Deals.list_stores(socket.assigns.current_scope),
        store_url: "",
        store_error: nil,
-       prefs: Household.get_preferences(scope),
-       budget_saved: false,
-       budget_error: nil
-     )
-     |> assign_budget_text()}
+       prefs: Household.get_preferences(scope)
+     )}
   end
 
   @dietary_restrictions ~w(vegetarian vegan gluten_free lactose_free low_carb high_protein nut_free)
@@ -150,33 +147,6 @@ defmodule ToreWeb.SettingsLive do
     {:noreply, assign_ai_sponsor(socket)}
   end
 
-  # Blank means no budget. Spaces and a decimal comma are fine ("2 000", "1999,50").
-  def handle_event("set_budget", %{"amount" => text}, socket) do
-    with {:ok, amount} <- parse_amount(text),
-         :ok <- Tore.Budget.set_default(socket.assigns.current_scope, amount) do
-      {:noreply,
-       assign(socket,
-         prefs: Household.get_preferences(socket.assigns.current_scope),
-         budget_saved: true,
-         budget_error: nil
-       )
-       |> assign_budget_text()
-       |> tap(fn _ -> Process.send_after(self(), :budget_saved_shown, 2000) end)}
-    else
-      _ ->
-        {:noreply,
-         assign(socket,
-           budget_saved: false,
-           budget_error: gettext("Enter an amount in kronor."),
-           budget_text: text
-         )}
-    end
-  end
-
-  # What's typed stays in the field until it's saved, so an error is shown next to its cause.
-  def handle_event("budget_changed", %{"amount" => text}, socket),
-    do: {:noreply, assign(socket, budget_saved: false, budget_error: nil, budget_text: text)}
-
   def handle_event("rename_household", %{"name" => name}, socket) do
     case Household.rename(socket.assigns.current_scope, name) do
       {:ok, household} -> {:noreply, assign(socket, household: household)}
@@ -190,10 +160,6 @@ defmodule ToreWeb.SettingsLive do
     _ = Memory.forget(scope, String.to_integer(id))
     {:noreply, assign(socket, memory: Memory.stores(scope))}
   end
-
-  # "Saved." has been seen; it goes, so the next save says it again.
-  def handle_info(:budget_saved_shown, socket),
-    do: {:noreply, assign(socket, budget_saved: false)}
 
   defp assign_members(socket) do
     scope = socket.assigns.current_scope
@@ -464,59 +430,6 @@ defmodule ToreWeb.SettingsLive do
             <.preference_chips items={@allergies} chosen={@prefs.allergies} event="toggle_allergy" />
           </section>
 
-          <%!-- Weekly budget: what the planner aims at --%>
-          <section id="budget" class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
-            <h2 class="section-label mb-1">{gettext("Weekly budget")}</h2>
-            <p class="mb-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-              {gettext(
-                "The whole week's shop. Tore plans to it, and never changes a dinner you chose to save money."
-              )}
-            </p>
-            <form phx-submit="set_budget" phx-change="budget_changed" class="flex items-center gap-2">
-              <input
-                type="text"
-                name="amount"
-                inputmode="decimal"
-                value={@budget_text}
-                placeholder={gettext("No budget")}
-                aria-label={gettext("Weekly budget in kronor")}
-                aria-invalid={@budget_error && "true"}
-                aria-describedby={@budget_error && "budget-error"}
-                class={[
-                  "num flex-1 min-w-0 rounded-[var(--r-md)] border bg-[color:var(--surface)] px-3 py-2 transition-colors duration-[var(--dur-fast)]",
-                  @budget_error && "border-[color:var(--warn)]",
-                  !@budget_error && "border-[color:var(--hairline)]"
-                ]}
-                style="font-size: var(--t-body);"
-              />
-              <span class="text-[color:var(--muted)]" style="font-size: var(--t-body);">kr</span>
-              <button
-                type="submit"
-                phx-disable-with={gettext("Saving…")}
-                class="press h-11 shrink-0 px-2 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
-              >
-                {gettext("Save")}
-              </button>
-            </form>
-            <p
-              :if={@budget_saved}
-              role="status"
-              class="settle mt-2 text-[color:var(--done)]"
-              style="font-size: var(--t-meta);"
-            >
-              {gettext("Saved.")}
-            </p>
-            <p
-              :if={@budget_error}
-              id="budget-error"
-              role="alert"
-              class="mt-2 text-[color:var(--warn)]"
-              style="font-size: var(--t-meta);"
-            >
-              {@budget_error}
-            </p>
-          </section>
-
           <%!-- Household --%>
           <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
             <h2 class="section-label mb-3">
@@ -747,23 +660,5 @@ defmodule ToreWeb.SettingsLive do
       </.page>
     </Layouts.app>
     """
-  end
-
-  defp assign_budget_text(socket) do
-    budget = socket.assigns.prefs.weekly_budget
-    assign(socket, budget_text: budget && Tore.Money.format(budget))
-  end
-
-  defp parse_amount(text) do
-    case text |> String.replace(~r/\s/u, "") |> String.replace(",", ".") do
-      "" ->
-        {:ok, nil}
-
-      clean ->
-        case Decimal.parse(clean) do
-          {amount, ""} -> if Decimal.gt?(amount, 0), do: {:ok, amount}, else: :error
-          _ -> :error
-        end
-    end
   end
 end

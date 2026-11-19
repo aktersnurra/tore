@@ -548,14 +548,19 @@ defmodule ToreWeb.PlannerLive do
                   "font-semibold text-[color:var(--warn)]"
               ]}
             > · {verdict_line(@verdict)}</span>
-            <span
+            <.link
               :if={!@verdict and (@budget.estimate.total > 0 or @budget.budget)}
-              id={"week-estimate-#{@week_start}-#{@budget.expected}-#{@budget.budget}"}
-              data-role="week-estimate"
-              class={["settle", @budget.over && "font-semibold text-[color:var(--warn)]"]}
+              navigate={~p"/budget"}
+              class="hover:underline"
             >
-              · {estimate_line(@budget)}
-            </span>
+              <span
+                id={"week-estimate-#{@week_start}-#{@budget.expected}-#{@budget.budget}"}
+                data-role="week-estimate"
+                class={["settle", @budget.over && "font-semibold text-[color:var(--warn)]"]}
+              >
+                · {estimate_line(@budget)}
+              </span>
+            </.link>
           </p>
         </header>
 

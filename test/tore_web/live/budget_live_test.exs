@@ -48,6 +48,107 @@ defmodule ToreWeb.BudgetLiveTest do
     end
   end
 
+  defp receipt(week, kr, lines \\ []) do
+    {:ok, receipt} =
+      Tore.Costs.log_receipt(home_scope(), %{
+        date: week,
+        week_start: week,
+        store_name: "ICA Supermarket",
+        total_amount: Decimal.new(kr),
+        user_id: user_fixture().id,
+        line_items:
+          for {name, price, section} <- lines do
+            %{product_name: name, total_price: Decimal.new(price), category: section}
+          end
+      })
+
+    receipt
+  end
+
+  describe "the budget page" do
+    setup do
+      eat_out(week_start(), ~w[tue wed thu fri sat sun])
+      plan("mon_dinner", recipe("Gryta", "700"))
+      :ok = Budget.set_default(home_scope(), Decimal.new(900))
+      :ok
+    end
+
+    test "answers where the week lands, with what's paid and what's left", %{conn: conn} do
+      receipt(week_start(), "412", [
+        {"Laxfilé", "160", "fish"},
+        {"Kycklinglårfilé", "252", "meat"}
+      ])
+
+      receipt(Date.add(week_start(), -7), "950")
+
+      {:ok, view, html} = live(conn, ~p"/budget")
+
+      assert html =~ "Veckobudget"
+      assert html =~ "Vecka #{Streams.week_number(week_start())}"
+      assert view |> element(~s([data-role="lands"])) |> render() =~ "Veckan landar runt 700 kr"
+      assert view |> element(~s([data-role="budget-tag"])) |> render() =~ "200 kr under budget"
+      assert view |> element(~s([data-role="kpi-paid"])) |> render() =~ "412 kr"
+      assert view |> element(~s([data-role="kpi-left"])) |> render() =~ "288 kr"
+      assert view |> element(~s([data-role="kpi-average"])) |> render() =~ "950 kr"
+
+      # Eight weeks, last week over its budget in red, this week's paid with what's expected.
+      assert length(Regex.scan(~r/data-role="chart-week"/, html)) == 8
+      assert view |> element(~s([data-role="chart"] .lab.over)) |> render() =~ "950"
+      assert view |> element(~s([data-role="chart"] .lab.now)) |> render() =~ "≈700"
+
+      # Where the money went, biggest first, opening to what was bought.
+      names =
+        ~r/data-role="section-name"[^>]*>\s*([^<]+?)\s*</
+        |> Regex.scan(html, capture: :all_but_first)
+        |> List.flatten()
+
+      assert names == ["Kött", "Fisk &amp; skaldjur"]
+      assert view |> element(~s([data-role="section-item"]), "Laxfilé") |> render() =~ "1 gång"
+
+      assert view |> element(~s([data-role="receipt"]), "412 kr") |> render() =~ "ICA Supermarket"
+    end
+
+    test "the budget is changed where it's shown", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/budget")
+
+      view |> element(~s([data-role="kpi-budget"] button)) |> render_click()
+
+      assert view
+             |> form(~s([data-role="budget-form"]), %{"amount" => "tusen"})
+             |> render_submit() =~
+               "Skriv ett belopp i kronor."
+
+      # The field keeps what was typed, so the error sits next to its cause.
+      assert view |> element(~s(#budget-input)) |> render() =~ ~s(value="tusen")
+      assert Decimal.eq?(Budget.amount(home_scope(), week_start()), 900)
+
+      view |> form(~s([data-role="budget-form"]), %{"amount" => "1 000"}) |> render_submit()
+      assert Decimal.eq?(Budget.amount(home_scope(), week_start()), 1000)
+      assert view |> element(~s([data-role="budget-tag"])) |> render() =~ "300 kr under budget"
+      refute has_element?(view, ~s([data-role="budget-form"]))
+
+      # Blank means no budget, and the tag goes with it.
+      view |> element(~s([data-role="kpi-budget"] button)) |> render_click()
+      view |> form(~s([data-role="budget-form"]), %{"amount" => ""}) |> render_submit()
+      assert Budget.amount(home_scope(), week_start()) == nil
+      refute has_element?(view, ~s([data-role="budget-tag"]))
+    end
+
+    test "with nothing paid, says so instead of an empty list", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/budget")
+      assert html =~ "Inga kvittorader att dela upp de här veckorna än."
+      refute html =~ ~s(data-role="receipt")
+    end
+
+    test "is in the menu and on Plan's budget line, and no longer in Settings", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/plan")
+      assert has_element?(view, ~s(a[href="/budget"] [data-role="week-estimate"]))
+
+      {:ok, _view, html} = live(conn, ~p"/settings")
+      refute html =~ ~s(id="budget")
+    end
+  end
+
   describe "the plan screen" do
     test "shows the week's estimate against its budget, and how far over", %{conn: conn} do
       eat_out(week_start(), ~w[wed thu fri sat sun])
@@ -149,28 +250,6 @@ defmodule ToreWeb.BudgetLiveTest do
 
       assert Tore.Repo.get!(Tore.Costs.Receipt, receipt.id, Tore.Scope.repo_opts(home_scope())).week_start ==
                Date.add(week_start(), 7)
-    end
-  end
-
-  describe "settings" do
-    test "sets the usual weekly budget, and blank removes it", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/settings")
-
-      html = view |> form("#budget form", %{amount: "2 000"}) |> render_submit()
-      assert html =~ "Sparat."
-      assert Budget.amount(home_scope(), week_start()) == Decimal.new(2000)
-      send(view.pid, :budget_saved_shown)
-      refute render(view) =~ "Sparat."
-
-      html = view |> form("#budget form", %{amount: "tvåtusen"}) |> render_submit()
-      assert html =~ "Skriv ett belopp i kronor."
-      # The field keeps what was typed, so the error sits next to its cause.
-      assert view |> element(~s(#budget input[name="amount"])) |> render() =~ ~s(value="tvåtusen")
-      assert has_element?(view, ~s(#budget input[aria-invalid="true"]))
-      assert Budget.amount(home_scope(), week_start()) == Decimal.new(2000)
-
-      view |> form("#budget form", %{amount: ""}) |> render_submit()
-      assert Budget.amount(home_scope(), week_start()) == nil
     end
   end
 end
