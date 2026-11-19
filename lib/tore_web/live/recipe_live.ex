@@ -494,7 +494,7 @@ defmodule ToreWeb.RecipeLive do
                 data-view={view}
                 class={[
                   "view-tab press inline-flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-2",
-                  @view == view && "is-open text-[color:var(--text)]",
+                  @view == view && "is-open",
                   @view != view && "text-[color:var(--muted)]"
                 ]}
                 style="font-size: 14px; font-weight: 600;"
@@ -532,7 +532,7 @@ defmodule ToreWeb.RecipeLive do
               data-role="new-recipe"
               class="pill pill-lamp press ml-1 h-8 px-3"
             >
-              <.icon name="ph-plus" /> {gettext("New")}
+              {gettext("New")}
             </button>
           </div>
 

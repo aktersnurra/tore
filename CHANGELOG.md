@@ -20,6 +20,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Check in the sheet before cooking is as tall as the field next to it.
 - At home says "On the list" from the start when everything missing is already on the list.
 - In the Recipes gallery the name and time sit on the picture, like the recipe page.
+- Plan has a Month view: a calendar with each day's dinner as a small picture; a day opens its week. Week / Month sit in one row with "Plan 4 days".
+- Plan tags a dinner Cooked on the day Done was pressed; the servings line is gone from the rows.
+- The open view (Gallery / List, Week / Month) is filled instead of underlined, and New has no plus, as in the mockup.
 
 ### Cooking, start to finish (2026-11-19)
 
