@@ -103,6 +103,27 @@ defmodule ToreWeb.PantryLiveTest do
     assert conn |> get(~p"/images/ingredients/#{milk.ingredient_id}") |> response(200) == "jpeg"
   end
 
+  test "tapping a row's picture takes a photo for it", %{conn: conn} do
+    milk = kept("Mjölk", "dairy")
+    row = ~s([data-item="#{milk.id}"])
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+
+    view |> element(row <> ~s( [data-role="pick-photo"])) |> render_click()
+
+    view
+    |> file_input("#item-photo-form", :item_photo, [
+      %{name: "photo.jpg", content: "our photo", type: "image/jpeg"}
+    ])
+    |> render_upload("photo.jpg")
+
+    assert {:ok, "our photo"} = Pantry.picture(home_scope(), milk.ingredient_id)
+
+    assert has_element?(
+             view,
+             row <> ~s( img[src^="/images/ingredients/#{milk.ingredient_id}?v="])
+           )
+  end
+
   test "the menu has Hemma under the household, with how much is at home", %{conn: conn} do
     kept("Mjölk", "dairy")
     {:ok, view, _html} = live(conn, ~p"/plan")

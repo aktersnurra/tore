@@ -17,8 +17,27 @@ defmodule ToreWeb.PantryLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(asking: nil) |> load()}
+    {:ok,
+     socket
+     |> assign(asking: nil, photo_for: nil)
+     |> allow_upload(:item_photo,
+       accept: ~w(.jpg .jpeg),
+       max_entries: 1,
+       max_file_size: 2_000_000,
+       auto_upload: true,
+       progress: &handle_progress/3
+     )
+     |> load()}
   end
+
+  # The phone has made the photo small (the .PhotoPicker hook); it becomes the row's picture.
+  def handle_progress(:item_photo, %{done?: true} = entry, socket) do
+    jpeg = consume_uploaded_entry(socket, entry, fn %{path: path} -> {:ok, File.read!(path)} end)
+    :ok = Pantry.put_picture(socket.assigns.current_scope, socket.assigns.photo_for, jpeg)
+    {:noreply, socket |> assign(photo_for: nil) |> load()}
+  end
+
+  def handle_progress(:item_photo, _entry, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("put_away", %{"name" => line}, socket) do
@@ -30,6 +49,18 @@ defmodule ToreWeb.PantryLive do
         {:ok, _item} = Pantry.put_away(socket.assigns.current_scope, name, quantity, unit)
         {:noreply, load(socket)}
     end
+  end
+
+  def handle_event("pick_photo", %{"id" => id}, socket),
+    do: {:noreply, assign(socket, photo_for: id)}
+
+  def handle_event("validate_photo", _params, socket), do: {:noreply, socket}
+
+  def handle_event("photo_failed", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(photo_for: nil)
+     |> put_flash(:error, gettext("Couldn't read that photo. Try another."))}
   end
 
   def handle_event("ask", %{"id" => id}, socket),
@@ -211,6 +242,46 @@ defmodule ToreWeb.PantryLive do
           </script>
         </div>
 
+        <%!-- Tapping a picture opens this; the hook makes the photo small and uploads it --%>
+        <input
+          id="photo-picker"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          phx-hook=".PhotoPicker"
+          phx-update="ignore"
+        />
+        <form id="item-photo-form" phx-change="validate_photo" class="hidden">
+          <.live_file_input upload={@uploads.item_photo} />
+        </form>
+        <script :type={Phoenix.LiveView.ColocatedHook} name=".PhotoPicker">
+          // 480 px is plenty for a 36 px tile on any screen, and keeps the photo near 40 KB.
+          const SIDE = 480
+          export default {
+            mounted() {
+              this.el.addEventListener("tore:pick-photo", () => this.el.click())
+              this.el.addEventListener("change", async () => {
+                const file = this.el.files[0]
+                this.el.value = ""
+                if (!file) return
+                try {
+                  const bitmap = await createImageBitmap(file)
+                  const scale = Math.min(1, SIDE / Math.max(bitmap.width, bitmap.height))
+                  const canvas = document.createElement("canvas")
+                  canvas.width = Math.round(bitmap.width * scale)
+                  canvas.height = Math.round(bitmap.height * scale)
+                  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+                  const blob = await new Promise(done => canvas.toBlob(done, "image/jpeg", 0.85))
+                  const photo = new File([blob], "photo.jpg", {type: "image/jpeg"})
+                  this.uploadTo("#item-photo-form", "item_photo", [photo])
+                } catch (_error) {
+                  this.pushEvent("photo_failed", {})
+                }
+              })
+            }
+          }
+        </script>
+
         <div :if={@groups == []} class="pt-8 pb-2">
           <p class="t-head">{gettext("Nothing here yet")}</p>
           <p class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
@@ -235,25 +306,25 @@ defmodule ToreWeb.PantryLive do
               data-item={row.item.id}
               class="flex min-h-[52px] items-center gap-3 py-1.5"
             >
-              <img
-                :if={row.picture}
-                src={row.picture}
-                alt=""
+              <%!-- The picture: tap to take or pick a photo of it --%>
+              <button
+                :if={row.item.ingredient_id}
+                type="button"
+                phx-click={
+                  JS.push("pick_photo", value: %{id: row.item.ingredient_id})
+                  |> JS.dispatch("tore:pick-photo", to: "#photo-picker")
+                }
+                aria-label={gettext("Photo of %{name}", name: row.item.name)}
+                data-role="pick-photo"
                 class={[
-                  "size-9 shrink-0 rounded-[var(--r-md)] bg-white object-contain p-0.5 ring-1 ring-[color:var(--hairline)]",
-                  row.group == :gone && "opacity-60"
-                ]}
-              />
-              <span
-                :if={!row.picture}
-                class={[
-                  "flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)]",
-                  "tint-#{tint(row.group)}",
-                  row.group == :gone && "opacity-60"
+                  "press shrink-0 rounded-[var(--r-md)]",
+                  @photo_for == row.item.ingredient_id && @uploads.item_photo.entries != [] &&
+                    "motion-safe:animate-pulse"
                 ]}
               >
-                <span class={[row.icon, "size-5"]}></span>
-              </span>
+                <.thumb row={row} />
+              </button>
+              <.thumb :if={!row.item.ingredient_id} row={row} />
               <span class="min-w-0 flex-1">
                 <span class={[
                   "block truncate",
@@ -274,6 +345,34 @@ defmodule ToreWeb.PantryLive do
         </section>
       </.page>
     </Layouts.app>
+    """
+  end
+
+  attr :row, :map, required: true
+
+  # The row's picture: its photo, or the category's icon on the group's tint.
+  defp thumb(%{row: %{picture: picture}} = assigns) when is_binary(picture) do
+    ~H"""
+    <img
+      src={@row.picture}
+      alt=""
+      class={[
+        "block size-9 rounded-[var(--r-md)] bg-white object-contain p-0.5 ring-1 ring-[color:var(--hairline)]",
+        @row.group == :gone && "opacity-60"
+      ]}
+    />
+    """
+  end
+
+  defp thumb(assigns) do
+    ~H"""
+    <span class={[
+      "flex size-9 items-center justify-center rounded-[var(--r-md)]",
+      "tint-#{tint(@row.group)}",
+      @row.group == :gone && "opacity-60"
+    ]}>
+      <span class={[@row.icon, "size-5"]}></span>
+    </span>
     """
   end
 

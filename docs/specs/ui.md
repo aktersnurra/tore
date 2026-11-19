@@ -1262,7 +1262,9 @@ page asks to be done.
 - A row: a small picture, the name, the amount or when it was bought, and at most one thing
   said about it at the end. The picture is the pack's photo once one was scanned (from Open
   Food Facts, kept by Tore and served from `/images/ingredients/:id`), otherwise the
-  category's icon on its group's tint.
+  category's icon on its group's tint. Tapping the picture takes or picks a photo of it; the
+  phone makes it 480 px before it's sent, and it replaces whatever the picture was. A later
+  scan never replaces the household's own.
 
 ### What a row says
 

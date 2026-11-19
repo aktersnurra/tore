@@ -554,4 +554,47 @@ defmodule Tore.PantryTest do
       assert {:error, :not_found} = Pantry.confirm_item(other, item.id)
     end
   end
+
+  describe "pictures" do
+    setup do
+      {:ok, item, :added, nil} =
+        Pantry.upsert_belief(home_scope(), %{catalogue_name: "Mjölk", category: "dairy"})
+
+      %{
+        ingredient:
+          Tore.Repo.get!(
+            Tore.Recipes.Ingredient,
+            item.ingredient_id,
+            Tore.Scope.repo_opts(home_scope())
+          )
+      }
+    end
+
+    test "a photo from the household replaces the scanned one, and the old file goes", %{
+      ingredient: ingredient
+    } do
+      scope = home_scope()
+      url = "https://images.openfoodfacts.org/images/products/1/front_sv.1.200.jpg"
+      Mox.expect(Tore.MockHTTP, :fetch, fn ^url -> {:ok, "scanned"} end)
+      :ok = Pantry.keep_picture(scope, ingredient, url)
+      old = Tore.Repo.reload!(ingredient, Tore.Scope.repo_opts(scope)).image_path
+
+      assert :ok = Pantry.put_picture(scope, ingredient.id, "ours")
+
+      assert {:ok, "ours"} = Pantry.picture(scope, ingredient.id)
+
+      assert {:error, :not_found} =
+               Tore.Storage.client().get_object(Tore.Storage.Buckets.recipes(), old)
+
+      # A later scan leaves ours alone.
+      fresh = Tore.Repo.reload!(ingredient, Tore.Scope.repo_opts(scope))
+      assert :ok = Pantry.keep_picture(scope, fresh, url)
+      assert {:ok, "ours"} = Pantry.picture(scope, ingredient.id)
+    end
+
+    test "another household's ingredient can't be given a photo", %{ingredient: ingredient} do
+      other = Tore.AccountsFixtures.scope_fixture(Tore.AccountsFixtures.household_fixture())
+      assert {:error, :not_found} = Pantry.put_picture(other, ingredient.id, "ours")
+    end
+  end
 end
