@@ -146,6 +146,66 @@ defmodule Tore.BudgetTest do
     end
   end
 
+  test "the page reads the week, the eight weeks up to it, and where the money went" do
+    user = user_fixture()
+    :ok = Budget.set_default(home_scope(), d("900"))
+
+    {:ok, _} =
+      Planning.assign_recipe(home_scope(), plan(), "mon_dinner", recipe("Gryta", "100").id, 4)
+
+    for {weeks_back, kr} <- [{0, "412"}, {1, "950"}, {3, "850"}] do
+      week = Date.add(@week, -7 * weeks_back)
+
+      {:ok, _} =
+        Tore.Costs.log_receipt(home_scope(), %{
+          date: week,
+          week_start: week,
+          store_name: "ICA",
+          total_amount: d(kr),
+          user_id: user.id,
+          line_items: [%{product_name: "Lax", total_price: d(kr), category: "fish"}]
+        })
+    end
+
+    page = Budget.page(home_scope(), @week)
+
+    # Monday's stew and six open days at it: 700 expected, 412 paid, 288 left.
+    assert Decimal.eq?(page.status.expected, 700)
+    assert Decimal.eq?(page.paid, 412)
+    assert Decimal.eq?(page.left, 288)
+
+    assert [first | _] = page.weeks
+    assert length(page.weeks) == 8 and first.week_start == Date.add(@week, -49)
+
+    assert [
+             {_, nil, false},
+             {_, nil, false},
+             {_, nil, false},
+             {_, nil, false},
+             {_, b850, false},
+             {_, nil, false},
+             {_, b950, true},
+             {_, b412, false}
+           ] =
+             Enum.map(page.weeks, &{&1.week_start, &1.paid, &1.over?})
+
+    assert Decimal.eq?(b850, 850) and Decimal.eq?(b950, 950) and Decimal.eq?(b412, 412)
+
+    # The average is of the weeks before this one that had receipts.
+    assert Decimal.eq?(page.average, 900)
+
+    assert [%{section: "fish", total: fish}] = page.sections
+    assert Decimal.eq?(fish, 2212)
+    assert length(page.receipts) == 3
+  end
+
+  test "the page with nothing paid yet" do
+    page = Budget.page(home_scope(), @week)
+    assert Decimal.eq?(page.paid, 0)
+    assert page.average == nil
+    assert page.sections == [] and page.receipts == []
+  end
+
   test "the planner hears of the budget only when the week has one" do
     ctx = %{scope: home_scope(), plan_stream_id: plan(), week_start: @week}
     assert BudgetCapsule.to_prompt(BudgetCapsule.build(ctx)) == nil

@@ -10,7 +10,7 @@ defmodule Tore.Budget do
 
   import Ecto.Query
 
-  alias Tore.{Household, Planning, Prices, Recipes, Repo, Scope, Streams}
+  alias Tore.{Costs, Household, Planning, Prices, Recipes, Repo, Scope, Streams}
   alias Tore.Budget.WeekBudget
   alias Tore.Planning.State
 
@@ -36,6 +36,33 @@ defmodule Tore.Budget do
           expected: Decimal.t(),
           off_by_percent: integer() | nil
         }
+
+  @typedoc """
+  What the budget page shows for a week: its status, what's been paid towards it and what's left
+  by the plan, the eight weeks up to it, the average paid in the weeks before it that had
+  receipts, the last four weeks' spending by section, and the latest receipts.
+  """
+  @type page :: %{
+          week_start: Date.t(),
+          status: status(),
+          paid: Decimal.t(),
+          left: Decimal.t(),
+          weeks: [
+            %{
+              week_start: Date.t(),
+              paid: Decimal.t() | nil,
+              budget: Decimal.t() | nil,
+              over?: boolean()
+            }
+          ],
+          average: Decimal.t() | nil,
+          sections: list(),
+          receipts: [Tore.Costs.Receipt.t()]
+        }
+
+  @page_weeks 8
+  @section_weeks 4
+  @page_receipts 10
 
   @calibration_weeks 4
   @calibration_min 2
@@ -148,6 +175,53 @@ defmodule Tore.Budget do
       adjustment: adjustment,
       expected: expected,
       over: over
+    }
+  end
+
+  @doc "What the budget page shows for the week starting `week_start` (`t:page/0`)."
+  @spec page(Scope.t(), Date.t()) :: page()
+  def page(%Scope{} = scope, %Date{} = week_start) do
+    status = status(scope, week_start)
+    first = Date.add(week_start, -7 * (@page_weeks - 1))
+    spent = Costs.spent_by_week(scope, first, week_start)
+    paid = Map.get(spent, week_start, Decimal.new(0))
+
+    weeks =
+      for n <- 0..(@page_weeks - 1), week = Date.add(first, 7 * n) do
+        budget = amount(scope, week)
+        paid = spent[week]
+
+        %{
+          week_start: week,
+          paid: paid,
+          budget: budget,
+          over?: !!(paid && budget && Decimal.gt?(paid, budget))
+        }
+      end
+
+    before = for {week, paid} <- spent, week != week_start, do: paid
+
+    %{
+      week_start: week_start,
+      status: status,
+      paid: paid,
+      left: status.expected |> Decimal.sub(paid) |> Decimal.max(0),
+      weeks: weeks,
+      average:
+        if(before != [],
+          do:
+            before
+            |> Enum.reduce(&Decimal.add/2)
+            |> Decimal.div(length(before))
+            |> Decimal.round(0)
+        ),
+      sections:
+        Costs.spending_by_section(
+          scope,
+          Date.add(week_start, -7 * (@section_weeks - 1)),
+          week_start
+        ),
+      receipts: Costs.recent_receipts(scope, @page_receipts)
     }
   end
 

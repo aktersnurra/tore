@@ -74,6 +74,67 @@ defmodule Tore.CostsTest do
     end
   end
 
+  describe "spending" do
+    setup %{user_id: user_id} do
+      shop = fn week, total, lines ->
+        {:ok, receipt} =
+          Costs.log_receipt(home_scope(), %{
+            date: week,
+            week_start: week,
+            store_name: "ICA",
+            total_amount: Decimal.new(total),
+            user_id: user_id,
+            line_items:
+              for {name, kr, section} <- lines do
+                %{product_name: name, total_price: kr && Decimal.new(kr), category: section}
+              end
+          })
+
+        receipt
+      end
+
+      w1 = ~D[2026-11-02]
+      w2 = ~D[2026-11-09]
+
+      shop.(w1, "300", [
+        {"Kycklinglårfilé", "109", "meat"},
+        {"Mjölk", "18", "dairy"},
+        {"Lax", "80", "fish"}
+      ])
+
+      shop.(w2, "250", [{"kycklinglårfilé", "109", "meat"}, {"Gurka", nil, "produce"}])
+      receipt = shop.(w2, "50", [{"Kaffe", "50", nil}])
+
+      %{w1: w1, w2: w2, receipt: receipt}
+    end
+
+    test "per week, only weeks with receipts", %{w1: w1, w2: w2} do
+      spent = Costs.spent_by_week(home_scope(), Date.add(w1, -7), w2)
+      assert Map.keys(spent) |> Enum.sort(Date) == [w1, w2]
+      assert Decimal.eq?(spent[w1], 300)
+      assert Decimal.eq?(spent[w2], 300)
+    end
+
+    test "by section, biggest first, with what was bought most", %{w1: w1, w2: w2} do
+      assert [meat, fish, other, dairy] = Costs.spending_by_section(home_scope(), w1, w2)
+
+      # Names are one item however they were printed; a line without a price isn't counted.
+      assert %{section: "meat", items: [%{name: "Kycklinglårfilé", times: 2, total: chicken}]} =
+               meat
+
+      assert Decimal.eq?(meat.total, 218) and Decimal.eq?(chicken, 218)
+      assert {fish.section, other.section, dairy.section} == {"fish", "other", "dairy"}
+      assert Decimal.eq?(other.total, 50)
+    end
+
+    test "one receipt, with its lines", %{receipt: receipt} do
+      assert %{store_name: "ICA", line_items: [%{product_name: "Kaffe"}]} =
+               Costs.get_receipt(home_scope(), receipt.id)
+
+      assert Costs.get_receipt(scope_fixture(household_fixture()), receipt.id) == nil
+    end
+  end
+
   test "log_receipt/1 returns error on missing required fields" do
     assert {:error, _} = Costs.log_receipt(home_scope(), %{store_name: "ICA"})
   end

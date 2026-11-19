@@ -172,6 +172,72 @@ defmodule Tore.Costs do
     end
   end
 
+  @doc "What was paid towards each week from `first` to `last`; a week without receipts isn't there."
+  @spec spent_by_week(Scope.t(), Date.t(), Date.t()) :: %{Date.t() => Decimal.t()}
+  def spent_by_week(%Scope{} = scope, %Date{} = first, %Date{} = last) do
+    from(r in Receipt,
+      where: r.week_start >= ^first and r.week_start <= ^last,
+      group_by: r.week_start,
+      select: {r.week_start, sum(r.total_amount)}
+    )
+    |> Repo.all(Scope.repo_opts(scope))
+    |> Map.new(fn {week, total} -> {week, to_decimal(total)} end)
+  end
+
+  @top_items 5
+
+  @doc """
+  What the lines of receipts counted towards the weeks from `first` to `last` cost, per shop
+  section, biggest first. Each section has its #{@top_items} costliest items, a name counted once
+  however it was printed. Lines without a price aren't counted; lines without a section are other.
+  """
+  @spec spending_by_section(Scope.t(), Date.t(), Date.t()) :: [
+          %{
+            section: String.t(),
+            total: Decimal.t(),
+            items: [%{name: String.t(), times: pos_integer(), total: Decimal.t()}]
+          }
+        ]
+  def spending_by_section(%Scope{} = scope, %Date{} = first, %Date{} = last) do
+    from(l in LineItem,
+      join: r in Receipt,
+      on: r.id == l.receipt_id,
+      where: r.week_start >= ^first and r.week_start <= ^last and not is_nil(l.total_price),
+      order_by: [asc: l.id],
+      select: {l.category, l.product_name, l.total_price}
+    )
+    |> Repo.all(Scope.repo_opts(scope))
+    |> Enum.group_by(fn {section, _, _} -> section || "other" end)
+    |> Enum.map(fn {section, lines} ->
+      items =
+        lines
+        |> Enum.group_by(fn {_, name, _} -> String.downcase(name) end)
+        |> Enum.map(fn {_, [{_, name, _} | _] = same} ->
+          %{name: name, times: length(same), total: sum(Enum.map(same, &elem(&1, 2)))}
+        end)
+        |> Enum.sort_by(& &1.total, {:desc, Decimal})
+
+      %{
+        section: section,
+        total: sum(Enum.map(items, & &1.total)),
+        items: Enum.take(items, @top_items)
+      }
+    end)
+    |> Enum.sort_by(& &1.total, {:desc, Decimal})
+  end
+
+  defp sum(amounts), do: Enum.reduce(amounts, Decimal.new(0), &Decimal.add/2)
+
+  @doc "A receipt with its lines, or nil."
+  @spec get_receipt(Scope.t(), integer()) :: Receipt.t() | nil
+  def get_receipt(%Scope{} = scope, id) do
+    from(r in Receipt,
+      where: r.id == ^id,
+      preload: [line_items: ^from(l in LineItem, order_by: l.id)]
+    )
+    |> Repo.one(Scope.repo_opts(scope))
+  end
+
   def parse_receipt(%Scope{} = scope, image_binary, locale) do
     {system, user} = Tore.LLM.Prompts.parse_receipt(locale)
 
