@@ -486,7 +486,6 @@ defmodule ToreWeb.RecipeLiveTest do
   describe "what's at home" do
     test "the page says what's missing and puts it on the list", %{conn: conn, user: user} do
       Mox.set_mox_global()
-      Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
 
       {:ok, buns} =
         Recipes.create(

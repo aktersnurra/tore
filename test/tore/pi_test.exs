@@ -118,4 +118,15 @@ defmodule Tore.PiTest do
     Application.delete_env(:tore, :pi)
     assert {:error, :pi_off} = Pi.ask(home_scope(), "chat", "hej")
   end
+
+  test "refusal_text names the household's refusals, also wrapped by a run, and nothing else" do
+    Gettext.with_locale(ToreWeb.Gettext, "sv", fn ->
+      assert Pi.refusal_text(:ai_unavailable) == "AI är avstängt för det här hushållet."
+    end)
+
+    assert Pi.refusal_text({:step_failed, :budget_exceeded}) == Pi.refusal_text(:budget_exceeded)
+    assert is_binary(Pi.refusal_text(:budget_exceeded))
+    assert Pi.refusal_text(:pi_off) == nil
+    assert Pi.refusal_text(:timeout) == nil
+  end
 end

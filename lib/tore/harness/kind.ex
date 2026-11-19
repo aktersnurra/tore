@@ -5,10 +5,10 @@ defmodule Tore.Harness.Kind do
 
   | Step             | May do                              | May not do         |
   |------------------|-------------------------------------|--------------------|
-  | `propose`        | LLM (through `Tore.LLM`), reads     | write domain state |
-  | `resolve`        | LLM, reads                          | write domain state |
+  | `propose`        | reads                               | write domain state |
+  | `resolve`        | reads                               | write domain state |
   | `verify`         | nothing: a pure check               | any effect         |
-  | `apply_proposal` | database writes, in the run's transaction | LLM, HTTP, storage |
+  | `apply_proposal` | database writes, in the run's transaction | HTTP, storage |
   | `after_commit`   | best-effort effects, such as making a recipe's picture | |
 
   A proposal is a registered artifact or a list of them (`Tore.Harness.Artifact.Registry`),

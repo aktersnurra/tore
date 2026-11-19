@@ -2,7 +2,7 @@ defmodule Tore.Costs do
   alias Tore.{Planning, Repo, Scope, Streams, Costs.LLMUsage, Costs.Receipt, Costs.LineItem}
   import Ecto.Query
 
-  @doc "Records what an LLM call cost the household. Only `Tore.LLM` calls this, after each call."
+  @doc "Records what pi cost the household (`Tore.Pi.Session`, when a run settles)."
   @spec log_llm_usage(Scope.t(), map()) :: {:ok, LLMUsage.t()} | {:error, Ecto.Changeset.t()}
   def log_llm_usage(%Scope{} = scope, attrs) do
     %LLMUsage{household_id: scope.household_id} |> LLMUsage.changeset(attrs) |> Repo.insert()

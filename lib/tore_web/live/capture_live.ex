@@ -225,7 +225,7 @@ defmodule ToreWeb.CaptureLive do
 
   defp refusal(reason) do
     text =
-      Tore.LLM.refusal_text(reason) ||
+      Tore.Pi.refusal_text(reason) ||
         gettext("Tore couldn't finish that. Try again in a moment.")
 
     %{role: :assistant, text: text}

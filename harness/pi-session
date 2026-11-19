@@ -4,15 +4,11 @@
 # directly on the same machine, or as the forced command of an ssh key on the harness machine.
 #
 #   header: {"household": 7, "session": "chat", "mcp_url": "https://…/mcp", "token": "…",
-#            "model": "anthropic/claude-sonnet-5-5", "oneshot": false}
+#            "model": "anthropic/claude-sonnet-5-5"}
 #
 # The household's agent sees Tore's MCP tools and the web, nothing else: no shell, no files, no
 # extensions but MCP and pi-web-access, and none of this machine's own pi settings. Its sessions
 # are kept per household in $HARNESS_STATE_DIR/households/<id>/sessions.
-#
-# A one-shot ("oneshot": true) is Tore asking for one answer, such as a receipt read into JSON:
-# pi as a plain model, with ONESHOT.md as its whole system prompt, no tools at all, no thinking,
-# and no session kept.
 #
 # Needs jq and pi, with ANTHROPIC_API_KEY or OPENROUTER_API_KEY for the model in the environment.
 # pi's own config (the installed web package) lives in $HARNESS_STATE_DIR/pi, never ~/.pi.
@@ -31,7 +27,6 @@ session=$(field .session)
 mcp_url=$(field .mcp_url)
 token=$(field .token)
 model=$(field .model)
-oneshot=$(field .oneshot)
 
 case $household in '' | *[!0-9]*) fail "bad household" ;; esac
 # Also pi's session id, which starts and ends with a letter or digit.
@@ -54,12 +49,6 @@ export TORE_MCP_TOKEN="$token"
 # --session-id opens the session with that id or starts it, so a chat goes on where it left off
 # after its process stopped.
 mkdir -p "$state/cwd" && cd "$state/cwd"
-
-if [ "$oneshot" = true ]; then
-  exec pi --mode rpc --no-extensions --no-tools --no-context-files --no-session \
-    --system-prompt "$(cat "$dir/ONESHOT.md")" --thinking off \
-    ${model:+--model "$model"}
-fi
 
 exec pi --mode rpc \
   --no-extensions -e builtin:mcp -e "npm:pi-web-access" \

@@ -130,8 +130,6 @@ defmodule ToreWeb.ShopLiveTest do
 
   describe "the week's dinners" do
     setup do
-      stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
-
       {:ok, tacos} =
         Tore.Recipes.create(
           home_scope(),
@@ -170,7 +168,6 @@ defmodule ToreWeb.ShopLiveTest do
     test "long-pressing a grocery row opens an item sheet whose words go to pi about the item",
          %{conn: conn, user: user, pi_log: log} do
       System.put_env("FAKE_PI_REPLY", "Bytte till Apetina.")
-      stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "dairy"}, %{}} end)
 
       {:ok, view, _} = live(conn, ~p"/shop")
 
@@ -201,8 +198,6 @@ defmodule ToreWeb.ShopLiveTest do
     end
 
     test "escape closes the item sheet without routing", %{conn: conn} do
-      stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "dairy"}, %{}} end)
-
       {:ok, view, _} = live(conn, ~p"/shop")
 
       view

@@ -64,7 +64,7 @@ defmodule Tore.AgentTest do
     )
 
     {:ok, _} =
-      Costs.log_llm_usage(over_limit, %{feature: "seed", cost_usd: Tore.LLM.monthly_limit_usd()})
+      Costs.log_llm_usage(over_limit, %{feature: "seed", cost_usd: Tore.Pi.monthly_limit_usd()})
 
     assert :ok = Agent.run_weekly("weekly_reflection")
     assert :ok = Agent.run_weekly("weekly_reflection")

@@ -15,7 +15,7 @@ defmodule Tore.Harness.Runs do
 
   A kind that fails its verifier ends `failed` and returns `{:ok, run}`. A step that errors ends
   `failed` too and returns `{:error, {:step_failed, reason}}`, so screens can say why through
-  `Tore.LLM.refusal_text/1`; a crash, exit or throw returns `{:error, {:run_crashed, reason}}`.
+  `Tore.Pi.refusal_text/1`; a crash, exit or throw returns `{:error, {:run_crashed, reason}}`.
   """
 
   require Logger

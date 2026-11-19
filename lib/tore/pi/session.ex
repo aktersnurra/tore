@@ -12,10 +12,6 @@ defmodule Tore.Pi.Session do
 
   A command with an answer (`get_messages`) goes with an id; pi's response with that id is the
   caller's reply, and every other record is broadcast.
-
-  A one-shot session (`oneshot: true`) is pi as a plain model for one answer: no tools, no
-  session kept, the one-shot model if one is configured. Its caller records what it cost, under
-  the feature that asked (`Tore.LLM.Pi`).
   """
   use GenServer, restart: :temporary
 
@@ -31,17 +27,16 @@ defmodule Tore.Pi.Session do
   @renew_s 90 * 60
   @max_line 4 * 1024 * 1024
 
-  def start_link({%Scope{} = scope, name, opts}),
-    do: GenServer.start_link(__MODULE__, {scope, name, opts}, name: via(scope, name))
+  def start_link({%Scope{} = scope, name}),
+    do: GenServer.start_link(__MODULE__, {scope, name}, name: via(scope, name))
 
   def via(%Scope{household_id: id}, name), do: {:via, Registry, {Tore.Pi.Registry, {id, name}}}
 
   @impl true
-  def init({scope, name, opts}) do
+  def init({scope, name}) do
     state = %{
       scope: scope,
       name: name,
-      oneshot: Keyword.get(opts, :oneshot, false),
       cost: 0.0,
       busy: false,
       buffer: "",
@@ -137,7 +132,6 @@ defmodule Tore.Pi.Session do
   end
 
   defp record_cost(%{cost: cost}) when cost <= 0, do: :ok
-  defp record_cost(%{oneshot: true}), do: :ok
 
   defp record_cost(state) do
     {:ok, _} =
@@ -166,9 +160,7 @@ defmodule Tore.Pi.Session do
       session: state.name,
       mcp_url: config[:mcp_url] || ToreWeb.Endpoint.url() <> "/mcp",
       token: SessionToken.mint(state.scope.household_id, "pi-#{state.name}", @token_s),
-      model:
-        if(state.oneshot, do: config[:oneshot_model] || config[:model], else: config[:model]),
-      oneshot: state.oneshot
+      model: config[:model]
     }
 
     state = Map.merge(state, %{port: port, opened_at: System.monotonic_time(:second)})

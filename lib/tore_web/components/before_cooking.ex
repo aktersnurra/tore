@@ -105,7 +105,7 @@ defmodule ToreWeb.BeforeCooking do
   end
 
   defp failure(reason) do
-    Tore.LLM.refusal_text(reason) || gettext("Couldn't check. Nothing has changed.")
+    Tore.Pi.refusal_text(reason) || gettext("Couldn't check. Nothing has changed.")
   end
 
   defp still_missing(%{missing: missing, had: had}), do: Enum.reject(missing, &(&1 in had))

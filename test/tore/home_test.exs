@@ -61,10 +61,6 @@ defmodule Tore.HomeTest do
       scope = home_scope()
       plan_tonight(scope)
 
-      stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
-        {:ok, %{"section" => "dairy"}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
-      end)
-
       list_id = Streams.shop_list(scope, @monday)
       {:ok, _} = Shop.add_item(scope, list_id, "mjölk", Decimal.new(1), "l", nil)
       {:ok, _} = Shop.add_item(scope, list_id, "bröd", Decimal.new(1), "st", nil)
@@ -91,10 +87,6 @@ defmodule Tore.HomeTest do
   describe "the note" do
     test "facts know what tomorrow's dinner needs that's neither at home nor on a list" do
       scope = home_scope()
-
-      stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
-        {:ok, %{"section" => "other"}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
-      end)
 
       {:ok, salmon} =
         Recipes.create(

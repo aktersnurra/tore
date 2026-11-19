@@ -8,7 +8,6 @@ defmodule Tore.BasicsTest do
   alias Tore.Basics.Basic
   alias Tore.Recipes.Ingredient
 
-  # No MockLLM expectations anywhere: a model call fails the test.
   setup :verify_on_exit!
 
   @today ~D[2026-11-14]

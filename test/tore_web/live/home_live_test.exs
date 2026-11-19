@@ -8,10 +8,6 @@ defmodule ToreWeb.HomeLiveTest do
   setup :set_mox_from_context
 
   setup do
-    stub(Tore.MockLLM, :text, fn _system, _user, _opts ->
-      {:ok, %{"prompt" => "A plate of food."}, %{}}
-    end)
-
     user = user_fixture(name: "Gustaf")
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
@@ -102,7 +98,6 @@ defmodule ToreWeb.HomeLiveTest do
       conn: conn
     } do
       Mox.set_mox_global()
-      Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
 
       {:ok, buns} =
         Tore.Recipes.create(
@@ -188,8 +183,6 @@ defmodule ToreWeb.HomeLiveTest do
     test "the home pick's note shows with its way on, unless the page already says it", %{
       conn: conn
     } do
-      Mox.set_mox_global()
-      Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
       # A stored pick is read only while the household can use pi.
       fake_pi(%{})
       today = Tore.Clock.today()

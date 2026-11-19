@@ -15,15 +15,12 @@ defmodule Tore.Harness.Kinds.PlannerTest do
 
   setup do
     stub(Tore.MockHTTP, :fetch, fn _url -> {:error, :not_found} end)
-    # A confirmed recipe's picture is made after commit; these tests don't look at it.
-    stub(Tore.MockLLM, :text, fn _, _, _ -> {:error, :ai_unavailable} end)
     plan = Tore.Streams.plan(home_scope(), @week)
     {:ok, recipe} = Recipes.create(home_scope(), recipe("Stew"))
     {:ok, _} = Planning.assign_recipe(home_scope(), plan, "mon_dinner", recipe.id, 4)
     %{plan: plan, recipe: recipe}
   end
 
-  # :image_url keeps Recipes.create's image task off MockLLM.
   defp recipe(title),
     do: %{
       title: title,

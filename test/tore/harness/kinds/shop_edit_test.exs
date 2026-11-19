@@ -12,10 +12,6 @@ defmodule Tore.Harness.Kinds.ShopEditTest do
 
   setup do
     stub(Tore.MockHTTP, :fetch, fn _url -> {:error, :not_found} end)
-    # One answer serves both the section classifier and the pantry canonicaliser.
-    stub(Tore.MockLLM, :text, fn _, _, _ ->
-      {:ok, %{"section" => "dairy", "items" => []}, %{}}
-    end)
 
     user = user_fixture()
     %{ctx: capture_ctx(home_scope().household_id, user.id)}

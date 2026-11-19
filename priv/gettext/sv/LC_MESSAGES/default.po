@@ -1423,7 +1423,7 @@ msgstr "Personen är redan tillagd."
 msgid "Your households"
 msgstr "Dina hushåll"
 
-#: lib/tore/llm.ex:51
+#: lib/tore/pi.ex:60
 #: lib/tore_web/live/settings_live.ex:504
 #, elixir-autogen, elixir-format
 msgid "AI is off for this household."
@@ -1439,7 +1439,7 @@ msgstr "AI använder %{name}s krediter."
 msgid "Use my credits for this household"
 msgstr "Använd mina krediter för det här hushållet"
 
-#: lib/tore/llm.ex:54
+#: lib/tore/pi.ex:63
 #, elixir-autogen, elixir-format
 msgid "This household has used its AI budget for this month."
 msgstr "Hushållet har använt månadens AI-budget."

@@ -20,7 +20,6 @@ config :tore, ToreWeb.Endpoint,
   ]
 
 config :tore, :http_client, Tore.Adapters.ReqHTTP
-config :tore, :llm_spec, Tore.LLM.Pi
 config :tore, :image_gen_client, Tore.ImageGen.OpenRouter
 
 # Do not print debug messages in production

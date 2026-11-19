@@ -61,9 +61,7 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Port injection — wire spec + transport adapter injected per environment.
-# Contexts call `Tore.LLM` (the facade), which dispatches to `:llm_spec`: pi, as one-shots.
-config :tore, :llm_spec, Tore.LLM.Pi
+# Port injection: the HTTP transport, injected per environment.
 config :tore, :http_client, Tore.Adapters.ReqHTTP
 
 config :tore, :openrouter_site_url, "https://scullion.gustafrydholm.xyz"

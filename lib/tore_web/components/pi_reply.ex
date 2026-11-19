@@ -74,7 +74,7 @@ defmodule ToreWeb.PiReply do
 
   defp refusal(reason),
     do:
-      Tore.LLM.refusal_text(reason) ||
+      Tore.Pi.refusal_text(reason) ||
         gettext("Tore couldn't finish that. Try again in a moment.")
 
   attr :reply, :string, default: nil

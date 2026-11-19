@@ -1423,7 +1423,7 @@ msgstr ""
 msgid "Your households"
 msgstr ""
 
-#: lib/tore/llm.ex:51
+#: lib/tore/pi.ex:60
 #: lib/tore_web/live/settings_live.ex:504
 #, elixir-autogen, elixir-format
 msgid "AI is off for this household."
@@ -1439,7 +1439,7 @@ msgstr ""
 msgid "Use my credits for this household"
 msgstr ""
 
-#: lib/tore/llm.ex:54
+#: lib/tore/pi.ex:63
 #, elixir-autogen, elixir-format
 msgid "This household has used its AI budget for this month."
 msgstr ""

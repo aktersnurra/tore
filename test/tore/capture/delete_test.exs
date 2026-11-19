@@ -8,8 +8,6 @@ defmodule Tore.Capture.DeleteTest do
 
   setup :verify_on_exit!
 
-  @usage %{prompt_tokens: 1, completion_tokens: 1, cost_usd: Decimal.new(0)}
-
   setup do
     Gettext.put_locale(ToreWeb.Gettext, "sv")
     user = user_fixture()
@@ -17,7 +15,6 @@ defmodule Tore.Capture.DeleteTest do
   end
 
   test "remove_shopping_item takes the item off this week's list", %{ctx: ctx} do
-    stub(Tore.MockLLM, :text, fn _, _, _ -> {:ok, %{"section" => "dairy"}, @usage} end)
     list_id = Streams.shop_list(home_scope(), Tore.Clock.today())
     {:ok, _} = Shop.add_item(home_scope(), list_id, "mjölk", nil, nil, nil)
 

@@ -16,10 +16,18 @@ defmodule Tore.Pi do
   needs what a model call has always needed: a sponsor and room under its monthly limit.
   """
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.{Costs, Household, Scope}
   alias Tore.Pi.Session
 
   @type session :: String.t()
+
+  @monthly_limit_usd 20.0
+
+  @doc "What one household may spend on pi in a calendar month, in USD."
+  @spec monthly_limit_usd() :: float()
+  def monthly_limit_usd, do: @monthly_limit_usd
 
   @spec configured?() :: boolean()
   def configured?, do: config()[:command] not in [nil, []]
@@ -34,13 +42,27 @@ defmodule Tore.Pi do
       Household.ai_sponsor(scope) == nil ->
         {:error, :ai_unavailable}
 
-      Costs.llm_spend_this_month(scope) >= Tore.LLM.monthly_limit_usd() ->
+      Costs.llm_spend_this_month(scope) >= @monthly_limit_usd ->
         {:error, :budget_exceeded}
 
       true ->
         :ok
     end
   end
+
+  @doc """
+  What to tell someone whose request `check/1` refused, also when a run wrapped the refusal as
+  `{:step_failed, reason}`. Nil for any other error, so the caller keeps its own message.
+  """
+  @spec refusal_text(term()) :: String.t() | nil
+  def refusal_text({:step_failed, reason}), do: refusal_text(reason)
+
+  def refusal_text(:ai_unavailable), do: gettext("AI is off for this household.")
+
+  def refusal_text(:budget_exceeded),
+    do: gettext("This household has used its AI budget for this month.")
+
+  def refusal_text(_reason), do: nil
 
   @doc "The signed-in person's chat with pi."
   @spec chat_session(Scope.t()) :: session()
@@ -56,13 +78,12 @@ defmodule Tore.Pi do
   @doc """
   Sends `message` to the household's session, starting it if it isn't running. Returns at once;
   the answer arrives on the topic. `:images` is a list of `{mime_type, bytes}`. A message sent
-  while the session is working waits until it is done. `oneshot: true` starts the session as
-  pi with no tools (`Tore.Pi.Session`).
+  while the session is working waits until it is done.
   """
   @spec ask(Scope.t(), session(), String.t(), keyword()) :: :ok | {:error, atom()}
   def ask(%Scope{} = scope, session, message, opts \\ []) do
     with :ok <- check(scope),
-         {:ok, pid} <- ensure_started(scope, session, Keyword.take(opts, [:oneshot])) do
+         {:ok, pid} <- ensure_started(scope, session) do
       prompt(pid, message, Keyword.get(opts, :images, []))
     end
   end
@@ -81,7 +102,7 @@ defmodule Tore.Pi do
   @spec messages(Scope.t(), session()) :: {:ok, [map()]} | {:error, term()}
   def messages(%Scope{} = scope, session) do
     with :ok <- check(scope),
-         {:ok, pid} <- ensure_started(scope, session, []),
+         {:ok, pid} <- ensure_started(scope, session),
          {:ok, %{"messages" => messages}} <- command(pid, %{type: "get_messages"}) do
       {:ok, messages}
     end
@@ -167,8 +188,8 @@ defmodule Tore.Pi do
     end
   end
 
-  defp ensure_started(scope, session, opts) do
-    case DynamicSupervisor.start_child(Tore.Pi.Sessions, {Session, {scope, session, opts}}) do
+  defp ensure_started(scope, session) do
+    case DynamicSupervisor.start_child(Tore.Pi.Sessions, {Session, {scope, session}}) do
       {:ok, pid} -> {:ok, pid}
       {:error, {:already_started, pid}} -> {:ok, pid}
       {:error, _} -> {:error, :pi_unavailable}

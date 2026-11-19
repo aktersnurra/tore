@@ -56,7 +56,7 @@ defmodule ToreWeb.PrepLive do
          put_flash(
            socket,
            :error,
-           Tore.LLM.refusal_text(reason) || gettext("Prep guide generation failed")
+           Tore.Pi.refusal_text(reason) || gettext("Prep guide generation failed")
          )}
     end
   end
