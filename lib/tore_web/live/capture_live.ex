@@ -283,7 +283,7 @@ defmodule ToreWeb.CaptureLive do
   defp step_label_for("plan_week"), do: gettext("Planning the week…")
 
   defp step_label_for(n)
-       when n in ~w(set_plan_slot clear_plan_slot skip_plan_meal set_plan_servings pin_plan_slot mark_eating_out),
+       when n in ~w(set_plan_slot clear_plan_slot skip_plan_meal set_plan_servings pin_plan_slot mark_eating_out set_days_off),
        do: gettext("Changing the plan…")
 
   defp step_label_for("generate_shopping_list_from_plan"), do: gettext("Making the list…")

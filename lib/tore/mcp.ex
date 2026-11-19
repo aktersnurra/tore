@@ -20,6 +20,7 @@ defmodule Tore.Mcp do
     Tools.ListDeals,
     Tools.SetDinner,
     Tools.ChangeDay,
+    Tools.SetDaysOff,
     Tools.AddToList,
     Tools.CheckOff,
     Tools.RemoveFromList,

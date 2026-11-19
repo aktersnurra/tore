@@ -73,6 +73,10 @@ defmodule Tore.Mcp.ReadToolsTest do
              hd(context["this_week"])
 
     assert id == pasta.id
+
+    assert %{"lunch_day" => true, "lunch" => nil, "day_off" => false} =
+             Enum.at(context["this_week"], 6)
+
     assert length(context["next_week"]) == 7
     assert [%{"name" => "Mjölk", "checked" => false}] = context["shopping_list"]
     assert [%{"name" => "ägg", "expires_on" => _}] = context["pantry"]

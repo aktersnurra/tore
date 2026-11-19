@@ -11,17 +11,19 @@ defmodule Tore.Harness.Kinds.SetPlanSlot do
   alias Tore.Harness.Kinds.Planner
   alias Tore.Planning.Events.RecipeAssigned
 
-  @doc "The proposal for putting `recipe_id` on `date`'s dinner, and the ctx to submit it with."
-  @spec proposal(Scope.t(), Date.t(), integer(), integer()) ::
+  @doc """
+  The proposal for putting `recipe_id` on `date`'s dinner (or lunch), and the ctx to submit it with.
+  """
+  @spec proposal(Scope.t(), Date.t(), integer(), integer(), Streams.meal()) ::
           {:ok, PlanDiff.t(), map()} | {:error, :recipe_not_found}
-  def proposal(%Scope{} = scope, %Date{} = date, recipe_id, servings) do
+  def proposal(%Scope{} = scope, %Date{} = date, recipe_id, servings, meal \\ :dinner) do
     case Recipes.get(scope, recipe_id) do
       nil ->
         {:error, :recipe_not_found}
 
       recipe ->
         plan_id = Streams.plan(scope, date)
-        slot_key = Streams.slot_key(date)
+        slot_key = Streams.slot_key(date, meal)
         week_start = Streams.monday(date)
 
         diff = %PlanDiff{

@@ -44,6 +44,24 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsuleTest do
     assert prompt =~ "Friday 2026-06-12 (fri_dinner): eating_out"
   end
 
+  test "to_prompt/1 puts a planned lunch and a day off on the day's line" do
+    ctx = ctx_for(~D[2026-06-08])
+
+    {:ok, soup} =
+      Recipes.create(home_scope(), %{title: "Ärtsoppa", recipe_type: :meal, base_servings: 4})
+
+    Planning.assign_recipe(home_scope(), ctx.plan_stream_id, "thu_lunch", soup.id, 4)
+    :ok = Planning.mark_days_off(home_scope(), [~D[2026-06-11]])
+
+    capsule = Capsule.build(ctx)
+    assert length(capsule.slots) == 7
+    thu = Enum.at(capsule.slots, 3)
+    assert %{lunch: "Ärtsoppa", lunch_day: true, day_off: true, status: :empty} = thu
+
+    assert Capsule.to_prompt(capsule) =~
+             "Thursday 2026-06-11 (thu_dinner): empty; lunch (thu_lunch): Ärtsoppa [day off]"
+  end
+
   test "to_prompt/1 renders the dinner plan with one line per day" do
     week_start = ~D[2026-06-08]
     ctx = ctx_for(week_start)

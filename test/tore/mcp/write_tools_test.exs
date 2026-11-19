@@ -69,7 +69,7 @@ defmodule Tore.Mcp.WriteToolsTest do
     names = Enum.map(tools, & &1["name"])
 
     for name <-
-          ~w(set_dinner change_day add_to_list check_off remove_from_list make_list add_to_pantry remove_from_pantry update_memory mark_cooked delete_recipe delete_receipt put_together undo),
+          ~w(set_dinner change_day set_days_off add_to_list check_off remove_from_list make_list add_to_pantry remove_from_pantry update_memory mark_cooked delete_recipe delete_receipt put_together undo),
         do: assert(name in names, name)
   end
 
@@ -98,6 +98,54 @@ defmodule Tore.Mcp.WriteToolsTest do
     assert result["run_id"] == nil
     assert result["done"] =~ "pin"
     assert slot(scope, "wed_dinner").recipe_id == soup.id
+  end
+
+  test "a lunch: set_dinner and change_day with meal lunch, beside the dinner", %{scope: scope} do
+    soup = recipe("Ärtsoppa")
+    pasta = recipe("Pasta")
+    {:ok, _} = Planning.assign_recipe(scope, plan(scope), "sat_dinner", pasta.id, 4)
+
+    result =
+      ok(scope, "set_dinner", %{"date" => day(5), "recipe_id" => soup.id, "meal" => "lunch"})
+
+    assert result["done"] =~ "Saturday lunch"
+    by_mcp!(scope, result)
+    assert slot(scope, "sat_lunch").recipe_id == soup.id
+    assert slot(scope, "sat_dinner").recipe_id == pasta.id
+
+    args = %{"date" => day(5), "meal" => "lunch"}
+
+    by_mcp!(
+      scope,
+      ok(scope, "change_day", Map.merge(args, %{"action" => "servings", "servings" => 2}))
+    )
+
+    assert slot(scope, "sat_lunch").servings == 2
+
+    assert %{"isError" => true} = call(scope, "change_day", Map.put(args, "action", "skip"))
+
+    by_mcp!(scope, ok(scope, "change_day", Map.put(args, "action", "clear")))
+    assert slot(scope, "sat_lunch") == nil
+    assert slot(scope, "sat_dinner").recipe_id == pasta.id
+  end
+
+  test "set_days_off marks days off across weeks, and takes them back", %{scope: scope} do
+    friday = Date.add(monday(), 4)
+    next_monday = Date.add(monday(), 7)
+    dates = Enum.map([friday, next_monday], &Date.to_iso8601/1)
+
+    assert %{"done" => _} = ok(scope, "set_days_off", %{"dates" => dates})
+
+    off = fn date ->
+      {:ok, state} = Planning.load_plan(scope, Streams.plan(scope, date))
+      MapSet.member?(state.days_off, date)
+    end
+
+    assert off.(friday) and off.(next_monday)
+
+    ok(scope, "set_days_off", %{"dates" => [hd(dates)], "off" => false})
+    refute off.(friday)
+    assert off.(next_monday)
   end
 
   test "change_day skips, sets servings, eats out and clears", %{scope: scope} do

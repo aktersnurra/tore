@@ -1,5 +1,5 @@
 defmodule Tore.Mcp.Tools.SetDinner do
-  @moduledoc "Puts a recipe on a day's dinner, as Capture's `set_plan_slot` does."
+  @moduledoc "Puts a recipe on a day's dinner, or its lunch, as Capture's `set_plan_slot` does."
   @behaviour Tore.Mcp.Tool
 
   alias Tore.Capture.Dispatch
@@ -11,8 +11,9 @@ defmodule Tore.Mcp.Tools.SetDinner do
   @impl true
   def description,
     do: """
-    Puts a recipe on a day's dinner, replacing what was there. A pinned day stays as it is. \
-    Servings default to 4.\
+    Puts a recipe on a day's dinner, replacing what was there, or on its lunch with \
+    `meal: "lunch"` (only when they ask for a lunch). A pinned day stays as it is. Servings \
+    default to 4.\
     """
 
   @impl true
@@ -22,6 +23,7 @@ defmodule Tore.Mcp.Tools.SetDinner do
       "properties" => %{
         "date" => %{"type" => "string", "format" => "date"},
         "recipe_id" => %{"type" => "integer"},
+        "meal" => %{"type" => "string", "enum" => ["dinner", "lunch"]},
         "servings" => %{"type" => "integer", "minimum" => 1}
       },
       "required" => ["date", "recipe_id"],
@@ -33,7 +35,7 @@ defmodule Tore.Mcp.Tools.SetDinner do
     servings = if is_integer(args["servings"]) and args["servings"] > 0, do: args["servings"]
 
     with {:ok, date} <- Tool.date(args["date"]) do
-      Tool.reply(Dispatch.set_plan_slot(date, id, servings, Tool.ctx(scope)))
+      Tool.reply(Dispatch.set_plan_slot(date, id, servings, Tool.ctx(scope), Tool.meal(args)))
     end
   end
 

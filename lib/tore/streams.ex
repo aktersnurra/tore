@@ -34,7 +34,9 @@ defmodule Tore.Streams do
       iex> Tore.Streams.slot_key(~D[2026-06-21], :lunch)
       "sun_lunch"
   """
-  @spec slot_key(Date.t(), :dinner | :lunch) :: String.t()
+  @type meal :: :dinner | :lunch
+
+  @spec slot_key(Date.t(), meal()) :: String.t()
   def slot_key(%Date{} = date, meal \\ :dinner) when meal in [:dinner, :lunch],
     do: "#{Enum.at(@days, Date.day_of_week(date) - 1)}_#{meal}"
 

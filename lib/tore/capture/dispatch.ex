@@ -236,21 +236,25 @@ defmodule Tore.Capture.Dispatch do
 
   # ── plan slot mutation ─────────────────────────────────────────────────
 
-  @doc "Puts a recipe on a day through a run, so a pinned day stays as it is."
-  @spec set_plan_slot(Date.t(), integer(), integer() | nil, ctx()) :: bubble()
-  def set_plan_slot(%Date{} = date, recipe_id, servings, ctx)
+  @doc """
+  Puts a recipe on a day's dinner, or its lunch, through a run, so a pinned day stays as it is.
+  """
+  @spec set_plan_slot(Date.t(), integer(), integer() | nil, ctx(), Streams.meal()) :: bubble()
+  def set_plan_slot(%Date{} = date, recipe_id, servings, ctx, meal \\ :dinner)
       when is_integer(recipe_id) and is_map(ctx) do
+    servings = servings || @default_servings
+
     with {:ok, diff, run_ctx} <-
-           Kinds.SetPlanSlot.proposal(ctx.scope, date, recipe_id, servings || @default_servings),
+           Kinds.SetPlanSlot.proposal(ctx.scope, date, recipe_id, servings, meal),
          {:ok, %KitchenRun{} = run} <-
            Runs.submit(ctx.scope, Kinds.SetPlanSlot, diff, as_actor(run_ctx, ctx)) do
-      slot_bubble(run, date, diff)
+      slot_bubble(run, date, diff, meal)
     else
       {:error, reason} -> error_bubble(:plan, reason)
     end
   end
 
-  defp slot_bubble(%KitchenRun{status: :applied, id: id}, date, diff) do
+  defp slot_bubble(%KitchenRun{status: :applied, id: id}, date, diff, meal) do
     [%{payload: %{"label" => title}}] = diff.events
 
     %{
@@ -258,23 +262,41 @@ defmodule Tore.Capture.Dispatch do
       text:
         gettext("Added %{title} to %{day} %{date}.",
           title: title,
-          day: long_day_for(date),
+          day: day_for(date, meal),
           date: Date.to_iso8601(date)
         ),
       run_stream_id: id
     }
   end
 
-  defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_pinned}, date, _diff),
+  defp slot_bubble(%KitchenRun{status: :failed, failure_code: :slot_pinned}, date, _diff, _),
     do: pinned_bubble(date)
 
-  defp slot_bubble(%KitchenRun{failure_code: code}, _date, _diff), do: error_bubble(:plan, code)
+  defp slot_bubble(%KitchenRun{failure_code: code}, _date, _diff, _),
+    do: error_bubble(:plan, code)
 
   @spec clear_plan_slot(Date.t(), ctx()) :: bubble()
-  def clear_plan_slot(%Date{} = date, ctx) do
-    edit_plan(ctx, date, &%Planning.Commands.RemoveRecipe{slot_key: &1}, fn ->
-      gettext("Cleared %{day} %{date}.", day: long_day_for(date), date: Date.to_iso8601(date))
+  def clear_plan_slot(%Date{} = date, ctx, meal \\ :dinner) do
+    edit_plan(ctx, {date, meal}, &%Planning.Commands.RemoveRecipe{slot_key: &1}, fn ->
+      gettext("Cleared %{day} %{date}.", day: day_for(date, meal), date: Date.to_iso8601(date))
     end)
+  end
+
+  @doc "Marks `dates` as days off, or takes them off again: a day off offers a lunch."
+  @spec set_days_off([Date.t()], boolean(), ctx()) :: bubble()
+  def set_days_off([_ | _] = dates, off?, ctx) do
+    result =
+      if off?,
+        do: Planning.mark_days_off(ctx.scope, dates),
+        else: Planning.clear_days_off(ctx.scope, dates)
+
+    days = dates |> Enum.sort(Date) |> Enum.map_join(", ", &Date.to_iso8601/1)
+
+    case result do
+      :ok when off? -> %{role: :assistant, text: gettext("Days off: %{days}.", days: days)}
+      :ok -> %{role: :assistant, text: gettext("No longer days off: %{days}.", days: days)}
+      {:error, reason} -> error_bubble(:plan, reason)
+    end
   end
 
   # ── pantry-driven suggestions ──────────────────────────────────────────
@@ -864,30 +886,32 @@ defmodule Tore.Capture.Dispatch do
     }
   end
 
-  @spec set_plan_servings(Date.t(), pos_integer(), ctx()) :: bubble()
-  def set_plan_servings(%Date{} = date, servings, ctx)
+  @spec set_plan_servings(Date.t(), pos_integer(), ctx(), Streams.meal()) :: bubble()
+  def set_plan_servings(%Date{} = date, servings, ctx, meal \\ :dinner)
       when is_integer(servings) and servings > 0 do
     command = &%Planning.Commands.SetServings{slot_key: &1, servings: servings}
 
-    edit_plan(ctx, date, command, fn ->
+    edit_plan(ctx, {date, meal}, command, fn ->
       gettext("Set servings on %{day} %{date} to %{n}.",
-        day: long_day_for(date),
+        day: day_for(date, meal),
         date: Date.to_iso8601(date),
         n: servings
       )
     end)
   end
 
-  @spec pin_plan_slot(Date.t(), boolean(), ctx()) :: bubble()
-  def pin_plan_slot(%Date{} = date, true, ctx) do
-    edit_plan(ctx, date, &%Planning.Commands.PinSlot{slot_key: &1, pin: true}, fn ->
-      gettext("Pinned %{day} %{date}.", day: long_day_for(date), date: Date.to_iso8601(date))
+  @spec pin_plan_slot(Date.t(), boolean(), ctx(), Streams.meal()) :: bubble()
+  def pin_plan_slot(date, pinned?, ctx, meal \\ :dinner)
+
+  def pin_plan_slot(%Date{} = date, true, ctx, meal) do
+    edit_plan(ctx, {date, meal}, &%Planning.Commands.PinSlot{slot_key: &1, pin: true}, fn ->
+      gettext("Pinned %{day} %{date}.", day: day_for(date, meal), date: Date.to_iso8601(date))
     end)
   end
 
-  def pin_plan_slot(%Date{} = date, false, ctx) do
-    edit_plan(ctx, date, &%Planning.Commands.UnpinSlot{slot_key: &1}, fn ->
-      gettext("Unpinned %{day} %{date}.", day: long_day_for(date), date: Date.to_iso8601(date))
+  def pin_plan_slot(%Date{} = date, false, ctx, meal) do
+    edit_plan(ctx, {date, meal}, &%Planning.Commands.UnpinSlot{slot_key: &1}, fn ->
+      gettext("Unpinned %{day} %{date}.", day: day_for(date, meal), date: Date.to_iso8601(date))
     end)
   end
 
@@ -913,9 +937,12 @@ defmodule Tore.Capture.Dispatch do
   end
 
   # One day's change through a plan edit run, so a pinned day holds and the reply can undo it.
-  defp edit_plan(ctx, date, command, applied_text) do
+  defp edit_plan(ctx, %Date{} = date, command, applied_text),
+    do: edit_plan(ctx, {date, :dinner}, command, applied_text)
+
+  defp edit_plan(ctx, {date, meal}, command, applied_text) do
     plan_id = plan_stream_id_for(ctx, date)
-    command = command.(Streams.slot_key(date))
+    command = command.(Streams.slot_key(date, meal))
 
     with {:ok, diff, run_ctx} <- Kinds.PlanEdit.proposal(ctx.scope, plan_id, command),
          {:ok, %KitchenRun{} = run} <-
@@ -1153,6 +1180,9 @@ defmodule Tore.Capture.Dispatch do
   defp current_shop_list_id(ctx), do: Streams.shop_list(ctx.scope, Tore.Clock.today())
 
   defp plan_stream_id_for(ctx, %Date{} = date), do: Streams.plan(ctx.scope, date)
+
+  defp day_for(date, :dinner), do: long_day_for(date)
+  defp day_for(date, :lunch), do: gettext("%{day} lunch", day: long_day_for(date))
 
   defp long_day_for(%Date{} = date) do
     case Date.day_of_week(date) do

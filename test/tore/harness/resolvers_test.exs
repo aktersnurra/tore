@@ -66,6 +66,14 @@ defmodule Tore.Harness.ResolversTest do
                Resolvers.resolve_slot("Tuesday", slots: @slots, today: ~D[2026-07-15])
     end
 
+    test "a day's lunch, when the reference says lunch" do
+      assert {:ok, %{slot_key: "sat_lunch", label: "Saturday lunch"}} =
+               Resolvers.resolve_slot("saturday lunch", slots: @slots, today: ~D[2026-07-15])
+
+      assert {:ok, %{slot_key: "thu_lunch"}} =
+               Resolvers.resolve_slot("lunch tomorrow", slots: @slots, today: ~D[2026-07-15])
+    end
+
     test "tonight/today and tomorrow resolve relative to today" do
       # 2026-07-15 is a Wednesday
       assert {:ok, %{slot_key: "wed_dinner"}} =

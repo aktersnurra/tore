@@ -85,6 +85,9 @@ defmodule Tore.Capture.Router do
       even if the day has no meal. If they later say what it cost, call it again
       for that day with the amount. Use `skip_plan_meal` only when they're not
       having dinner at all and aren't eating out.
+    - Lunch only when they ask for one: "lunch on Saturday" / "lördagslunch" → the plan tools
+      with meal: lunch. "We're off week 29" / "vi är lediga på fredag" → `set_days_off` with
+      every date; a day off offers a lunch on the plan, it doesn't plan one.
 
   Shopping list (always current week):
     - "Add X to the shopping list" → `add_to_shopping_list`.
@@ -310,13 +313,19 @@ defmodule Tore.Capture.Router do
   defp run_call(%{name: "set_plan_slot", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]),
          {:ok, recipe_id} <- fetch_recipe_id(args) do
-      {:ok, [Dispatch.set_plan_slot(date, recipe_id, args["servings"], ctx)]}
+      {:ok, [Dispatch.set_plan_slot(date, recipe_id, args["servings"], ctx, meal(args))]}
     end
   end
 
-  defp run_call(%{name: "clear_plan_slot", args: %{"date" => date_str}}, _images, _count, ctx) do
+  defp run_call(%{name: "clear_plan_slot", args: %{"date" => date_str} = args}, _, _, ctx) do
     with {:ok, date} <- parse_iso_date(date_str) do
-      {:ok, [Dispatch.clear_plan_slot(date, ctx)]}
+      {:ok, [Dispatch.clear_plan_slot(date, ctx, meal(args))]}
+    end
+  end
+
+  defp run_call(%{name: "set_days_off", args: %{"dates" => [_ | _] = strs} = args}, _, _, ctx) do
+    with {:ok, dates} <- parse_iso_dates(strs) do
+      {:ok, [Dispatch.set_days_off(dates, args["off"] != false, ctx)]}
     end
   end
 
@@ -429,7 +438,7 @@ defmodule Tore.Capture.Router do
   defp run_call(%{name: "set_plan_servings", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]),
          servings when is_integer(servings) and servings > 0 <- args["servings"] do
-      {:ok, [Dispatch.set_plan_servings(date, servings, ctx)]}
+      {:ok, [Dispatch.set_plan_servings(date, servings, ctx, meal(args))]}
     else
       _ -> {:error, :invalid_servings}
     end
@@ -438,7 +447,7 @@ defmodule Tore.Capture.Router do
   defp run_call(%{name: "pin_plan_slot", args: args}, _images, _count, ctx) do
     with {:ok, date} <- parse_iso_date(args["date"]) do
       pinned? = args["pinned"] != false
-      {:ok, [Dispatch.pin_plan_slot(date, pinned?, ctx)]}
+      {:ok, [Dispatch.pin_plan_slot(date, pinned?, ctx, meal(args))]}
     end
   end
 
@@ -467,6 +476,18 @@ defmodule Tore.Capture.Router do
   end
 
   defp parse_iso_date(_), do: {:error, :missing_date}
+
+  defp parse_iso_dates(strs) do
+    Enum.reduce_while(Enum.reverse(strs), {:ok, []}, fn str, {:ok, acc} ->
+      case parse_iso_date(str) do
+        {:ok, date} -> {:cont, {:ok, [date | acc]}}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp meal(%{"meal" => "lunch"}), do: :lunch
+  defp meal(_args), do: :dinner
 
   defp fetch_recipe_id(%{"recipe_id" => id}) when is_integer(id), do: {:ok, id}
   defp fetch_recipe_id(_), do: {:error, :missing_recipe_id}
@@ -550,11 +571,16 @@ defmodule Tore.Capture.Router do
       ),
       tool(
         "set_plan_slot",
-        "Assign a known recipe to a specific date's dinner slot. Date must be ISO yyyy-mm-dd (compute it yourself from today's date and the day-of-week the user mentioned).",
+        "Assign a known recipe to a specific date's dinner, or its lunch when they ask for a lunch (never plan a lunch they didn't ask for). Date must be ISO yyyy-mm-dd (compute it yourself from today's date and the day-of-week the user mentioned).",
         %{
           type: "object",
           properties: %{
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."},
+            meal: %{
+              type: "string",
+              enum: ["dinner", "lunch"],
+              description: "Dinner unless they said lunch."
+            },
             recipe_id: %{
               type: "integer",
               description: "The recipe's numeric id from find_recipe."
@@ -570,13 +596,35 @@ defmodule Tore.Capture.Router do
       ),
       tool(
         "clear_plan_slot",
-        "Remove any recipe assigned to a specific date's dinner slot.",
+        "Remove any recipe assigned to a specific date's dinner slot, or its lunch.",
         %{
           type: "object",
           properties: %{
+            meal: %{
+              type: "string",
+              enum: ["dinner", "lunch"],
+              description: "Dinner unless they said lunch."
+            },
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."}
           },
           required: ["date"],
+          additionalProperties: false
+        }
+      ),
+      tool(
+        "set_days_off",
+        "Mark days the household is off work or school (\"we're off week 29\", \"off on Friday\"), or with off: false take them back. A day off offers a lunch on the plan; nothing else changes.",
+        %{
+          type: "object",
+          properties: %{
+            dates: %{
+              type: "array",
+              items: %{type: "string"},
+              description: "Every ISO 8601 date (yyyy-mm-dd) concerned."
+            },
+            off: %{type: "boolean", description: "False to take the days back. Defaults to true."}
+          },
+          required: ["dates"],
           additionalProperties: false
         }
       ),
@@ -807,10 +855,15 @@ defmodule Tore.Capture.Router do
       ),
       tool(
         "set_plan_servings",
-        "Adjust servings on a specific date's dinner slot.",
+        "Adjust servings on a specific date's dinner slot, or its lunch.",
         %{
           type: "object",
           properties: %{
+            meal: %{
+              type: "string",
+              enum: ["dinner", "lunch"],
+              description: "Dinner unless they said lunch."
+            },
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."},
             servings: %{type: "integer", description: "Desired servings (>= 1)."}
           },
@@ -824,6 +877,11 @@ defmodule Tore.Capture.Router do
         %{
           type: "object",
           properties: %{
+            meal: %{
+              type: "string",
+              enum: ["dinner", "lunch"],
+              description: "Dinner unless they said lunch."
+            },
             date: %{type: "string", description: "ISO 8601 date (yyyy-mm-dd)."},
             pinned: %{type: "boolean", description: "True to pin, false to unpin."}
           },

@@ -82,7 +82,8 @@ defmodule Tore.Harness.Resolvers do
   defp normalize(s), do: s |> String.downcase() |> String.trim()
 
   @doc """
-  Resolve an English natural-language slot reference to a structural slot key.
+  Resolve an English natural-language slot reference to a structural slot key: the day's
+  dinner, or its lunch when the reference says "lunch".
   Slots are a closed domain — no ref indirection needed (SPEC §A.6.2).
   opts: slots: %{slot_key => recipe_title | nil}, today: Date.t()
   """
@@ -90,10 +91,11 @@ defmodule Tore.Harness.Resolvers do
     slots = Keyword.fetch!(opts, :slots)
     today = Keyword.fetch!(opts, :today)
     q = normalize(reference)
+    meal = if "lunch" in String.split(q), do: "lunch", else: "dinner"
 
     cond do
-      day = relative_day(q, today) -> ok_slot("#{day}_dinner")
-      day = word_day(q) -> ok_slot("#{day}_dinner")
+      day = relative_day(q, today) -> ok_slot("#{day}_#{meal}")
+      day = word_day(q) -> ok_slot("#{day}_#{meal}")
       true -> by_recipe(q, slots)
     end
   end

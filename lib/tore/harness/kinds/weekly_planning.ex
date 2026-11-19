@@ -39,8 +39,9 @@ defmodule Tore.Harness.Kinds.WeeklyPlanning do
     """
     Fill every empty, unplanned dinner this week with a suitable recipe. Leave
     days that already have a meal, days the household has pinned, and days marked
-    eating_out exactly as they are. Use leftovers across days where it makes
-    sense. When you are done, stop.
+    eating_out exactly as they are. Plan no lunches and leave planned lunches
+    as they are: a lunch is only planned when the household asks. Use leftovers
+    across days where it makes sense. When you are done, stop.
     """
   end
 end

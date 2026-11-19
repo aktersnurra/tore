@@ -3,6 +3,7 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
 
   import Ecto.Query
   alias Tore.Planning
+  alias Tore.Planning.State
   alias Tore.Recipes.Recipe
   alias Tore.Repo
 
@@ -18,7 +19,10 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
           recipe_id: integer() | nil,
           recipe_title: String.t() | nil,
           servings: integer() | nil,
-          pinned: boolean()
+          pinned: boolean(),
+          lunch: String.t() | nil,
+          lunch_day: boolean(),
+          day_off: boolean()
         }
   @type t :: %__MODULE__{week_start: Date.t() | nil, slots: [slot()] | nil}
 
@@ -47,7 +51,10 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
             {status, _} -> Atom.to_string(status)
           end
 
-        "  #{s.day} #{Date.to_iso8601(s.date)} (#{s.slot_key}): #{body}"
+        lunch = if s.lunch, do: "; lunch (#{lunch_key(s.slot_key)}): #{s.lunch}", else: ""
+        off = if s.day_off, do: " [day off]", else: ""
+
+        "  #{s.day} #{Date.to_iso8601(s.date)} (#{s.slot_key}): #{body}#{lunch}#{off}"
       end)
 
     "This week's dinner plan:\n#{lines}"
@@ -69,10 +76,15 @@ defmodule Tore.Harness.Capsules.WeekPlanCapsule do
         recipe_id: slot && slot[:recipe_id],
         recipe_title: slot_recipe_title(slot, title_lookup),
         servings: slot && slot[:servings],
-        pinned: Map.has_key?(state.pins, slot_key)
+        pinned: Map.has_key?(state.pins, slot_key),
+        lunch: slot_recipe_title(Map.get(state.slots, lunch_key(slot_key)), title_lookup),
+        lunch_day: State.lunch_day?(state, date),
+        day_off: MapSet.member?(state.days_off, date)
       }
     end)
   end
+
+  defp lunch_key(dinner_key), do: String.replace_suffix(dinner_key, "_dinner", "_lunch")
 
   defp recipe_titles(scope, state) do
     ids =

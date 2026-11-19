@@ -73,6 +73,28 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
     refute sys =~ "friendly and practical AI cooking and meal planning assistant"
   end
 
+  test "the weekly planner fills dinners: it sees a lunch and is told to leave lunches be", %{
+    plan: plan
+  } do
+    {:ok, soup} = recipe(%{title: "Ärtsoppa"})
+    {:ok, _} = Planning.assign_recipe(home_scope(), plan, "sat_lunch", soup.id, 4)
+    test_pid = self()
+
+    expect(Tore.MockLLM, :chat_with_tools, fn sys, msgs, _, _ ->
+      send(test_pid, {:prompt, sys <> Enum.map_join(msgs, "\n", &inspect/1)})
+      {:ok, {:message, "Done."}, @usage}
+    end)
+
+    Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
+
+    assert_receive {:prompt, prompt}
+    assert prompt =~ "Saturday 2026-08-22 (sat_dinner): empty; lunch (sat_lunch): Ärtsoppa"
+    assert prompt =~ "Plan no lunches"
+
+    {:ok, state} = Planning.load_plan(home_scope(), plan)
+    assert Map.keys(state.slots) == ["sat_lunch"]
+  end
+
   describe "a variant the agent generates" do
     setup do
       {:ok, ramen} =

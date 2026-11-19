@@ -39,4 +39,9 @@ defmodule Tore.Mcp.Tool do
   end
 
   def date(_value), do: {:error, "date is required, as an ISO date like 2026-11-18."}
+
+  @doc "The meal a plan tool acts on: dinner unless `meal` says lunch."
+  @spec meal(map()) :: Tore.Streams.meal()
+  def meal(%{"meal" => "lunch"}), do: :lunch
+  def meal(_args), do: :dinner
 end

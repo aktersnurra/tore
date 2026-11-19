@@ -18,7 +18,8 @@ defmodule Tore.Mcp.Tools.GetContext do
     do: """
     Start here. The household's language (write every name, recipe and memory entry in it), \
     today's date, diet and allergies (hard limits), what the household has told Tore (memory), \
-    this week's and next week's dinners by date, each week's budget against its estimate in \
+    this week's and next week's dinners by date (with a planned `lunch`, and `lunch_day` on \
+    weekends, holidays and `day_off` days, where a lunch could be offered), each week's budget against its estimate in \
     kronor (`priced` of `total` ingredients have a real price, the rest are guesses), the basics \
     added to every list, the shopping list, the pantry with best-before dates (approximate), and \
     what's due.\
@@ -75,7 +76,10 @@ defmodule Tore.Mcp.Tools.GetContext do
         recipe_id: nil,
         recipe_title: nil,
         servings: nil,
-        pinned: false
+        pinned: false,
+        lunch: nil,
+        lunch_day: Tore.Planning.State.lunch_day?(%Tore.Planning.State{}, date),
+        day_off: false
       }
     end
   end
