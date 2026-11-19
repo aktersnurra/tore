@@ -76,10 +76,6 @@ defmodule Tore.Agent do
           status: :running
         })
 
-      # Recipes nothing prices get a guess first, so the week's estimate pi plans against
-      # (get_context) counts them.
-      if task == "plan_week", do: Tore.Prices.Estimate.missing(scope)
-
       prompt =
         ["Background job: #{task}.", Map.fetch!(@tasks, task), details]
         |> Enum.reject(&is_nil/1)

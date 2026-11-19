@@ -52,7 +52,11 @@ defmodule Tore.FakePi do
   @doc "Lets a held fake answer."
   def release(log), do: File.touch!(log <> ".release")
 
-  @doc "The header and RPC commands Tore wrote to the fake, decoded."
-  def pi_records(log),
-    do: log |> File.read!() |> String.split("\n", trim: true) |> Enum.map(&Jason.decode!/1)
+  @doc "The header and RPC commands Tore wrote to the fake, decoded; none before it has started."
+  def pi_records(log) do
+    case File.read(log) do
+      {:ok, text} -> text |> String.split("\n", trim: true) |> Enum.map(&Jason.decode!/1)
+      {:error, :enoent} -> []
+    end
+  end
 end

@@ -5,7 +5,9 @@ will actually eat. Leave days that already have a meal, pinned days and eating-o
 are. Plan no lunches and leave planned lunches as they are: a lunch is only planned when the
 household asks.
 
-1. Call `get_context` and `get_planning_history`. The history shows what they choose again, what
+1. Call `get_context`, `get_planning_history` and `list_ingredients`. Guess a price for every
+   ingredient with `price_guess` null (`set_price_guesses`), so the week's estimate counts it;
+   then read `get_context` again for the estimate. The history shows what they choose again, what
    they swap away, and which days they skip; plan for the household they are, not the one a
    recipe site imagines. The memory says the same in their own words.
 2. Follow the week's mode when `get_context` gives one. Prefer what's in the pantry and due

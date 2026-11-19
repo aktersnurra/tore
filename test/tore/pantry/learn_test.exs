@@ -43,8 +43,8 @@ defmodule Tore.Pantry.LearnTest do
 
     assert tool("list_ingredients", %{}) == %{
              "ingredients" => [
-               %{"name" => "Gräddfil", "section" => nil},
-               %{"name" => "Mjölk", "section" => "dairy"}
+               %{"name" => "Gräddfil", "section" => nil, "price_guess" => nil},
+               %{"name" => "Mjölk", "section" => "dairy", "price_guess" => nil}
              ]
            }
   end

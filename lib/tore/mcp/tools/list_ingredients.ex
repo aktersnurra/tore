@@ -1,5 +1,5 @@
 defmodule Tore.Mcp.Tools.ListIngredients do
-  @moduledoc "The household's ingredients by name, with their shop section once learned."
+  @moduledoc "The household's ingredients by name, with their shop section and price guess."
   @behaviour Tore.Mcp.Tool
 
   alias Tore.{Repo, Scope}
@@ -12,7 +12,8 @@ defmodule Tore.Mcp.Tools.ListIngredients do
   def description,
     do: """
     Every ingredient the household has, by name, with its shop section (null when Tore hasn't \
-    learned it yet). The names learn_ingredients and match_products take.\
+    learned it yet) and its price_guess per kg, l or st (null when there is none: \
+    set_price_guesses). The names learn_ingredients, match_products and set_price_guesses take.\
     """
 
   @impl true
@@ -24,8 +25,13 @@ defmodule Tore.Mcp.Tools.ListIngredients do
       Ingredient
       |> Repo.all(Scope.repo_opts(scope))
       |> Enum.sort_by(&String.downcase(&1.name))
-      |> Enum.map(&%{name: &1.name, section: &1.category})
+      |> Enum.map(&%{name: &1.name, section: &1.category, price_guess: guess(&1)})
 
     {:ok, %{ingredients: ingredients}}
   end
+
+  defp guess(%Ingredient{estimated_price: nil}), do: nil
+
+  defp guess(%Ingredient{estimated_price: price, estimated_unit: unit}),
+    do: %{price: Decimal.to_float(price), unit: unit}
 end

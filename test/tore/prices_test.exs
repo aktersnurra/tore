@@ -4,12 +4,11 @@ defmodule Tore.PricesTest do
   import Mox
 
   alias Tore.{Deals, Prices, Recipes}
-  alias Tore.Prices.{Estimate, Products, Units}
+  alias Tore.Prices.{Products, Units}
   alias Tore.Recipes.Ingredient
 
   setup :verify_on_exit!
 
-  @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
   @week ~D[2026-11-16]
 
   setup do
@@ -205,26 +204,30 @@ defmodule Tore.PricesTest do
     end
   end
 
-  describe "estimates" do
-    test "one call guesses what nothing prices, and only fitting answers are kept", %{
-      scope: scope
-    } do
+  describe "price guesses" do
+    defp guess(scope, guesses) do
+      request = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => "set_price_guesses", "arguments" => %{"guesses" => guesses}}
+      }
+
+      {:reply, %{"result" => %{"isError" => false, "structuredContent" => result}}} =
+        Tore.Mcp.handle(scope, request)
+
+      result
+    end
+
+    test "pi's guesses are kept on the ingredient, and only fitting ones", %{scope: scope} do
       recipe(scope, 2, [%{name: "Lök", quantity: 2}, %{name: "Grädde", quantity: 2, unit: "dl"}])
 
-      expect(Tore.MockLLM, :text, fn _system, user, _opts ->
-        assert user =~ "Lök"
-        assert user =~ "Grädde"
-
-        {:ok,
-         %{
-           "items" => [
-             %{"name" => "Lök", "price" => 4.5, "unit" => "st"},
-             %{"name" => "Grädde", "price" => 45, "unit" => "dl"}
-           ]
-         }, @usage}
-      end)
-
-      assert :ok = Estimate.missing(scope)
+      assert %{kept: 1, unknown_ingredients: ["Saffran"]} =
+               guess(scope, [
+                 %{"ingredient" => "Lök", "price" => 4.5, "unit" => "st"},
+                 %{"ingredient" => "Grädde", "price" => 45, "unit" => "dl"},
+                 %{"ingredient" => "Saffran", "price" => 30, "unit" => "st"}
+               ])
 
       onion = Repo.get_by!(Ingredient, [name: "Lök"], Tore.Scope.repo_opts(scope))
       assert Decimal.eq?(onion.estimated_price, d("4.5"))
@@ -232,11 +235,6 @@ defmodule Tore.PricesTest do
 
       assert Repo.get_by!(Ingredient, [name: "Grädde"], Tore.Scope.repo_opts(scope)).estimated_price ==
                nil
-    end
-
-    test "nothing to guess asks no model", %{scope: scope} do
-      # No MockLLM expectation: a model call fails the test.
-      assert :ok = Estimate.missing(scope)
     end
   end
 end

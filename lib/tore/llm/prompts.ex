@@ -82,17 +82,6 @@ defmodule Tore.LLM.Prompts do
     }
   end
 
-  @locale_names %{
-    "sv" => "Swedish",
-    "en" => "English",
-    "de" => "German",
-    "fr" => "French",
-    "es" => "Spanish",
-    "no" => "Norwegian",
-    "da" => "Danish",
-    "fi" => "Finnish"
-  }
-
   @receipt_json_schema %{
     type: "object",
     required: ["total", "store_name", "purchase_date", "items"],
@@ -133,59 +122,6 @@ defmodule Tore.LLM.Prompts do
       type: "json_schema",
       json_schema: %{name: "receipt", strict: true, schema: @receipt_json_schema}
     }
-  end
-
-  @estimate_prices_schema %{
-    type: "object",
-    required: ["items"],
-    additionalProperties: false,
-    properties: %{
-      items: %{
-        type: "array",
-        items: %{
-          type: "object",
-          required: ["name", "price", "unit"],
-          additionalProperties: false,
-          properties: %{
-            name: %{type: "string"},
-            price: %{type: ["number", "null"]},
-            unit: %{type: "string", enum: ["kg", "l", "st"]}
-          }
-        }
-      }
-    }
-  }
-
-  def estimate_prices_schema do
-    %{
-      type: "json_schema",
-      json_schema: %{name: "estimate_prices", strict: true, schema: @estimate_prices_schema}
-    }
-  end
-
-  @doc "A guess at each ingredient's typical supermarket price, per kg, litre or item."
-  def estimate_prices(ingredients, locale) do
-    region =
-      case Map.get(@locale_names, locale) do
-        nil -> "the household's country"
-        language -> "a country where #{language} is spoken"
-      end
-
-    system = """
-    You estimate typical everyday supermarket prices for grocery ingredients in #{region}, in the
-    local currency, at regular (not offer) prices.
-
-    For each ingredient emit:
-    - name: the input, unchanged.
-    - unit: how it is usually priced: "kg" for things sold by weight, "l" for liquids, "st" for
-      things bought as single items or packs.
-    - price: the typical price for one kg, one litre or one item. Null only if it isn't food.
-
-    Respond with a JSON object only. No prose.
-    """
-
-    user = "Estimate prices for:\n" <> Enum.map_join(ingredients, "\n", &"  - #{&1.name}")
-    {system, user}
   end
 
   defp dietary_guidance_instruction(nil), do: ""
