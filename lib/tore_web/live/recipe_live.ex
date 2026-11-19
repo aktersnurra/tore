@@ -38,7 +38,8 @@ defmodule ToreWeb.RecipeLive do
        servings: nil,
        week: nil,
        put: nil
-     )}
+     )
+     |> ToreWeb.PiReply.init()}
   end
 
   # A recipe opens at its own address, so Back closes it and a link can open one.
@@ -427,31 +428,34 @@ defmodule ToreWeb.RecipeLive do
   def handle_info({:recipe_favorite, id, favorite?}, socket),
     do: {:noreply, put_favorite(socket, id, favorite?)}
 
-  # An import still running when the sheet closes lands in the list without opening.
-  def handle_info({:recipe_imported, result}, socket) do
-    socket = socket |> assign(importing: false) |> reload_recipes()
+  # The recipe pi saved from the link opens. One that lands after the sheet closed only shows up
+  # in the list.
+  def handle_info({:recipe_saved, id}, %{assigns: %{importing: true, adding: true}} = socket),
+    do:
+      {:noreply,
+       socket
+       |> assign(importing: false, adding: false)
+       |> reload_recipes()
+       |> push_patch(to: ~p"/recipes?#{[id: id]}")}
 
-    case {socket.assigns.adding, result} do
-      {false, _} ->
-        {:noreply, socket}
+  def handle_info({:recipe_saved, _id}, socket), do: {:noreply, reload_recipes(socket)}
 
-      {true, %{run_stream_id: run_id}} ->
-        {:steps, steps} = Tore.Harness.Runs.get(socket.assigns.current_scope, run_id).undo
+  # pi answers the link in the person's chat. If it is done without saving a recipe, what it said
+  # is why (not a recipe, the site refused), next to the field.
+  def handle_info({:pi, _session, event}, socket) do
+    socket = ToreWeb.PiReply.event(socket, event)
 
-        recipe_id =
-          Enum.find_value(steps, fn
-            {:delete_recipe, id} -> id
-            _ -> nil
-          end)
-
+    case {event, socket.assigns} do
+      {%{"type" => type}, %{importing: true}} when type in ["agent_settled", "exited"] ->
         {:noreply,
-         socket |> assign(adding: false) |> push_patch(to: ~p"/recipes?#{[id: recipe_id]}")}
+         assign(socket,
+           importing: false,
+           import_error:
+             blank_to_nil(socket.assigns.pi_reply) || gettext("Couldn't import that URL.")
+         )}
 
-      {true, %{text: text}} ->
-        {:noreply, assign(socket, import_error: text)}
-
-      {true, {:error, :crashed}} ->
-        {:noreply, assign(socket, import_error: gettext("Couldn't import that URL."))}
+      _other ->
+        {:noreply, socket}
     end
   end
 
@@ -1724,16 +1728,19 @@ defmodule ToreWeb.RecipeLive do
     )
   end
 
+  # pi reads the page and saves it in the person's own chat, so they can ask for changes there.
   defp start_import(socket, url) do
-    ctx = %{scope: socket.assigns.current_scope}
-
-    ToreWeb.Background.run(
-      fn -> Tore.Capture.Dispatch.import_recipe_from_url(url, ctx) end,
-      &{:recipe_imported, &1}
+    socket
+    |> assign(importing: true, import_error: nil)
+    |> ToreWeb.PiReply.ask(
+      "From the Recipes screen: save the recipe at #{url}. Read the page itself.",
+      gettext("Reading the recipe")
     )
-
-    assign(socket, importing: true, import_error: nil)
+    |> then(&if &1.assigns.pi_working, do: &1, else: assign(&1, importing: false))
   end
+
+  defp blank_to_nil(text) when text in [nil, ""], do: nil
+  defp blank_to_nil(text), do: text
 
   # The first http(s) link in what was shared.
   defp shared_link(nil), do: nil

@@ -69,8 +69,13 @@ defmodule Tore.Harness.Kinds.Planner do
 
     # A saved recipe gets its picture, drawn in Tore's house style so the library looks like one
     # cookbook, and its cook steps if it came without: pi does both once the recipe is committed.
-    with {:steps, steps} <- run.undo,
-         do: for({:delete_recipe, id} <- steps, do: Recipes.finish(scope, id))
+    # A screen waiting for it opens it (`{:recipe_saved, id}`).
+    with {:steps, steps} <- run.undo do
+      for {:delete_recipe, id} <- steps do
+        Phoenix.PubSub.broadcast(Tore.PubSub, Recipes.topic(scope), {:recipe_saved, id})
+        Recipes.finish(scope, id)
+      end
+    end
 
     Planning.announce(scope)
   end

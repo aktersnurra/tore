@@ -32,31 +32,6 @@ defmodule Tore.LLM.Prompts do
     {system, user}
   end
 
-  @recipe_schema """
-  {
-    "title": "string (required)",
-    "recipe_type": "meal | baking | component | assembly",
-    "description": "string or null",
-    "prep_time_minutes": "integer or null",
-    "cook_time_minutes": "integer or null",
-    "base_servings": "integer or null",
-    "image_url": "absolute URL string or null",
-    "tags": ["string"],
-    "ingredients": [
-      { "item": "string", "quantity": "number or null", "unit": "string or null" }
-    ],
-    "steps": [
-      {
-        "phase": "string — cooking phase name in ALL CAPS (e.g. MISE EN PLACE, SAUCE, ASSEMBLY, COOKING, BAKING)",
-        "order": "integer — global step number starting at 1",
-        "action": "string — one clear, atomic cooking action",
-        "ingredients": ["string — ingredient names used in this step"],
-        "duration_minutes": "integer or null — only if this step has an explicit wait/cook time"
-      }
-    ]
-  }
-  """
-
   @recipe_json_schema %{
     type: "object",
     required: [
@@ -119,65 +94,6 @@ defmodule Tore.LLM.Prompts do
     }
   end
 
-  @recipe_rules """
-  - title is required; steps and ingredients must always be arrays (empty if unknown)
-  - recipe_type: "meal" for a dish eaten as a dinner or lunch; "baking" for bread, buns, cakes,
-    cookies, pies and pastries; "component" for sauces, dressings, stocks, spice mixes, pickles
-    and sides made to go with something else; "assembly" for things put together rather than
-    cooked (sandwiches, platters, bowls of ready parts)
-  - CRITICAL: the steps array must be sorted in the exact order a cook performs them, start to finish
-  - The "order" field is a single global counter: the first thing you do is order 1, the second is order 2, etc.
-  - MISE EN PLACE (prep) always comes before any cooking phase — assign it the lowest order numbers
-  - Cooking phases follow in the order they are actually executed, not the order they appear in the source
-  - Example of correct ordering for a meatball recipe:
-      order 1 phase "MISE EN PLACE" — chop onion
-      order 2 phase "MISE EN PLACE" — mix meat and breadcrumbs
-      order 3 phase "COOKING" — fry meatballs
-      order 4 phase "SAUCE" — make sauce in same pan
-      order 5 phase "SERVING" — plate with sides
-  - each step is one atomic action — never combine multiple actions in one step
-  - do not summarise or skip any steps from the source
-  - reference ingredient names in each step's ingredients array exactly as they appear in the top-level ingredients list
-  - ingredients: list every ingredient with "item" (name), "quantity" (number or null), "unit" (string or null, e.g. "g", "ml", "dl", "st", "msk", "tsk") — use null when not specified
-  - tags: 1-3 lowercase tags (cuisine, main protein, or style — e.g. "chicken", "italian", "quick", "vegetarian")
-  - Respond with a JSON object only. No prose.
-  """
-
-  def extract_recipe(html, locale \\ nil) do
-    system = """
-    You are a recipe extractor. Given raw HTML from a recipe webpage, extract the recipe.
-    Return a JSON object matching this exact structure:
-    #{@recipe_schema}
-    Rules:
-    #{@recipe_rules}
-    #{translation_instruction(locale)}
-    """
-
-    {system, html}
-  end
-
-  @doc """
-  Reformat and translate a recipe to the Tore schema. Use when a deterministic
-  scraper (JSON-LD / microdata) already produced a structured recipe but it
-  may be in another language or shaped differently from `recipe_json_schema/0`.
-  """
-  def normalise_recipe(attrs, locale \\ nil) do
-    system = """
-    You normalise an already-structured recipe into the Tore recipe schema.
-    The input is a JSON-shaped recipe that may use different field names, units,
-    or formatting from what Tore expects. Reformat it.
-
-    Return a JSON object matching this exact structure:
-    #{@recipe_schema}
-    Rules:
-    #{@recipe_rules}
-    #{translation_instruction(locale)}
-    """
-
-    user = Jason.encode!(attrs)
-    {system, user}
-  end
-
   @locale_names %{
     "sv" => "Swedish",
     "en" => "English",
@@ -199,16 +115,6 @@ defmodule Tore.LLM.Prompts do
       language ->
         "- Translate ALL text field VALUES (title, description, tags, step phases, step actions, ingredient names) into #{language}. Keep units as-is (g, ml, msk, tsk, etc.). NEVER translate JSON keys — only values."
     end
-  end
-
-  def check_recipe_html(html) do
-    system = """
-    You are a recipe detector. Does the provided HTML contain a parseable recipe with ingredients and instructions?
-    Respond ONLY with JSON: {"parseable": true} or {"parseable": false}.
-    """
-
-    user = String.slice(html, 0, 2000)
-    {system, user}
   end
 
   @receipt_json_schema %{

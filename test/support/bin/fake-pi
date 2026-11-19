@@ -3,7 +3,9 @@
 # then answers as pi would. A prompt: accepted, the tool call in $FAKE_PI_TOOL if set (JSON
 # {"name", "args", "result"}, the result as the tool's text), a text delta, the assistant message
 # with what it cost ($FAKE_PI_COST), settled. The reply is $FAKE_PI_REPLY, or "echo: <the
-# prompt>". get_messages answers the conversation so far, which starts as $FAKE_PI_HISTORY.
+# prompt>". get_messages answers the conversation so far, which starts as $FAKE_PI_HISTORY. With
+# $FAKE_PI_WAIT set, a prompt is answered only once that file exists, so a test can act while pi
+# works.
 set -eu
 IFS= read -r header
 printf '%s\n' "$header" >>"$FAKE_PI_LOG"
@@ -27,6 +29,12 @@ while IFS= read -r line; do
     jq -cn '{type: "response", command: "prompt", success: true, data: {disposition: "started"}}'
     jq -cn '{type: "agent_start"}'
     remember "$(jq -cn --arg t "$message" '{role: "user", content: [{type: "text", text: $t}]}')"
+
+    if [ -n "${FAKE_PI_WAIT:-}" ]; then
+      # Held at most 10 s, so a test that never lets go can't hang the run.
+      n=0
+      while [ ! -e "$FAKE_PI_WAIT" ] && [ "$n" -lt 500 ]; do sleep 0.02; n=$((n + 1)); done
+    fi
 
     if [ -n "${FAKE_PI_TOOL:-}" ]; then
       printf '%s' "$FAKE_PI_TOOL" |

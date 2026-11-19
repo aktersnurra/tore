@@ -62,59 +62,6 @@ defmodule Tore.Capture.Dispatch do
     )
   end
 
-  # ── recipe ─────────────────────────────────────────────────────────────
-
-  # A recipe read from photos or a page is saved straight away; undo deletes it.
-  defp recipe_bubble({:ok, %KitchenRun{status: :applied, id: id, artifacts: [proposal]}}) do
-    %{
-      role: :assistant,
-      run_stream_id: id,
-      text: gettext("Saved %{title} to your recipes.", title: proposal.title)
-    }
-  end
-
-  defp recipe_bubble({:ok, %KitchenRun{failure_code: :near_duplicate}}),
-    do: %{
-      role: :assistant,
-      error: true,
-      text: gettext("That looks like a recipe you already have.")
-    }
-
-  defp recipe_bubble({:ok, %KitchenRun{failure_code: code}}) do
-    require Logger
-    Logger.info("Capture recipe ingestion failed its check: #{inspect(code)}")
-    %{role: :assistant, error: true, text: gettext("I couldn't read a whole recipe from that.")}
-  end
-
-  defp recipe_bubble({:error, reason}), do: error_bubble(:recipe, reason)
-
-  defp refusal_bubble(reason) do
-    case Tore.LLM.refusal_text(reason) do
-      nil -> nil
-      text -> %{role: :assistant, text: text}
-    end
-  end
-
-  # ── URL import ─────────────────────────────────────────────────────────
-
-  @spec import_recipe_from_url(String.t(), ctx()) :: bubble()
-  def import_recipe_from_url(url, ctx) when is_binary(url) do
-    case Runs.start(ctx.scope, Kinds.RecipeIngestion, %{url: url}) do
-      {:error, {:step_failed, :not_a_recipe}} ->
-        %{role: :assistant, text: gettext("That page doesn't look like a recipe.")}
-
-      {:error, {:step_failed, :timeout}} ->
-        %{role: :assistant, text: gettext("The site didn't respond. Try again in a moment.")}
-
-      {:error, {:step_failed, reason}} ->
-        refusal_bubble(reason) ||
-          %{role: :assistant, text: gettext("Couldn't import that URL.")}
-
-      result ->
-        recipe_bubble(result)
-    end
-  end
-
   # ── plan slot mutation ─────────────────────────────────────────────────
 
   @doc """

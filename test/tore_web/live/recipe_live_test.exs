@@ -35,16 +35,8 @@ defmodule ToreWeb.RecipeLiveTest do
   end
 
   describe "a new recipe" do
-    import Mox
-    setup :verify_on_exit!
-    setup :set_mox_from_context
-
-    @page """
-    <html><head><script type="application/ld+json">
-    {"@type": "Recipe", "name": "Morotssoppa", "recipeYield": "4",
-     "recipeIngredient": ["6 morötter"], "recipeInstructions": ["Koka."]}
-    </script></head></html>
-    """
+    import Tore.FakePi
+    setup :fake_pi
 
     @soup %{
       "title" => "Morotssoppa",
@@ -75,60 +67,68 @@ defmodule ToreWeb.RecipeLiveTest do
              )
     end
 
-    test "a link is read in and the recipe opens", %{conn: conn, user: user} do
-      stub(Tore.MockHTTP, :fetch, fn
-        "https://example.com/soppa" -> {:ok, @page}
-        _ -> {:error, :not_found}
-      end)
+    # What pi does with the link: read the page and save it, as an MCP run.
+    defp pi_saves(recipe) do
+      request = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => "save_recipe", "arguments" => recipe}
+      }
 
-      stub(Tore.MockLLM, :text, fn _, _, _ ->
-        {:ok, @soup, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
-      end)
+      {:reply, %{"result" => %{"isError" => false}}} = Tore.Mcp.handle(home_scope(), request)
+      [saved] = Enum.filter(Recipes.list(home_scope()), &(&1.title == recipe["title"]))
+      saved
+    end
 
+    defp asked?(log, text) do
+      Enum.any?(1..100, fn _ ->
+        Process.sleep(10)
+
+        File.exists?(log) and
+          Enum.any?(pi_records(log), &(&1["type"] == "prompt" and &1["message"] =~ text))
+      end)
+    end
+
+    test "a link goes to pi in the person's chat, and the recipe pi saves opens", %{
+      conn: conn,
+      user: user,
+      pi_log: log
+    } do
+      hold(log)
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "new_recipe")
 
       html = lv |> form("#import-link", %{url: " https://example.com/soppa "}) |> render_submit()
       assert html =~ "Läser receptet"
+      assert asked?(log, "save the recipe at https://example.com/soppa.")
 
-      assert eventually(fn ->
-               Enum.any?(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
-             end)
+      # Saving starts the finishing job, which this fake also holds: let go once the recipe opens.
+      saving =
+        Task.async(fn -> pi_saves(Map.put(@soup, "source_url", "https://example.com/soppa")) end)
 
-      _ = render(lv)
-      [recipe] = Enum.filter(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
-      assert_patch(lv, "/recipes?id=#{recipe.id}")
+      opened = assert_patch(lv)
+      release(log)
+      assert opened == "/recipes?id=#{Task.await(saving).id}"
     end
 
-    test "a page that isn't a recipe says so, next to the field", %{conn: conn, user: user} do
-      stub(Tore.MockHTTP, :fetch, fn _ -> {:ok, "<html><body>Hej</body></html>"} end)
-
-      stub(Tore.MockLLM, :text, fn _, _, _ ->
-        {:ok, %{"not_a_recipe" => true}, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
-      end)
-
+    test "a page pi can't save says why, next to the field", %{conn: conn, user: user} do
+      System.put_env("FAKE_PI_REPLY", "Sidan är inte ett recept.")
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "new_recipe")
       lv |> form("#import-link", %{url: "https://example.com/hej"}) |> render_submit()
 
-      assert eventually(fn -> render(lv) =~ "inte ut som ett recept" end)
-      html = render(lv)
+      assert eventually(fn -> render(lv) =~ "Sidan är inte ett recept." end)
       assert has_element?(lv, ~s(#import-link input[aria-invalid="true"]))
-      assert html =~ "Skriv in det själv"
+      assert render(lv) =~ "Skriv in det själv"
     end
 
     test "a link shared to Tore is read in straight away, and the address drops it", %{
       conn: conn,
-      user: user
+      user: user,
+      pi_log: log
     } do
-      stub(Tore.MockHTTP, :fetch, fn
-        "https://example.com/soppa" -> {:ok, @page}
-        _ -> {:error, :not_found}
-      end)
-
-      stub(Tore.MockLLM, :text, fn _, _, _ ->
-        {:ok, @soup, %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}}
-      end)
+      hold(log)
 
       # Instagram and others put the link in `text`, among other words.
       {:ok, lv, _html} =
@@ -137,13 +137,14 @@ defmodule ToreWeb.RecipeLiveTest do
           "/recipes?text=Kolla%20h%C3%A4r%20https%3A%2F%2Fexample.com%2Fsoppa"
         )
 
-      assert eventually(fn ->
-               Enum.any?(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
-             end)
+      assert asked?(log, "save the recipe at https://example.com/soppa.")
+      # Saving starts the finishing job, which this fake also holds: let go once the recipe opens.
+      saving =
+        Task.async(fn -> pi_saves(Map.put(@soup, "source_url", "https://example.com/soppa")) end)
 
-      _ = render(lv)
-      [recipe] = Enum.filter(Recipes.list(home_scope()), &(&1.title == "Morotssoppa"))
-      assert_patch(lv, "/recipes?id=#{recipe.id}")
+      opened = assert_patch(lv)
+      release(log)
+      assert opened == "/recipes?id=#{Task.await(saving).id}"
     end
 
     test "something shared without a link opens the sheet and says what's missing", %{

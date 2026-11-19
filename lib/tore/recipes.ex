@@ -3,7 +3,6 @@ defmodule Tore.Recipes do
   alias Tore.{Repo, Scope}
   alias Tore.Recipes.{Recipe, Ingredient, RecipeIngredient, RecipePart, Tag}
 
-  @http Application.compile_env(:tore, :http_client)
   @image_gen Application.compile_env(:tore, :image_gen_client)
 
   # An ingredient name will never contain this, so joined names split cleanly.
@@ -343,22 +342,6 @@ defmodule Tore.Recipes do
   end
 
   @doc """
-  Fetch and parse a recipe URL **without** writing it to the catalog. Used by
-  the planner's proposal path, where the user confirms before anything is
-  saved.
-  """
-  @spec scrape_attrs_from_url(Scope.t(), String.t(), String.t() | nil) ::
-          {:ok, map()} | {:error, term()}
-  def scrape_attrs_from_url(%Scope{} = scope, url, locale \\ nil) do
-    locale = locale || Tore.Household.locale(scope)
-
-    with {:ok, html} <- @http.fetch(url),
-         {:ok, attrs} <- parse_or_extract(scope, html, locale) do
-      {:ok, Map.put(attrs, :source_url, url)}
-    end
-  end
-
-  @doc """
   The steps cook mode walks through, in order: maps with `"phase"`, `"order"`, `"action"`,
   `"ingredients"` (names) and `"duration_minutes"`. Empty for a recipe pi hasn't written steps
   for yet (`finish/3`).
@@ -628,55 +611,6 @@ defmodule Tore.Recipes do
 
     :ok
   end
-
-  # Two paths in, one shape out. Whether the deterministic parser succeeded
-  # or we had to fall back to LLM extraction, the result goes through the
-  # LLM normaliser so every scraped recipe ends up translated to the
-  # household's locale and reformatted to the Tore schema.
-  defp parse_or_extract(scope, html, locale) do
-    case Tore.Recipes.Parser.parse_html(html) do
-      {:ok, scraped_attrs} -> normalise_recipe(scope, scraped_attrs, locale)
-      {:error, :not_found} -> extract_from_html(scope, html, locale)
-    end
-  end
-
-  defp extract_from_html(scope, html, locale) do
-    with :ok <- check_html_parseable(scope, html) do
-      {system, user} = Tore.LLM.Prompts.extract_recipe(html, locale)
-
-      with {:ok, data, _usage} <-
-             Tore.LLM.text(scope, system, user,
-               response_format: Tore.LLM.Prompts.recipe_json_schema(),
-               feature: :extract_recipe
-             ) do
-        {:ok, attrs_from_parsed(data)}
-      end
-    end
-  end
-
-  defp normalise_recipe(scope, scraped_attrs, locale) do
-    {system, user} = Tore.LLM.Prompts.normalise_recipe(scraped_attrs, locale)
-
-    with {:ok, data, _usage} <-
-           Tore.LLM.text(scope, system, user,
-             response_format: Tore.LLM.Prompts.recipe_json_schema(),
-             feature: :extract_recipe
-           ) do
-      {:ok, attrs_from_parsed(data)}
-    end
-  end
-
-  defp check_html_parseable(scope, html) do
-    {system, user} = Tore.LLM.Prompts.check_recipe_html(html)
-
-    case Tore.LLM.text(scope, system, user, feature: :check_recipe_html) do
-      {:ok, %{"parseable" => true}, _} -> :ok
-      {:ok, %{"parseable" => false}, _} -> {:error, :not_a_recipe}
-      {:ok, _, _} -> {:error, :not_a_recipe}
-      {:error, _} = err -> err
-    end
-  end
-
   # ── Query filters ──────────────────────────────────────────────────────────
 
   defp filter_tags(query, nil), do: query

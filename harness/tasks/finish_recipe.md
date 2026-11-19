@@ -4,12 +4,8 @@ A recipe was just saved or changed; which one, and anything more, is at the end 
 Read it with `get_recipe`, then do what it needs and nothing else:
 
 1. **Steps.** If it has no steps, or you're told its instructions changed, write its steps from
-   its `instructions` and ingredients and save the recipe with `update_recipe`, changing nothing
-   else. Steps are single actions in the order a cook does them, numbered from 1 across the
-   whole recipe, grouped by a `phase` in capitals (MISE EN PLACE first, then the cooking phases
-   in the order they happen, SERVING last). Each names the ingredients it uses exactly as the
-   ingredient list does, and a step that waits (simmer, rest, bake) has `duration_minutes`. Keep
-   the recipe's language. Leave nothing out and add nothing the recipe doesn't say.
+   its `instructions` and ingredients, as "How a recipe is written" says, and save the recipe
+   with `update_recipe`, changing nothing else. Keep the recipe's language.
 
    A meal with `parts` is several dishes cooked together: read each part with `get_recipe` and
    write one order so everything is ready at the same time. Start what takes longest, do the
