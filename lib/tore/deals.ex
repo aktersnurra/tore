@@ -73,25 +73,25 @@ defmodule Tore.Deals do
 
   @typedoc """
   A deal on the page: `name` is what + puts on the list (the ingredient's name when the product
-  is matched to one), `saving` what it saves over the regular price, `dinner` the title of the
-  dinner that calls for it.
+  is matched to one), `saving` what it saves over the regular price, `meal` the title of the
+  meal that calls for it, a dinner or a lunch.
   """
   @type entry :: %{
           deal: Deal.t(),
           name: String.t(),
           saving: Decimal.t() | nil,
-          dinner: String.t() | nil,
+          meal: String.t() | nil,
           on_list?: boolean()
         }
 
   @doc """
   The Erbjudanden page for the week starting `week_start`, as of `today`. Current deals in three
-  groups, with no model: those a dinner from today on calls for, those on something the household
+  groups, with no model: those a meal from today on calls for, those on something the household
   usually buys (`Tore.Basics`), and the rest. `saving` is what the first two save together, the
   best deal per ingredient; `stores` the household's stores with their deals counted.
   """
   @spec page(Scope.t(), Date.t(), Date.t()) :: %{
-          dinners: [entry()],
+          meals: [entry()],
           usual: [entry()],
           others: [entry()],
           saving: Decimal.t(),
@@ -106,7 +106,7 @@ defmodule Tore.Deals do
       |> Repo.all(Scope.repo_opts(scope))
       |> Map.new(&{&1.id, &1})
 
-    dinners = Shop.dinners_for(scope, week_start, today)
+    meals = Shop.meals_for(scope, week_start, today)
     basics = MapSet.new(Basics.list(scope), & &1.basic.ingredient_id)
     list_id = Streams.shop_list(scope, week_start)
 
@@ -119,7 +119,7 @@ defmodule Tore.Deals do
           ingredient: ingredient,
           name: if(ingredient, do: ingredient.name, else: deal.product_name),
           saving: saving(deal),
-          dinner: ingredient && dinners[ingredient.key][:title]
+          meal: ingredient && meals[ingredient.key][:title]
         }
       end)
 
@@ -127,7 +127,7 @@ defmodule Tore.Deals do
     missing = MapSet.new(Shop.not_on_list(scope, list_id, names))
     entries = Enum.map(entries, &Map.put(&1, :on_list?, not MapSet.member?(missing, &1.name)))
 
-    {for_dinners, rest} = Enum.split_with(entries, & &1.dinner)
+    {for_meals, rest} = Enum.split_with(entries, & &1.meal)
 
     {usual, others} =
       Enum.split_with(rest, &(&1.ingredient && MapSet.member?(basics, &1.ingredient.id)))
@@ -135,10 +135,10 @@ defmodule Tore.Deals do
     counts = Enum.frequencies_by(deals, & &1.store)
 
     %{
-      dinners: sorted(for_dinners),
+      meals: sorted(for_meals),
       usual: sorted(usual),
       others: sorted(others),
-      saving: best_per_ingredient(for_dinners ++ usual),
+      saving: best_per_ingredient(for_meals ++ usual),
       stores:
         for(hs <- list_stores(scope), do: %{store: hs, deals: Map.get(counts, hs.store.name, 0)})
     }

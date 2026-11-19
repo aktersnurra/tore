@@ -110,6 +110,24 @@ defmodule Tore.BudgetTest do
       assert Decimal.eq?(expected, 320)
     end
 
+    test "a lunch costs what it costs, but isn't a dinner: it neither prices nor opens a day" do
+      for {key, title, kr} <- [
+            {"mon_dinner", "Gryta", "100"},
+            {"tue_dinner", "Soppa", "40"},
+            {"wed_dinner", "Pasta", "60"},
+            {"sat_lunch", "Pannkakor", "20"}
+          ] do
+        {:ok, _} = Planning.assign_recipe(home_scope(), plan(), key, recipe(title, kr).id, 4)
+      end
+
+      # Thursday to Sunday's dinners are open at the median dinner, 60 kr; the lunch adds its 20.
+      assert %{open_days: 4, open_cost: open_cost, expected: expected} =
+               Budget.status(home_scope(), @week)
+
+      assert Decimal.eq?(open_cost, 240)
+      assert Decimal.eq?(expected, 460)
+    end
+
     test "costs nothing while no dinner has a price" do
       assert %{open_days: 7, open_cost: open_cost, expected: expected} =
                Budget.status(home_scope(), @week)

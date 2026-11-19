@@ -33,7 +33,7 @@ defmodule Tore.Harness.Capsules.BudgetCapsule do
         status: %{budget: budget, estimate: estimate, expected: expected} = s
       }) do
     """
-    Budget for this week's whole shop: #{kr(budget)} kr. With the dinners already planned, the \
+    Budget for this week's whole shop: #{kr(budget)} kr. With the meals already planned, the \
     week is expected to cost about #{kr(expected)} kr, everyday extras included#{open(s)} \
     (#{estimate.priced} of #{estimate.total} ingredients have a real price). Choose dinners so the \
     week stays within the budget: search_recipes gives each recipe's estimated cost, and \

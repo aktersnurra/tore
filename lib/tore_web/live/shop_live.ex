@@ -312,7 +312,7 @@ defmodule ToreWeb.ShopLive do
   # Which dinner each item is for, from the week's plan: "for Tuesday's tacos".
   defp assign_dinners(socket) do
     %{current_scope: scope, week_start: week_start} = socket.assigns
-    assign(socket, dinners: Shop.dinners_for(scope, week_start, Tore.Clock.today()))
+    assign(socket, dinners: Shop.meals_for(scope, week_start, Tore.Clock.today()))
   end
 
   defp reload_spending(socket),

@@ -81,7 +81,7 @@ defmodule ToreWeb.DealsLiveTest do
     assert has_element?(view, "[data-role=group-usual]", "2 för 30")
     assert has_element?(view, "[data-role=group-usual]", "18,90/st")
     assert has_element?(view, "[data-role=group-others]:not([open])", "Chips")
-    refute has_element?(view, "[data-role=group-dinners]")
+    refute has_element?(view, "[data-role=group-meals]")
     assert has_element?(view, "[data-role=store]", "2 erbjudanden")
   end
 

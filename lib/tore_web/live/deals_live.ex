@@ -1,6 +1,6 @@
 defmodule ToreWeb.DealsLive do
   @moduledoc """
-  Erbjudanden: this week's offers on things the household buys anyway, first what the dinners
+  Erbjudanden: this week's offers on things the household buys anyway, first what the meals
   call for, then what it usually buys, the rest folded away (ui.md, "Erbjudanden"). Everything is
   read from `Tore.Deals.page/3`; + puts a deal on this week's list.
   """
@@ -24,7 +24,7 @@ defmodule ToreWeb.DealsLive do
     %{page: page, week: week, current_scope: scope} = socket.assigns
     id = String.to_integer(id)
 
-    case Enum.find(page.dinners ++ page.usual ++ page.others, &(&1.deal.id == id)) do
+    case Enum.find(page.meals ++ page.usual ++ page.others, &(&1.deal.id == id)) do
       nil ->
         {:noreply, socket}
 
@@ -91,11 +91,11 @@ defmodule ToreWeb.DealsLive do
 
         <div class="mt-5">
           <.group
-            :if={@page.dinners != []}
-            role="dinners"
-            label={gettext("For this week's dinners")}
+            :if={@page.meals != []}
+            role="meals"
+            label={gettext("For this week's meals")}
             tint="orange"
-            entries={@page.dinners}
+            entries={@page.meals}
             open
           />
           <.group
@@ -265,7 +265,7 @@ defmodule ToreWeb.DealsLive do
           <span class="truncate">
             {Enum.join(
               Enum.reject(
-                [@entry.deal.store, until(@entry.deal.valid_until, :short), @entry.dinner],
+                [@entry.deal.store, until(@entry.deal.valid_until, :short), @entry.meal],
                 &is_nil/1
               ),
               " · "
@@ -273,11 +273,11 @@ defmodule ToreWeb.DealsLive do
           </span>
         </p>
         <p
-          :if={@entry.dinner}
+          :if={@entry.meal}
           class="hidden truncate text-[color:var(--muted)] lg:block"
           style="font-size: 12px;"
         >
-          {gettext("for %{dinner}", dinner: @entry.dinner)}
+          {gettext("for %{meal}", meal: @entry.meal)}
         </p>
       </div>
       <span class="hidden min-w-0 items-center gap-1.5 lg:flex" style="font-size: 14px;">
@@ -334,7 +334,7 @@ defmodule ToreWeb.DealsLive do
 
   defp headline(%{stores: []}), do: gettext("Offers from the stores you shop at")
 
-  defp headline(%{dinners: [], usual: [], others: []}), do: gettext("No offers in yet")
+  defp headline(%{meals: [], usual: [], others: []}), do: gettext("No offers in yet")
 
   defp headline(%{saving: saving}) do
     if Decimal.gt?(saving, 0),
@@ -346,7 +346,7 @@ defmodule ToreWeb.DealsLive do
   defp sub_line(%{stores: []}),
     do: gettext("Add a link to a store's offers below, and Tore reads them every Friday.")
 
-  defp sub_line(%{dinners: [], usual: [], others: []}),
+  defp sub_line(%{meals: [], usual: [], others: []}),
     do: gettext("Tore reads the stores' offers every Friday.")
 
   defp sub_line(_page), do: nil

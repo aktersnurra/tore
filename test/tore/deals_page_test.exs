@@ -77,9 +77,9 @@ defmodule Tore.DealsPageTest do
 
     page = Deals.page(home_scope(), week, today)
 
-    assert [%{name: "Kycklinglårfilé", dinner: "Kycklinggryta", saving: saved}] = page.dinners
+    assert [%{name: "Kycklinglårfilé", meal: "Kycklinggryta", saving: saved}] = page.meals
     assert Decimal.eq?(saved, 30)
-    assert [%{name: "Mjölk", dinner: nil, saving: milk}] = page.usual
+    assert [%{name: "Mjölk", meal: nil, saving: milk}] = page.usual
     assert Decimal.eq?(milk, "7.80")
     assert names(page.others) == ["Chips"]
     assert Decimal.eq?(page.saving, "37.80")

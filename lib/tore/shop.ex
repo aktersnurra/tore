@@ -37,21 +37,22 @@ defmodule Tore.Shop do
   end
 
   @doc """
-  For each ingredient key (`Ingredient.to_key/1`), the first dinner on the week's plan from
-  `today` on that needs it: `%{date:, title:}`. Derived from the plan, so a list made by hand
-  gets the same line as one built from it.
+  For each ingredient key (`Ingredient.to_key/1`), the first meal on the week's plan from `today`
+  on that needs it, a lunch before that day's dinner: `%{date:, title:}`. Derived from the plan,
+  so a list made by hand gets the same line as one built from it.
   """
-  @spec dinners_for(Scope.t(), Date.t(), Date.t()) :: %{
+  @spec meals_for(Scope.t(), Date.t(), Date.t()) :: %{
           String.t() => %{date: Date.t(), title: String.t()}
         }
-  def dinners_for(%Scope{} = scope, %Date{} = week_start, %Date{} = today) do
+  def meals_for(%Scope{} = scope, %Date{} = week_start, %Date{} = today) do
     {:ok, plan} = Tore.Planning.load_plan(scope, Tore.Streams.plan(scope, week_start))
 
     days =
       for i <- 0..6,
           date = Date.add(week_start, i),
           Date.compare(date, today) != :lt,
-          slot = plan.slots[Tore.Streams.slot_key(date)],
+          meal <- [:lunch, :dinner],
+          slot = plan.slots[Tore.Streams.slot_key(date, meal)],
           slot && slot.recipe_id && !slot.skipped && !slot[:leftover],
           do: {date, slot.recipe_id}
 

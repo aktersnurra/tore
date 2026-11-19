@@ -208,7 +208,7 @@ defmodule Tore.ShopTest do
     end
   end
 
-  describe "dinners_for/3" do
+  describe "meals_for/3" do
     defp dinner(title, names) do
       {:ok, r} =
         Tore.Recipes.create(
@@ -230,12 +230,27 @@ defmodule Tore.ShopTest do
       {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "tue_dinner", tacos.id, 4)
       {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "thu_dinner", lasagne.id, 4)
 
-      for_item = Shop.dinners_for(home_scope(), monday, ~D[2026-11-17])
+      for_item = Shop.meals_for(home_scope(), monday, ~D[2026-11-17])
 
       key = &Tore.Recipes.Ingredient.to_key/1
       assert for_item[key.("köttfärs")] == %{date: ~D[2026-11-17], title: "Tacos"}
       assert for_item[key.("pasta")] == %{date: ~D[2026-11-19], title: "Lasagne"}
       refute Map.has_key?(for_item, key.("purjolök"))
+    end
+
+    test "a lunch counts, before that day's dinner" do
+      monday = ~D[2026-11-16]
+      plan = Tore.Streams.plan(home_scope(), monday)
+      pancakes = dinner("Pannkakor", ["mjölk", "ägg"])
+      omelette = dinner("Omelett", ["ägg"])
+      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "sat_lunch", pancakes.id, 4)
+      {:ok, _} = Tore.Planning.assign_recipe(home_scope(), plan, "sat_dinner", omelette.id, 4)
+
+      for_item = Shop.meals_for(home_scope(), monday, monday)
+
+      key = &Tore.Recipes.Ingredient.to_key/1
+      assert for_item[key.("ägg")] == %{date: ~D[2026-11-21], title: "Pannkakor"}
+      assert for_item[key.("mjölk")].title == "Pannkakor"
     end
   end
 end

@@ -15,7 +15,7 @@ defmodule Tore.Budget do
   alias Tore.Planning.State
 
   @typedoc """
-  `estimate` is the plan's dinners and due basics at stored prices; `open_days` are the week's
+  `estimate` is the plan's meals (dinners and any lunches) and due basics at stored prices; `open_days` are the week's
   days with nothing planned, which together cost `open_cost`, a typical dinner each;
   `adjustment` is what recent weeks paid beyond their estimates (nil until two such weeks exist);
   `expected` is all of them together, which is what the budget is held against.
@@ -117,24 +117,38 @@ defmodule Tore.Budget do
     with {:ok, _} <- Household.update_preferences(scope, %{weekly_budget: amount}), do: :ok
   end
 
-  @doc "The dinners `plan` cooks: each slot with a recipe that isn't skipped or leftovers."
+  @doc """
+  The meals `plan` cooks, dinners and any lunches: each slot with a recipe that isn't skipped or
+  leftovers.
+  """
   @spec meals(State.t()) :: [{integer(), pos_integer() | nil}]
-  def meals(%State{slots: slots}) do
-    for {_key, %{recipe_id: id} = slot} <- slots,
+  def meals(%State{} = plan), do: for({_key, id, servings} <- cooked(plan), do: {id, servings})
+
+  # Only dinners say what a typical dinner costs, which is what an open day is priced at.
+  defp dinners(plan),
+    do:
+      for(
+        {key, id, servings} <- cooked(plan),
+        String.ends_with?(key, "_dinner"),
+        do: {id, servings}
+      )
+
+  defp cooked(%State{slots: slots}) do
+    for {key, %{recipe_id: id} = slot} <- slots,
         id != nil,
         !slot[:skipped],
         !slot[:leftover],
-        do: {id, slot[:servings]}
+        do: {key, id, slot[:servings]}
   end
 
   @doc """
-  What the week starting `week_start` is estimated to cost: `plan`'s dinners and the basics due
+  What the week starting `week_start` is estimated to cost: `plan`'s meals and the basics due
   (`Tore.Basics`).
   """
   @spec estimate(Scope.t(), State.t(), Date.t()) :: Prices.cost()
   def estimate(%Scope{} = scope, %State{} = plan, %Date{} = week_start) do
-    %{dinners: dinners, basics: basics} = costs(scope, plan, week_start)
-    Prices.sum([dinners, basics])
+    %{meals: meals, basics: basics} = costs(scope, plan, week_start)
+    Prices.sum([meals, basics])
   end
 
   @doc "The week's budget against its plan's estimate, and how far over it is, if it is."
@@ -145,21 +159,21 @@ defmodule Tore.Budget do
   end
 
   @doc """
-  As `status/2`, for `plan`. Once calibrated, what's expected is the dinners and open days plus
-  what recent weeks paid beyond theirs, which already covers basics; before that, the dinners, the
+  As `status/2`, for `plan`. Once calibrated, what's expected is the meals and open days plus
+  what recent weeks paid beyond theirs, which already covers basics; before that, the meals, the
   open days and the basics.
   """
   @spec status(Scope.t(), State.t(), Date.t()) :: status()
   def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start) do
     budget = amount(scope, week_start)
     costs = costs(scope, plan, week_start)
-    estimate = Prices.sum([costs.dinners, costs.basics])
+    estimate = Prices.sum([costs.meals, costs.basics])
     adjustment = adjustment(scope, week_start)
 
     expected =
       case adjustment do
         nil -> estimate.amount
-        adjustment -> Decimal.add(costs.dinners.amount, adjustment)
+        adjustment -> Decimal.add(costs.meals.amount, adjustment)
       end
       |> Decimal.add(costs.open_cost)
       |> Decimal.max(0)
@@ -225,10 +239,10 @@ defmodule Tore.Budget do
     }
   end
 
-  # The dinners, the due basics and the open days, priced from one lookup.
+  # The meals, the due basics and the open days, priced from one lookup.
   defp costs(scope, plan, week_start) do
     meals = meals(plan)
-    past = past_meals(scope, week_start)
+    past = past_dinners(scope, week_start)
 
     recipes =
       Map.new(
@@ -240,47 +254,47 @@ defmodule Tore.Budget do
       for {id, servings} <- meals, recipe = recipes[id], recipe != nil, do: {recipe, servings}
     end
 
-    dinner_ids =
+    meal_ids =
       for {recipe, _} <- pairs.(meals), ri <- recipe.recipe_ingredients, do: ri.ingredient_id
 
     past_ids =
       for {recipe, _} <- pairs.(past), ri <- recipe.recipe_ingredients, do: ri.ingredient_id
 
-    # A basic the dinners already need isn't on the list twice, so it isn't counted twice.
+    # A basic the meals already need isn't on the list twice, so it isn't counted twice.
     basics =
       scope
       |> Tore.Basics.lines(week_start)
-      |> Enum.reject(&(&1.ingredient_id in dinner_ids))
+      |> Enum.reject(&(&1.ingredient_id in meal_ids))
 
-    ids = Enum.uniq(dinner_ids ++ past_ids ++ Enum.map(basics, & &1.ingredient_id))
+    ids = Enum.uniq(meal_ids ++ past_ids ++ Enum.map(basics, & &1.ingredient_id))
     prices = Prices.for_ingredients(scope, ids, week_start)
 
     priced = fn meals ->
       Enum.map(pairs.(meals), &Prices.cost(Prices.lines(elem(&1, 0), elem(&1, 1)), prices))
     end
 
-    dinners = priced.(meals)
     open_days = open_days(plan, week_start)
+    typical = priced.(dinners(plan)) ++ priced.(past)
 
     open_cost =
-      case median(for c <- dinners ++ priced.(past), Decimal.gt?(c.amount, 0), do: c.amount) do
+      case median(for c <- typical, Decimal.gt?(c.amount, 0), do: c.amount) do
         nil -> Decimal.new(0)
         typical -> typical |> Decimal.mult(open_days) |> Decimal.round(2)
       end
 
     %{
-      dinners: Prices.sum(dinners),
+      meals: Prices.sum(priced.(meals)),
       basics: Prices.cost(basics, prices),
       open_days: open_days,
       open_cost: open_cost
     }
   end
 
-  defp past_meals(scope, week_start) do
+  defp past_dinners(scope, week_start) do
     for weeks_back <- 1..@typical_weeks,
         week = Date.add(week_start, -7 * weeks_back),
         {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week)),
-        meal <- meals(plan),
+        meal <- dinners(plan),
         do: meal
   end
 
@@ -312,7 +326,7 @@ defmodule Tore.Budget do
 
   @doc """
   The calibration for the week starting `week_start`: the mean of what was paid minus what its
-  dinners and open days were estimated at, over the latest #{@calibration_weeks} weeks before it that had a plan and receipts. It
+  meals and open days were estimated at, over the latest #{@calibration_weeks} weeks before it that had a plan and receipts. It
   absorbs basics, pack sizes, pantry stock and whatever was bought beyond the plan. Nil until
   #{@calibration_min} such weeks exist.
   """
@@ -330,9 +344,9 @@ defmodule Tore.Budget do
       )
       |> Repo.all(Scope.repo_opts(scope))
       |> Stream.map(fn {week, spent} -> {to_decimal(spent), plan_costs(scope, week)} end)
-      |> Stream.reject(fn {_spent, costs} -> Decimal.eq?(costs.dinners.amount, 0) end)
+      |> Stream.reject(fn {_spent, costs} -> Decimal.eq?(costs.meals.amount, 0) end)
       |> Stream.map(fn {spent, costs} ->
-        spent |> Decimal.sub(costs.dinners.amount) |> Decimal.sub(costs.open_cost)
+        spent |> Decimal.sub(costs.meals.amount) |> Decimal.sub(costs.open_cost)
       end)
       |> Enum.take(@calibration_weeks)
 
