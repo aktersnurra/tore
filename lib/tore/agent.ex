@@ -17,10 +17,12 @@ defmodule Tore.Agent do
   require Logger
 
   @tasks_dir Path.expand("../../harness/tasks", __DIR__)
-  @tasks for path <- Path.wildcard(Path.join(@tasks_dir, "*.md")),
-             into: %{},
-             do: {Path.basename(path, ".md"), File.read!(path)}
-  for path <- Path.wildcard(Path.join(@tasks_dir, "*.md")), do: @external_resource(path)
+  @task_paths Path.wildcard(Path.join(@tasks_dir, "*.md"))
+  @tasks for path <- @task_paths, into: %{}, do: {Path.basename(path, ".md"), File.read!(path)}
+  for path <- @task_paths, do: @external_resource(path)
+
+  # A task file added or removed changes the list, which `@external_resource` doesn't see.
+  def __mix_recompile__?, do: Path.wildcard(Path.join(@tasks_dir, "*.md")) != @task_paths
 
   @timeout :timer.minutes(15)
 

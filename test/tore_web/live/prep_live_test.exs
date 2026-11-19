@@ -42,4 +42,32 @@ defmodule ToreWeb.PrepLiveTest do
     view |> element(~s(#prep-steps-overview button[phx-value-to="1"])) |> render_click()
     assert render(view) =~ "2 av 2"
   end
+
+  describe "a week without a guide" do
+    import Tore.FakePi
+    setup :fake_pi
+
+    test "Generate guide asks pi, and the guide shows once pi saves it", %{
+      conn: conn,
+      pi_log: log
+    } do
+      monday = Tore.Streams.monday(Tore.Clock.today())
+      Tore.Repo.delete_all(Tore.Prep.PrepGuide, household_id: home_scope().household_id)
+      hold(log)
+
+      {:ok, view, _html} = live(conn, ~p"/prep")
+
+      assert view |> element(~s(button[phx-click="generate_guide"])) |> render_click() =~
+               "Genererar din prepguide"
+
+      {:ok, _} =
+        Tore.Prep.save_guide(home_scope(), %{
+          week_start: monday,
+          timeline: [%{"task" => "Koka linserna", "duration_min" => 25}]
+        })
+
+      assert render(view) =~ "Koka linserna"
+      release(log)
+    end
+  end
 end

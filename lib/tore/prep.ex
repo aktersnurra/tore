@@ -1,34 +1,22 @@
 defmodule Tore.Prep do
-  alias Tore.{Repo, Prep.PrepGuide, Planning, Recipes, Scope, SpendGuard}
+  @moduledoc """
+  The week's prep guide. pi writes it as a background job (`start/2`,
+  `harness/tasks/prep_guide.md`) and saves it with `save_prep_guide`; the Prep screen hears
+  `{:prep_guide_saved, guide}` on `topic/1`.
+  """
+
   import Ecto.Query
 
-  def generate_guide(%Scope{} = scope, plan_id, week_start) do
-    with :ok <- SpendGuard.allow?(scope, :generate_prep_guide),
-         {:ok, plan_state} <- Planning.load_plan(scope, plan_id) do
-      plan_for_prompt = build_plan_for_prompt(scope, plan_state, week_start)
+  alias Tore.{Repo, Prep.PrepGuide, Scope}
 
-      {system, user} = Tore.LLM.Prompts.prep_guide(plan_for_prompt, Tore.Household.locale(scope))
-
-      with {:ok, guide_data, _usage} <-
-             Tore.LLM.text(scope, system, user, feature: :generate_prep_guide) do
-        attrs = Map.put(guide_data, "week_start", week_start)
-        save_guide(scope, attrs)
-      end
-    end
+  @doc "Asks pi to write the guide for the week starting `week_start`, if AI is on."
+  @spec start(Scope.t(), Date.t()) :: :ok | {:error, term()}
+  def start(%Scope{} = scope, %Date{} = week_start) do
+    with :ok <- Tore.Pi.check(scope),
+         do: Tore.Agent.start(scope, "prep_guide", "Week starting #{week_start}.")
   end
 
-  defp build_plan_for_prompt(scope, plan_state, week_start) do
-    days =
-      for {slot_key, %{recipe_id: recipe_id} = slot} <- plan_state.slots, recipe_id do
-        %{
-          slot_key: slot_key,
-          recipe_title: Recipes.get!(scope, recipe_id).title,
-          servings: slot.servings
-        }
-      end
-
-    %{week_start: week_start, days: days}
-  end
+  def topic(%Scope{household_id: id}), do: "prep:#{id}"
 
   def save_guide(%Scope{} = scope, attrs) do
     %PrepGuide{household_id: scope.household_id}
@@ -37,8 +25,16 @@ defmodule Tore.Prep do
       on_conflict:
         {:replace,
          [:timeline, :cascade_map, :storage_notes, :daily_assembly, :prep_session, :instructions]},
-      conflict_target: [:household_id, :week_start]
+      conflict_target: [:household_id, :week_start],
+      returning: true
     )
+    |> tap(fn
+      {:ok, guide} ->
+        Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:prep_guide_saved, guide})
+
+      _ ->
+        :ok
+    end)
   end
 
   def get_guide_for_week(%Scope{} = scope, week_start) do

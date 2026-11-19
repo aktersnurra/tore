@@ -251,11 +251,6 @@ msgstr "Ingen tidslinje än"
 msgid "Notes"
 msgstr "Anteckningar"
 
-#: lib/tore_web/live/prep_live.ex:67
-#, elixir-autogen, elixir-format
-msgid "Please wait a moment before generating again"
-msgstr "Vänta lite innan du genererar igen"
-
 #: lib/tore_web/live/planner_live.ex:402
 #, elixir-autogen, elixir-format
 msgid "Please wait a moment before trying again"
@@ -277,7 +272,8 @@ msgstr "Förberedelsetid (min)"
 msgid "Prep Guide"
 msgstr "Förberedelseguide"
 
-#: lib/tore_web/live/prep_live.ex:74
+#: lib/tore_web/live/prep_live.ex:59
+#: lib/tore_web/live/prep_live.ex:73
 #, elixir-autogen, elixir-format
 msgid "Prep guide generation failed"
 msgstr "Generering av förberedelseguide misslyckades"

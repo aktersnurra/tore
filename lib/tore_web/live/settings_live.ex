@@ -151,7 +151,7 @@ defmodule ToreWeb.SettingsLive do
   defp memory_part_label("notes"), do: gettext("Notes")
 
   defp feature_label("canonicalise_pantry"), do: gettext("Pantry item matching")
-  defp feature_label("generate_prep_guide"), do: gettext("Prep guide")
+  defp feature_label("pi_prep_guide"), do: gettext("Prep guide")
   defp feature_label("home_pick"), do: gettext("Home screen pick")
   defp feature_label("pi_chat"), do: gettext("Chat")
   defp feature_label("pi_finish_recipe"), do: gettext("Recipe steps and pictures")

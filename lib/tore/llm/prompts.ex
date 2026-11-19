@@ -20,18 +20,6 @@ defmodule Tore.LLM.Prompts do
     {system, user}
   end
 
-  def prep_guide(plan, locale \\ nil) do
-    system = """
-    You are a sous chef. Generate a Sunday prep session guide for the week's meals.
-    Think in cascades: prep components that transform into different dishes across the week.
-    Respond with a JSON object only. No prose.
-    CRITICAL: JSON keys (prep_session, proteins, bases, sauces, vegetables, timeline, cascade_map, storage_notes, daily_assembly, task, detail, duration_min, step) must remain in English exactly as shown. Only translate string values.#{translation_instruction(locale)}
-    """
-
-    user = render("prep_guide.eex", plan)
-    {system, user}
-  end
-
   @recipe_json_schema %{
     type: "object",
     required: [
@@ -104,18 +92,6 @@ defmodule Tore.LLM.Prompts do
     "da" => "Danish",
     "fi" => "Finnish"
   }
-
-  defp translation_instruction(nil), do: ""
-
-  defp translation_instruction(locale) do
-    case Map.get(@locale_names, locale) do
-      nil ->
-        ""
-
-      language ->
-        "- Translate ALL text field VALUES (title, description, tags, step phases, step actions, ingredient names) into #{language}. Keep units as-is (g, ml, msk, tsk, etc.). NEVER translate JSON keys — only values."
-    end
-  end
 
   @receipt_json_schema %{
     type: "object",

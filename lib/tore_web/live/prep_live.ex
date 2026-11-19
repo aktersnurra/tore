@@ -4,10 +4,15 @@ defmodule ToreWeb.PrepLive do
   alias Tore.Prep
   alias ToreWeb.StepCards
 
+  @guide_timeout :timer.minutes(3)
+
   def mount(_params, _session, socket) do
     week_start = Tore.Streams.monday(Tore.Clock.today())
     plan_id = Tore.Streams.plan(socket.assigns.current_scope, week_start)
     guide = Prep.get_guide_for_week(socket.assigns.current_scope, week_start)
+
+    if connected?(socket),
+      do: Phoenix.PubSub.subscribe(Tore.PubSub, Prep.topic(socket.assigns.current_scope))
 
     {:ok,
      assign(socket,
@@ -37,42 +42,37 @@ defmodule ToreWeb.PrepLive do
   def handle_event("toggle_overview", _params, socket),
     do: {:noreply, update(socket, :overview, &(not &1))}
 
+  # pi writes it in the background and saves it; it shows when it lands.
   def handle_event("generate_guide", _params, socket) do
-    %{plan_id: plan_id, week_start: week_start, current_scope: scope} = socket.assigns
+    %{week_start: week_start, current_scope: scope} = socket.assigns
 
-    ToreWeb.Background.run(
-      fn -> Prep.generate_guide(scope, plan_id, week_start) end,
-      &{:guide_ready, &1}
-    )
+    case Prep.start(scope, week_start) do
+      :ok ->
+        Process.send_after(self(), :guide_timeout, @guide_timeout)
+        {:noreply, assign(socket, generating: true)}
 
-    {:noreply, assign(socket, generating: true)}
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           Tore.LLM.refusal_text(reason) || gettext("Prep guide generation failed")
+         )}
+    end
   end
 
-  def handle_info({:guide_ready, {:ok, guide}}, socket) do
-    {:noreply, assign(socket, guide: guide, generating: false)}
-  end
+  def handle_info({:prep_guide_saved, %{week_start: week} = guide}, socket)
+      when week == socket.assigns.week_start,
+      do: {:noreply, assign(socket, guide: guide, generating: false)}
 
-  def handle_info({:guide_ready, {:error, reason}}, socket)
-      when reason in [:ai_unavailable, :budget_exceeded] do
-    {:noreply,
-     socket
-     |> assign(generating: false)
-     |> put_flash(:error, Tore.LLM.refusal_text(reason))}
-  end
+  def handle_info(:guide_timeout, %{assigns: %{generating: true}} = socket),
+    do:
+      {:noreply,
+       socket
+       |> assign(generating: false)
+       |> put_flash(:error, gettext("Prep guide generation failed"))}
 
-  def handle_info({:guide_ready, {:error, :cooldown}}, socket) do
-    {:noreply,
-     socket
-     |> assign(generating: false)
-     |> put_flash(:error, gettext("Please wait a moment before generating again"))}
-  end
-
-  def handle_info({:guide_ready, {:error, _}}, socket) do
-    {:noreply,
-     socket
-     |> assign(generating: false)
-     |> put_flash(:error, gettext("Prep guide generation failed"))}
-  end
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   def render(assigns) do
     tabs = [
