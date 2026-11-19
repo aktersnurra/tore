@@ -157,9 +157,10 @@ defmodule ToreWeb.BudgetLive do
             <button
               :if={!@editing}
               type="button"
+              id={"budget-#{@page.status.budget}"}
               phx-click="edit_budget"
               aria-label={gettext("Change the weekly budget")}
-              class="press num group mt-0.5 flex items-center gap-1.5 rounded-[var(--r-sm)] font-semibold"
+              class="press settle num group mt-0.5 flex items-center gap-1.5 rounded-[var(--r-sm)] font-semibold"
               style="font-size: 22px; line-height: 36px;"
             >
               {if @page.status.budget,
@@ -172,7 +173,7 @@ defmodule ToreWeb.BudgetLive do
             </button>
             <p
               :if={@budget_error}
-              class="mt-1 text-[color:var(--warn)]"
+              class="settle mt-1 text-[color:var(--warn)]"
               style="font-size: 12.5px;"
               role="alert"
             >
@@ -223,7 +224,7 @@ defmodule ToreWeb.BudgetLive do
             <.chart page={@page} />
           </section>
 
-          <section>
+          <section class="sections">
             <h2 class="t-head">{gettext("Where the money went")}</h2>
             <p
               :if={@page.sections != []}
@@ -254,7 +255,7 @@ defmodule ToreWeb.BudgetLive do
                 :for={receipt <- @page.receipts}
                 patch={~p"/budget/receipts/#{receipt.id}"}
                 data-role="receipt"
-                class="row-hover -mx-1.5 flex min-h-11 items-center gap-2.5 rounded-[var(--r-sm)] border-b border-[color:var(--hairline)] px-1.5"
+                class="row-hover press press-soft -mx-1.5 flex min-h-11 items-center gap-2.5 rounded-[var(--r-sm)] border-b border-[color:var(--hairline)] px-1.5"
                 style="font-size: 14.5px;"
               >
                 <span class="w-20 shrink-0 text-[color:var(--muted)]" style="font-size: 13px;">
@@ -287,6 +288,7 @@ defmodule ToreWeb.BudgetLive do
     <div
       class="scrim fixed inset-0 z-40 hidden bg-[rgb(15_15_15/0.18)] lg:block"
       phx-click="close_receipt"
+      phx-remove={JS.hide(time: 150)}
       aria-hidden="true"
     >
     </div>
@@ -295,6 +297,13 @@ defmodule ToreWeb.BudgetLive do
       aria-label={gettext("Receipt")}
       phx-window-keydown="close_receipt"
       phx-key="Escape"
+      phx-remove={
+        JS.hide(
+          transition:
+            {"transition-transform ease-in duration-150", "translate-x-0", "translate-x-full"},
+          time: 150
+        )
+      }
       class="peek fixed inset-0 z-50 overflow-y-auto bg-[var(--bg)] lg:left-auto lg:w-[470px] lg:shadow-[var(--shadow-pop)]"
     >
       <div class="flex h-14 items-center px-4">
@@ -334,7 +343,7 @@ defmodule ToreWeb.BudgetLive do
               phx-click="move_week"
               data-role="receipt-week"
               aria-label={gettext("Count it towards the other week")}
-              class="tag tag-grey press settle"
+              class="tag tag-grey press settle phx-click-loading:opacity-60"
             >
               {gettext("Week %{n}", n: Streams.week_number(@receipt.week_start))}
               <.icon name="ph-arrows-left-right" />
@@ -367,7 +376,7 @@ defmodule ToreWeb.BudgetLive do
               phx-value-id={line.id}
               data-role="receipt-line"
               aria-expanded={to_string(@picking == line.id)}
-              class="row-hover flex min-h-11 w-full items-center gap-3 rounded-[var(--r-sm)] text-left"
+              class="row-hover press press-soft flex min-h-11 w-full items-center gap-3 rounded-[var(--r-sm)] text-left"
               style="font-size: 14.5px;"
             >
               <span class="min-w-0 flex-1 truncate">
@@ -388,7 +397,7 @@ defmodule ToreWeb.BudgetLive do
               aria-label={gettext("Section for %{name}", name: line.product_name)}
               class="settle mb-2 max-h-72 overflow-y-auto rounded-[var(--r-lg)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-card)]"
             >
-              <p class="px-2 py-1 text-[color:var(--muted)]" style="font-size: 12px;">
+              <p class="px-2 py-1 font-semibold" style="font-size: 12px;">
                 {gettext("Move to")}
               </p>
               <button
@@ -400,7 +409,7 @@ defmodule ToreWeb.BudgetLive do
                 phx-value-id={line.id}
                 phx-value-section={option}
                 data-role="move-to"
-                class="row-hover flex h-9 w-full items-center justify-between rounded-[var(--r-sm)] px-2"
+                class="row-hover press press-soft flex h-9 w-full items-center justify-between rounded-[var(--r-sm)] px-2 phx-click-loading:opacity-60"
               >
                 <span class={"tag tag-#{ToreWeb.Look.section_tint(option)}"}>
                   {ToreWeb.Look.section_label(option)}
@@ -486,7 +495,7 @@ defmodule ToreWeb.BudgetLive do
   defp section_row(assigns) do
     ~H"""
     <details data-role="section" class="border-b border-[color:var(--hairline)]">
-      <summary class="rk row-hover" style="font-size: 14.5px;">
+      <summary class="rk row-hover press press-soft" style="font-size: 14.5px;">
         <.icon name="ph-caret-right" class="arrow size-3.5 text-[color:var(--muted)]" />
         <span data-role="section-name" class="truncate">
           {ToreWeb.Look.section_label(@section.section)}
@@ -540,6 +549,7 @@ defmodule ToreWeb.BudgetLive do
         now? = i == last
 
         %{
+          i: i,
           x: x,
           mid: x + 17.4,
           week: week,
@@ -568,7 +578,7 @@ defmodule ToreWeb.BudgetLive do
             {Money.format(Decimal.from_float(value))}
           </text>
         </g>
-        <g :for={bar <- @bars} data-role="chart-week">
+        <g :for={bar <- @bars} data-role="chart-week" style={"--i: #{bar.i}"}>
           <title>{bar.title}</title>
           <rect class="hit" x={bar.x} y="18" width="34.75" height="110" />
           <rect
@@ -614,6 +624,14 @@ defmodule ToreWeb.BudgetLive do
           </text>
         </g>
       </svg>
+      <%!-- The pale bars are quiet on purpose; their numbers are here for a screen reader. --%>
+      <table class="sr-only">
+        <caption>{chart_label(@page)}</caption>
+        <tr :for={bar <- @bars}>
+          <th scope="row">{gettext("Week %{n}", n: Streams.week_number(bar.week.week_start))}</th>
+          <td>{bar.title}</td>
+        </tr>
+      </table>
     </div>
     """
   end
