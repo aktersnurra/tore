@@ -30,6 +30,7 @@
 - **2026-11-19:** Meals put together from parts (`.docs/specs/meal-parts.md`). `recipe_parts` links a dinner to other recipes, in order; `Tore.Recipes.get!/2` and `get_many/2` give it its parts and their ingredients, scaled to its servings and added up, so the rest of the app sees one dinner. Its cooking order is written by cook mode's step writer from the parts' steps the first time it's cooked, and cleared when a part changes. Made from Sätt ihop on Recipes or `put_together` over MCP; the in-app chat gets it with the pi work.
 - **2026-11-17:** Pages, collections and the research's eight fixes (`.docs/plans/notion-feel.md`). A recipe is a page with property rows and belongs to a collection: dinner, baking, sauces & sides, or assemblies (`recipe_type` `:meal | :baking | :component | :assembly`; imports classify it). Only dinners are planned or suggested for a day. Every recipe's picture is generated in one house style (`Tore.LLM.Prompts.food_photo/1`); a page's own photo is fetched only for MCP saves. Today's "Something else" offers three dinners to choose between, with Undo; Plan can plan the open days in one tap; Shop has one add field that reads "2 l mjölk", Make the list, and says which dinner each item is for. Capture gained `can_i_make` (a dish against the pantry), and a recipe page shows the same check as "At home". Cook mode has step timers and takes the servings chosen on the page; a hand-written recipe's steps are written when it's saved.
 - **2026-11-19:** All AI goes through pi (`.docs/plans/all-ai-through-pi.md`). pi (`pi --mode rpc`, `Tore.Pi`) is Tore's agent: each person has a chat session, which the chat tray and the Plan, Today and Shop sheets ask, and the `plan_week` and `weekly_reflection` background jobs are task files it runs (`Tore.Agent`). It acts only through Tore's `/mcp` tools, so every write is still a run with its verifier and undo. Every one-off model call in `Tore.LLM` is a pi one-shot (`Tore.LLM.Pi`). pi reads photos itself: a shelf or fridge goes into the pantry with `add_to_pantry` (`seen`), and a recipe is saved with `save_recipe`. Deleted: Capture's router, `PlannerAgent` and its tools, `:planner_command_run`, `:weekly_planning_run`, `:memory_review_run`, `PlanDiffBuilder`, resolver handles, capsule composition (two capsules are left as structs `get_context` and the home pick read), the fridge suggestion tools, per-turn quick swaps, Tore's shelf and recipe photo readers, and the OpenRouter model client with `web_search`, `chat` and `chat_with_tools`. OpenRouter now only draws recipe pictures.
+- **2026-11-19 (later):** Strict MCP: Tore writes no prompts. Every AI task is pi working through `/mcp`, and Tore's one-shots are gone with `Tore.LLM`, `Tore.LLM.Pi`, `Tore.LLM.Prompts`, `harness/ONESHOT.md`, `Tore.SpendGuard` and `Tore.MockLLM`. A link on the Recipes screen, a receipt photo on Shop and Check in the sheet before cooking ask the person's chat (the swaps come back with `suggest_swaps`). A saved or changed recipe gets its steps and picture from a `finish_recipe` job (`update_recipe`, `draw_recipe_picture`). The prep guide is a `prep_guide` job (`save_prep_guide`). New names and products are a `learn` job (`list_ingredients`, `learn_ingredients`, `match_products`), price guesses are part of `plan_week` (`set_price_guesses`), and the home pick is a `home_pick` job (`set_home_pick`). `find_recipes` runs every Thursday. Deleted: the recipe page parser, Tore's receipt reader and `uploaded_images`, typed decisions (Pattern C), "Surprise me" on a day, and recipe variants. The gate and the refusal words are `Tore.Pi`'s.
 
 ---
 
@@ -157,10 +158,10 @@ LLM usage: each call's cost is in `llm_usage`, under its feature (§LLM Surface)
 
 | Step | May do | May not do |
 |---|---|---|
-| `propose` | LLM (through `Tore.LLM`), reads | write domain state |
+| `propose` | reads | write domain state |
 | `resolve` | reads (for example matching pantry names to ingredients) | write domain state |
 | `verify` | nothing: a pure check | any effect |
-| `apply_proposal` | database writes, in one transaction with the status change | LLM, HTTP, storage |
+| `apply_proposal` | database writes, in one transaction with the status change | HTTP, storage |
 | `after_commit` | best-effort effects, such as broadcasting or making a recipe's picture | |
 
 `Runs.start/3` runs every step. `Runs.submit/4` takes a ready proposal and skips
@@ -223,12 +224,13 @@ how the other implements its half.
 | Kind | Produced by | Carries |
 |---|---|---|
 | `PlanDiff` | `:set_plan_slot_run`, `:plan_edit_run` | Per-slot changes with the recipe before and after, and the planning events to append |
-| `RecipeProposal` | `:recipe_ingestion_run`, for a link from the Recipes screen, or a recipe pi read from a page or photos and saved (`save_recipe`) | A recipe to save, with its source and steps |
+| `RecipeProposal` | `:recipe_ingestion_run`, for a recipe pi read from a link, a page or photos and saved (`save_recipe`) | A recipe to save, with its source and steps |
+| `RecipeEdit` | `:recipe_edit_run`, for a recipe pi changed (`update_recipe`) or drew a picture for (`draw_recipe_picture`) | The recipe's new fields or picture; undo restores the recipe as it was |
 | `PantryBeliefUpdate` | `:pantry_belief_update_run` | Items added or removed, each with `provenance` |
 | `CostEntry` | `:receipt_ingestion_run` | Parsed receipt: store, date, total, line items |
 | `MemoryBatch` | `:memory_update_run` | Add, patch and remove operations on one part of the household's memory (§1) |
 | `ShopChange` | `:shop_edit_run` | An item added or checked off, or the week's list built |
-| `HomePick` | `:home_pick_run` | The screen the app opens on, the quick swaps, and whether the decision model or the fixed rule picked them |
+| `HomePick` | `:home_pick_run` | The screen the app opens on and the quick swaps, as pi set them with `set_home_pick` |
 
 A proposal is a registered artifact or a list of them.
 
@@ -254,15 +256,16 @@ first: the language, today, diet and allergies, the memory, the week's mode, thi
 dinners with each week's budget against its estimate, the basics, the list, the pantry and what's
 due. `get_planning_history`, `search_recipes`, `get_recipe`, `list_receipts` and `list_deals`
 give the rest. `harness/AGENTS.md` says how Tore works; a background job's task file says what to
-do. A one-shot (§A.8) gets only what its feature's prompt puts in it.
+do, and the job's details (which recipe, which week, the home pick's facts) follow it.
 
 Two typed structs are left from the capsule design, built once and read by more than one caller:
 `WeekPlanCapsule` (the week's slots) and `PantryBeliefsCapsule` (usable pantry names, what to use
-soon first). `get_context` and the home pick's state (`Tore.Home`) read them.
+soon first). `get_context` and the home pick's facts (`Tore.Home`) read them.
 
 **Hard rules.**
 
-- No shared prompt builder. A one-shot's prompt holds what its feature needs and nothing else.
+- No shared prompt builder, and no prompt in Tore's code: what pi is asked is a task file, a
+  screen's one-line request, or what the person typed.
 - What pi knows about the household comes from a tool call, so a run's context is the tools it called.
 
 ### A.5 — Verifiers run after every state-changing run
@@ -438,27 +441,27 @@ affordance.
 ### A.8 — Model routing
 
 Every model call goes through pi (`pi --mode rpc`, `Tore.Pi`), started per household session by
-`harness/pi-session`. Tore has no model client of its own; only recipe pictures are drawn by an
-image model through OpenRouter (`Tore.ImageGen`). There are two ways in:
+`harness/pi-session`. Tore has no model client and writes no prompts; only recipe pictures are
+drawn by an image model through OpenRouter (`Tore.ImageGen`), when pi calls `draw_recipe_picture`
+with its own description of the dish. There are two ways in, both an agent session with Tore's
+`/mcp` tools and the web, under `harness/AGENTS.md`:
 
-| Way | Used for | Model |
+| Way | Used for | Session |
 |---|---|---|
-| **Agent session** | The person's chat (`chat-<user_id>`), the screen sheets that ask it, and background jobs (`harness/tasks/*.md`, `Tore.Agent`). pi works through Tore's `/mcp` tools and the web, under `harness/AGENTS.md`. | `TORE_PI_MODEL` (default `anthropic/claude-sonnet-5-5`) |
-| **One-shot** | `Tore.LLM`'s `text/4`, `vision/5` and `decide/4`: a receipt, a recipe page, Learn, products, price guesses, variants, substitutions, the prep guide, cook steps, the image prompt, the home pick. Each call is a pi session of its own with `harness/ONESHOT.md` as its system prompt, no tools, no thinking and no session kept; the feature's prompt heads the message and JSON is asked for in words, with the call's schema. | `TORE_PI_ONESHOT_MODEL` (default: `TORE_PI_MODEL`) |
+| **The chat** | What the person types, and the screens that ask it: a day's sheet and "Plan the open days" on Plan, Today, Shop's sheets and its receipt photo, a link on Recipes (`ToreWeb.PiReply`), and Check in the sheet before cooking (`ToreWeb.BeforeCooking`). A screen's request starts "From the … screen" and says what was asked. | `chat-<user_id>` |
+| **Background jobs** | `harness/tasks/*.md`, run by `Tore.Agent`: `plan_week`, `weekly_reflection` and `find_recipes` on a schedule; `finish_recipe`, `prep_guide`, `learn` and `home_pick` when something needs them. | `<task>-<job id>` |
 
-`decide/4` asks typed questions (a "choice" among criteria with a confidence, or a "noul"
-probability) in the shape of OpenRouter's Decisions API; below a confidence threshold a fixed rule
-decides (`Tore.Home`).
+The model is `TORE_PI_MODEL` (default `anthropic/claude-sonnet-5-5`) for both.
 
 **Hard rules.**
 
-- No call site picks a model. The model is per way, set in runtime config.
-- Usage is counted in `llm_usage` only, under the call's feature: a one-shot by the `Tore.LLM`
-  facade, an agent session as `pi_<session>`. A run holds none.
-- The household's monthly limit (`Tore.LLM.monthly_limit_usd/0`) gates both ways (`Tore.LLM.check/1`,
-  `Tore.Pi.check/1`) and is the runaway-cost guard.
-- A one-shot's reply that isn't a JSON object is an error for the caller; there is no retry with
-  another model.
+- No call site picks a model. The model is set in runtime config.
+- Usage is counted in `llm_usage` only, as `pi_<session kind>` (`pi_chat`, `pi_plan_week`), when a
+  session's run settles. A run holds none.
+- The household's monthly limit (`Tore.Pi.monthly_limit_usd/0`) gates every session
+  (`Tore.Pi.check/1`) and is the runaway-cost guard.
+- Whatever pi writes goes through a tool, so a verifier checks it (§A.5). A tool's refusal is an
+  error pi reads and acts on; Tore never retries a model.
 
 ### A.9 — Meeting point with docs/specs/ui.md
 
@@ -502,19 +505,20 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §8 Stores and deals | Built, for ICA only. See its known problems |
 | §9 Prep | Built, optional and on demand |
 | §10 Weekly budget | Built (2026-11-16), not yet tried on live ICA offers or receipts |
-| Recipe import from a link | Built, through `:recipe_ingestion_run`: the Recipes screen reads it and saves it, with undo |
-| Recipes from the web or a photo | Built: pi reads the page or photos and saves with `save_recipe`. The `find_recipes` task exists, but nothing starts it yet |
-| Adapting a catalog recipe | Not reachable since the planner went: `Tore.Recipes.Variant` has no caller |
+| Recipe import from a link | Built: the Recipes screen sends the link to the chat; pi reads the page and saves it with `save_recipe`, with undo |
+| Recipes from the web or a photo | Built: pi reads the page or photos and saves with `save_recipe`. `find_recipes` runs every Thursday |
+| Changing a recipe | Built (2026-11-19): pi changes it with `update_recipe`, with undo; a `finish_recipe` job writes its steps and draws its picture |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
 | Tore from someone's own Claude, over MCP (§Interfaces) | Built (2026-11-16), not yet tried against a deployed server |
 
 **Run kinds in the code** (`Tore.Harness.Kinds`): `:set_plan_slot_run`, `:plan_edit_run`, `:shop_edit_run`,
-`:pantry_belief_update_run`, `:receipt_ingestion_run`, `:recipe_ingestion_run`, `:memory_update_run` and
-`:home_pick_run`.
+`:pantry_belief_update_run`, `:receipt_ingestion_run`, `:recipe_ingestion_run`, `:recipe_edit_run`,
+`:memory_update_run` and `:home_pick_run`.
 
-**Background jobs** (`Tore.Agent`, `harness/tasks/*.md`): `plan_week` and `weekly_reflection`, each
-a pi session of its own, recorded in `agent_jobs` with pi's summary and what it cost. `find_recipes`
-is written but nothing schedules it.
+**Background jobs** (`Tore.Agent`, `harness/tasks/*.md`), each a pi session of its own, recorded in
+`agent_jobs` with pi's summary and what it cost: `plan_week` (Friday to Sunday, `Tore.WeekAhead`),
+`weekly_reflection` (Saturday), `find_recipes` (Thursday), and `finish_recipe`, `prep_guide`, `learn`
+and `home_pick` when something needs them.
 
 **Planned, in order.** Working specs live in `.docs/specs/`, which isn't versioned.
 
@@ -628,10 +632,10 @@ how long this food keeps.
 **The model sees a name once.** `Tore.Pantry.Match` finds an ingredient by its key, then by a learned alias
 (`ingredient_aliases`: another name's key, or `ean:<digits>`), with no substring or fuzzy matching. A tick, an
 add to the list and building the list use only `Match`, so they never wait for the model and work without it.
-A name `Match` doesn't know gets its ingredient as written, and `Tore.Pantry.Learn` asks the model about it
-afterwards, in one batched call: either it means an ingredient Tore has (*mellanmjölk* is *mjölk*), and the two
+A name `Match` doesn't know gets its ingredient as written, and `Tore.Pantry.Learn` starts a `learn` job for it
+afterwards, one per batch of names: pi says with `learn_ingredients` either that it means an ingredient Tore has (*mellanmjölk* is *mjölk*), and the two
 are merged with the name kept as an alias, or it fills the new ingredient's section and shelf life. Shop items
-waiting in "other" move to their section when that lands (`ItemSectionSet`). Without the model, the name stays as
+waiting in "other" move to their section when that lands (`ItemSectionSet`). Without pi, the name stays as
 written.
 
 **Barcodes.** The scanner on Shop reads EAN-13, EAN-8 and UPC-A from the phone's camera (`barcode-detector` with
@@ -644,7 +648,7 @@ unticked on the list is ticked instead.
 to a row added since. Undoing a check-off unchecks the item and leaves the pantry as it is; if that's wrong, pi
 can remove the item.
 
-**Shelf life.** A guess at `shelf_life_days` per ingredient comes from `Learn` the first time Tore sees a name, or
+**Shelf life.** A guess at `shelf_life_days` per ingredient comes from the `learn` job the first time Tore sees a name, or
 from pi's `keeps_days` when it sees the item, and stays on the ingredient. A pantry row's date follows
 `Tore.Pantry.Expiry`:
 
@@ -670,20 +674,20 @@ pantry-management screen is a regression of this requirement.
 
 **Status: built.**
 
-A receipt becomes a `:receipt_ingestion_run` two ways: "Scan receipt" under the shopping list reads the photo
-with a one-shot, and in the chat pi reads it itself and logs it with `log_receipt`. Receipts record what was
+A receipt becomes a `:receipt_ingestion_run` when pi logs it with `log_receipt`: from a photo in the chat, or from
+"Scan receipt" under the shopping list, which sends the photo to the person's chat. Receipts record what was
 spent and nothing else. They never touch the pantry or the shopping list, because a misread line would drop an item
 off the list.
 
-- **Tools:** the `parse_receipt` prompt, through `Tore.LLM.vision` (the scan); `log_receipt` (pi).
+- **Tools:** `log_receipt`, `list_receipts`, `delete_receipt` (pi).
 - **Artifact:** `CostEntry` (store, date, total, line items). The photo isn't kept.
 - **Verifier:** `CostEntryVerifier`.
 - **Tier:** 2 — a readable receipt applies straight away, with no review (§A.6.1). Undo deletes it.
-- **Model:** a one-shot for the scan (§A.8); the agent session in the chat.
+- **Model:** the person's chat session (§A.8).
 
-The same photo scanned twice is caught and says it's already uploaded. Line items carry name, quantity, unit and what
-the row cost. Once a receipt commits, its products are matched to the household's ingredients for prices
-(`Tore.Prices.Products`, below), with the model unless it came over MCP (pi's included). pi can
+A receipt with the same store, date and total as one already logged is refused (`duplicate_receipt`). Line items
+carry name, quantity, unit and what the row cost. Once a receipt commits, its products are matched to the household's
+ingredients for prices (`Tore.Prices.Products`, §8). pi can
 also delete a receipt outright: it lists recent receipts (`list_receipts`) and deletes the one named
 (`delete_receipt`).
 
@@ -734,7 +738,8 @@ the price history the weekly budget prices recipes from. A failed fetch emails a
 
 **Products to ingredients.** `Tore.Prices.Products` matches each deal's and receipt line's product name to one of the
 household's ingredients, once per name, in `product_matches`. A name with an ingredient's key, or one the pantry has
-learned, matches for free; the rest go to the canonicaliser in one batch, and only a key the household has counts.
+learned, matches for free; the rest go to a `learn` job, where pi matches them with `match_products`, and only an
+ingredient the household has counts.
 "None fits" is stored too and asked again after four weeks. Matches are kept apart from the pantry's aliases, so a
 wrong one only nudges a price. After each scrape, every household matches the offers it can use.
 
@@ -746,8 +751,8 @@ works: one store, at most once a day and only until the new week's offers appear
 
 **Status: built, optional and on demand.**
 
-Plan links to "Prep this week". The page generates a guide from the week's plan when asked, through
-`Tore.Prep.generate_guide/3` and the `prep_guide` prompt. It's a document to read: there's no scheduled job and no
+Plan links to "Prep this week". When asked, the page starts a `prep_guide` job (`Tore.Prep.start/2`), and pi saves
+the guide with `save_prep_guide`; the page shows it when it arrives. It's a document to read: there's no scheduled job and no
 "report back". It isn't a run, since it changes nothing else.
 
 ### 10. Weekly budget
@@ -761,8 +766,8 @@ changed to save money.
 **Prices** (`Tore.Prices`) are derived every time, never stored. An ingredient's price is the first of these that
 has one in the line's unit family (kg, l or st): a deal running in the week, the latest price paid on a receipt from
 before the week, the latest regular price seen on a deal, and the model's estimate. Products on deals and receipt
-lines reach ingredients through `Tore.Prices.Products` (§8). The estimate is guessed in one call before the
-`plan_week` job, for recipe ingredients nothing prices (`Tore.Prices.Estimate`). Only the first three count as priced:
+lines reach ingredients through `Tore.Prices.Products` (§8). The `plan_week` job guesses the estimate first, for
+ingredients without one (`list_ingredients`, `set_price_guesses`, `Tore.Prices.Estimate`). Only the first three count as priced:
 every estimate carries its coverage, "14 of 18 ingredients priced".
 
 **The week's estimate** (`Tore.Budget.estimate/3`) adds up the dinners the plan cooks at their servings; leftovers
@@ -836,19 +841,18 @@ alternatives, never the plan.
 `/` redirects to the screen the stored pick names, without waiting on a model. The stored pick
 is the latest applied `:home_pick_run` (`Tore.Home`):
 
-- **The pick.** One Pattern C one-shot (`Tore.LLM.decide/4`, §A.8) asks a choice among the screens that make
-  sense now (Today, Plan, Shop), a yes/no per quick swap that makes sense now, and a choice of
-  Today's note. The state it reads is worked out in
-  code: weekday and time, tonight, tomorrow and what it needs that's neither at home nor on a
-  list, what's unplanned this week and next, the list, when the latest shopping trips began
-  (`Tore.Shop.Walk.trip_starts/1`), this week's plan and the household memory.
+- **The pick.** A `home_pick` job (`harness/tasks/home_pick.md`) gives pi the facts worked out in code (weekday
+  and time, tonight, tomorrow and what it needs that's neither at home nor on a list, what's unplanned this week
+  and next, the list, when the latest shopping trips began (`Tore.Shop.Walk.trip_starts/1`)), the quick swaps
+  that make sense now and the notes that are true now. pi reads the rest (`get_context`) and sets a screen
+  (Today, Plan or Shop), up to three swaps and a note or none with `set_home_pick`, which the kind's verifier
+  checks. A job that sets nothing leaves the last pick, or the fixed rule.
 - **The note.** Code works out which notes are true (`Tore.Home.notes_for/1`): tomorrow needs
-  things to buy, there's something on the list, tomorrow isn't planned. The model chooses one
-  or none; Today writes it from the facts, with its action. It is never the model's text. Below 0.6 confidence, or when the call fails
-  for any reason but the gate, the run stores the fixed rule's pick.
+  things to buy, there's something on the list, tomorrow isn't planned. pi chooses one or none;
+  Today writes it from the facts, with its action. It is never pi's text.
 - **When.** Only when someone opens `/` or Today, or finishes cooking, and the pick is stale: older than an hour, or older than
   another run applied since. The open starts a new pick in the background for next time, at most
-  one per ten minutes per household, and never without AI. There's no cron.
+  one job per ten minutes per household, and never without AI. There's no cron.
 - **The fixed rule.** Saturday before 14:00 → Shop; Sunday from 16:00 →
   Plan; otherwise Today. Its swaps open the other main screens. Its note: what tomorrow needs
   from 14:00, the list on Saturday morning, an open tomorrow from 17:00.
@@ -856,7 +860,7 @@ is the latest applied `:home_pick_run` (`Tore.Home`):
   zone. Every calendar date in the app (today, this week, tonight, a receipt's or a pantry item's
   date) comes from it, so the pick and the screens agree on the day. Stored timestamps stay UTC.
 
-A stored pick is narrowed when it is read. A household that can't use the model now gets the fixed rule, not its last pick.
+A stored pick is narrowed when it is read. A household that can't use pi now gets the fixed rule, not its last pick.
 
 ### The tab bar (every main screen)
 
@@ -953,8 +957,8 @@ The scanner button at the end of the add line opens a sheet with the camera: eac
 pantry, or is ticked off if it's still on the list, with a line and Undo per pack (§4).
 
 Under the list, what was spent this month (`ToreWeb.Spending`): the total against last month,
-the five latest receipts, eating out from the plans, and "Scan receipt", which reads a photo
-with a one-shot (§5). A receipt is a photo, here or in the chat; there is no typed form.
+the five latest receipts, eating out from the plans, and "Scan receipt", which sends a photo to
+the person's chat for pi to log (§5). A receipt is a photo, here or in the chat; there is no typed form.
 
 ### Settings (`/settings`)
 
@@ -981,7 +985,8 @@ plans must remove these explicitly — they are not deprecated, they are gone.
 | The run review page (`/review`, `/runs/:id`) | Recipes save straight away with undo (2026-11-15) |
 | The chat bar and ≡ menu | The tab bar, with Tore in the middle (2026-11-15) |
 | Capture's router, `PlannerAgent` and the planner command bar | pi, through `/mcp`; the chat and the screens' sheets ask it (2026-11-19) |
-| Tore's own model client (`Tore.LLM.OpenAI`) | pi one-shots (`Tore.LLM.Pi`); OpenRouter draws recipe pictures only (2026-11-19) |
+| Tore's own model client (`Tore.LLM.OpenAI`) | pi; OpenRouter draws recipe pictures only (2026-11-19) |
+| `Tore.LLM`, its one-shots and `Tore.LLM.Prompts` | pi through `/mcp`: the chat or a background job (2026-11-19) |
 | `Tore.Family` context (introduced as the canonical name in the prior rewrite) | `Tore.Household` is canonical; `Tore.Family.*` deleted |
 | Onboarding questionnaire (if/when added) | Inference from events over time |
 | Any meal-rating or "how was dinner?" UI | Never built; explicitly prohibited |
@@ -1009,8 +1014,8 @@ lib/tore/
   accounts/                  # user, membership, pending_member
   auth/
     oidc.ex                  # Pocket ID: authorization code flow with PKCE, over oidcc
-  recipes.ex                 # catalog; owns scrape_attrs_from_url/generate_image (folded)
-  recipes/                   # schemas, parser, variant.ex (an adapted recipe as a proposal)
+  recipes.ex                 # catalog; finish (the finish_recipe job), draw_picture, cook_steps
+  recipes/                   # schemas
   deals.ex                   # owns add_store/scrape_all/scrape_url
   deals/
     deal.ex
@@ -1024,7 +1029,7 @@ lib/tore/
     expiry.ex                # a row's date from what was just observed. Pure
   costs.ex                   # receipts, eating out read from the plans, monthly totals, LLM usage
   costs/
-  prep.ex                    # owns generate_guide (folded)
+  prep.ex                    # the week's guide: start (the prep_guide job), save_guide
   prep/
   planning.ex                # imperative shell over the pure Planning aggregate
   planning/                  # Decider aggregate
@@ -1036,9 +1041,9 @@ lib/tore/
   week_mode.ex
   shop.ex                    # imperative shell over the pure Shop aggregate
   shop/                      # Decider aggregate
-  capture/                   # dispatch.ex (the writes behind the MCP tools, as runs), uploads
-  pi.ex                      # Tore's client for pi: ask, run, messages, chat_session, check
-  pi/session.ex              # one pi process per household session, over a Port; one-shots too
+  capture/                   # dispatch.ex (the writes behind the MCP tools, as runs)
+  pi.ex                      # Tore's client for pi: ask, run, messages, chat_session, the gate
+  pi/session.ex              # one pi process per household session, over a Port
   agent.ex                   # background jobs: a harness/tasks/*.md task sent to pi; agent/job.ex
   week_ahead.ex              # Fri–Sun: fetch the coming week's offers, then the plan_week job
   harness/                   # the Agent Harness Layer
@@ -1046,25 +1051,20 @@ lib/tore/
     kind.ex                  # the Kind behaviour: propose, resolve, verify, review_question, apply_proposal, after_commit
     kinds.ex                 # kind name → module
     kinds/                   # set_plan_slot, plan_edit (sharing planner.ex), shop_edit,
-                             # pantry_update, receipt, recipe_ingestion, memory_update, home_pick
+                             # pantry_update, receipt, recipe_ingestion, recipe_edit,
+                             # memory_update, home_pick
     runs.ex                  # start, submit, confirm, discard, revert, queries, fail_interrupted
     undo.ex                  # {:steps, [step]} | {:irreversible, reason}
     inbox_sweeper.ex         # weekly TTL sweep: stale :needs_user → :discarded
-    receipt_ingestion.ex     # parse, build and save helpers for Kinds.Receipt
+    receipt_ingestion.ex     # saves a CostEntry for Kinds.Receipt
     artifact.ex              # RunArtifact behaviour + artifact/registry.ex
     artifact/                # plan_diff, recipe_proposal, pantry_belief_update, cost_entry,
-                             # memory_batch, shop_change, home_pick
+                             # memory_batch, shop_change, home_pick, recipe_edit
     capsule.ex               # capsule behaviour (build, to_prompt)
     capsules/                # week_plan, pantry_beliefs: read by get_context and the home pick
     verifier/                # plan, pantry, cost_entry, recipe_proposal
-  llm.ex                     # the gate and facade, scope first: text/4, vision/5, decide/4
-  llm/
-    spec.ex                  # what answers a one-off call: text, vision, decide
-    pi.ex                    # the Spec answered by a pi one-shot
-    prompts.ex               # JSON schemas + prompt templates (Pattern A operations)
   image_gen/
     open_router.ex           # recipe images through the open_router library
-  spend_guard.ex
   scheduler.ex
   storage.ex
 ```
@@ -1095,10 +1095,10 @@ lib/tore_web/components/pi_reply.ex # a screen's sheet asks the chat; pi's reply
 
 ```
 harness/
-  pi-session                 # starts pi in RPC mode for one household session (or a one-shot)
+  pi-session                 # starts pi in RPC mode for one household session
   AGENTS.md                  # pi's instructions, for the chat and background jobs
-  ONESHOT.md                 # a one-shot's whole system prompt
-  tasks/                     # plan_week, weekly_reflection, find_recipes
+  tasks/                     # plan_week, weekly_reflection, find_recipes, finish_recipe,
+                             # prep_guide, learn, home_pick
 ```
 
 ### MCP (`/mcp`)
@@ -1121,11 +1121,12 @@ and paid by their plan; no MCP tool calls a model, so a household nobody sponsor
   by; nothing is saved), `suggest_swaps` (pi's swaps for the sheet before cooking; nothing is saved). Writes call `Capture.Dispatch`, with `actor: :mcp`: `set_dinner` and `change_day` (both
   take `meal: "lunch"`), `set_days_off`, `add_to_list`, `check_off`,
   `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`, `update_memory`, `mark_cooked`,
-  `delete_recipe`, `delete_receipt`, `set_budget`, `set_basics`. `put_together` makes a meal from
-  recipe ids (missing parts are written with `save_recipe` first); it writes directly, like
-  `mark_cooked`, and `delete_recipe` takes it away. `match_deals` stores Claude's own matches of
-  offers to ingredients (`Tore.Prices.Products.put/3`), so a household without the server's model still gets
-  offer prices. `save_recipe` and `log_receipt`
+  `delete_recipe`, `delete_receipt`, `set_budget`, `set_basics`, `update_recipe`, `draw_recipe_picture`
+  (an image call, gated). `put_together` makes a meal from recipe ids (missing parts are written with
+  `save_recipe` first); it writes directly, like `mark_cooked`, and `delete_recipe` takes it away. For the jobs:
+  `list_ingredients`, `learn_ingredients`, `match_products` (offers and receipt lines to ingredients,
+  `Tore.Prices.Products.put/3`), `set_price_guesses`, `save_prep_guide` and `set_home_pick`. `save_recipe` and
+  `log_receipt`
   submit Claude's reading as the run's proposal, so the same verifiers decide. Each write answers with
   its run id, and `undo` reverts any run. A bad argument or a refusal is a tool error Claude can read.
 - **One prompt**, `plan_week`: the same instructions the `plan_week` job gives pi
@@ -1145,93 +1146,42 @@ lib/tore_web/controllers/mcp_controller.ex, mcp_metadata_controller.ex
 
 ## LLM Surface
 
-Every one-off model call goes through the `Tore.LLM` facade, which dispatches to the configured
-`Tore.LLM.Spec`: `Tore.LLM.Pi` (a pi one-shot, §A.8), or `Tore.MockLLM` in tests. The arities
-below are the Spec's; each facade function takes the household's `%Scope{}` before them, and the
-Spec gets it as `:scope`:
+Tore has no model facade. Everything a model does in Tore, pi does in a session (§A.8), through
+the MCP tools; the person's own Claude uses the same tools (§MCP).
 
-| Callback | Purpose |
-|----------|---------|
-| `text/3` | System + user prompt → a JSON object (Pattern A, text input) |
-| `vision/4` | Images + prompts → a JSON object (Pattern A, image input) |
-| `decide/3` | State lines + typed questions → an answer per question (Pattern C). Powers the home pick |
-
-Purpose-level operations are **not** behaviour callbacks. Each one — read a receipt, read a recipe
-page, suggest a recipe for a day, write a prep guide, compress cook-mode steps, guess prices, match
-pantry names, write a picture's prompt — is a prompt + JSON-schema pair in `Tore.LLM.Prompts`,
-invoked through `text/3` or `vision/4`. Adding an operation adds a prompt spec, not a callback.
-pi's agent sessions (§2, background jobs) don't go through the facade; `Tore.Pi` gates them the
-same way.
-
-**The gate.** Every facade function takes the household's `%Scope{}` first. `Tore.LLM`
-refuses a call with `{:error, :ai_unavailable}` when pi isn't configured (`TORE_PI_COMMAND`) or
-nobody sponsors the household (a member with `ai_enabled` who turned sponsorship on, or who
-started the household with the claim), and
-with `{:error, :budget_exceeded}` once the household has spent `Tore.LLM.monthly_limit_usd/0`
-this calendar month. It records every call's cost in `llm_usage` for the household, under
-the call's `:feature`; the one-shot session itself records nothing, so the cost is counted once.
-`Tore.LLM.check/1` gives the same answer without calling (the crons use it), and
-`Tore.LLM.refusal_text/1` is what a screen says for either refusal, instead of "try again".
-`Tore.SpendGuard` is the earlier check for expensive features: whether the estimate would
-cross the limit, and a per-feature cooldown, both per household. Image generation
-(`Tore.ImageGen`) runs only after the gated image-prompt call, and its cost isn't recorded yet.
+**The gate.** `Tore.Pi.check/1` answers for a household before any session starts or any prompt is
+sent: `{:error, :pi_off}` when pi isn't configured (`TORE_PI_COMMAND`), `{:error, :ai_unavailable}`
+when nobody sponsors the household (a member with `ai_enabled` who turned sponsorship on, or who
+started the household with the claim), and `{:error, :budget_exceeded}` once the household has
+spent `Tore.Pi.monthly_limit_usd/0` this calendar month. `Tore.Pi.refusal_text/1` is what a screen
+says for the last two, instead of "try again". Each session records its cost in `llm_usage` when a
+run settles. Image generation (`Tore.ImageGen`) runs only from `draw_recipe_picture`, inside a
+gated session, and its cost isn't recorded yet.
 
 ---
 
 ## LLM Interface Conventions
 
-Three patterns, used deliberately:
+One pattern: **pi, with tools.**
 
-### Pattern A — Structured Output (default for parsers and extractors)
-
-Used by every operation whose job is *"turn this input into a fixed-shape result"*:
-`parse_receipt`, `extract_recipe`, `suggest_slot_recipe`, `prep_guide`, `cook_steps`,
-`estimate_prices`, `canonicalise_pantry_items`. All go through `text/3` or `vision/4`.
-
-- Implementation: a pi one-shot. The call's `response_format` schema is put in the message, with
-  "Answer with only a JSON object", and the reply is parsed (also out of a Markdown fence).
-- Schemas live in `Tore.LLM.Prompts` next to the prompt EEx files.
-- A reply that isn't a JSON object is `{:error, :invalid_json}`; the caller's code checks the
-  shape it needs, and the run's verifier checks the rest.
-- One round-trip per call. No loops. No tools.
-
-### Pattern B — Agent (for in-app actions)
-
-Used when the model needs to *do something* in the app — read state, then write state,
-possibly across several turns: the chat (§2) and the background jobs.
-
-- Implementation: a pi session (`Tore.Pi`) with Tore's MCP tools. pi runs the loop; Tore runs
-  the tools.
+- The model reads through Tore's read tools and writes through its write tools; it never gets a
+  prompt Tore assembled from the household's data (§A.4).
+- A new AI feature is a tool, a task file, or a line in `harness/AGENTS.md`, not a prompt in code.
+  A screen that needs an answer asks the person's chat in one line ("From the … screen: …") and
+  shows the reply (`ToreWeb.PiReply`); work nobody watches is a background job.
 - Tool schemas use JSON Schema. A bad argument or a refusal is a tool error pi can read.
 - Every write is a run with its verifier and undo (§A.2). Read tools write nothing.
-- A session's cost is counted under `pi_<session kind>` (`pi_chat`, `pi_plan_week`).
-- The model is the agent session's (§A.8). No per-call or per-feature override.
-
-### Pattern C — Typed Decision (for choosing among fixed options)
-
-Used when the answer is one of a few options Tore wrote, and code acts on it: the home pick.
-
-- Implementation: `decide(state, questions, opts)`, a pi one-shot. `state` is a list of text lines;
-  `questions` maps a name to a `choice` (options with criteria) or a `noul` (a yes/no
-  proposition). The answer for a choice is the option and a confidence; for a noul, a probability.
-- No free text comes back, so code reads the answer directly. The caller sets a confidence
-  threshold and falls back to a fixed rule below it.
-- Facts the model would have to compute, such as dates and counts, are computed in code and sent
-  as plain lines.
-
-### When to use which
-
-- **Parser, extractor, classifier, or "summarise this":** Pattern A. Always.
-- **The model needs to look something up, or to perform actions that change app state and might require multiple steps:** Pattern B, a new tool or task file for pi.
-- **Choosing among a fixed set of options for code to act on:** Pattern C.
-- **Anything new that doesn't clearly fit:** Pattern A first. Escalate to Pattern B only when a concrete use case shows single-shot can't reach the goal.
+- Facts pi would have to compute, such as dates and counts, are computed in code and given as
+  plain lines (the home pick's facts, `get_context`).
+- A tool returns what Tore knows; pi's judgement (which ingredient a product is, what a dish looks
+  like, how long a guide's step takes) comes back as a tool's arguments.
 
 ### Universal rules
 
-- Every call's cost is recorded in `llm_usage` under its feature.
-- Every call goes through the gate for its household (`Tore.LLM.check/1`, `Tore.Pi.check/1`), except image generation, which runs only after a gated call and isn't recorded yet (§LLM Surface).
+- Every session's cost is recorded in `llm_usage` under its kind.
+- Every session goes through the gate for its household (`Tore.Pi.check/1`).
 - No LLM-emitted SQL, no LLM-emitted code execution, no LLM-emitted shell. The MCP tools are the only side-effect channel.
-- There is no shared prompt builder (§A.4). A one-shot gets what its feature's prompt holds; pi gets the household through its tools.
+- There is no shared prompt builder (§A.4). pi gets the household through its tools.
 
 ---
 

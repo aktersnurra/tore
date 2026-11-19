@@ -11,8 +11,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 - Tore talks to one agent, pi, for everything. Each person has their own conversation with it; the Tore tab, and asking about a day on Plan, tonight on Today or an item on Shop, all go to it. It acts through Tore's tools, and each change it makes shows a receipt with Undo.
 - Photos go to the same conversation: pi reads a receipt, a recipe's pages, or a shelf or the fridge, and logs, saves or stocks what it sees, with the printed best-before date when it can read one.
-- One-off answers (reading a receipt or a recipe page, matching products, guessing prices and shelf life, the prep guide, cook steps, the home pick) are short pi sessions with no tools, counted under the feature that asked.
-- Planning the week is a background job for pi, which guesses prices for unpriced ingredients first.
+- Tore writes no prompts of its own: everything AI is pi using Tore's tools, in your conversation or as a background job.
+- A link on Recipes, a receipt photo on Shop and Check in the sheet before cooking go to your conversation with pi, which reads the page or photo and saves, logs or suggests swaps (`suggest_swaps`, which cook mode cooks with).
+- pi can change a recipe and redraw its picture, with Undo. A new or changed recipe, or a meal put together from parts, gets its cook steps and picture from pi in the background; a meal's steps cook its parts together. A scanned pack's photo stays when pi learns what it is.
+- The prep guide, learning new names and matching products to ingredients, guessing prices, and where the app opens with Today's note are background jobs for pi, each saved through a tool Tore checks.
+- pi looks for two new dinners on the web every Thursday, before the coming week is planned.
+- Gone: "Surprise me" on a day (the sheet asks pi instead), recipe variants, and a duplicate receipt is now caught by its store, date and total rather than the photo.
 - OpenRouter only draws recipe pictures now. Turning AI on means setting `TORE_PI_COMMAND`.
 
 ### Budget forecast (2026-11-20)

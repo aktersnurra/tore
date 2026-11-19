@@ -57,7 +57,7 @@ lib/
 │   ├── pantry/           # Pantry beliefs and expiry
 │   ├── planning/         # Weekly plan decider (event-sourced), commands, events, state
 │   ├── prep/             # Prep guides
-│   ├── recipes/          # Recipe, Ingredient (with canonical keys), Tag, Parser
+│   ├── recipes/          # Recipe, Ingredient (with canonical keys), Tag
 │   └── shop/             # Shopping list decider (event-sourced)
 └── tore_web/
     ├── components/       # Core UI components, layouts
@@ -70,17 +70,15 @@ lib/
 
 **Event sourcing** — planning and shopping list state are derived from an append-only event log (`Tore.EventStore`). The `Decider` pattern: `decide(command, state) → events`, `evolve(state, event) → state`.
 
-**Harness** — every state-changing AI action is a run, one row in the `runs` table: the LLM proposes, a pure verifier checks, the change applies in one transaction with its undo, and you get a receipt. A kind of run implements `Tore.Harness.Kind`, and `Tore.Harness.Runs` drives it. See `SPEC.md` §A.2.
+**Harness** — every state-changing AI action is a run, one row in the `runs` table: pi proposes through an MCP tool, a pure verifier checks, the change applies in one transaction with its undo, and you get a receipt. A kind of run implements `Tore.Harness.Kind`, and `Tore.Harness.Runs` drives it. See `SPEC.md` §A.2.
 
-**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, LLM calls, SpendGuard checks and PubSub broadcasts. Each function that touches a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one.
+**Context modules** — LiveViews call contexts such as `Tore.Planning` and `Tore.Shop`, which orchestrate DB reads, pi jobs and PubSub broadcasts. Each function that touches a household's data takes a `%Tore.Scope{}` first, and `Tore.Repo` raises on a household table queried without one.
 
-**LLM gate** — `Tore.LLM` refuses calls for a household nobody sponsors, and once the household has spent its monthly limit; it records each call's cost per household. `Tore.SpendGuard` adds an estimate check and a cooldown for a few expensive features (prep guide, recipe suggestions, web search). The monthly limit is what stops a runaway loop draining API credits.
+**Strict MCP** — Tore writes no prompts. Every AI task is pi working through Tore's `/mcp` tools: the person's chat, which the screens' sheets also ask, or a background job from `harness/tasks/*.md` (`Tore.Agent`). A new AI feature is a tool, a task file or a line in `harness/AGENTS.md`.
 
-**Decision tier** — a call that only chooses among options Tore wrote asks typed questions with `Tore.LLM.decide/4`, answered by pi as a one-shot. It returns a choice with a confidence, not text; below a confidence threshold a fixed rule decides. The home pick is the first such call (`Tore.Home`).
+**The gate** — `Tore.Pi.check/1` refuses a household nobody sponsors, and one that has spent its monthly limit; each pi session records its cost per household. The monthly limit is what stops a runaway loop draining API credits.
 
 **Canonical ingredient keys** — ingredients store a `key` column (e.g. `gul_lok`) derived from the display name. Used for deduplication, pantry matching, and grocery aggregation across locales.
-
-**Cheap pre-flight** — before calling the expensive extraction model on a scraped URL, a cheap free-tier model checks whether the HTML actually contains a recipe.
 
 ---
 
@@ -100,7 +98,6 @@ production, with every AI feature off.
 TORE_PI_COMMAND=harness/pi-session           # or an ssh command to the harness machine
 TORE_PI_MCP_URL=http://localhost:4000/mcp    # /mcp as pi reaches it (default: the endpoint's)
 TORE_PI_MODEL=anthropic/claude-sonnet-5-5    # the chat and background jobs
-TORE_PI_ONESHOT_MODEL=…                      # one-off answers, such as a receipt (default: TORE_PI_MODEL)
 ```
 
 Recipe pictures are drawn by an image model through OpenRouter: set `OPENROUTER_API_KEY`, and
