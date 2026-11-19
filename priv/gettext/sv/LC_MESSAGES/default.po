@@ -876,7 +876,7 @@ msgstr "Bytte in %{recipe} på %{day}"
 msgid "Things Tore has learned"
 msgstr "Saker Tore har lärt sig"
 
-#: lib/tore/home.ex:494
+#: lib/tore/home.ex:394
 #: lib/tore_web/live/home_live.ex:105
 #: lib/tore_web/live/home_live.ex:306
 #: lib/tore_web/live/home_live.ex:350
@@ -1534,39 +1534,39 @@ msgstr "Jag hittade inte det receptet."
 msgid "Removed %{name} from the shopping list."
 msgstr "Tog bort %{name} från inköpslistan."
 
-#: lib/tore/home.ex:503
+#: lib/tore/home.ex:403
 #, elixir-autogen, elixir-format
 msgid "Dinner tonight?"
 msgstr "Middag ikväll?"
 
-#: lib/tore/home.ex:510
+#: lib/tore/home.ex:410
 #: lib/tore_web/live/shop_live.ex:413
 #, elixir-autogen, elixir-format
 msgid "Make the list"
 msgstr "Gör listan"
 
-#: lib/tore/home.ex:511
+#: lib/tore/home.ex:411
 #, elixir-autogen, elixir-format
 msgid "Make the shopping list from this week's plan"
 msgstr "Gör inköpslistan från veckans plan"
 
-#: lib/tore/home.ex:499
-#: lib/tore/home.ex:499
+#: lib/tore/home.ex:399
+#: lib/tore/home.ex:399
 #, elixir-autogen, elixir-format
 msgid "Plan next week"
 msgstr "Planera nästa vecka"
 
-#: lib/tore/home.ex:496
+#: lib/tore/home.ex:396
 #, elixir-autogen, elixir-format
 msgid "Shopping list"
 msgstr "Inköpslistan"
 
-#: lib/tore/home.ex:495
+#: lib/tore/home.ex:395
 #, elixir-autogen, elixir-format
 msgid "This week's plan"
 msgstr "Veckans plan"
 
-#: lib/tore/home.ex:502
+#: lib/tore/home.ex:402
 #, elixir-autogen, elixir-format
 msgid "What should we have for dinner tonight?"
 msgstr "Vad ska vi äta ikväll?"

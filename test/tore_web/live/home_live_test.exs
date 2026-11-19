@@ -190,6 +190,8 @@ defmodule ToreWeb.HomeLiveTest do
     } do
       Mox.set_mox_global()
       Mox.stub(Tore.MockLLM, :text, fn _s, _u, _o -> {:ok, %{"section" => "other"}, %{}} end)
+      # A stored pick is read only while the household can use pi.
+      fake_pi(%{})
       today = Tore.Clock.today()
       plan_on(today, dish("Kycklinggryta"))
       plan_on(Date.add(today, 1), dish("Laxpasta"))
@@ -254,9 +256,13 @@ defmodule ToreWeb.HomeLiveTest do
       refute render(view) =~ ~s(phx-submit="tonight_command")
       assert eventually(fn -> has_element?(view, ~s([data-role="pi-reply"]), "Klart.") end)
 
-      [header | commands] = pi_records(log)
-      assert header["session"] == "chat-#{user.id}"
-      %{"message" => message} = Enum.find(commands, &(&1["type"] == "prompt"))
+      # Opening Today may also start a home_pick job in the same fake.
+      records = pi_records(log)
+      assert Enum.any?(records, &(&1["session"] == "chat-#{user.id}"))
+
+      %{"message" => message} =
+        Enum.find(records, &(&1["type"] == "prompt" and &1["message"] =~ "From the Today screen"))
+
       assert message =~ "From the Today screen, about tonight's dinner"
       assert message =~ Date.to_iso8601(Tore.Clock.today())
       assert message =~ "make it vegetarian"

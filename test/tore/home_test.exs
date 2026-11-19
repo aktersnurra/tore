@@ -2,6 +2,7 @@ defmodule Tore.HomeTest do
   use Tore.DataCase, async: false
 
   import Mox
+  import Tore.FakePi
   import Tore.RunFixtures
 
   alias Tore.{Home, Planning, Recipes, Shop, Streams}
@@ -126,26 +127,18 @@ defmodule Tore.HomeTest do
       assert %{note: nil} = Home.fallback(facts(now: ~N[2026-11-10 09:00:00]))
     end
 
-    test "the model picks one note, or none, when it's sure" do
-      facts = facts(tomorrow_missing: ["lax"])
-      assert %{"note" => %{"criteria" => criteria}} = Home.questions(facts)
-      assert Map.keys(criteria) == ~w(buy_for_tomorrow none shop_now)
-      refute Map.has_key?(Home.questions(facts(items_left: 0)), "note")
+    test "pi is told the notes that are true now" do
+      details = Home.details(home_scope(), facts(tomorrow_missing: ["lax"]))
+      assert details =~ "buy_for_tomorrow ("
+      assert details =~ "shop_now ("
+      refute details =~ "tomorrow_open ("
 
-      sure = fn note, confidence ->
-        %{
-          "screen" => %{"choice" => "today", "confidence" => 0.9},
-          "note" => %{"choice" => note, "confidence" => confidence}
-        }
-      end
-
-      assert %HomePick{note: :shop_now} = Home.pick(sure.("shop_now", 0.8), facts)
-      assert %HomePick{note: nil} = Home.pick(sure.("none", 0.9), facts)
-      assert %HomePick{note: nil} = Home.pick(sure.("shop_now", 0.4), facts)
-      assert %HomePick{note: nil} = Home.pick(sure.("tomorrow_open", 0.9), facts)
+      assert Home.details(home_scope(), facts(items_left: 0)) =~
+               "No note for Today is true now."
     end
 
     test "a stored note that's no longer true isn't shown" do
+      fake_pi(%{})
       scope = home_scope()
       stored_pick(scope, %HomePick{screen: :today, source: :model, swaps: [], note: :shop_now})
 
@@ -184,43 +177,6 @@ defmodule Tore.HomeTest do
     end
   end
 
-  describe "questions/1 and pick/2" do
-    test "ask a choice among the screens that make sense and a yes/no per swap" do
-      questions = Home.questions(facts([]))
-
-      assert %{"type" => "choice", "criteria" => criteria} = questions["screen"]
-      assert Map.keys(criteria) == ~w(plan shop today)
-      assert %{"type" => "noul", "instructions" => _} = questions["swap_open_shop"]
-    end
-
-    test "a sure choice is used, with likely swaps best first, at most three, never its own screen" do
-      answers = %{
-        "screen" => %{"choice" => "shop", "confidence" => 0.8},
-        "swap_open_shop" => %{"noul" => 0.99},
-        "swap_open_plan" => %{"noul" => 0.6},
-        "swap_open_today" => %{"noul" => 0.9},
-        "swap_plan_next_week" => %{"noul" => 0.7},
-        "swap_suggest_tonight" => %{"noul" => 0.95}
-      }
-
-      assert %HomePick{
-               screen: :shop,
-               source: :model,
-               swaps: [:open_today, :plan_next_week, :open_plan]
-             } = Home.pick(answers, facts([]))
-    end
-
-    test "an unsure answer, or a screen that makes no sense now, is the fixed rule's pick" do
-      unsure = %{"screen" => %{"choice" => "shop", "confidence" => 0.5}}
-      assert %HomePick{source: :rules, screen: :today} = Home.pick(unsure, facts([]))
-
-      gone = %{"screen" => %{"choice" => "review", "confidence" => 0.9}}
-      assert %HomePick{source: :rules} = Home.pick(gone, facts([]))
-
-      assert %HomePick{source: :rules} = Home.pick(%{}, facts([]))
-    end
-  end
-
   test "swap labels and requests are in the household's language" do
     Gettext.with_locale(ToreWeb.Gettext, "sv", fn ->
       assert %{label: "Inköpslistan", action: {:open, :shop}} = Home.swap(:open_shop)
@@ -229,6 +185,8 @@ defmodule Tore.HomeTest do
   end
 
   describe "current/2" do
+    setup :fake_pi
+
     test "without a stored pick, the fixed rule's, and a new one is due" do
       assert %{screen: :today, stale?: true, swaps: swaps} =
                Home.current(home_scope(), @tuesday_evening)
@@ -266,13 +224,15 @@ defmodule Tore.HomeTest do
       assert %{screen: :today, stale?: false} = Home.current(unsponsored, @tuesday_evening)
     end
 
-    test "a stored pick the fixed rule made is the rule's now, so its note follows the clock" do
+    test "pi's note shows while it's true" do
       scope = home_scope()
-      morning = ~N[2026-11-10 09:00:00]
 
-      stored_pick(scope, %HomePick{screen: :today, source: :rules, swaps: [], note: nil})
-
-      assert %{note: nil, stale?: false} = Home.current(scope, morning)
+      stored_pick(scope, %HomePick{
+        screen: :today,
+        source: :model,
+        swaps: [],
+        note: :tomorrow_open
+      })
 
       assert %{note: %{key: :tomorrow_open}, stale?: false} =
                Home.current(scope, @tuesday_evening)
@@ -308,25 +268,25 @@ defmodule Tore.HomeTest do
   end
 
   describe "refresh/1" do
-    test "starts a pick in the background, then not again within ten minutes" do
-      scope = home_scope()
-      Phoenix.PubSub.subscribe(Tore.PubSub, Runs.topic(scope))
+    setup :fake_pi
 
-      expect(Tore.MockLLM, :decide, fn _state, _questions, _opts ->
-        {:ok, %{"screen" => %{"choice" => "plan", "confidence" => 0.9}},
-         %{prompt_tokens: 10, completion_tokens: 0, cost_usd: 0.0}}
-      end)
+    test "starts a home_pick job with the facts, then not again within ten minutes", %{
+      pi_log: log
+    } do
+      assert :started = Home.refresh(home_scope())
 
-      assert :started = Home.refresh(scope)
-      assert_receive {:run_changed, %KitchenRun{kind: "home_pick_run", status: :applied}}, 2000
-      assert :skipped = Home.refresh(scope)
-      assert %{screen: :plan, stale?: false} = Home.current(scope)
+      prompt = Enum.find(pi_records(log), &(&1["type"] == "prompt"))["message"]
+      assert prompt =~ "Background job: home_pick."
+      assert prompt =~ "Nothing is planned for dinner tonight."
+      assert prompt =~ "Swaps that make sense now: open_today"
+
+      assert :skipped = Home.refresh(home_scope())
     end
 
     test "never starts without AI" do
       unsponsored = scope_fixture(household_fixture())
       assert :skipped = Home.refresh(unsponsored)
-      refute Repo.exists?(KitchenRun, household_id: unsponsored.household_id)
+      refute Repo.exists?(Tore.Agent.Job, household_id: unsponsored.household_id)
     end
   end
 end

@@ -1,52 +1,50 @@
 defmodule Tore.Harness.Kinds.HomePickTest do
   use Tore.DataCase, async: false
 
-  import Mox
+  import Ecto.Query
 
-  alias Tore.Costs
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.HomePick
   alias Tore.Harness.Kinds.HomePick, as: Kind
 
-  setup :verify_on_exit!
+  defp set(args) do
+    request = %{
+      "jsonrpc" => "2.0",
+      "id" => 1,
+      "method" => "tools/call",
+      "params" => %{"name" => "set_home_pick", "arguments" => args}
+    }
 
-  @tuesday_evening ~N[2026-11-10 17:00:00]
-  @usage %{prompt_tokens: 120, completion_tokens: 0, cost_usd: 0.01}
-
-  test "a sure answer is stored as the pick, and the call is recorded as home_pick" do
-    expect(Tore.MockLLM, :decide, fn state, questions, opts ->
-      assert Keyword.get(opts, :feature) == nil
-      assert "It is Tuesday 2026-11-10, 17:00." in state
-      assert %{"screen" => %{"type" => "choice"}} = questions
-
-      {:ok,
-       %{
-         "screen" => %{"choice" => "plan", "confidence" => 0.9},
-         "swap_open_shop" => %{"noul" => 0.8}
-       }, @usage}
-    end)
-
-    assert {:ok, %KitchenRun{status: :applied, artifacts: [pick]} = run} =
-             Runs.start(home_scope(), Kind, %{now: @tuesday_evening})
-
-    assert %HomePick{screen: :plan, source: :model, swaps: [:open_shop]} = pick
-    assert %KitchenRun{artifacts: [^pick]} = Runs.get(home_scope(), run.id)
-    assert [{"home_pick", 1, 0.01}] = Costs.llm_calls_this_month_by_feature(home_scope())
+    {:reply, %{"result" => result}} = Tore.Mcp.handle(home_scope(), request)
+    result
   end
 
-  test "a failed call stores the fixed rule's pick, so a stale one is still replaced" do
-    expect(Tore.MockLLM, :decide, fn _state, _questions, _opts -> {:error, :timeout} end)
+  test "set_home_pick stores pi's pick, and Home reads it" do
+    assert %{"isError" => false} = set(%{"screen" => "plan", "swaps" => ["open_shop"]})
 
-    assert {:ok,
-            %KitchenRun{status: :applied, artifacts: [%HomePick{source: :rules, screen: :today}]}} =
-             Runs.start(home_scope(), Kind, %{now: @tuesday_evening})
+    assert %KitchenRun{actor: :mcp, artifacts: [pick]} =
+             Repo.one(from(r in KitchenRun, where: r.kind == "home_pick_run"), household_id: 1)
+
+    assert %HomePick{screen: :plan, source: :model, swaps: [:open_shop], note: nil} = pick
   end
 
-  test "a household without AI gets no pick" do
-    unsponsored = scope_fixture(household_fixture())
+  test "set_home_pick keeps the note pi chose for Today" do
+    assert %{"isError" => false} =
+             set(%{"screen" => "today", "swaps" => [], "note" => "buy_for_tomorrow"})
 
-    assert {:error, {:step_failed, :ai_unavailable}} =
-             Runs.start(unsponsored, Kind, %{now: @tuesday_evening})
+    assert %KitchenRun{artifacts: [%HomePick{note: :buy_for_tomorrow}]} =
+             Repo.one(from(r in KitchenRun, where: r.kind == "home_pick_run"), household_id: 1)
+  end
+
+  test "a pick outside the lists, or swapping to its own screen, is refused" do
+    assert %{"isError" => true} = set(%{"screen" => "settings", "swaps" => []})
+    assert %{"isError" => true} = set(%{"screen" => "plan", "swaps" => ["dance"]})
+    assert %{"isError" => true} = set(%{"screen" => "plan", "swaps" => ["open_plan"]})
+
+    assert %{"isError" => true} =
+             set(%{"screen" => "plan", "swaps" => [], "note" => "say_something"})
+
+    refute Repo.exists?(from(r in KitchenRun, where: r.status == :applied), household_id: 1)
   end
 
   test "verify refuses screens and swaps outside the lists, too many, repeated, or its own screen" do

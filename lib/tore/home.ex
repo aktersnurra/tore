@@ -2,16 +2,16 @@ defmodule Tore.Home do
   @moduledoc """
   Where the app opens, the quick swaps above the chat box, and the one note Today may show.
 
-  A decision model picks both (`Tore.Harness.Kinds.HomePick`) from facts worked out here, and
-  the stored pick is the latest applied `home_pick_run`. Opening the app reads the stored pick
-  and never waits for a new one: a stale pick starts a new run in the background
-  (`refresh/1`). Without a pick, or when the model is unsure, a fixed rule (`fallback/1`)
-  picks from the same facts.
+  pi picks both in a `home_pick` job (`harness/tasks/home_pick.md`) from facts worked out here,
+  and sets them with `set_home_pick`; the stored pick is the latest applied `home_pick_run`.
+  Opening the app reads the stored pick and never waits for a new one: a stale pick starts a new
+  job in the background (`refresh/1`). Without a pick, a fixed rule (`fallback/1`) picks from the
+  same facts.
 
-  The model only chooses among screens, swaps and notes that make sense now (`screens_for/1`,
-  `swaps_for/1`, `notes_for/1`), and the stored pick is narrowed the same way when it is read.
-  A note is code's own sentence (Today writes it from the facts); the model only picks which
-  one, if any, is worth saying at this hour, for this household.
+  pi is told the swaps and notes that make sense now (`swaps_for/1`, `notes_for/1`), and the
+  stored pick is narrowed the same way when it is read. A note is code's own sentence (Today
+  writes it from the facts); pi only picks which one, if any, is worth saying at this hour, for
+  this household.
 
   Times are the household's clock (`Tore.Clock`).
   """
@@ -21,7 +21,7 @@ defmodule Tore.Home do
   import Ecto.Query
 
   alias Tore.{Repo, Scope, Streams}
-  alias Tore.Harness.{KitchenRun, Runs}
+  alias Tore.Harness.KitchenRun
   alias Tore.Harness.Artifact.HomePick
   alias Tore.Harness.Capsules.WeekPlanCapsule
 
@@ -36,8 +36,6 @@ defmodule Tore.Home do
   ]
   @note_keys [:buy_for_tomorrow, :shop_now, :tomorrow_open]
   @max_swaps 3
-  @min_confidence 0.6
-  @min_swap_probability 0.5
   @stale_after_seconds 3600
   @refresh_every_seconds 600
 
@@ -96,24 +94,19 @@ defmodule Tore.Home do
 
   @doc """
   The screen the app opens on and the swaps above the chat box: the stored pick, narrowed to
-  what makes sense now, or the fixed rule's when there's none, when the stored one was the rule's
-  too, or when the household can't use the model now (a stored pick would never be replaced).
-  `stale?` says a new pick is due.
+  what makes sense now, or the fixed rule's when there's none or the household can't use pi now
+  (a stored pick would never be replaced). `stale?` says a new pick is due.
   """
   @spec current(Scope.t(), NaiveDateTime.t()) :: current()
   def current(%Scope{} = scope, now \\ Tore.Clock.now()) do
     facts = facts(scope, now)
 
-    case Tore.LLM.check(scope) == :ok and latest_pick(scope) do
+    case Tore.Pi.check(scope) == :ok and latest_pick(scope) do
       false ->
         facts |> fallback() |> resolve(false, facts)
 
       nil ->
         facts |> fallback() |> resolve(true, facts)
-
-      # The rule's pick is free to work out again, so it follows the clock and the week.
-      %KitchenRun{artifacts: [%HomePick{source: :rules} | _]} = run ->
-        facts |> fallback() |> resolve(stale?(scope, run), facts)
 
       %KitchenRun{artifacts: [%HomePick{} = pick | _]} = run ->
         pick
@@ -123,22 +116,44 @@ defmodule Tore.Home do
   end
 
   @doc """
-  Starts a new pick in the background when the household may use the decision model and no
-  pick was started in the last ten minutes. The result arrives as `{:run_changed, run}`.
+  Starts a `home_pick` job in the background when the household may use pi and none was started
+  in the last ten minutes. The pick arrives as `{:run_changed, run}`.
   """
   @spec refresh(Scope.t()) :: :started | :skipped
   def refresh(%Scope{} = scope) do
-    if Tore.LLM.check(scope) == :ok and not started_recently?(scope) do
-      {:ok, _pid} =
-        Task.Supervisor.start_child(Tore.TaskSupervisor, fn ->
-          Runs.start(scope, Tore.Harness.Kinds.HomePick, %{})
-        end)
-
+    if Tore.Pi.check(scope) == :ok and not started_recently?(scope) do
+      :ok = Tore.Agent.start(scope, "home_pick", details(scope, facts(scope, Tore.Clock.now())))
       :started
     else
       :skipped
     end
   end
+
+  @doc "What the `home_pick` job is told: the facts, and the swaps and notes that make sense now."
+  @spec details(Scope.t(), facts()) :: String.t()
+  def details(%Scope{} = scope, facts) do
+    [
+      "It is #{Calendar.strftime(facts.now, "%A %Y-%m-%d, %H:%M")}.",
+      tonight_line(facts.tonight),
+      "#{facts.unplanned_this_week} dinners from today to Sunday are unplanned.",
+      "#{facts.unplanned_next_week} of next week's 7 dinners are unplanned.",
+      "The shopping list has #{facts.list_items} items, #{facts.items_left} not yet bought.",
+      tomorrow_line(facts),
+      trips_line(scope),
+      "Swaps that make sense now: " <>
+        Enum.map_join(swaps_for(facts), ", ", &"#{&1} (#{swap_criterion(&1)})") <> ".",
+      notes_line(notes_for(facts))
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("\n")
+  end
+
+  defp notes_line([]), do: "No note for Today is true now."
+
+  defp notes_line(notes),
+    do:
+      "Notes for Today that are true now: " <>
+        Enum.map_join(notes, ", ", &"#{&1} (#{note_criterion(&1)})") <> "."
 
   defp latest_pick(scope) do
     from(r in KitchenRun,
@@ -159,9 +174,9 @@ defmodule Tore.Home do
   end
 
   defp started_recently?(scope) do
-    since = DateTime.add(DateTime.utc_now(), -@refresh_every_seconds)
+    since = NaiveDateTime.add(NaiveDateTime.utc_now(), -@refresh_every_seconds)
 
-    from(r in KitchenRun, where: r.kind == "home_pick_run" and r.opened_at > ^since)
+    from(j in Tore.Agent.Job, where: j.task == "home_pick" and j.inserted_at > ^since)
     |> Repo.exists?(Scope.repo_opts(scope))
   end
 
@@ -189,9 +204,9 @@ defmodule Tore.Home do
   # ----- facts -----------------------------------------------------------------------------
 
   @doc """
-  What the pick is made from, worked out in code, since a decision model doesn't do date
-  maths: tonight's dinner, what's unplanned from today to Sunday and next week, the list, and
-  tomorrow's dinner with what it needs that's neither at home nor on a list.
+  What the pick is made from, worked out in code rather than left to pi's date maths: tonight's
+  dinner, what's unplanned from today to Sunday and next week, the list, and tomorrow's dinner
+  with what it needs that's neither at home nor on a list.
   """
   @spec facts(Scope.t(), NaiveDateTime.t()) :: facts()
   def facts(%Scope{} = scope, %NaiveDateTime{} = now) do
@@ -287,7 +302,7 @@ defmodule Tore.Home do
   # ----- the fixed rule ----------------------------------------------------------------------
 
   @doc """
-  The pick without a model: the list on Saturday morning,
+  The pick without pi: the list on Saturday morning,
   next week's plan on Sunday evening, and otherwise tonight. The swaps open the other main
   screens. The note: what tomorrow needs from the afternoon, the list on Saturday morning, an
   open tomorrow in the evening.
@@ -323,43 +338,6 @@ defmodule Tore.Home do
     end
   end
 
-  @doc "The fixed rule's pick, as the run stores it."
-  @spec fallback_pick(facts()) :: HomePick.t()
-  def fallback_pick(facts) do
-    %{screen: screen, swaps: swaps, note: note} = fallback(facts)
-    %HomePick{screen: screen, source: :rules, swaps: swaps, note: note}
-  end
-
-  # ----- the decision model's question -----------------------------------------------------
-
-  @doc "The facts and the household's context as `state` lines for the decision model."
-  @spec state(Scope.t(), facts()) :: [String.t()]
-  def state(%Scope{} = scope, facts) do
-    monday = Streams.monday(NaiveDateTime.to_date(facts.now))
-
-    plan =
-      WeekPlanCapsule.to_prompt(
-        WeekPlanCapsule.build(%{
-          scope: scope,
-          plan_stream_id: Streams.plan(scope, monday),
-          week_start: monday
-        })
-      )
-
-    [
-      "It is #{Calendar.strftime(facts.now, "%A %Y-%m-%d, %H:%M")}.",
-      tonight_line(facts.tonight),
-      "#{facts.unplanned_this_week} dinners from today to Sunday are unplanned.",
-      "#{facts.unplanned_next_week} of next week's 7 dinners are unplanned.",
-      "The shopping list has #{facts.list_items} items, #{facts.items_left} not yet bought.",
-      tomorrow_line(facts),
-      trips_line(scope),
-      plan,
-      Tore.Household.Memory.snapshot(scope)
-    ]
-    |> Enum.reject(&(&1 in [nil, ""]))
-  end
-
   defp tonight_line(:planned), do: "Tonight's dinner is planned."
   defp tonight_line(:eating_out), do: "The household eats out tonight."
   defp tonight_line(:empty), do: "Nothing is planned for dinner tonight."
@@ -387,40 +365,6 @@ defmodule Tore.Home do
     end
   end
 
-  @doc """
-  One `choice` for the screen, among those that make sense now, and one `noul` per swap that
-  makes sense now.
-  """
-  @spec questions(facts()) :: map()
-  def questions(facts) do
-    screen = %{
-      "type" => "choice",
-      "instructions" =>
-        "A household opens its kitchen app. Which screen helps them most right now?",
-      "criteria" => Map.new(screens_for(facts), &{Atom.to_string(&1), screen_criterion(&1)})
-    }
-
-    facts
-    |> swaps_for()
-    |> Map.new(&{"swap_#{&1}", %{"type" => "noul", "instructions" => swap_criterion(&1)}})
-    |> Map.put("screen", screen)
-    |> put_note_question(notes_for(facts))
-  end
-
-  defp put_note_question(questions, []), do: questions
-
-  defp put_note_question(questions, notes) do
-    Map.put(questions, "note", %{
-      "type" => "choice",
-      "instructions" =>
-        "Today, the dinner screen, can show the household one short note. Which helps most " <>
-          "right now, at this hour, given their habits? Choose none unless it's worth a glance.",
-      "criteria" =>
-        Map.new(notes, &{Atom.to_string(&1), note_criterion(&1)})
-        |> Map.put("none", "Nothing needs saying now.")
-    })
-  end
-
   defp note_criterion(:buy_for_tomorrow),
     do:
       "Tomorrow's dinner needs things that aren't at home or on the list, and there's still time to get them."
@@ -430,50 +374,6 @@ defmodule Tore.Home do
 
   defp note_criterion(:tomorrow_open),
     do: "Tomorrow's dinner isn't planned, and it's late enough that it should be."
-
-  defp model_note(answers, facts) do
-    with %{"choice" => choice, "confidence" => confidence} when is_number(confidence) <-
-           answers["note"],
-         true <- confidence >= @min_confidence do
-      Enum.find(notes_for(facts), &(Atom.to_string(&1) == choice))
-    else
-      _unsure -> nil
-    end
-  end
-
-  @doc """
-  The pick from the model's answers: its screen when it is sure enough, with the swaps it
-  thinks likely, best first. Unsure, it is the fixed rule's pick.
-  """
-  @spec pick(map(), facts()) :: HomePick.t()
-  def pick(answers, facts) do
-    with %{"choice" => choice, "confidence" => confidence} when is_number(confidence) <-
-           answers["screen"],
-         true <- confidence >= @min_confidence,
-         screen when not is_nil(screen) <-
-           Enum.find(screens_for(facts), &(Atom.to_string(&1) == choice)) do
-      swaps =
-        facts
-        |> swaps_for()
-        |> Enum.map(&{&1, get_in(answers, ["swap_#{&1}", "noul"])})
-        |> Enum.filter(fn {key, p} ->
-          is_number(p) and p >= @min_swap_probability and key != open(screen)
-        end)
-        |> Enum.sort_by(fn {_key, p} -> p end, :desc)
-        |> Enum.map(fn {key, _p} -> key end)
-        |> Enum.take(@max_swaps)
-
-      %HomePick{screen: screen, source: :model, swaps: swaps, note: model_note(answers, facts)}
-    else
-      _unsure -> fallback_pick(facts)
-    end
-  end
-
-  defp screen_criterion(:today), do: "Tonight's dinner, and starting to cook it."
-  defp screen_criterion(:plan), do: "This week's or next week's dinners, to plan or change them."
-
-  defp screen_criterion(:shop),
-    do: "The shopping list, to buy groceries, and what was spent on food this month."
 
   defp swap_criterion(:open_today), do: "The household wants to see tonight's dinner."
 

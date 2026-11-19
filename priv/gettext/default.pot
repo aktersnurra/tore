@@ -876,7 +876,7 @@ msgstr ""
 msgid "Things Tore has learned"
 msgstr ""
 
-#: lib/tore/home.ex:494
+#: lib/tore/home.ex:394
 #: lib/tore_web/live/home_live.ex:105
 #: lib/tore_web/live/home_live.ex:306
 #: lib/tore_web/live/home_live.ex:350
@@ -1534,39 +1534,39 @@ msgstr ""
 msgid "Removed %{name} from the shopping list."
 msgstr ""
 
-#: lib/tore/home.ex:503
+#: lib/tore/home.ex:403
 #, elixir-autogen, elixir-format
 msgid "Dinner tonight?"
 msgstr ""
 
-#: lib/tore/home.ex:510
+#: lib/tore/home.ex:410
 #: lib/tore_web/live/shop_live.ex:413
 #, elixir-autogen, elixir-format
 msgid "Make the list"
 msgstr ""
 
-#: lib/tore/home.ex:511
+#: lib/tore/home.ex:411
 #, elixir-autogen, elixir-format
 msgid "Make the shopping list from this week's plan"
 msgstr ""
 
-#: lib/tore/home.ex:499
-#: lib/tore/home.ex:499
+#: lib/tore/home.ex:399
+#: lib/tore/home.ex:399
 #, elixir-autogen, elixir-format
 msgid "Plan next week"
 msgstr ""
 
-#: lib/tore/home.ex:496
+#: lib/tore/home.ex:396
 #, elixir-autogen, elixir-format
 msgid "Shopping list"
 msgstr ""
 
-#: lib/tore/home.ex:495
+#: lib/tore/home.ex:395
 #, elixir-autogen, elixir-format
 msgid "This week's plan"
 msgstr ""
 
-#: lib/tore/home.ex:502
+#: lib/tore/home.ex:402
 #, elixir-autogen, elixir-format
 msgid "What should we have for dinner tonight?"
 msgstr ""

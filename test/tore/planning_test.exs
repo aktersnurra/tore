@@ -5,7 +5,6 @@ defmodule Tore.PlanningTest do
 
   alias Tore.Planning
 
-
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
     Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(home_scope()))

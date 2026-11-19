@@ -1,8 +1,8 @@
 defmodule Tore.Harness.Artifact.HomePick do
   @moduledoc """
   Where the app opens, which quick swaps sit above the chat box, and the one note Today may show
-  (`Tore.Home`). Output of `:home_pick_run`. `source` says whether the decision model picked them
-  or the fixed rule did.
+  (`Tore.Home`). Output of `:home_pick_run`. `source` is :model for a pick pi set; :rules is the
+  fixed rule's, which is never stored now.
   """
 
   @behaviour Tore.Harness.Artifact
