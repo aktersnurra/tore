@@ -216,7 +216,7 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
 - **Soft, not editorial.** Headlines are 26–30px bold, never poster-sized or tightly tracked.
   Lists sit on one rounded surface (`.menu-lines`), not as ruled lines on the page.
-- **The dish's name is on its photograph.** A large cover (Today, a recipe page) darkens at
+- **The dish's name is on its photograph.** A cover (Today, a recipe page, a gallery tile) darkens at
   its foot (`.photo-shade`) and carries the name in white (`.on-photo-text`), then the page
   starts. A cover still waiting for its picture keeps its tint and the name in the page's
   own type colour, with no shade (2026-11-19).
@@ -1765,7 +1765,7 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
   it says "On the list" from the start, here and on Today.
 - **Collections** are Dinner, Baking, Sauces & sides and Assemblies, each with a Phosphor
   icon and a tag colour (orange, yellow, green, blue). Recipes groups by them under their
-  tags, in a Gallery (two to a row, 4:5 pictures, the name underneath) or a List (one line
+  tags, in a Gallery (two to a row, 4:5 pictures, the name and time on the picture) or a List (one line
   each); a tag shows its collection alone. The view chosen is remembered per person. Only
   dinners are planned or suggested for a day.
 - **Every dish has an icon**, read from its name (Swedish or English) and otherwise its

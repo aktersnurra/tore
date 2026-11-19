@@ -637,8 +637,8 @@ defmodule ToreWeb.RecipeLive do
             <span class="num text-[13px] text-[color:var(--muted)]">{length(recipes)}</span>
           </div>
 
-          <%!-- Gallery: two to a row, 4:5 pictures, the name underneath --%>
-          <ul :if={@view == :gallery} class="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
+          <%!-- Gallery: two to a row, 4:5 pictures, the name on the picture --%>
+          <ul :if={@view == :gallery} class="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3">
             <li
               :for={{recipe, i} <- Enum.with_index(recipes)}
               class="reveal"
@@ -647,39 +647,57 @@ defmodule ToreWeb.RecipeLive do
               <.link
                 patch={~p"/recipes?#{[id: recipe.id]}"}
                 data-dish={recipe.id}
-                class="press-soft group block text-left"
+                class="press-soft group relative block aspect-[4/5] w-full overflow-hidden rounded-[var(--r-lg)] text-left"
               >
-                <span class="relative block aspect-[4/5] w-full overflow-hidden rounded-[var(--r-lg)]">
-                  <.blank_cover :if={!recipe.image_path} dish={recipe} />
-                  <img
-                    :if={recipe.image_path}
-                    src={~p"/images/recipes/#{recipe.id}"}
-                    alt=""
-                    loading="lazy"
-                    class="absolute inset-0 size-full object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.03]"
-                    style={
-                      if @selected == nil and @opened == recipe.id,
-                        do: "view-transition-name: dish-#{recipe.id}"
-                    }
-                  />
-                </span>
+                <.blank_cover :if={!recipe.image_path} dish={recipe} />
+                <img
+                  :if={recipe.image_path}
+                  src={~p"/images/recipes/#{recipe.id}"}
+                  alt=""
+                  loading="lazy"
+                  class="absolute inset-0 size-full object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.03]"
+                  style={
+                    if @selected == nil and @opened == recipe.id,
+                      do: "view-transition-name: dish-#{recipe.id}"
+                  }
+                />
                 <span
-                  class="mt-2 line-clamp-2 block font-semibold text-[color:var(--text)]"
-                  style="font-size: 14.5px; line-height: 1.25;"
+                  :if={recipe.image_path}
+                  class="photo-shade absolute inset-0"
+                  aria-hidden="true"
                 >
-                  <.icon
-                    :if={recipe.favorite}
-                    name="ph-star-fill"
-                    class="-mt-0.5 mr-0.5 size-3.5 text-[color:var(--tag-yellow-ink)]"
-                  />
-                  {recipe.title}
                 </span>
-                <span
-                  :if={recipe_meta(recipe) != ""}
-                  class="num mt-0.5 block truncate text-[color:var(--muted)]"
-                  style="font-size: 12.5px;"
-                >
-                  {recipe_meta(recipe)}
+                <span class={[
+                  "absolute inset-x-0 bottom-0 block p-3",
+                  recipe.image_path && "on-photo-text"
+                ]}>
+                  <span
+                    class={[
+                      "line-clamp-2 block font-semibold",
+                      !recipe.image_path && "text-[color:var(--text)]"
+                    ]}
+                    style="font-size: 14.5px; line-height: 1.25;"
+                  >
+                    <.icon
+                      :if={recipe.favorite}
+                      name="ph-star-fill"
+                      class={[
+                        "-mt-0.5 mr-0.5 size-3.5",
+                        !recipe.image_path && "text-[color:var(--tag-yellow-ink)]"
+                      ]}
+                    />
+                    {recipe.title}
+                  </span>
+                  <span
+                    :if={recipe_meta(recipe) != ""}
+                    class={[
+                      "num mt-0.5 block truncate",
+                      if(recipe.image_path, do: "opacity-85", else: "text-[color:var(--muted)]")
+                    ]}
+                    style="font-size: 12.5px;"
+                  >
+                    {recipe_meta(recipe)}
+                  </span>
                 </span>
               </.link>
             </li>

@@ -19,6 +19,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Today's note follows the clock when the fixed rule picked it, so the afternoon note shows without waiting an hour.
 - Check in the sheet before cooking is as tall as the field next to it.
 - At home says "On the list" from the start when everything missing is already on the list.
+- In the Recipes gallery the name and time sit on the picture, like the recipe page.
 
 ### Cooking, start to finish (2026-11-19)
 
