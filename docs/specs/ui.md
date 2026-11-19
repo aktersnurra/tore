@@ -634,8 +634,9 @@ Today is tonight's recipe page (2026-11-18):
 ```md
 Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
            dish's name on it
-Props    — Day (Tonight tag + date) · Collection · Time (and ready by) · Servings ·
-           At home (missing things as red tags, Put on the list)
+Props    — Day (Tonight tag + date) · Lunch (when one is planned, opening its recipe) ·
+           Collection · Time (and ready by) · Servings · At home (missing things as red tags,
+           Put on the list)
 Actions  — [Cook now] [Something else]
 Note     — the home pick's one note, with its action, when there is one
 Ingredients, for tonight's servings
@@ -745,8 +746,17 @@ Run receipt, when there is one
 mån 16  [photo] Oxfilé med potatisgratäng  [Cooked]
 ons 18  [photo] Kycklinggryta  [Tonight]
 tor 19  + New dinner                        ← an open day ahead, faint
+        + Lunch                             ← a lunch day ahead, fainter, above the dinner
+lör 21  [photo] Pannkakor
+        Lunch  Ärtsoppa                     ← a planned lunch, one quiet line
 ⋯       Prep this week
 ```
+
+Lunch (2026-11-20) is optional and never the default: nothing plans one unasked. Weekends,
+Swedish public holidays and days the household is off offer it with a faint "+ Lunch" above the
+dinner; any day's sheet has "+ Lunch". A lunch's sheet picks the recipe and servings and has
+"Ta bort lunch"; no skip or eating out. A day off reads "Fridag" under its date. The month grid
+shows dinners only.
 
 Month: the heading is the month ("November 2026", ‹ › step a month) with how many dinners are
 planned under it; a calendar of seven columns, Monday first, each day its number (today's in

@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Optional lunches (2026-11-20)
+
+- Any day can have a lunch, never by default: weekends, Swedish public holidays and days off offer a faint "+ Lunch" above the dinner on Plan, and any day's sheet adds one. A planned lunch is one quiet line.
+- Days off are set by asking Tore ("vi är lediga v. 29"), and read "Fridag" under the date.
+- A lunch's ingredients go on the list and its cost counts in the week's estimate; the typical dinner and open days stay dinners only. Erbjudanden's first group covers lunches.
+- Today shows a planned lunch as one line under the day.
+- Tore and MCP plan, clear, pin and size a lunch with `meal: "lunch"`; `set_days_off` is new. The weekly auto-plan plans no lunches.
+
 ### Erbjudanden (2026-11-20)
 
 - A page of its own under Hushållet in the menu: what the week's offers save on things bought anyway, then the deals for this week's dinners and on what's usually bought, the rest folded.

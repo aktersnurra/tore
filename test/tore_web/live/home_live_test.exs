@@ -74,6 +74,29 @@ defmodule ToreWeb.HomeLiveTest do
   end
 
   describe "tonight's page" do
+    test "a planned lunch is one line under the day, opening its recipe", %{conn: conn} do
+      seed_tonight_recipe()
+
+      {:ok, soup} =
+        Tore.Recipes.create(home_scope(), %{title: "Ärtsoppa", recipe_type: :meal}, image: false)
+
+      lunch_key = Tore.Streams.slot_key(Tore.Clock.today(), :lunch)
+      Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), lunch_key, soup.id, 4)
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+
+      assert view |> element("[data-role=lunch] a", "Ärtsoppa") |> render() =~
+               "/recipes?id=#{soup.id}"
+
+      assert has_element?(view, "h1", "Chicken gratäng")
+    end
+
+    test "no lunch line when none is planned", %{conn: conn} do
+      seed_tonight_recipe()
+      {:ok, view, _html} = live(conn, ~p"/today")
+      refute has_element?(view, "[data-role=lunch]")
+    end
+
     test "shows the dish's properties and ingredients, and puts what's missing on the list", %{
       conn: conn
     } do

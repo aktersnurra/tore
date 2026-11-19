@@ -458,7 +458,7 @@ resolver to disambiguate.
 **`resolve_slot` (shipped, 2026-08) — structural, not a handle.** Unlike
 `resolve_recipe`, `resolve_slot` does not mint a `ResolvedSlot` ref or go
 through the `__handles__`/registry machinery. The slot domain is closed
-(`{mon..sun}_dinner`) — the model cannot invent a usable key that the
+(`{mon..sun}_dinner`, or `_lunch` when the reference says lunch) — the model cannot invent a usable key that the
 action tools' existing structural validation wouldn't already reject, so
 ref-token indirection buys nothing. `resolve_slot(reference, slots:, today:)`
 is a pure, deterministic function (day words, "tonight"/"today"/"tomorrow"
@@ -969,6 +969,7 @@ the right holds the page's own actions behind ⋯ (`<.page_menu>`). The menu is 
 - Tonight's dinner, as its recipe page: cover, icon, title, properties (the day, collection,
   time, servings, what's missing at home with Put on the list), Cook now and Something else,
   then the ingredients. A night marked as eating out says so instead of showing a dinner.
+- A lunch planned for the day is one property line, opening its recipe.
 - Once tonight's dinner is cooked (Done in cook mode), or from 21:00 (`:evening_over`), Today is
   tomorrow's page instead, with a line that tonight's was cooked. Open the recipe and Something
   else; no Cook now.
@@ -1000,6 +1001,13 @@ the right holds the page's own actions behind ⋯ (`<.page_menu>`). The menu is 
 - One line under the week: the dates and about what it costs against the budget.
 - Each day a row with the dish and status tags (Tonight, leftovers, eating out, skipped); an
   open day ahead is a faint "+ New dinner".
+- **Lunch** is optional, never the default (slot key `<day>_lunch`). A planned lunch is one line
+  above the day's dinner; weekends, Swedish public holidays (`Tore.Holidays`, computed) and days
+  off offer a faint "+ Lunch", and any day's sheet adds one. Days off are plan events
+  (`MarkDaysOff`/`ClearDaysOff`, `State.days_off`), set by asking Tore; a day off shows "Fridag"
+  and changes nothing else. A lunch counts on the list and in the week's expected cost, but the
+  typical dinner and open days use dinners only. A leftover's source comes earlier in time
+  (`Streams.slot_order/1`: day, then lunch before dinner). The weekly auto-plan plans no lunches.
 - "Prep this week" behind ⋯ (§9).
 
 ### Capture (`/capture`)
@@ -1198,7 +1206,8 @@ model, so a household nobody sponsors gets the whole loop. Setup: `docs/guides/m
 - **Tools.** Reads: `get_context` (language, today, diet, memory, both weeks' plan and their budget against
   the estimate, the basics, the list, the pantry, what's due), `search_recipes`, `get_recipe`, `list_receipts`,
   `list_deals` (with the ingredient each offer matched). Writes call the same `Capture.Dispatch` functions
-  Capture's tools do, with `actor: :mcp`: `set_dinner`, `change_day`, `add_to_list`, `check_off`,
+  Capture's tools do, with `actor: :mcp`: `set_dinner` and `change_day` (both take `meal: "lunch"`),
+  `set_days_off`, `add_to_list`, `check_off`,
   `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`, `update_memory`, `mark_cooked`,
   `delete_recipe`, `delete_receipt`, `set_budget`, `set_basics`. `put_together` makes a meal from
   recipe ids (missing parts are written with `save_recipe` first); it writes directly, like

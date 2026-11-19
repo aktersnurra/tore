@@ -102,6 +102,14 @@ defmodule ToreWeb.HomeLive do
                 <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@date)}</span>
               </dd>
             </div>
+            <div :if={@lunch} data-role="lunch">
+              <dt><.icon name="ph-bowl-food" /> {gettext("Lunch")}</dt>
+              <dd>
+                <.link navigate={~p"/recipes?#{[id: @lunch.id]}"} class="press hover:underline">
+                  {@lunch.title}
+                </.link>
+              </dd>
+            </div>
             <div>
               <dt><.icon name="ph-tag" /> {gettext("Collection")}</dt>
               <dd>
@@ -399,6 +407,8 @@ defmodule ToreWeb.HomeLive do
       if slot && slot.recipe_id && !slot.skipped,
         do: scope |> Recipes.get_many([slot.recipe_id]) |> List.first()
 
+    lunch_id = state.slots[Tore.Streams.slot_key(socket.assigns.date, :lunch)][:recipe_id]
+
     home =
       tonight &&
         Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name))
@@ -407,6 +417,7 @@ defmodule ToreWeb.HomeLive do
 
     assign(socket,
       dish: tonight,
+      lunch: lunch_id && scope |> Recipes.get_many([lunch_id]) |> List.first(),
       servings: slot && slot[:servings],
       eating_out: Tore.Planning.State.eating_out?(slot),
       home: home,
