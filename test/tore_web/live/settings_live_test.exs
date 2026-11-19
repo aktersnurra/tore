@@ -2,18 +2,10 @@ defmodule ToreWeb.SettingsLiveTest do
   use ToreWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
 
-  alias Tore.Deals
-
   setup do
     user = user_fixture(name: "Gustaf")
     conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
     %{conn: conn, user: user}
-  end
-
-  @store_url "https://www.ica.se/erbjudanden/ica-supermarket-danvikstull-1156002/"
-
-  defp add_store(view, url) do
-    view |> form(~s(form[phx-submit="add_store"]), %{url: url}) |> render_submit()
   end
 
   test "lists the members, with no codes or roles", %{conn: conn, user: user} do
@@ -152,18 +144,6 @@ defmodule ToreWeb.SettingsLiveTest do
       assert render(view) =~ "Inställningar"
       assert Tore.Household.ai_sponsor(home_scope()).id == sponsor.id
     end
-
-    test "another household's store can't be switched off or removed", %{conn: conn} do
-      other = scope_fixture(household_fixture())
-      {:ok, theirs} = Deals.add_store(other, @store_url)
-      {:ok, view, _html} = live(conn, ~p"/settings")
-
-      render_click(view, "toggle_store", %{"id" => to_string(theirs.id)})
-      render_click(view, "remove_store", %{"id" => to_string(theirs.id)})
-
-      assert render(view) =~ "Inställningar"
-      assert [%{scrape_enabled: true}] = Deals.list_stores(other)
-    end
   end
 
   describe "kitchen memory" do
@@ -223,51 +203,6 @@ defmodule ToreWeb.SettingsLiveTest do
     {:ok, _view, html} = live(conn, ~p"/settings")
 
     refute html =~ "Körhistorik"
-  end
-
-  test "adds a store from just a link", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/settings")
-
-    assert add_store(view, @store_url) =~ "ICA Supermarket Danvikstull"
-    assert [%{store: %{url: @store_url}, scrape_enabled: true}] = Deals.list_stores(home_scope())
-  end
-
-  test "says so when it can't read a store", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/settings")
-
-    assert add_store(view, "https://www.coop.se/butiker/x/") =~
-             "Tore kan inte läsa den butiken än"
-
-    assert Deals.list_stores(home_scope()) == []
-  end
-
-  test "says so when a store is already added", %{conn: conn} do
-    {:ok, _} = Deals.add_store(home_scope(), @store_url)
-    {:ok, view, _html} = live(conn, ~p"/settings")
-
-    assert add_store(view, @store_url) =~ "Den butiken är redan tillagd"
-    assert [_] = Deals.list_stores(home_scope())
-  end
-
-  test "switches a store off and on", %{conn: conn} do
-    {:ok, _} = Deals.add_store(home_scope(), @store_url)
-    {:ok, view, _html} = live(conn, ~p"/settings")
-
-    view |> element(~s(button[phx-click="toggle_store"])) |> render_click()
-    refute hd(Deals.list_stores(home_scope())).scrape_enabled
-
-    view |> element(~s(button[phx-click="toggle_store"])) |> render_click()
-    assert hd(Deals.list_stores(home_scope())).scrape_enabled
-  end
-
-  test "removes a store", %{conn: conn} do
-    {:ok, _} = Deals.add_store(home_scope(), @store_url)
-    {:ok, view, _html} = live(conn, ~p"/settings")
-
-    refute view |> element(~s(button[phx-click="remove_store"])) |> render_click() =~
-             "ICA Supermarket Danvikstull"
-
-    assert Deals.list_stores(home_scope()) == []
   end
 
   test "the household's language is shown and can't be changed", %{conn: conn} do

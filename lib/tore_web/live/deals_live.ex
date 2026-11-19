@@ -9,7 +9,8 @@ defmodule ToreWeb.DealsLive do
   alias Tore.{Deals, Money, Shop, Streams}
 
   @impl true
-  def mount(_params, _session, socket), do: {:ok, load(socket)}
+  def mount(_params, _session, socket),
+    do: {:ok, socket |> assign(store_url: "", store_error: nil) |> load()}
 
   defp load(socket) do
     today = Tore.Clock.today()
@@ -35,6 +36,31 @@ defmodule ToreWeb.DealsLive do
 
         {:noreply, load(socket)}
     end
+  end
+
+  def handle_event("add_store", %{"url" => url}, socket) do
+    case Deals.add_store(socket.assigns.current_scope, url) do
+      {:ok, _store} ->
+        {:noreply, socket |> assign(store_url: "", store_error: nil) |> load()}
+
+      {:error, :unsupported_store} ->
+        {:noreply,
+         assign(socket, store_url: url, store_error: gettext("Tore can't read that store yet"))}
+
+      {:error, %Ecto.Changeset{}} ->
+        {:noreply,
+         assign(socket, store_url: url, store_error: gettext("That store is already added"))}
+    end
+  end
+
+  def handle_event("toggle_store", %{"id" => id}, socket) do
+    _ = Deals.toggle_scraping(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, load(socket)}
+  end
+
+  def handle_event("remove_store", %{"id" => id}, socket) do
+    _ = Deals.remove_store(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, load(socket)}
   end
 
   @impl true
@@ -82,8 +108,102 @@ defmodule ToreWeb.DealsLive do
             open={false}
           />
         </div>
+
+        <.stores stores={@page.stores} url={@store_url} error={@store_error} />
       </.page>
     </Layouts.app>
+    """
+  end
+
+  attr :stores, :list, required: true
+  attr :url, :string, required: true
+  attr :error, :string, default: nil
+
+  # The stores Tore reads offers from, at the foot: they're set once and rarely touched.
+  defp stores(assigns) do
+    ~H"""
+    <section data-role="stores" class="mt-10 max-w-[520px]">
+      <h2 class="t-head">{gettext("Stores")}</h2>
+      <p class="text-[color:var(--muted)]" style="font-size: 13px;">
+        {gettext("Tore reads their offers every Friday.")}
+      </p>
+      <div class="mt-2">
+        <div
+          :for={%{store: hs, deals: count} <- @stores}
+          data-role="store"
+          class="flex min-h-11 items-center gap-2.5 border-b border-[color:var(--hairline)]"
+          style="font-size: 14.5px;"
+        >
+          <span class="store-i" aria-hidden="true">{initial(hs.store.name)}</span>
+          <span class="min-w-0 flex-1 truncate">{hs.store.name}</span>
+          <span
+            :if={hs.scrape_enabled}
+            class="num shrink-0 text-[color:var(--muted)]"
+            style="font-size: 12.5px;"
+          >
+            {ngettext("%{count} offer", "%{count} offers", count)}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={to_string(hs.scrape_enabled)}
+            aria-label={gettext("Read offers from %{store}", store: hs.store.name)}
+            phx-click="toggle_store"
+            phx-value-id={hs.id}
+            class="switch"
+          >
+          </button>
+          <button
+            type="button"
+            phx-click="remove_store"
+            phx-value-id={hs.id}
+            aria-label={gettext("Remove %{store}", store: hs.store.name)}
+            class="row-hover press grid size-8 shrink-0 place-items-center rounded-[var(--r-sm)] text-[color:var(--muted)]"
+          >
+            <.icon name="ph-x" class="size-3.5" />
+          </button>
+        </div>
+        <button
+          :if={@stores != []}
+          type="button"
+          data-role="add-store"
+          phx-click={JS.toggle(to: "#store-form", display: "flex") |> JS.focus(to: "#store-url")}
+          class="row-hover press press-soft -mx-1.5 flex min-h-11 w-full items-center gap-2 rounded-[var(--r-sm)] px-1.5 text-[color:var(--muted)]"
+          style="font-size: 14px;"
+        >
+          <.icon name="ph-plus" class="size-4" /> {gettext("Add a store")}
+        </button>
+        <form
+          id="store-form"
+          phx-submit="add_store"
+          class={["mt-2 items-center gap-2", if(@stores == [] or @error, do: "flex", else: "hidden")]}
+        >
+          <input
+            id="store-url"
+            type="url"
+            name="url"
+            value={@url}
+            placeholder="https://www.ica.se/erbjudanden/…"
+            aria-label={gettext("Link to a store's offers")}
+            aria-invalid={@error && "true"}
+            required
+            class="h-9 min-w-0 flex-1 rounded-[var(--r-sm)] border border-[color:var(--hairline)] bg-[var(--surface)] px-2.5"
+            style="font-size: 14px;"
+          />
+          <.button type="submit" variant={:secondary} phx-disable-with={gettext("Adding…")}>
+            {gettext("Add")}
+          </.button>
+        </form>
+        <p
+          :if={@error}
+          class="settle mt-1 text-[color:var(--warn)]"
+          style="font-size: 12.5px;"
+          role="alert"
+        >
+          {@error}
+        </p>
+      </div>
+    </section>
     """
   end
 

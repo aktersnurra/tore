@@ -10,6 +10,12 @@ defmodule ToreWeb.DealsLiveTest do
     %{conn: Plug.Test.init_test_session(build_conn(), %{user_id: user.id})}
   end
 
+  @store_url "https://www.ica.se/erbjudanden/ica-supermarket-danvikstull-1156002/"
+
+  defp add_store(view, url) do
+    view |> form(~s(form[phx-submit="add_store"]), %{url: url}) |> render_submit()
+  end
+
   defp use_store(name) do
     store = Tore.Repo.insert!(%Deals.Store{name: name, url: "https://example.test/#{name}"})
 
@@ -73,6 +79,7 @@ defmodule ToreWeb.DealsLiveTest do
     assert has_element?(view, "[data-role=group-usual]", "18,90/st")
     assert has_element?(view, "[data-role=group-others]:not([open])", "Chips")
     refute has_element?(view, "[data-role=group-dinners]")
+    assert has_element?(view, "[data-role=store]", "2 erbjudanden")
   end
 
   test "+ puts the ingredient on this week's list, once", %{conn: conn} do
@@ -107,5 +114,66 @@ defmodule ToreWeb.DealsLiveTest do
     use_store("ICA Maxi")
     {:ok, _view, html} = live(conn, ~p"/deals")
     assert html =~ "fredag"
+  end
+
+  describe "stores" do
+    test "another household's store can't be switched off or removed", %{conn: conn} do
+      other = scope_fixture(household_fixture())
+      {:ok, theirs} = Deals.add_store(other, @store_url)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      render_click(view, "toggle_store", %{"id" => to_string(theirs.id)})
+      render_click(view, "remove_store", %{"id" => to_string(theirs.id)})
+
+      assert render(view) =~ "Erbjudanden"
+      assert [%{scrape_enabled: true}] = Deals.list_stores(other)
+    end
+
+    test "adds a store from just a link", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      assert add_store(view, @store_url) =~ "ICA Supermarket Danvikstull"
+
+      assert [%{store: %{url: @store_url}, scrape_enabled: true}] =
+               Deals.list_stores(home_scope())
+    end
+
+    test "says so when it can't read a store", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      assert add_store(view, "https://www.coop.se/butiker/x/") =~
+               "Tore kan inte läsa den butiken än"
+
+      assert Deals.list_stores(home_scope()) == []
+    end
+
+    test "says so when a store is already added", %{conn: conn} do
+      {:ok, _} = Deals.add_store(home_scope(), @store_url)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      assert add_store(view, @store_url) =~ "Den butiken är redan tillagd"
+      assert [_] = Deals.list_stores(home_scope())
+    end
+
+    test "switches a store off and on", %{conn: conn} do
+      {:ok, _} = Deals.add_store(home_scope(), @store_url)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      view |> element(~s(button[phx-click="toggle_store"])) |> render_click()
+      refute hd(Deals.list_stores(home_scope())).scrape_enabled
+
+      view |> element(~s(button[phx-click="toggle_store"])) |> render_click()
+      assert hd(Deals.list_stores(home_scope())).scrape_enabled
+    end
+
+    test "removes a store", %{conn: conn} do
+      {:ok, _} = Deals.add_store(home_scope(), @store_url)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      refute view |> element(~s(button[phx-click="remove_store"])) |> render_click() =~
+               "ICA Supermarket Danvikstull"
+
+      assert Deals.list_stores(home_scope()) == []
+    end
   end
 end
