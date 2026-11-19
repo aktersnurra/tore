@@ -235,10 +235,15 @@ defmodule ToreWeb.BeforeCooking do
                 value={@offered}
                 placeholder={gettext("e.g. red onion, sour cream")}
                 autocomplete="off"
-                class="h-11 min-w-0 flex-1 rounded-[var(--r-md)] bg-[var(--sunken)] px-4 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+                class="h-[46px] min-w-0 flex-1 rounded-[var(--r-md)] bg-[var(--sunken)] px-4 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
                 style="font-size: 16px;"
               />
-              <button type="submit" class="pill press" disabled={@checking} data-role="check-swaps">
+              <button
+                type="submit"
+                class="pill pill-lg press"
+                disabled={@checking}
+                data-role="check-swaps"
+              >
                 {gettext("Check")}
               </button>
             </div>
