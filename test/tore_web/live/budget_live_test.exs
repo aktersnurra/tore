@@ -41,13 +41,22 @@ defmodule ToreWeb.BudgetLiveTest do
       )
   end
 
+  defp eat_out(week, days) do
+    for day <- days do
+      {:ok, _} =
+        Planning.eat_out(home_scope(), Streams.plan(home_scope(), week), day <> "_dinner", %{})
+    end
+  end
+
   describe "the plan screen" do
     test "shows the week's estimate against its budget, and how far over", %{conn: conn} do
+      eat_out(week_start(), ~w[wed thu fri sat sun])
       plan("mon_dinner", recipe("Gryta", "300"))
       :ok = Budget.set_default(home_scope(), Decimal.new(2000))
 
+      # Tuesday is open, so it counts as a typical dinner: 300 kr.
       {:ok, view, html} = live(conn, ~p"/plan")
-      assert html =~ "runt 300 av 2 000 kr"
+      assert html =~ "runt 600 av 2 000 kr"
 
       :ok = Budget.set_week(home_scope(), week_start(), Decimal.new(250))
       plan("tue_dinner", recipe("Soppa", "50"))
@@ -102,6 +111,7 @@ defmodule ToreWeb.BudgetLiveTest do
           4
         )
 
+      eat_out(last_week, ~w[tue wed thu fri sat sun])
       :ok = Budget.set_week(home_scope(), last_week, Decimal.new(1200))
 
       {:ok, _} =

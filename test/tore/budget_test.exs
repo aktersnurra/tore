@@ -74,13 +74,76 @@ defmodule Tore.BudgetTest do
     assert amount == d("240.00")
   end
 
-  test "over budget says by how much" do
+  test "over budget says by how much, open days included" do
     stew = recipe("Gryta", "300")
     {:ok, _} = Planning.assign_recipe(home_scope(), plan(), "mon_dinner", stew.id, 4)
-    :ok = Budget.set_week(home_scope(), @week, d("250"))
+    :ok = Budget.set_week(home_scope(), @week, d("2000"))
 
+    # Monday's stew and six open days at a typical dinner, 300 kr each.
     assert %{over: over} = Budget.status(home_scope(), @week)
-    assert Decimal.eq?(over, 50)
+    assert Decimal.eq?(over, 100)
+  end
+
+  describe "an open day" do
+    test "costs what a typical dinner costs; eating out and skipped days don't" do
+      for {key, title, kr} <- [
+            {"mon_dinner", "Gryta", "100"},
+            {"tue_dinner", "Soppa", "40"},
+            {"wed_dinner", "Pasta", "60"}
+          ] do
+        {:ok, _} = Planning.assign_recipe(home_scope(), plan(), key, recipe(title, kr).id, 4)
+      end
+
+      {:ok, _} = Planning.eat_out(home_scope(), plan(), "thu_dinner", %{})
+
+      {:ok, _} =
+        Planning.assign_recipe(home_scope(), plan(), "fri_dinner", recipe("Tacos", "500").id, 4)
+
+      {:ok, _} = Planning.skip_meal(home_scope(), plan(), "fri_dinner")
+
+      # Saturday and Sunday are open: two dinners at the median of what's cooked, 60 kr. The
+      # skipped tacos are neither open nor typical.
+      assert %{open_days: 2, open_cost: open_cost, expected: expected} =
+               Budget.status(home_scope(), @week)
+
+      assert Decimal.eq?(open_cost, 120)
+      assert Decimal.eq?(expected, 320)
+    end
+
+    test "costs nothing while no dinner has a price" do
+      assert %{open_days: 7, open_cost: open_cost, expected: expected} =
+               Budget.status(home_scope(), @week)
+
+      assert Decimal.eq?(open_cost, 0)
+      assert Decimal.eq?(expected, 0)
+    end
+
+    test "counts in past weeks' estimates too, so the calibration doesn't count it twice" do
+      stew = recipe("Gryta", "100")
+      user = user_fixture()
+
+      # Two weeks before this one: Monday's stew, six open days, and 700 kr paid.
+      for weeks_back <- [1, 2] do
+        week = Date.add(@week, -7 * weeks_back)
+        past = Streams.plan(home_scope(), week)
+        {:ok, _} = Planning.assign_recipe(home_scope(), past, "mon_dinner", stew.id, 4)
+
+        {:ok, _} =
+          Tore.Costs.log_receipt(home_scope(), %{
+            date: week,
+            week_start: week,
+            store_name: "ICA",
+            total_amount: d("700"),
+            user_id: user.id
+          })
+      end
+
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan(), "mon_dinner", stew.id, 4)
+
+      assert %{adjustment: adjustment, expected: expected} = Budget.status(home_scope(), @week)
+      assert Decimal.eq?(adjustment, 0)
+      assert Decimal.eq?(expected, 700)
+    end
   end
 
   test "the planner hears of the budget only when the week has one" do
@@ -91,5 +154,14 @@ defmodule Tore.BudgetTest do
     prompt = BudgetCapsule.to_prompt(BudgetCapsule.build(ctx))
     assert prompt =~ "1800 kr"
     assert prompt =~ "expected to cost about 0 kr"
+    refute prompt =~ "open days"
+
+    # Once a dinner has a price, the open days are said to be in the expected cost.
+    {:ok, _} =
+      Planning.assign_recipe(home_scope(), plan(), "mon_dinner", recipe("Gryta", "100").id, 4)
+
+    prompt = BudgetCapsule.to_prompt(BudgetCapsule.build(ctx))
+    assert prompt =~ "expected to cost about 700 kr"
+    assert prompt =~ "6 open days at a typical dinner, 600 kr together"
   end
 end

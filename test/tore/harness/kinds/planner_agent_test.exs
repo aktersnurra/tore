@@ -216,15 +216,16 @@ defmodule Tore.Harness.Kinds.PlannerAgentTest do
       assert {:ok, %KitchenRun{status: :applied}} =
                Runs.start(home_scope(), WeeklyPlanning, %{plan_stream_id: plan, week_start: @week})
 
+      # The steak, 400 kr, and six open days at a typical dinner, the same.
       assert_received {:retry, text}
-      assert text =~ "about 400 kr, 300 kr over"
+      assert text =~ "about 2800 kr, 2700 kr over"
 
       {:ok, state} = Planning.load_plan(home_scope(), plan)
       assert state.slots["mon_dinner"].recipe_id == lentils.id
     end
 
     test "within it, the plan is applied as the planner made it", %{plan: plan, steak: steak} do
-      :ok = Tore.Budget.set_week(home_scope(), @week, Decimal.new("500"))
+      :ok = Tore.Budget.set_week(home_scope(), @week, Decimal.new("3000"))
       assigns("Oxfilé")
 
       assert {:ok, %KitchenRun{status: :applied}} =

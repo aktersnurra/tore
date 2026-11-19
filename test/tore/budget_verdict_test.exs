@@ -30,7 +30,7 @@ defmodule Tore.BudgetVerdictTest do
     receipt
   end
 
-  # A week whose plan is one dinner estimated at `kr`.
+  # A week whose plan is one dinner estimated at `kr`, eating out the other days, so none is open.
   defp planned(week_start, kr) do
     {:ok, recipe} =
       Recipes.create(
@@ -57,6 +57,16 @@ defmodule Tore.BudgetVerdictTest do
         recipe.id,
         4
       )
+
+    for key <- ~w[tue wed thu fri sat sun] do
+      {:ok, _} =
+        Planning.eat_out(
+          home_scope(),
+          Streams.plan(home_scope(), week_start),
+          key <> "_dinner",
+          %{}
+        )
+    end
   end
 
   describe "which week a receipt counts towards" do

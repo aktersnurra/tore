@@ -222,8 +222,9 @@ defmodule Tore.Capture.DispatchTest do
 
       expect(Tore.MockLLM, :chat_with_tools, fn _, _, _, _ -> {:ok, {:message, "Klart."}, %{}} end)
 
+      # Monday's stew, 30 kr, and six open days at a typical dinner, the same.
       assert %{
-               text: "Planerade vecka 47: runt 30 av 500 kr, 0 av 1 ingredienser har pris.",
+               text: "Planerade vecka 47: runt 210 av 500 kr, 0 av 1 ingredienser har pris.",
                run_stream_id: id
              } =
                Dispatch.plan_week(~D[2026-11-18], "planera veckan", ctx)
