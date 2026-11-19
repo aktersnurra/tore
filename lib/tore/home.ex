@@ -96,8 +96,9 @@ defmodule Tore.Home do
 
   @doc """
   The screen the app opens on and the swaps above the chat box: the stored pick, narrowed to
-  what makes sense now, or the fixed rule's when there's none or the household can't use the
-  model now (a stored pick would never be replaced). `stale?` says a new pick is due.
+  what makes sense now, or the fixed rule's when there's none, when the stored one was the rule's
+  too, or when the household can't use the model now (a stored pick would never be replaced).
+  `stale?` says a new pick is due.
   """
   @spec current(Scope.t(), NaiveDateTime.t()) :: current()
   def current(%Scope{} = scope, now \\ Tore.Clock.now()) do
@@ -109,6 +110,10 @@ defmodule Tore.Home do
 
       nil ->
         facts |> fallback() |> resolve(true, facts)
+
+      # The rule's pick is free to work out again, so it follows the clock and the week.
+      %KitchenRun{artifacts: [%HomePick{source: :rules} | _]} = run ->
+        facts |> fallback() |> resolve(stale?(scope, run), facts)
 
       %KitchenRun{artifacts: [%HomePick{} = pick | _]} = run ->
         pick

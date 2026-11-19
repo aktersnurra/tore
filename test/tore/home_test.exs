@@ -267,6 +267,16 @@ defmodule Tore.HomeTest do
       assert %{screen: :today, stale?: false} = Home.current(unsponsored, @tuesday_evening)
     end
 
+    test "a stored pick the fixed rule made is the rule's now, so its note follows the clock" do
+      scope = home_scope()
+      morning = ~N[2026-11-10 09:00:00]
+
+      stored_pick(scope, %HomePick{screen: :today, source: :rules, swaps: [], note: nil})
+
+      assert %{note: nil, stale?: false} = Home.current(scope, morning)
+      assert %{note: %{key: :tomorrow_open}, stale?: false} = Home.current(scope, @tuesday_evening)
+    end
+
     test "a pick older than an hour is stale" do
       scope = home_scope()
       an_hour_ago = DateTime.add(DateTime.utc_now(), -3601)
