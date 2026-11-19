@@ -1142,7 +1142,7 @@ msgstr ""
 msgid "Total, kr (optional)"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:433
+#: lib/tore/capture/dispatch.ex:432
 #, elixir-autogen, elixir-format
 msgid "Marked %{date} as eating out."
 msgstr ""
@@ -1152,7 +1152,7 @@ msgstr ""
 msgid "Added %{label} to the shopping list."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:311
+#: lib/tore/capture/dispatch.ex:310
 #, elixir-autogen, elixir-format
 msgid "Added %{name} to the pantry."
 msgstr ""
@@ -1167,7 +1167,7 @@ msgstr ""
 msgid "Built a shopping list for the week of %{date} from %{n} planned recipes."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:314
+#: lib/tore/capture/dispatch.ex:313
 #, elixir-autogen, elixir-format
 msgid "Bumped %{name} in the pantry."
 msgstr ""
@@ -1187,100 +1187,100 @@ msgstr ""
 msgid "Couldn't import that URL."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:419
+#: lib/tore/capture/dispatch.ex:418
 #, elixir-autogen, elixir-format
 msgid "Marked %{day} %{date} as skipped."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:383
+#: lib/tore/capture/dispatch.ex:382
 #, elixir-autogen, elixir-format
 msgid "Marked the recipe as cooked tonight."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:358
+#: lib/tore/capture/dispatch.ex:357
 #, elixir-autogen, elixir-format
 msgid "Multiple pantry items match \"%{q}\": %{names}. Which one?"
 msgstr ""
 
 #: lib/tore/capture/dispatch.ex:151
-#: lib/tore/capture/dispatch.ex:497
+#: lib/tore/capture/dispatch.ex:496
 #, elixir-autogen, elixir-format
 msgid "Multiple shopping items match \"%{q}\": %{names}. Which one?"
 msgstr ""
 
 #: lib/tore/capture/dispatch.ex:161
-#: lib/tore/capture/dispatch.ex:504
+#: lib/tore/capture/dispatch.ex:503
 #, elixir-autogen, elixir-format
 msgid "No shopping item matches \"%{q}\"."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:368
+#: lib/tore/capture/dispatch.ex:367
 #, elixir-autogen, elixir-format
 msgid "Nothing in the pantry matches \"%{q}\"."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:406
+#: lib/tore/capture/dispatch.ex:405
 #, elixir-autogen, elixir-format
 msgid "Pinned %{day} %{date}."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:341
+#: lib/tore/capture/dispatch.ex:340
 #, elixir-autogen, elixir-format
 msgid "Removed %{name} from the pantry."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:393
+#: lib/tore/capture/dispatch.ex:392
 #, elixir-autogen, elixir-format
 msgid "Set servings on %{day} %{date} to %{n}."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:624
+#: lib/tore/capture/dispatch.ex:623
 #, elixir-autogen, elixir-format
 msgid "Something went wrong. Please try again."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:412
+#: lib/tore/capture/dispatch.ex:411
 #, elixir-autogen, elixir-format
 msgid "Unpinned %{day} %{date}."
-msgstr ""
-
-#: lib/tore/capture/dispatch.ex:607
-#, elixir-autogen, elixir-format
-msgctxt "in a sentence"
-msgid "Friday"
-msgstr ""
-
-#: lib/tore/capture/dispatch.ex:603
-#, elixir-autogen, elixir-format
-msgctxt "in a sentence"
-msgid "Monday"
-msgstr ""
-
-#: lib/tore/capture/dispatch.ex:608
-#, elixir-autogen, elixir-format
-msgctxt "in a sentence"
-msgid "Saturday"
-msgstr ""
-
-#: lib/tore/capture/dispatch.ex:609
-#, elixir-autogen, elixir-format
-msgctxt "in a sentence"
-msgid "Sunday"
 msgstr ""
 
 #: lib/tore/capture/dispatch.ex:606
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
+msgid "Friday"
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:602
+#, elixir-autogen, elixir-format
+msgctxt "in a sentence"
+msgid "Monday"
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:607
+#, elixir-autogen, elixir-format
+msgctxt "in a sentence"
+msgid "Saturday"
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:608
+#, elixir-autogen, elixir-format
+msgctxt "in a sentence"
+msgid "Sunday"
+msgstr ""
+
+#: lib/tore/capture/dispatch.ex:605
+#, elixir-autogen, elixir-format
+msgctxt "in a sentence"
 msgid "Thursday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:604
+#: lib/tore/capture/dispatch.ex:603
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Tuesday"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:605
+#: lib/tore/capture/dispatch.ex:604
 #, elixir-autogen, elixir-format
 msgctxt "in a sentence"
 msgid "Wednesday"
@@ -1474,7 +1474,7 @@ msgstr ""
 msgid "Your household"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:466
+#: lib/tore/capture/dispatch.ex:465
 #, elixir-autogen, elixir-format
 msgid "%{day} is pinned, so I left it as it was."
 msgstr ""
@@ -1504,52 +1504,52 @@ msgstr ""
 msgid "Unpinned %{day}"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:572
+#: lib/tore/capture/dispatch.ex:571
 #, elixir-autogen, elixir-format
 msgid "Already noted."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:590
+#: lib/tore/capture/dispatch.ex:589
 #, elixir-autogen, elixir-format
 msgid "Forgot: %{text}"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:561
+#: lib/tore/capture/dispatch.ex:560
 #, elixir-autogen, elixir-format
 msgid "I don't keep allergies as notes. Add it on the kitchen page, where every plan is checked against it."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:584
+#: lib/tore/capture/dispatch.ex:583
 #, elixir-autogen, elixir-format
 msgid "Noted: %{text}"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:587
+#: lib/tore/capture/dispatch.ex:586
 #, elixir-autogen, elixir-format
 msgid "Updated: %{text}"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:516
+#: lib/tore/capture/dispatch.ex:515
 #, elixir-autogen, elixir-format
 msgid "Deleted %{title}."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:525
+#: lib/tore/capture/dispatch.ex:524
 #, elixir-autogen, elixir-format
 msgid "Deleted the receipt."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:526
+#: lib/tore/capture/dispatch.ex:525
 #, elixir-autogen, elixir-format
 msgid "I couldn't find that receipt."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:512
+#: lib/tore/capture/dispatch.ex:511
 #, elixir-autogen, elixir-format
 msgid "I couldn't find that recipe."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:484
+#: lib/tore/capture/dispatch.ex:483
 #, elixir-autogen, elixir-format
 msgid "Removed %{name} from the shopping list."
 msgstr ""
@@ -2036,12 +2036,12 @@ msgstr ""
 msgid "Spent %{spent} of %{budget} kr"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:266
+#: lib/tore/capture/dispatch.ex:265
 #, elixir-autogen, elixir-format
 msgid "%{names} go on the list every week."
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:278
+#: lib/tore/capture/dispatch.ex:277
 #, elixir-autogen, elixir-format
 msgid "%{names} won't be added to the list any more."
 msgstr ""
@@ -3160,7 +3160,7 @@ msgstr ""
 msgid "Remove lunch"
 msgstr ""
 
-#: lib/tore/capture/dispatch.ex:599
+#: lib/tore/capture/dispatch.ex:598
 #, elixir-autogen, elixir-format
 msgid "%{day} lunch"
 msgstr ""

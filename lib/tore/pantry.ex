@@ -6,58 +6,6 @@ defmodule Tore.Pantry do
   alias Tore.Recipes.Ingredient
 
   @doc """
-  Catalogue snapshot used to ground the LLM canonicaliser, leaving out `except_ids`, the
-  ingredients being learned, so none is matched to itself.
-  """
-  @spec catalogue(Scope.t(), [integer()]) ::
-          [%{key: String.t(), name: String.t(), category: String.t() | nil}]
-  def catalogue(%Scope{} = scope, except_ids \\ []) do
-    Repo.all(
-      from(i in Ingredient,
-        where: i.id not in ^except_ids,
-        select: %{key: i.key, name: i.name, category: i.category}
-      ),
-      Scope.repo_opts(scope)
-    )
-  end
-
-  @doc """
-  Send raw pantry items through the LLM canonicaliser, against the catalogue without `except_ids`.
-  Returns a list of
-  `{raw_name, catalogue_name, category, default_unit, matched_key}` maps.
-  """
-  @spec canonicalise(Scope.t(), [map()], String.t() | nil, [integer()]) ::
-          {:ok, [map()]} | {:error, term()}
-  def canonicalise(%Scope{} = scope, items, locale, except_ids \\ []) do
-    {system, user} =
-      Tore.LLM.Prompts.canonicalise_pantry_items(items, locale, catalogue(scope, except_ids))
-
-    case Tore.LLM.text(scope, system, user,
-           response_format: Tore.LLM.Prompts.canonicalise_pantry_schema(),
-           feature: :canonicalise_pantry
-         ) do
-      {:ok, %{"items" => norm}, _usage} when is_list(norm) ->
-        {:ok,
-         Enum.map(norm, fn it ->
-           %{
-             raw_name: it["raw_name"],
-             catalogue_name: it["catalogue_name"],
-             category: it["category"],
-             default_unit: it["default_unit"],
-             matched_key: it["matched_key"],
-             shelf_life_days: Expiry.parse_shelf_life(it["shelf_life_days"])
-           }
-         end)}
-
-      {:ok, _, _} ->
-        {:error, :invalid_response}
-
-      {:error, _} = err ->
-        err
-    end
-  end
-
-  @doc """
   Upsert a single canonicalised pantry belief.
 
   Expects an attrs map with `catalogue_name`, optional `matched_key`, plus

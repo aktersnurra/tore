@@ -1,7 +1,7 @@
-defmodule Tore.Mcp.Tools.MatchDeals do
+defmodule Tore.Mcp.Tools.MatchProducts do
   @moduledoc """
-  Which of the household's ingredients each offer is, decided by the person's own Claude, so a
-  household without the server's model still gets offer prices in its estimates.
+  Which of the household's ingredients each product on an offer or a receipt line is, so its price
+  counts in estimates (`Tore.Prices.Products`).
   """
   @behaviour Tore.Mcp.Tool
 
@@ -10,16 +10,16 @@ defmodule Tore.Mcp.Tools.MatchDeals do
   alias Tore.Recipes.Ingredient
 
   @impl true
-  def name, do: "match_deals"
+  def name, do: "match_products"
 
   @impl true
   def description,
     do: """
-    Says which ingredient each offer's product is, so its price counts in dinner and week \
-    estimates. Take products from list_deals where `ingredient` is null and `matched` is false, \
-    and ingredient names from the household's recipes (get_recipe). ingredient null means none \
-    of them: the product won't be asked about again for four weeks. Only clear matches: \
-    "Kycklingfilé Kronfågel" is chicken fillet; a ready meal with chicken isn't.\
+    Says which of the household's ingredients (list_ingredients) each product is, as named on \
+    an offer (list_deals, where `ingredient` is null and `matched` is false) or a receipt line, so \
+    its price counts in dinner and week estimates. ingredient null means none of them: the \
+    product won't be asked about again for four weeks. Only clear matches: "Kycklingfilé \
+    Kronfågel" is chicken fillet; a ready meal with chicken isn't.\
     """
 
   @impl true
@@ -59,7 +59,7 @@ defmodule Tore.Mcp.Tools.MatchDeals do
      }}
   end
 
-  def call(_scope, _args), do: {:error, "match_deals needs matches: [{product, ingredient}]."}
+  def call(_scope, _args), do: {:error, "match_products needs matches: [{product, ingredient}]."}
 
   defp store(scope, %{"product" => product, "ingredient" => nil}) when is_binary(product) do
     :ok = Products.put(scope, product, nil)

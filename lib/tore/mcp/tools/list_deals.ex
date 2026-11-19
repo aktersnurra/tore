@@ -18,7 +18,7 @@ defmodule Tore.Mcp.Tools.ListDeals do
     offer's condition (such as "2 för 40 kr"). `price` is for `quantity` items, per `price_unit` \
     (st, kg or l); `regular_price` is the usual price for one. `ingredient` is the household's \
     ingredient the product was matched to; with `matched` false nobody has decided yet, and \
-    match_deals can. Useful when planning dinners or the list.\
+    match_products can. Useful when planning dinners or the list.\
     """
 
   @impl true

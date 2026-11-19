@@ -40,7 +40,7 @@ defmodule Tore.Harness.Kinds.Receipt do
   @impl true
   def after_commit(%{status: :applied, artifacts: artifacts} = run) do
     names = for %CostEntry{line_items: lines} <- artifacts, line <- lines, do: line.name
-    Products.later(Scope.for_household(run.household_id), names, model: run.actor != :mcp)
+    Products.later(Scope.for_household(run.household_id), names)
   end
 
   def after_commit(_run), do: :ok

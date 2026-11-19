@@ -1,21 +1,26 @@
 defmodule Tore.Pantry.Learn do
   @moduledoc """
-  The one model call a new name gets. A tick or an add never waits for it: it runs afterwards,
-  and an ingredient that has a section is learned already, so it's never asked about again.
-
-  The answer either says the name means an ingredient Tore has (*Mellanmjölk* is *mjölk*), and
-  the new ingredient is merged into that one with the name kept as an alias, or it fills the new
-  ingredient's section and shelf life. A household without the model skips this, and the name
-  stays as written.
+  What a new name means, worked out by pi afterwards. A tick or an add never waits for it: a name
+  Tore has never seen gets its ingredient as written at once, and a `learn` job
+  (`harness/tasks/learn.md`) then says through `learn_ingredients` whether it is an ingredient the
+  household has (*Mellanmjölk* is *Mjölk*: merged into it, the name kept as an alias) or one of its
+  own, with its section and shelf life. An ingredient that has a section is learned already, so
+  it's never asked about again. A household without pi skips this, and the name stays as written.
+  Product names on offers and receipt lines go to the same job (`Tore.Prices.Products`).
   """
 
   import Ecto.Query
 
-  require Logger
-
-  alias Tore.{Household, Pantry, Repo, Scope}
+  alias Tore.{Agent, Pi, Repo, Scope}
   alias Tore.Pantry.{IngredientAlias, Match, PantryItem}
   alias Tore.Recipes.{Ingredient, RecipeIngredient}
+
+  @type item :: %{
+          name: String.t(),
+          same_as: String.t() | nil,
+          section: String.t(),
+          shelf_life_days: pos_integer() | nil
+        }
 
   @doc """
   Learns `names` after the caller has moved on, then runs `then`, if given. Off in tests
@@ -34,64 +39,73 @@ defmodule Tore.Pantry.Learn do
   end
 
   @doc """
-  Learns every name in `names` not learned yet, in one model call. A name Tore has never seen gets
-  its ingredient first, as written.
+  Asks pi about every name in `names` not learned yet, and waits for it. A name Tore has never
+  seen gets its ingredient first, as written.
   """
   @spec names(Scope.t(), [String.t()]) :: :ok
   def names(%Scope{} = scope, names) do
-    with :ok <- Tore.LLM.check(scope),
-         [_ | _] = learning <- unlearned(scope, names),
-         {:ok, norms} <-
-           Pantry.canonicalise(
-             scope,
-             Enum.map(learning, &%{raw_name: &1.name}),
-             Household.locale(scope),
-             Enum.map(learning, & &1.id)
-           ) do
-      by_name = Map.new(norms, &{&1.raw_name, &1})
-
-      for ingredient <- learning, norm = by_name[ingredient.name], norm != nil do
-        case known(scope, norm.matched_key) do
-          nil -> fill(ingredient, norm)
-          into -> merge(scope, ingredient, into)
-        end
-      end
-    else
-      {:error, reason} -> Logger.warning("Couldn't learn #{inspect(names)}: #{inspect(reason)}")
-      _ -> :ok
+    case unlearned(scope, names) do
+      [] -> :ok
+      learning -> ask(scope, "Names: " <> Enum.map_join(learning, "; ", & &1.name) <> ".")
     end
+  end
 
+  @doc "Runs a `learn` job with `details` (the names or products), and waits for it."
+  @spec ask(Scope.t(), String.t()) :: :ok
+  def ask(%Scope{} = scope, details) do
+    if Pi.check(scope) == :ok, do: Agent.run(scope, "learn", nil, details)
     :ok
   end
 
-  @spec name(Scope.t(), String.t()) :: :ok
-  def name(%Scope{} = scope, name), do: names(scope, [name])
-
   @doc """
-  The ingredient a product name means (*Arla Mellanmjölk 1,5 %* → *mjölk*), asked once when a
-  barcode is first scanned. A new ingredient gets its section and shelf life from the same answer.
-  Without the model, or when the call fails, the product's name is the ingredient, as written.
+  What pi said a name is (`learn_ingredients`): the ingredient it is the same as, which it is
+  merged into, or its own section and shelf life. A section Tore doesn't have is kept as other.
   """
-  @spec product(Scope.t(), String.t()) :: Ingredient.t()
-  def product(%Scope{} = scope, product_name) do
-    with :ok <- Tore.LLM.check(scope),
-         {:ok, [norm | _]} <-
-           Pantry.canonicalise(scope, [%{raw_name: product_name}], Household.locale(scope)) do
-      known(scope, norm.matched_key) || named(scope, norm.catalogue_name || product_name, norm)
-    else
-      _ -> named(scope, product_name, nil)
+  @spec learn(Scope.t(), item()) :: :merged | :filled | {:error, :unknown_name | :unknown_same_as}
+  def learn(%Scope{} = scope, %{name: name} = item) do
+    with {:ok, ingredient} <- found(scope, name, :unknown_name) do
+      case item.same_as && found(scope, item.same_as, :unknown_same_as) do
+        nil ->
+          fill(ingredient, item)
+          :filled
+
+        {:ok, %Ingredient{id: id}} when id == ingredient.id ->
+          fill(ingredient, item)
+          :filled
+
+        {:ok, into} ->
+          {:ok, :ok} = merge(scope, ingredient, into)
+          if into.category == nil, do: fill(into, item)
+          :merged
+
+        {:error, _} = error ->
+          error
+      end
     end
   end
 
-  # The ingredient called `name`, or a new one, filled from `norm` when there is one.
-  defp named(scope, name, norm) do
+  defp found(scope, name, error) do
     case Match.ingredient(scope, {:name, name}) do
+      {:ok, ingredient} -> {:ok, ingredient}
+      :unknown -> {:error, error}
+    end
+  end
+
+  @doc """
+  The ingredient a product name means, when a barcode is first scanned: one the name already
+  matches, or a new one called after the product, which a `learn` job then tidies (merged into
+  *Mjölk* for *Arla Mellanmjölk 1,5 %*, its barcode with it).
+  """
+  @spec product(Scope.t(), String.t()) :: Ingredient.t()
+  def product(%Scope{} = scope, product_name) do
+    case Match.ingredient(scope, {:name, product_name}) do
       {:ok, ingredient} ->
         ingredient
 
       :unknown ->
-        [ingredient] = new_ingredient(scope, name)
-        if norm, do: fill(ingredient, norm), else: ingredient
+        [ingredient] = new_ingredient(scope, product_name)
+        later(scope, [product_name])
+        ingredient
     end
   end
 
@@ -121,17 +135,14 @@ defmodule Tore.Pantry.Learn do
     end
   end
 
-  defp known(_scope, key) when key in [nil, ""], do: nil
-  defp known(scope, key), do: Repo.get_by(Ingredient, [key: key], Scope.repo_opts(scope))
-
   # `change/2`, not the changeset, which would re-derive the key.
-  defp fill(ingredient, norm) do
-    section = if norm.category in Ingredient.sections(), do: norm.category, else: "other"
+  defp fill(ingredient, item) do
+    section = if item.section in Ingredient.sections(), do: item.section, else: "other"
 
     ingredient
     |> Ecto.Changeset.change(
       category: section,
-      shelf_life_days: ingredient.shelf_life_days || norm.shelf_life_days
+      shelf_life_days: ingredient.shelf_life_days || item.shelf_life_days
     )
     |> Repo.update!()
   end
@@ -163,6 +174,15 @@ defmodule Tore.Pantry.Learn do
         [set: [ingredient_id: into.id]],
         opts
       )
+
+      # A scanned pack's photo goes with it, unless what it joins already has one.
+      if into.image_path == nil and from.image_path != nil do
+        Repo.update_all(
+          from(i in Ingredient, where: i.id == ^into.id),
+          [set: [image_path: from.image_path]],
+          opts
+        )
+      end
 
       Repo.delete!(from)
       :ok = Match.learn_alias(scope, {:name, from.name}, into.id)

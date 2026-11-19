@@ -1,16 +1,11 @@
 defmodule Tore.Shop.PantryRulesTest do
   use Tore.DataCase, async: false
 
-  import Mox
-
   alias Tore.{Recipes, Shop}
   alias Tore.Pantry.Learn
   alias Tore.Recipes.Ingredient
 
   # No `stub`: any model call on these paths fails the test.
-  setup :verify_on_exit!
-
-  @usage %{prompt_tokens: 0, completion_tokens: 0, cost_usd: 0}
 
   defp list_id, do: Tore.Streams.shop_list(home_scope(), ~D[2026-04-27])
 
@@ -44,17 +39,19 @@ defmodule Tore.Shop.PantryRulesTest do
     {:ok, _} = Shop.add_item(home_scope(), list_id(), "Kaffe", nil, nil, 1)
     {:ok, _} = Shop.add_item(home_scope(), list_id(), "Bröd", nil, nil, 1)
 
-    expect(Tore.MockLLM, :text, fn _system, _user, _opts ->
-      {:ok,
-       %{
-         "items" => [
-           %{"raw_name" => "Kaffe", "catalogue_name" => "Kaffe", "category" => "beverages"},
-           %{"raw_name" => "Bröd", "catalogue_name" => "Bröd", "category" => "bread"}
-         ]
-       }, @usage}
-    end)
-
+    # Their ingredients, as written (no pi here), then what pi says of them (learn_ingredients).
     assert :ok = Learn.names(home_scope(), ["Kaffe", "Bröd"])
+
+    for {name, section} <- [{"Kaffe", "beverages"}, {"Bröd", "bread"}] do
+      assert :filled =
+               Learn.learn(home_scope(), %{
+                 name: name,
+                 same_as: nil,
+                 section: section,
+                 shelf_life_days: nil
+               })
+    end
+
     assert :ok = Shop.resettle_sections(home_scope(), list_id())
 
     assert items() == %{"Kaffe" => :beverages, "Bröd" => :bread}

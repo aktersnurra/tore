@@ -59,7 +59,7 @@ defmodule Tore.Mcp.BudgetToolsTest do
     assert ["Mjölk"] = Enum.map(Basics.list(home_scope()), & &1.name)
   end
 
-  test "match_deals ties offers to ingredients, so list_deals shows them matched" do
+  test "match_products ties offers to ingredients, so list_deals shows them matched" do
     store = Repo.insert!(%Tore.Deals.Store{name: "ICA Maxi", url: "https://example.test/maxi"})
 
     Repo.insert!(%Tore.Deals.HouseholdStore{
@@ -87,7 +87,7 @@ defmodule Tore.Mcp.BudgetToolsTest do
     assert Enum.all?(deals, &(&1["matched"] == false and &1["ingredient"] == nil))
 
     assert %{"matched" => 1, "none" => 1, "unknown_ingredients" => ["Tofu"]} =
-             ok("match_deals", %{
+             ok("match_products", %{
                "matches" => [
                  %{"product" => "Kycklingfilé Kronfågel", "ingredient" => "kycklingfilé"},
                  %{"product" => "Pizza Grandiosa", "ingredient" => nil},
