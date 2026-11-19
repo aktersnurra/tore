@@ -36,8 +36,10 @@ defmodule Tore.ShopTest do
 
     {:ok, state} = Shop.load_list(home_scope(), list_id())
     assert [%{name: "Gul lök", id: id}] = Map.values(state.items)
+    assert Shop.not_on_list(home_scope(), list_id(), ["gul lök", "Ris"]) == ["Ris"]
 
     Shop.check_item(home_scope(), list_id(), id, 1)
+    assert Shop.not_on_list(home_scope(), list_id(), ["gul lök"]) == ["gul lök"]
     Shop.add_item(home_scope(), list_id(), "Gul lök", nil, nil, 1)
     {:ok, state} = Shop.load_list(home_scope(), list_id())
     assert state.items |> Map.values() |> Enum.count(&(&1.name == "Gul lök")) == 2

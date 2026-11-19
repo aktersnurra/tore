@@ -135,9 +135,7 @@ defmodule Tore.Shop do
   "Put on the list" pressed twice, or from two screens, gives one line: `{:ok, []}`.
   """
   def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
-    {:ok, state} = load_list(scope, list_id)
-
-    if Enum.any?(Map.values(state.items), &(!&1.checked and same_name?(&1.name, name))) do
+    if not_on_list(scope, list_id, [name]) == [] do
       {:ok, []}
     else
       result =
@@ -153,6 +151,16 @@ defmodule Tore.Shop do
       learn(scope, list_id, [name])
       result
     end
+  end
+
+  @doc """
+  The names that aren't on the list, or only ticked off: what "Put on the list" would add.
+  """
+  @spec not_on_list(Scope.t(), String.t(), [String.t()]) :: [String.t()]
+  def not_on_list(%Scope{} = scope, list_id, names) do
+    {:ok, state} = load_list(scope, list_id)
+    open = for item <- Map.values(state.items), !item.checked, do: item.name
+    Enum.reject(names, fn name -> Enum.any?(open, &same_name?(&1, name)) end)
   end
 
   defp same_name?(a, b), do: String.downcase(String.trim(a)) == String.downcase(String.trim(b))

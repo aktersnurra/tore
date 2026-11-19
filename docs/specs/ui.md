@@ -1761,7 +1761,8 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
   with a tick); another day moves it, the same day again takes it off. "On Saturday · Undo"
   stays on one line under the days. A day that had the dish before shows it in plain text.
 - **At home** checks the recipe against the pantry with no model: "All of it", or what's
-  missing with Put on the list.
+  missing with Put on the list. When all of it is already on this week's list (not ticked off),
+  it says "On the list" from the start, here and on Today.
 - **Collections** are Dinner, Baking, Sauces & sides and Assemblies, each with a Phosphor
   icon and a tag colour (orange, yellow, green, blue). Recipes groups by them under their
   tags, in a Gallery (two to a row, 4:5 pictures, the name underneath) or a List (one line

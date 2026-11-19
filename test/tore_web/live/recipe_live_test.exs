@@ -510,6 +510,11 @@ defmodule ToreWeb.RecipeLiveTest do
       list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
       {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
       assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
+
+      # Opened again, it says so straight away: there's nothing left to put on the list.
+      {:ok, again, _} = live(authed(conn, user), ~p"/recipes?#{[id: buns.id]}")
+      assert has_element?(again, "#home-added")
+      refute has_element?(again, ~s([data-role="at-home"] button))
     end
   end
 

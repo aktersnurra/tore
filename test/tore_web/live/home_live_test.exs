@@ -107,6 +107,11 @@ defmodule ToreWeb.HomeLiveTest do
       {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
       assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
 
+      # Opened again, it says so straight away: there's nothing left to put on the list.
+      {:ok, again, _} = live(conn, ~p"/today")
+      assert has_element?(again, "#home-added")
+      refute has_element?(again, ~s([data-role="at-home"] button))
+
       # Cook now asks about what's missing first, and comes back here from cook mode.
       view |> element(~s(button[data-role="start-cooking"])) |> render_click()
       assert view |> element(~s([data-missing="kanel"])) |> render() =~ "kanel"

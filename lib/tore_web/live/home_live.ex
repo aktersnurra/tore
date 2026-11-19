@@ -391,14 +391,19 @@ defmodule ToreWeb.HomeLive do
       if slot && slot.recipe_id && !slot.skipped,
         do: scope |> Recipes.get_many([slot.recipe_id]) |> List.first()
 
+    home =
+      tonight &&
+        Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name))
+
+    list_id = Tore.Streams.shop_list(scope, socket.assigns.week_start)
+
     assign(socket,
       dish: tonight,
       servings: slot && slot[:servings],
       eating_out: Tore.Planning.State.eating_out?(slot),
-      home:
-        tonight &&
-          Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name)),
-      home_added: false
+      home: home,
+      # Already on the list when there's nothing left to put there.
+      home_added: home != nil and Tore.Shop.not_on_list(scope, list_id, home.missing) == []
     )
   end
 

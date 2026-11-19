@@ -274,7 +274,9 @@ defmodule Tore.HomeTest do
       stored_pick(scope, %HomePick{screen: :today, source: :rules, swaps: [], note: nil})
 
       assert %{note: nil, stale?: false} = Home.current(scope, morning)
-      assert %{note: %{key: :tomorrow_open}, stale?: false} = Home.current(scope, @tuesday_evening)
+
+      assert %{note: %{key: :tomorrow_open}, stale?: false} =
+               Home.current(scope, @tuesday_evening)
     end
 
     test "a pick older than an hour is stale" do

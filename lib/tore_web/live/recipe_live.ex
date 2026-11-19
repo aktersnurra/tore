@@ -422,13 +422,17 @@ defmodule ToreWeb.RecipeLive do
   defp select(socket, id) do
     recipe = Recipes.get!(socket.assigns.current_scope, id)
 
+    scope = socket.assigns.current_scope
     names = Enum.map(recipe.recipe_ingredients, & &1.ingredient.name)
+    home = Tore.Pantry.at_home(scope, names)
+    list_id = Tore.Streams.shop_list(scope, Tore.Streams.monday(Tore.Clock.today()))
 
     assign(socket,
       selected: recipe,
       servings: recipe.base_servings || 4,
-      home: Tore.Pantry.at_home(socket.assigns.current_scope, names),
-      home_added: false,
+      home: home,
+      # Already on the list when there's nothing left to put there.
+      home_added: Tore.Shop.not_on_list(scope, list_id, home.missing) == [],
       week: nil,
       put: nil,
       opened: id,
