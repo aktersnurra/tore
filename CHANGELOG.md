@@ -16,6 +16,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - A name already on the shopping list isn't added again by Put on the list.
 - Plan no longer shows an old run's card, or a question nothing can answer, when it opens.
 - A swap replaces the whole word in a step ("vitlökspulver", not "vitlökspulveren").
+- Today's note follows the clock when the fixed rule picked it, so the afternoon note shows without waiting an hour.
+- Check in the sheet before cooking is as tall as the field next to it.
 
 ### Cooking, start to finish (2026-11-19)
 
