@@ -1809,6 +1809,14 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
   dinners are planned or suggested for a day.
 - **Every dish has an icon**, read from its name (Swedish or English) and otherwise its
   collection's; no model is asked (`ToreWeb.Look.icon/1`). No emoji anywhere.
+- **A meal of parts** (2026-11-19, `.docs/specs/meal-parts.md`): a dinner put together from
+  other recipes, "Entrecote med bearnaise" from Bearnaise, Stekt entrecote, Pommes i airfryer
+  and Tomatsallad. It follows its parts. Its page has a **Delar** row linking them, its
+  ingredients under each part's name, and until its first cook each part's method with "Tore
+  lägger delarna i en ordning när du börjar laga". Cook mode then writes one order that weaves
+  the parts; changing a part writes it again. A part's page has **Ingår i**. New recipe offers
+  **Sätt ihop av andra recept**: a name, servings and the recipes to tick, sauces and sides
+  first. Everything else (planning, the list, At home, the budget, Done) sees one dinner.
 - **Favourites:** a recipe's ⋯ stars it. Starred recipes lead Recipes and are listed in the
   menu.
 - Rows answer hover with a soft background; chrome stays quiet.

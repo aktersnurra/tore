@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Meals put together from parts (2026-11-19)
+
+- A dinner can be put together from other recipes: Entrecote med bearnaise from Bearnaise, Stekt entrecote, Pommes i airfryer and Tomatsallad. It follows its parts, so changing the bearnaise changes the meal.
+- Its page links its parts and lists the ingredients under each; a part says which meals it's in.
+- Cook mode writes one order that cooks the parts together, longest first, and writes it again when a part changes.
+- The shopping list, At home, the budget and Done treat it as one dinner, with the parts' amounts added up.
+- New recipe → Sätt ihop av andra recept picks the parts. Over MCP, `put_together` does the same after `save_recipe` has written any missing part.
+
 ### Fixes after trying it on the phone (2026-11-19)
 
 - The dish's name is on its photograph on a recipe page and on Today.
