@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Veckobudget (2026-11-19)
+
+- A page of its own, from the menu and Plan's budget line: where the week lands against the budget, what's paid and left by the plan, the average week, eight weeks in one sage hue, the last four weeks by Shop's sections, and the receipts.
+- The budget is changed on the page; Settings no longer has it.
+- A receipt opens beside the page on a laptop, over it on a phone: its lines by section, each movable to another section, and the week it counts towards.
+- A day with nothing planned now counts as a typical dinner in what the week is expected to cost, in past weeks too, so mid-week the number no longer reads low. The planner is told.
+- Receipts logged over MCP carry a section per line.
+
 ### On a laptop: sidebar and recipe pages (2026-11-19)
 
 - From 1024 px wide the tab bar becomes a sidebar that stays open: the tabs with Tore among them, this week, favourites, collections and the household's pages, with Settings alone at the foot.

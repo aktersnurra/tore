@@ -871,7 +871,8 @@ planner run, for recipe ingredients nothing prices (`Tore.Prices.Estimate`). Onl
 every estimate carries its coverage, "14 of 18 ingredients priced".
 
 **The week's estimate** (`Tore.Budget.estimate/3`) adds up the dinners the plan cooks at their servings; leftovers
-and skipped days cost nothing. Because it never reads that week's own receipts, it can be worked out again later and
+and skipped days cost nothing. An open day (no dinner, not eating out, leftovers or skipped) costs a typical dinner:
+the median of the dinners cooked that week and the four before it, priced the same way (2026-11-19). Because it never reads that week's own receipts, it can be worked out again later and
 compared with what was paid.
 
 **Planning to it.** The planner's prompt carries the budget and the estimate so far (`BudgetCapsule`), and
@@ -880,8 +881,11 @@ more, told by how much, and the cheaper of the two plans is kept; both costs are
 may only differ on days that were empty before the run, so a dinner already on the plan is never swapped for money. A plan that still
 doesn't fit is applied, and the plan screen says how far over it is.
 
-**Where it shows.** The plan screen shows "About 1 850 of 2 000 kr, 14 of 18 ingredients priced", or how far over.
-A day's suggested alternatives show the difference ("−35 kr"). Settings has the default. Capture sets a budget
+**Where it shows.** Veckobudget (`/budget`, ui.md §6.9) says where the week lands, what's paid and left, eight weeks
+of what was paid, the last four weeks by Shop's sections, and the receipts; the budget is changed there, no longer in
+Settings. A receipt line carries the section Claude gave when logging it (`log_receipt`), else other, and can be
+moved on the receipt. The plan screen shows "About 1 850 of 2 000 kr, 14 of 18 ingredients priced", or how far
+over, and leads to Veckobudget. A day's suggested alternatives show the difference ("−35 kr"). Capture sets a budget
 (`set_budget`, written directly as a setting the person states) and plans a whole week (`plan_week`, the plan screen's
 command).
 
@@ -892,8 +896,8 @@ week. The receipt row on Shop shows its week and a tap moves it to the other. "W
 receipt, the plan screen gives the verdict in place of the estimate: "Spent 1 940 of 2 000 kr, about 5 % above the
 estimate". With nothing paid there is no verdict and no reminder.
 
-**Calibration** (`Tore.Budget.adjustment/2`): the mean of what was paid minus what was estimated, over the latest
-four earlier weeks that had a plan and receipts, once there are two. It is added to the dinners' estimate to give
+**Calibration** (`Tore.Budget.adjustment/2`): the mean of what was paid minus what was estimated (dinners and open
+days), over the latest four earlier weeks that had dinners planned and receipts, once there are two. It is added to the dinners' estimate to give
 what the week is expected to cost, which is what the budget, the planner's retry and the plan screen hold against.
 It absorbs basics, pack sizes and what's already at home.
 

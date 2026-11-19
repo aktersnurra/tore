@@ -170,7 +170,9 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 /shop          → Shop, with this month's spending under the list (tab)
 /recipes       → Recipes (tab)
 /capture       → Tore's chat (the centre tab; presents as a sheet)
-/settings      → Settings, from the menu (#members, #diet, #budget go to a section)
+/settings      → Settings, from the menu's foot (#members, #diet go to a section)
+/budget        → Veckobudget, from the menu and Plan's budget line (§6.9)
+/budget/receipts/:id → A receipt, over Veckobudget
 /prep          → Prep guide, via Plan's ⋯ "Prep this week"
 /recipes?type= → Recipes on one collection, from the menu
 /recipes/:id/cook → Cook mode, no tab bar
@@ -1273,6 +1275,41 @@ page asks to be done.
 - **Finns kvar?** (grey): Tore isn't sure any more. Tapping asks.
 - Asking puts **Finns** and **Slut** where the tag was. Finns makes it sure (and drops a
   date it outlived); Slut moves it to Slut. Under Slut, **Finns** brings it back.
+
+## 6.9 Veckobudget (2026-11-19)
+
+### Job
+
+Answer one question mid-week: where does this week land against the budget? A past-tense page
+to read; the only thing to change on it is the budget itself. Mockup: "Veckobudget" in the
+Tore kitchen pages artifact.
+
+### Layout
+
+- The top bar names the page; there's no title repeating it. Then "Vecka 47 · 16–22
+  november", the one sentence "Veckan landar runt 972 kr", and a tag: "72 kr över budget"
+  (red) or "226 kr under budget" (green). No budget, no tag.
+- Four numbers, two by two on a phone, in a row on a laptop: **Budget** (tap the number or
+  its pencil to change it in place; it becomes the household's budget and a week's own gives
+  way to it; blank means none), **Betalt hittills** (receipts towards this week), **Kvar
+  enligt planen** (expected minus paid, with how many open days were counted), **Snitt per
+  vecka** (the weeks before this one that had receipts).
+- **Åtta veckor**: what each week paid, one sage hue. Earlier weeks pale, this week strong
+  with what's still expected paler above it ("≈972"), the budget as a dashed line. A week over
+  budget shows only as its red number. Each bar says its week and amount on hover.
+- **Var pengarna gick**: the last four weeks' receipt lines by Shop's sections, costliest
+  first, each a bar in its section's tint with kronor and share. A row opens to its five
+  costliest items ("Kycklinglårfilé · 3 gånger · 327 kr").
+- **Kvitton**: the latest receipts, a date, the store's initial and name, the total.
+- On a laptop the chart and the sections sit side by side, the receipts under them.
+
+### A receipt
+
+Opens from Kvitton at `/budget/receipts/:id`: slides in from the right, beside the page on a
+laptop and over it on a phone. Store, date, the week it counts towards (a tag; tap to move it to
+the other week), total. Then its lines grouped by section with subtotals, costliest first. Tap
+a line to list the sections and move it; its section is what Tore was told when it logged
+the receipt, otherwise Övrigt.
 
 # 7. Agentic interaction patterns
 
