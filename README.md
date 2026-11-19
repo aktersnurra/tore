@@ -76,7 +76,7 @@ lib/
 
 **LLM gate** — `Tore.LLM` refuses calls for a household nobody sponsors, and once the household has spent its monthly limit; it records each call's cost per household. `Tore.SpendGuard` adds an estimate check and a cooldown for a few expensive features (prep guide, recipe suggestions, web search). The monthly limit is what stops a runaway loop draining API credits.
 
-**Decision tier** — a call that only chooses among options Tore wrote goes to a decision model (TypeSafe's Jev, through OpenRouter's Decisions API) with `Tore.LLM.decide/4`. It returns probabilities, not text; below a confidence threshold a fixed rule decides. The home pick is the first such call (`Tore.Home`).
+**Decision tier** — a call that only chooses among options Tore wrote asks typed questions with `Tore.LLM.decide/4`, answered by pi as a one-shot. It returns a choice with a confidence, not text; below a confidence threshold a fixed rule decides. The home pick is the first such call (`Tore.Home`).
 
 **Canonical ingredient keys** — ingredients store a `key` column (e.g. `gul_lok`) derived from the display name. Used for deduplication, pantry matching, and grocery aggregation across locales.
 
@@ -91,15 +91,20 @@ mix setup          # install deps, create and migrate DB, seed
 mix phx.server     # http://localhost:4000
 ```
 
-Set `OPENROUTER_API_KEY` in your environment (or `.env`). Without it Tore still runs, in dev and production, with every AI feature off. Optional overrides:
+Every AI request goes through [pi](https://github.com/badlogic/pi-mono) (`Tore.Pi`), started by
+`harness/pi-session`, which needs `jq`, `pi` and a model key (`ANTHROPIC_API_KEY` or
+`OPENROUTER_API_KEY`) in its environment. Without `TORE_PI_COMMAND` Tore still runs, in dev and
+production, with every AI feature off.
 
 ```sh
-OPENROUTER_MODEL=openai/gpt-4o-mini
-OPENROUTER_VISION_MODEL=google/gemini-2.5-flash-lite
-OPENROUTER_IMAGE_MODEL=bytedance-seed/seedream-5-0-pro
-OPENROUTER_CHECK_MODEL=openai/gpt-oss-120b:free
-DECISIONS_MODEL=typesafe/jev-1.14
+TORE_PI_COMMAND=harness/pi-session           # or an ssh command to the harness machine
+TORE_PI_MCP_URL=http://localhost:4000/mcp    # /mcp as pi reaches it (default: the endpoint's)
+TORE_PI_MODEL=anthropic/claude-sonnet-5-5    # the chat and background jobs
+TORE_PI_ONESHOT_MODEL=…                      # one-off answers, such as a receipt (default: TORE_PI_MODEL)
 ```
+
+Recipe pictures are drawn by an image model through OpenRouter: set `OPENROUTER_API_KEY`, and
+optionally `OPENROUTER_IMAGE_MODEL` (default `bytedance-seed/seedream-5-0-pro`).
 
 Dates and times such as "today" and "Saturday morning" use the server's local clock (`Tore.Clock`), so set `TZ` to the household's time zone.
 
@@ -141,7 +146,7 @@ bin/dev        # first run seeds .env and stops — fill it in, then re-run
 `bin/dev` brings up Garage (`docker compose up -d --wait`), provisions the
 `tore-recipes` bucket on first run, and starts Phoenix. Fill `.env` with:
 
-- `OPENROUTER_API_KEY` — your OpenRouter key.
+- `OPENROUTER_API_KEY` — your OpenRouter key, for recipe pictures.
 - `GARAGE_ACCESS_KEY_ID` / `GARAGE_SECRET_ACCESS_KEY` — credentials you choose
   (`GK`-prefixed id + 64-char hex secret; see the comments in `.env.example`).
   `bin/garage-bootstrap.sh` imports them into Garage.

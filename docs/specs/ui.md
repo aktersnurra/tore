@@ -142,7 +142,7 @@ Every main screen has the same tab bar at the bottom, each tab an icon with its 
 - **Tore**, in the middle, is a filled round button in the text colour, not saffron. It
   opens the chat as a sheet over the screen you're on, and Close returns there.
 - **Quick swaps** sit in the chat, above its input: up to three chips that open a screen
-  or send a short request. They come from the stored pick, or from the last turn. Plain
+  or send a short request. They come from the stored pick. Plain
   chips: no AI iconography, no animation.
 - **The top bar** is the same on every tab (2026-11-18): the sidebar icon on the left opens the
   menu; the right holds this page's own actions behind ⋯. Page shortcuts live in the page:
@@ -491,7 +491,7 @@ Used when the user must pick or confirm.
 
 ```md
 Examples:
-- Three fridge-photo suggestions
+- Three dinners to choose between for tonight
 - Swap recipe suggestions
 - Deal opportunity
 ```
@@ -563,35 +563,35 @@ Execute
 
 ## 5.4 Inputs
 
-### Command bar
+### Asking about something on a screen
 
-The command bar is the agentic power path.
+There is no command bar. The chat (Tore, the centre tab) is where you type. A screen's object
+sheet has an input about the thing you touched, which asks the same chat with a line naming it:
 
 ```md
-[ Ask Tore to adjust the week…                       ↑ ]
+[ Anything about this day… ]
 ```
 
 Behavior:
 
 ```md
-- Sticky bottom on Plan
-- Expands into a larger composer on focus
-- Supports examples when empty
-- Shows agent status while running
-- Final state becomes a run receipt, not a chat bubble
+- Lives inside the sheet of the day, tonight's dinner or the grocery item
+- The person doesn't name the day or item; the sheet does
+- A quiet working line while Tore works ("Changing the plan…")
+- Tore's reply shows in a note on the screen, which can be closed
+- What changed shows on the screen itself, and in the chat as a line with Undo
 ```
 
 Examples:
 
 ```md
-Make Thursday leftovers
-Find something quick for Tuesday
-Use the pork deal this week
-Move salmon to Friday
-Plan only three dinners
+Make it leftovers from Monday
+Find something quick instead
+Move it to Friday
+We already have this
 ```
 
-The current spec already defines the planner command bar and `PlannerAgent` tool loop; the UI should make that feel like a direct manipulation surface, not a separate chat mode. 
+Plan's "Plan the open days" asks the chat the same way, for the whole week.
 
 ### Capture input
 
@@ -601,17 +601,15 @@ Capture is for photos and messy input.
 [ Take photo ] [ Paste recipe ] [ Scan receipt ] [ Ask Tore ]
 ```
 
-After upload, Tore routes the content:
+A photo goes to Tore with whatever was typed, and Tore reads it itself. With no words:
 
 ```md
 Receipt → Logged as a cost, with Undo
-Recipe photo/text → Save recipe
-Fridge photo → Suggestions
-Pantry shelf → Pantry belief preview
+Recipe photo → Saved, with Undo
+Shelf or fridge → Into the pantry, a line with Undo per item
 Unknown → Ask what to do
 ```
 
-This matches the existing photo pipeline goals for receipt, recipe, pantry, and fridge classification. 
 
 ---
 
@@ -720,6 +718,7 @@ Tonight · Pork skewers with cucumber yoghurt
 [ input field scoped to tonight ]
 ```
 
+What's typed goes to the person's chat with a line naming tonight's dinner (§5.4).
 Calm rules (same as §6.2's slot sheet): quiet placeholder copy ("Anything
 about tonight…"), no AI branding or iconography, silent until used. Escape
 or tapping the scrim closes the sheet without dispatching.
@@ -826,19 +825,11 @@ Drop applies immediately
 Undo snackbar appears
 ```
 
-Command:
+Ask about a day (§5.4):
 
 ```md
-Natural language applies changes
-Run receipt appears
-Changed slots animate subtly
-```
-
-Slot sheet scoped input:
-
-```md
-Input inside the open slot sheet
-Referent is the touched slot — pre-resolved, no need to name the day
+Input inside the open slot sheet, sent to the chat with the day named
+Tore's reply shows in a note; changed slots animate subtly
 ```
 
 Calm rules:
@@ -978,11 +969,9 @@ Greek yoghurt
 [ input field scoped to this item ]
 ```
 
-The scoped input routes through Capture's classifier with a text referent
-("[The user is referring to the grocery item "Greek yoghurt" on the
-shopping list.]") rather than a resolved handle — no grocery action tools
-exist yet to consume one (`ResolvedGroceryItem` is deferred, SPEC.md
-§A.6.2). Calm rules as §6.2's slot sheet: quiet placeholder ("Anything
+The scoped input goes to the person's chat with a line naming the item
+(`From the Shop screen, about "Greek yoghurt" on this week's shopping list: …`),
+and Tore's reply shows in a note under the header (§5.4). Calm rules as §6.2's slot sheet: quiet placeholder ("Anything
 about this item…"), no AI branding, silent until used. Escape or the scrim
 closes without dispatching.
 
@@ -993,52 +982,34 @@ closes without dispatching.
 Answer:
 
 ```md
-What can Tore understand from this messy input?
+What can Tore do with this?
 ```
 
 ### Layout
 
 ```md
-Header
-- "Capture"
-
-Primary actions
-- Scan receipt
-- Add recipe
-- Fridge photo
-- Pantry shelf
-- Ask Tore
-
-Recent captures
-- Receipt parsed
-- Recipe saved
-- Fridge suggestions
+Sheet over the current screen, from the centre tab
+- The conversation, from where it was
+- Quick swaps above the input
+- Input: text, photos, send
 ```
 
 ### Capture result pattern
 
-```md
-Tore found a receipt
-12 items · 438 kr
-
-[Save] [Review]
-```
+Each change Tore makes is a line with Undo, not a paragraph:
 
 ```md
-Tore found ingredients
-Chicken · yoghurt · cucumber · rice
-
-Suggested:
-1. Chicken yoghurt skewers
-2. Fried rice
-3. Cucumber chicken bowls
-
-[Add #1 to tonight]
+Logged the receipt · ICA · 438 kr        [Undo]
+Saved Kycklingspett med tzatziki         [Undo]
+Added mjölk to the pantry                [Undo]
 ```
+
+Tore's words around them stay short: what it did in a line, or the one question it needs answered.
 
 ### Rule
 
-The default outcome should be a useful artifact, not a question. Your current spec says the fridge-photo flow must end in three concrete recipe suggestions with “add to tonight,” not stop at “Want me to suggest some recipes?” 
+The default outcome should be a change made, not a question. A photo with no words is something to
+act on: a receipt logged, a recipe saved, a shelf or fridge put into the pantry.
 
 ## 6.5 Cooking mode
 

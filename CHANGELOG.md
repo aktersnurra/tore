@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### All AI through pi (2026-11-19)
+
+- Tore talks to one agent, pi, for everything. Each person has their own conversation with it; the Tore tab, and asking about a day on Plan, tonight on Today or an item on Shop, all go to it. It acts through Tore's tools, and each change it makes shows a receipt with Undo.
+- Photos go to the same conversation: pi reads a receipt, a recipe's pages, or a shelf or the fridge, and logs, saves or stocks what it sees, with the printed best-before date when it can read one.
+- One-off answers (reading a receipt or a recipe page, matching products, guessing prices and shelf life, the prep guide, cook steps, the home pick) are short pi sessions with no tools, counted under the feature that asked.
+- Planning the week is a background job for pi, which guesses prices for unpriced ingredients first.
+- OpenRouter only draws recipe pictures now. Turning AI on means setting `TORE_PI_COMMAND`.
+
 ### Budget forecast (2026-11-20)
 
 - What a week will cost is now a ladder of forecasts, each worked out from what Tore knew at a moment, so any past week can be predicted as it stood on its Monday and every forecast scored against what was really paid.
