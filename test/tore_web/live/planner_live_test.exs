@@ -50,6 +50,56 @@ defmodule ToreWeb.PlannerLiveTest do
       open_ahead = 7 - Date.day_of_week(today)
       rows = Regex.scan(~r/data-role="new-dinner"/, render(lv))
       assert length(rows) == open_ahead
+
+      # The row says what the day is, not how many it serves.
+      refute tonight =~ "4 portioner"
+    end
+
+    test "a dinner cooked on its day is tagged Cooked instead of Tonight", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      today = Tore.Clock.today()
+      key = Tore.Streams.slot_key(today)
+      {:ok, _} = Planning.assign_recipe(home_scope(), this_plan_id(), key, recipe.id, 4)
+      :ok = Recipes.record_used(home_scope(), recipe.id)
+
+      {:ok, lv, _html} = conn |> authed(user) |> live(~p"/plan")
+
+      tonight = lv |> element("#slot-#{key}") |> render()
+      assert tonight =~ "Lagad"
+      refute tonight =~ "Ikväll"
+    end
+  end
+
+  describe "the month" do
+    test "shows each day's dinner, steps by month, and a day opens its week", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      today = Tore.Clock.today()
+      key = Tore.Streams.slot_key(today)
+      {:ok, _} = Planning.assign_recipe(home_scope(), this_plan_id(), key, recipe.id, 4)
+
+      {:ok, lv, _html} = conn |> authed(user) |> live(~p"/plan")
+      html = lv |> element(~s([data-plan-view="month"])) |> render_click()
+
+      assert has_element?(lv, "#plan-month")
+      assert html =~ "1 middag planerad"
+      # The heading is the month, capitalised: "November 2026".
+      assert html =~ ~r/[A-ZÅÄÖ][a-zåäö]+ #{today.year}/u
+      assert has_element?(lv, ~s(#plan-month [data-date="#{today}"]), "Roast chicken")
+      refute has_element?(lv, "#slot-#{key}")
+
+      lv |> element(~s(button[aria-label="Nästa månad"])) |> render_click()
+      refute has_element?(lv, ~s(#plan-month [data-date="#{today}"]))
+      lv |> element(~s(button[aria-label="Föregående månad"])) |> render_click()
+
+      lv |> element(~s(#plan-month [data-date="#{today}"])) |> render_click()
+      refute has_element?(lv, "#plan-month")
+      assert lv |> element("#slot-#{key}") |> render() =~ "Roast chicken"
     end
   end
 
@@ -287,10 +337,7 @@ defmodule ToreWeb.PlannerLiveTest do
       button = view |> element(~s([data-role="plan-week"]))
 
       assert render(button) =~
-               if(open == 1,
-                 do: "Planera den lediga dagen",
-                 else: "Planera de #{open} lediga dagarna"
-               )
+               if(open == 1, do: "Planera 1 dag", else: "Planera #{open} dagar")
 
       html = render_click(button)
       assert html =~ "Planerar de lediga dagarna…"

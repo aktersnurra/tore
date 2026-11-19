@@ -730,23 +730,29 @@ What should the week look like?
 
 ### Layout
 
-Plan is the week as a list (2026-11-18):
+Plan is the week as a list, or the month as a calendar (2026-11-19):
 
 ```md
 Icon + "Week 47"           ‹ ›
 16–22 november · about 575 of 900 kr      ← one line: the dates and the money
-[Plan the 4 open days]
+[Week] [Month]                [Plan 4 days]  ← views, filled when open; planning what's open
 Run receipt, when there is one
-mån 16  [photo] Oxfilé med potatisgratäng   4 servings
-ons 18  [photo] Kycklinggryta  [Tonight] 4 servings
+mån 16  [photo] Oxfilé med potatisgratäng  [Cooked]
+ons 18  [photo] Kycklinggryta  [Tonight]
 tor 19  + New dinner                        ← an open day ahead, faint
 ⋯       Prep this week
 ```
 
+Month: the heading is the month ("November 2026", ‹ › step a month) with how many dinners are
+planned under it; a calendar of seven columns, Monday first, each day its number (today's in
+red) over the dinner's photo or tinted cover, an empty square when nothing is planned. A day
+opens its week. Servings are set in the day's sheet, not shown in the row.
+
 ### Day row
 
 The date sits in the margin (today's number in red). A planned day shows the dish's photo or
-tinted cover, its name, and tags: Tonight (red), Uses leftovers / Leftovers for (purple),
+tinted cover, its name, and tags: Cooked (green, when Done in cook mode was pressed that day),
+Tonight (red, until it's cooked), Uses leftovers / Leftovers for (purple),
 Eating out and Skipped (grey). A pinned day has a small lock.
 
 States:

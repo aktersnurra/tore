@@ -55,6 +55,10 @@ defmodule ToreWeb.Dates do
   def range(%Date{} = from, %Date{} = to),
     do: "#{from.day} #{month(from)} – #{to.day} #{month(to)}"
 
+  @doc "A heading's month: \"November 2026\", capitalised in every language."
+  @spec month_year(Date.t()) :: String.t()
+  def month_year(%Date{} = date), do: "#{String.capitalize(month(date))} #{date.year}"
+
   defp month(%Date{month: month}) do
     case month do
       1 -> gettext("January")

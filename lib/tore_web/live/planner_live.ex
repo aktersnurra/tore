@@ -48,7 +48,10 @@ defmodule ToreWeb.PlannerLive do
        current_run: current_run,
        quick_loading: false,
        quick_label: nil,
-       focused_slots: MapSet.new()
+       focused_slots: MapSet.new(),
+       view: :week,
+       month: nil,
+       month_weeks: nil
      )
      |> with_plan(plan_state)}
   end
@@ -82,6 +85,27 @@ defmodule ToreWeb.PlannerLive do
   def handle_event("next_week", _params, socket) do
     week_start = Date.add(socket.assigns.week_start, 7)
     {:noreply, load_week(socket, week_start)}
+  end
+
+  # The month opens on the month the week shown is in (its Thursday's, as week numbers count).
+  def handle_event("set_plan_view", %{"view" => "month"}, socket) do
+    month = socket.assigns.week_start |> Date.add(3) |> Date.beginning_of_month()
+    {:noreply, socket |> assign(view: :month) |> load_month(month)}
+  end
+
+  def handle_event("set_plan_view", %{"view" => "week"}, socket),
+    do: {:noreply, assign(socket, view: :week)}
+
+  def handle_event("prev_month", _params, socket),
+    do: {:noreply, load_month(socket, Date.shift(socket.assigns.month, month: -1))}
+
+  def handle_event("next_month", _params, socket),
+    do: {:noreply, load_month(socket, Date.shift(socket.assigns.month, month: 1))}
+
+  # A day in the month opens its week.
+  def handle_event("open_week", %{"date" => date}, socket) do
+    week_start = date |> Date.from_iso8601!() |> Tore.Streams.monday()
+    {:noreply, socket |> assign(view: :week) |> load_week(week_start)}
   end
 
   def handle_event("open_slot", %{"slot_key" => sk}, socket) do
@@ -348,7 +372,10 @@ defmodule ToreWeb.PlannerLive do
 
   def handle_info({:events, _events}, socket) do
     {:ok, plan_state} = Planning.load_plan(socket.assigns.current_scope, socket.assigns.plan_id)
-    {:noreply, with_plan(socket, plan_state)}
+    socket = with_plan(socket, plan_state)
+
+    {:noreply,
+     if(socket.assigns.view == :month, do: load_month(socket, socket.assigns.month), else: socket)}
   end
 
   def handle_info({:suggestions_loaded, sk, suggestions}, socket) do
@@ -472,27 +499,45 @@ defmodule ToreWeb.PlannerLive do
         <header class="pt-1">
           <.page_icon icon="ph-calendar-blank-duotone" tint="blue" />
           <div class="mt-3 flex items-center justify-between gap-3">
-            <h1 class="t-display num">{gettext("Week %{week}", week: @week_number)}</h1>
+            <h1 :if={@view == :week} class="t-display num">
+              {gettext("Week %{week}", week: @week_number)}
+            </h1>
+            <h1 :if={@view == :month} class="t-display num">
+              {ToreWeb.Dates.month_year(@month)}
+            </h1>
             <div class="-mr-2 flex shrink-0 items-center">
               <button
                 type="button"
-                phx-click="prev_week"
+                phx-click={if @view == :month, do: "prev_month", else: "prev_week"}
                 class="icon-btn press"
-                aria-label={gettext("Previous week")}
+                aria-label={
+                  if @view == :month, do: gettext("Previous month"), else: gettext("Previous week")
+                }
               >
                 <.icon name="ph-caret-left" class="size-5" />
               </button>
               <button
                 type="button"
-                phx-click="next_week"
+                phx-click={if @view == :month, do: "next_month", else: "next_week"}
                 class="icon-btn press"
-                aria-label={gettext("Next week")}
+                aria-label={if @view == :month, do: gettext("Next month"), else: gettext("Next week")}
               >
                 <.icon name="ph-caret-right" class="size-5" />
               </button>
             </div>
           </div>
-          <p class="num mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
+          <p
+            :if={@view == :month}
+            class="num mt-1 text-[color:var(--muted)]"
+            style="font-size: 15px;"
+          >
+            {ngettext(
+              "%{count} dinner planned",
+              "%{count} dinners planned",
+              planned_in(@month_weeks)
+            )}
+          </p>
+          <p :if={@view == :week} class="num mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
             {ToreWeb.Dates.range(@week_start, @week_end)}<span
               :if={@verdict}
               id={"week-verdict-#{@week_start}-#{@verdict.spent}-#{@verdict.budget}"}
@@ -514,18 +559,45 @@ defmodule ToreWeb.PlannerLive do
           </p>
         </header>
 
-        <div :if={open_days(@plan_state, @week_start, @today) > 0} class="mt-5">
+        <%!-- The two views, then planning what's still open --%>
+        <div class="mt-4 flex items-center gap-1 border-b border-[color:var(--hairline)] pb-1.5">
+          <div class="flex gap-1" role="tablist">
+            <button
+              :for={
+                {view, icon, label} <- [
+                  {:week, "ph-list-bullets", gettext("Week")},
+                  {:month, "ph-calendar-blank", gettext("Month")}
+                ]
+              }
+              type="button"
+              phx-click="set_plan_view"
+              phx-value-view={view}
+              role="tab"
+              aria-selected={to_string(@view == view)}
+              data-plan-view={view}
+              class={[
+                "view-tab press inline-flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-2",
+                @view == view && "is-open",
+                @view != view && "text-[color:var(--muted)]"
+              ]}
+              style="font-size: 14px; font-weight: 600;"
+            >
+              <.icon name={icon} class="size-4" />
+              {label}
+            </button>
+          </div>
+          <span class="flex-1"></span>
           <button
+            :if={@view == :week and open_days(@plan_state, @week_start, @today) > 0}
             type="button"
             phx-click="plan_week"
             disabled={@quick_loading}
             data-role="plan-week"
-            class="pill pill-lamp press"
+            class="pill pill-lamp press h-8 px-3"
           >
-            <.icon name="ph-calendar-blank" />
             {ngettext(
-              "Plan the open day",
-              "Plan the %{count} open days",
+              "Plan %{count} day",
+              "Plan %{count} days",
               open_days(@plan_state, @week_start, @today)
             )}
           </button>
@@ -548,8 +620,15 @@ defmodule ToreWeb.PlannerLive do
           />
         </div>
 
-        <div class="mt-5">
-          <ul class="border-t border-[color:var(--hairline)]" inert={if @slot_action, do: true}>
+        <.month_grid
+          :if={@view == :month}
+          weeks={@month_weeks}
+          recipes={@recipes}
+          today={@today}
+        />
+
+        <div :if={@view == :week} class="mt-1">
+          <ul inert={if @slot_action, do: true}>
             <.day_row
               :for={{day, i} <- Enum.with_index(@days)}
               day={day}
@@ -613,7 +692,15 @@ defmodule ToreWeb.PlannerLive do
     recipe = recipe_by_id(assigns.recipes, slot[:recipe_id])
     is_today = assigns.date == assigns.today
     pinned = Map.has_key?(assigns.plan_state.pins, assigns.slot_key)
-    assigns = assign(assigns, slot: slot, recipe: recipe, is_today: is_today, pinned: pinned)
+
+    assigns =
+      assign(assigns,
+        slot: slot,
+        recipe: recipe,
+        is_today: is_today,
+        cooked: cooked_on?(recipe, assigns.date),
+        pinned: pinned
+      )
 
     ~H"""
     <li
@@ -670,7 +757,10 @@ defmodule ToreWeb.PlannerLive do
                 {@recipe.title}
               </span>
               <span class="mt-1 flex flex-wrap items-center gap-1.5">
-                <span :if={@is_today} class="tag tag-red">
+                <span :if={@cooked} class="tag tag-green">
+                  <span class="tag-dot"></span>{pgettext("dinner", "Cooked")}
+                </span>
+                <span :if={@is_today and !@cooked} class="tag tag-red">
                   <span class="tag-dot"></span>{gettext("Tonight")}
                 </span>
                 <span :if={@slot.leftover} class="tag tag-purple">
@@ -679,9 +769,6 @@ defmodule ToreWeb.PlannerLive do
                 <span :if={leftover_target(@plan_state, @days, @date) != nil} class="tag tag-purple">
                   <.icon name="ph-arrow-u-up-left" />
                   {gettext("Leftovers for %{day}", day: leftover_target(@plan_state, @days, @date))}
-                </span>
-                <span :if={@slot.servings} class="num text-[13px] text-[color:var(--muted)]">
-                  {gettext("%{n} servings", n: @slot.servings)}
                 </span>
               </span>
             </span>
@@ -721,6 +808,96 @@ defmodule ToreWeb.PlannerLive do
     </li>
     """
   end
+
+  # Cooked that day: Done in cook mode records when a recipe was last made.
+  defp cooked_on?(%{last_used_at: %DateTime{} = at}, date), do: Tore.Clock.date_of(at) == date
+  defp cooked_on?(_recipe, _date), do: false
+
+  defp planned_in(weeks) do
+    weeks |> List.flatten() |> Enum.count(&(&1 && &1.slot && &1.slot.recipe_id))
+  end
+
+  attr :weeks, :list, required: true
+  attr :recipes, :list, required: true
+  attr :today, :any, required: true
+
+  # The month as a calendar: each day's dinner as a small picture; a day opens its week.
+  defp month_grid(assigns) do
+    monday =
+      assigns.weeks |> List.flatten() |> Enum.find(& &1) |> then(&Tore.Streams.monday(&1.date))
+
+    assigns = assign(assigns, :weekdays, Enum.map(0..6, &Date.add(monday, &1)))
+
+    ~H"""
+    <div id="plan-month" class="mt-3">
+      <div class="grid grid-cols-7 gap-1.5 pb-1 text-center text-[12px] text-[color:var(--muted)]">
+        <span :for={date <- @weekdays}>{day_letters(date)}</span>
+      </div>
+      <div :for={week <- @weeks} class="mt-1.5 grid grid-cols-7 gap-1.5">
+        <%= for day <- week do %>
+          <span :if={!day} aria-hidden="true"></span>
+          <.month_day :if={day} day={day} recipes={@recipes} today={@today} />
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :day, :map, required: true
+  attr :recipes, :list, required: true
+  attr :today, :any, required: true
+
+  defp month_day(assigns) do
+    slot = assigns.day.slot
+    recipe = slot && recipe_by_id(assigns.recipes, slot.recipe_id)
+    assigns = assign(assigns, slot: slot, recipe: recipe)
+
+    ~H"""
+    <button
+      type="button"
+      phx-click="open_week"
+      phx-value-date={@day.date}
+      data-date={@day.date}
+      aria-label={
+        Enum.join(
+          [ToreWeb.Dates.long(@day.date), @recipe && @recipe.title] |> Enum.reject(&is_nil/1),
+          ", "
+        )
+      }
+      class={[
+        "press-soft flex flex-col items-stretch gap-1 rounded-[var(--r-md)] text-left",
+        Date.compare(@day.date, @today) == :lt && "opacity-70"
+      ]}
+    >
+      <span class={[
+        "num block pl-0.5 text-[13px] font-semibold",
+        @day.date == @today && "text-[color:var(--tag-red-ink)]",
+        @day.date != @today && "text-[color:var(--text)]"
+      ]}>
+        {@day.date.day}
+      </span>
+      <span class="relative block aspect-square w-full overflow-hidden rounded-[var(--r-sm)] bg-[var(--sunken)]">
+        <img
+          :if={@recipe && @recipe.image_path}
+          src={~p"/images/recipes/#{@recipe.id}"}
+          alt=""
+          loading="lazy"
+          class="absolute inset-0 size-full object-cover"
+        />
+        <.blank_cover
+          :if={@recipe && !@recipe.image_path}
+          dish={@recipe}
+          icon_class="size-[55%]"
+        />
+        <span class="sr-only">{@recipe && @recipe.title}</span>
+      </span>
+    </button>
+    """
+  end
+
+  # "mån", the way the week's rows start.
+  defp day_letters(date),
+    do: date |> ToreWeb.Dates.weekday() |> String.slice(0, 3) |> String.downcase()
 
   # Days from today on with nothing planned: no dinner, not skipped, not eating out.
   defp open_days(plan_state, week_start, today) do
@@ -1166,6 +1343,32 @@ defmodule ToreWeb.PlannerLive do
       </button>
     </li>
     """
+  end
+
+  # A month as weeks of seven days, Monday first; the days of the months around it are nil.
+  defp load_month(socket, month) do
+    scope = socket.assigns.current_scope
+    first = Tore.Streams.monday(month)
+    last = month |> Date.end_of_month() |> Tore.Streams.monday() |> Date.add(6)
+
+    plans =
+      Map.new(Date.range(first, last, 7), fn monday ->
+        {:ok, plan_state} = Planning.load_plan(scope, plan_id(scope, monday))
+        {monday, plan_state}
+      end)
+
+    weeks =
+      first
+      |> Date.range(last)
+      |> Enum.map(fn date ->
+        if date.month == month.month do
+          slots = plans[Tore.Streams.monday(date)].slots
+          %{date: date, slot: slots[Tore.Streams.slot_key(date)]}
+        end
+      end)
+      |> Enum.chunk_every(7)
+
+    assign(socket, month: month, month_weeks: weeks)
   end
 
   defp load_week(socket, week_start) do
