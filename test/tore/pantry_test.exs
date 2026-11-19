@@ -501,4 +501,57 @@ defmodule Tore.PantryTest do
       assert Pantry.at_home(home_scope(), ["lax"]).missing == []
     end
   end
+
+  describe "Hemma: putting away, still there, gone" do
+    test "put_away/4 adds a confirmed row, under a known ingredient's name and category" do
+      {:ok, _, :added, nil} =
+        Pantry.upsert_belief(home_scope(), %{
+          catalogue_name: "Mjölk",
+          category: "dairy",
+          provenance: "receipt"
+        })
+
+      {:ok, _} = Pantry.mark_gone(home_scope(), hd(Pantry.list_inventory(home_scope())).id)
+
+      {:ok, item} = Pantry.put_away(home_scope(), "mjölk", Decimal.new(1), "l")
+
+      assert item.name == "mjölk"
+      assert item.category == "dairy"
+      assert item.belief == "confirmed"
+      assert [_one] = Pantry.list_inventory(home_scope())
+    end
+
+    test "confirm_item/2 makes an unsure row sure again, and drops a date it outlived" do
+      {:ok, item} =
+        Pantry.add_item(home_scope(), %{
+          name: "Smör",
+          belief: "uncertain",
+          expires_at: Date.add(Tore.Clock.today(), -2),
+          expires_source: "estimate"
+        })
+
+      {:ok, item} = Pantry.confirm_item(home_scope(), item.id)
+
+      assert item.belief == "confirmed"
+      assert item.expires_at == nil
+
+      assert Pantry.PantryItem.effective_belief(item, DateTime.utc_now(), Tore.Clock.today()) ==
+               :confirmed
+    end
+
+    test "mark_gone/2 makes a row missing, so it isn't counted as at home" do
+      {:ok, item} = Pantry.add_item(home_scope(), %{name: "Ägg"})
+      {:ok, _} = Pantry.mark_gone(home_scope(), item.id)
+
+      assert Pantry.at_home(home_scope(), ["ägg"]).missing == ["ägg"]
+    end
+
+    test "another household's row can't be changed" do
+      other = Tore.AccountsFixtures.scope_fixture(Tore.AccountsFixtures.household_fixture())
+      {:ok, item} = Pantry.add_item(home_scope(), %{name: "Ägg"})
+
+      assert {:error, :not_found} = Pantry.mark_gone(other, item.id)
+      assert {:error, :not_found} = Pantry.confirm_item(other, item.id)
+    end
+  end
 end

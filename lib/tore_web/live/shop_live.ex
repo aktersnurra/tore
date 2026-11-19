@@ -636,41 +636,6 @@ defmodule ToreWeb.ShopLive do
 
   defp scan_line(%{change: :failed}), do: gettext("Couldn't look that code up. Try again.")
 
-  attr :id, :string, required: true, doc: "the id of the list it folds"
-  attr :label, :string, required: true
-  attr :tint, :string, required: true
-  attr :count, :integer, required: true
-  attr :open, :boolean, default: true
-
-  # A group's head: a caret that folds the list under it, the section's tag, and the count.
-  defp group_head(assigns) do
-    ~H"""
-    <button
-      type="button"
-      phx-click={
-        JS.toggle(to: "##{@id}")
-        |> JS.toggle_class("rotate-90", to: "##{@id}-caret")
-        |> JS.toggle_attribute({"aria-expanded", "true", "false"})
-      }
-      aria-expanded={to_string(@open)}
-      aria-controls={@id}
-      data-role="group-head"
-      class="press -ml-1 flex h-8 items-center gap-1.5"
-    >
-      <span
-        id={"#{@id}-caret"}
-        class={[
-          "ph-caret-right size-4 text-[color:var(--muted)] transition-transform duration-[var(--dur-fast)]",
-          @open && "rotate-90"
-        ]}
-      >
-      </span>
-      <span class={["tag", "tag-#{@tint}"]}>{@label}</span>
-      <span class="num text-[13px] text-[color:var(--muted)]">{@count}</span>
-    </button>
-    """
-  end
-
   # Sections take the tint of what's in them; most of the shop is quiet grey.
   defp section_tint(section) when section in [:produce, :herbs_spices], do: "green"
   defp section_tint(section) when section in [:dairy, :frozen, :fish], do: "blue"

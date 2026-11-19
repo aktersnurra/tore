@@ -943,7 +943,15 @@ defmodule ToreWeb.RecipeLive do
             </dd>
           </div>
           <div :if={@selected.recipe_ingredients != []} data-role="at-home">
-            <dt><.icon name="ph-house-simple" /> {gettext("At home")}</dt>
+            <dt>
+              <.link
+                navigate={~p"/pantry"}
+                data-role="to-pantry"
+                class="press flex items-center gap-2 hover:underline"
+              >
+                <.icon name="ph-house-simple" /> {gettext("At home")}
+              </.link>
+            </dt>
             <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
               {gettext("All of it")}
             </dd>

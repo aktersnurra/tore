@@ -88,7 +88,7 @@ defmodule ToreWeb do
       import Phoenix.HTML
       # Core UI components
       import ToreWeb.CoreComponents
-      import ToreWeb.Look, only: [blank_cover: 1, page_icon: 1]
+      import ToreWeb.Look, only: [blank_cover: 1, group_head: 1, page_icon: 1]
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

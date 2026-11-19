@@ -23,6 +23,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Plan has a Month view: a calendar with each day's dinner as a small picture; a day opens its week. Week / Month sit in one row with "Plan 4 days".
 - Plan tags a dinner Cooked on the day Done was pressed; the servings line is gone from the rows.
 - The open view (Gallery / List, Week / Month) is filled instead of underlined, and New has no plus, as in the mockup.
+- Hemma: a page for what's at home, from the menu (with a count) and from the At home rows on Today and recipes. Grouped Kyl / Frukt & grönt / Frys / Skafferi, with Slut folded at the bottom. Each row says when it goes off ("Håller nog till lördag" when the date is a guess) or asks "Finns kvar?" when Tore isn't sure; Finns and Slut answer it in place. A line at the top puts things away.
 
 ### Cooking, start to finish (2026-11-19)
 

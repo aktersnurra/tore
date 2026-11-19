@@ -110,6 +110,7 @@ defmodule ToreWeb.HomeLiveTest do
       # Opened again, it says so straight away: there's nothing left to put on the list.
       {:ok, again, _} = live(conn, ~p"/today")
       assert has_element?(again, "#home-added")
+      assert has_element?(again, ~s([data-role="to-pantry"][href="/pantry"]))
       refute has_element?(again, ~s([data-role="at-home"] button))
 
       # Cook now asks about what's missing first, and comes back here from cook mode.

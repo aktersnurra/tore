@@ -172,10 +172,13 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 /prep          → Prep guide, via Plan's ⋯ "Prep this week"
 /recipes?type= → Recipes on one collection, from the menu
 /recipes/:id/cook → Cook mode, no tab bar
+/pantry        → Hemma: what's at home, from the menu and the At home rows
 ```
 
 Removed on 2026-11-15: the review page (recipes save straight away with undo), the pantry
 page (Tore keeps the pantry), the costs page (now under Shop) and `/cooking` (now in Settings).
+The pantry came back on 2026-11-19 as Hemma (§6.8): a page to look at and correct, never one
+that asks to be kept.
 
 ### 3.3 Navigation behavior
 
@@ -1241,6 +1244,32 @@ Receipts record cost only. They never change the list.
 ```
 
 ---
+
+## 6.8 Hemma (2026-11-19)
+
+### Job
+
+Show what Tore believes is at home, and let it be corrected in one tap. Tore keeps the
+pantry (§2.4): Shop's ticks put things here, Done in cook mode uses them up. Nothing on this
+page asks to be done.
+
+### Layout
+
+- Title Hemma, with "8 saker · 3 går ut snart".
+- One line to put something away, as on Shop: "1 l mjölk". It's sure from then on.
+- Groups, each a tag that folds like Shop's sections: Kyl (dairy, meat, fish, deli), Frukt
+  & grönt, Frys, Skafferi (the rest), and Slut folded shut at the bottom.
+- A row: a small picture (the category's icon on its group's tint), the name, the amount or
+  when it was bought, and at most one thing said about it at the end.
+
+### What a row says
+
+- **Går ut fre** (red): a date from the label or the household, two days off or less.
+- **Håller nog till fre** (red): the same, when Tore estimated the date from shelf life.
+- **Gick ut igår** (red): a date it has outlived. Tapping asks.
+- **Finns kvar?** (grey): Tore isn't sure any more. Tapping asks.
+- Asking puts **Finns** and **Slut** where the tag was. Finns makes it sure (and drops a
+  date it outlived); Slut moves it to Slut. Under Slut, **Finns** brings it back.
 
 # 7. Agentic interaction patterns
 

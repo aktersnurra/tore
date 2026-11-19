@@ -1,0 +1,92 @@
+defmodule ToreWeb.PantryLiveTest do
+  use ToreWeb.ConnCase, async: false
+  import Phoenix.LiveViewTest
+
+  alias Tore.Pantry
+
+  setup %{conn: conn} do
+    user = user_fixture(name: "Gustaf")
+    %{conn: Plug.Test.init_test_session(conn, %{user_id: user.id})}
+  end
+
+  defp kept(name, category, attrs \\ %{}) do
+    {:ok, item, :added, nil} =
+      Pantry.upsert_belief(
+        home_scope(),
+        Map.merge(%{catalogue_name: name, category: category, provenance: "manual"}, attrs)
+      )
+
+    item
+  end
+
+  test "an empty pantry says how things get here", %{conn: conn} do
+    {:ok, _view, html} = live(conn, ~p"/pantry")
+
+    assert html =~ "Hemma"
+    assert html =~ "Inget här än"
+  end
+
+  test "things are grouped by where they're kept, with what goes off soon", %{conn: conn} do
+    today = Tore.Clock.today()
+    milk = kept("Mjölk", "dairy")
+    {:ok, _} = Pantry.set_expiry(home_scope(), milk.id, Date.add(today, 1))
+    kept("Gul lök", "produce")
+    kept("Laxfilé", "frozen")
+    rice = kept("Ris", "dry_goods")
+
+    {:ok, _} =
+      rice
+      |> Ecto.Changeset.change(expires_at: today, expires_source: "estimate")
+      |> Tore.Repo.update()
+
+    {:ok, view, html} = live(conn, ~p"/pantry")
+
+    assert html =~ "4 saker · 2 går ut snart"
+    assert view |> element(~s([data-group="fridge"])) |> render() =~ "Går ut i morgon"
+    assert has_element?(view, ~s([data-group="produce"]), "gul lök")
+    assert has_element?(view, ~s([data-group="freezer"]), "laxfilé")
+    # A guessed date is said as a guess.
+    assert view |> element(~s([data-group="cupboard"])) |> render() =~ "Håller nog till idag"
+  end
+
+  test "an unsure thing asks; Slut moves it to Gone, and Finns there brings it back, sure", %{
+    conn: conn
+  } do
+    butter = kept("Smör", "dairy")
+    {:ok, _} = butter |> Ecto.Changeset.change(belief: "uncertain") |> Tore.Repo.update()
+    row = ~s([data-item="#{butter.id}"])
+
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+    assert view |> element(row <> ~s( [data-role="ask"])) |> render() =~ "Finns kvar?"
+
+    view |> element(row <> ~s( [data-role="ask"])) |> render_click()
+    view |> element(row <> ~s( [data-role="gone"])) |> render_click()
+    assert has_element?(view, ~s([data-group="gone"] ) <> row)
+    assert Pantry.at_home(home_scope(), ["smör"]).missing == ["smör"]
+
+    # Gone, the row offers Finns straight away.
+    view |> element(row <> ~s( [data-role="still-there"])) |> render_click()
+    assert has_element?(view, ~s([data-group="fridge"] ) <> row)
+    refute has_element?(view, row <> ~s( [data-role="ask"]))
+  end
+
+  test "a line typed in is put away, with its amount", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+
+    view |> form("#put-away", %{name: "2 l mjölk"}) |> render_submit()
+
+    assert view |> element("[data-item]") |> render() =~ "mjölk"
+    assert view |> element("[data-item]") |> render() =~ "2 l"
+  end
+
+  test "the menu has Hemma under the household, with how much is at home", %{conn: conn} do
+    kept("Mjölk", "dairy")
+    {:ok, view, _html} = live(conn, ~p"/plan")
+    bar = find_live_child(view, "tab-bar-live")
+
+    render_hook(bar, "open_menu", %{})
+
+    assert bar |> element(~s([data-role="menu-pantry"][href="/pantry"])) |> render() =~
+             ~r/Hemma.*1/s
+  end
+end

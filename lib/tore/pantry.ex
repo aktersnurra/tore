@@ -430,6 +430,74 @@ defmodule Tore.Pantry do
     :ok
   end
 
+  @doc """
+  Something put away by hand on Hemma, as written ("2 l mjölk" read by `Tore.Shop.parse_line/1`):
+  sure now, added to its ingredient's row if there is one (a row used up comes back). A name
+  Tore hasn't learned yet is learned in the background, so it finds its group.
+  """
+  @spec put_away(Scope.t(), String.t(), Decimal.t() | nil, String.t() | nil) ::
+          {:ok, PantryItem.t()} | {:error, term()}
+  def put_away(%Scope{} = scope, name, quantity, unit) do
+    matched_key =
+      case Tore.Pantry.Match.ingredient(scope, {:name, name}) do
+        {:ok, ingredient} -> ingredient.key
+        :unknown -> nil
+      end
+
+    attrs = %{
+      catalogue_name: name,
+      matched_key: matched_key,
+      quantity: quantity,
+      unit: unit,
+      provenance: "manual",
+      last_seen_at: now()
+    }
+
+    with {:ok, item, _change, _before} <- upsert_belief(scope, attrs) do
+      if matched_key == nil, do: Tore.Pantry.Learn.later(scope, [name])
+      {:ok, item}
+    end
+  end
+
+  @doc """
+  Still there: seen now, so it's sure again. A date it has outlived goes, since the household
+  says it's fine; nothing is learned from that.
+  """
+  @spec confirm_item(Scope.t(), integer()) :: {:ok, PantryItem.t()} | {:error, :not_found}
+  def confirm_item(%Scope{} = scope, item_id) do
+    with {:ok, item} <- fetch_item(scope, item_id) do
+      outlived = PantryItem.past_date?(item, Tore.Clock.today())
+
+      item
+      |> Ecto.Changeset.change(
+        Map.merge(
+          %{belief: "confirmed", last_seen_at: now()},
+          if(outlived, do: %{expires_at: nil, expires_source: nil}, else: %{})
+        )
+      )
+      |> Repo.update()
+    end
+  end
+
+  @doc "Gone: believed missing, as after a dinner (`use_up/2`), until it's bought again."
+  @spec mark_gone(Scope.t(), integer()) :: {:ok, PantryItem.t()} | {:error, :not_found}
+  def mark_gone(%Scope{} = scope, item_id) do
+    with {:ok, item} <- fetch_item(scope, item_id) do
+      item |> Ecto.Changeset.change(belief: "missing", last_seen_at: now()) |> Repo.update()
+    end
+  end
+
+  defp fetch_item(scope, item_id) do
+    case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
+      nil -> {:error, :not_found}
+      item -> {:ok, item}
+    end
+  end
+
+  @doc "Everything kept, with its ingredient, which says where it belongs once learned."
+  @spec list_kept(Scope.t()) :: [PantryItem.t()]
+  def list_kept(%Scope{} = scope), do: scope |> list_inventory() |> Repo.preload(:ingredient)
+
   @spec list_inventory(Scope.t()) :: [PantryItem.t()]
   def list_inventory(%Scope{} = scope) do
     Repo.all(from(p in PantryItem, order_by: p.name), Scope.repo_opts(scope))

@@ -64,6 +64,7 @@ defmodule ToreWeb.TabBarLive do
           }
         end,
       favorites: Tore.Recipes.list_favorites(scope),
+      at_home: length(Tore.Pantry.list_usable(scope)),
       collections: for(type <- ToreWeb.Look.collections(), do: {type, Map.get(counts, type, 0)})
     }
   end
@@ -259,6 +260,12 @@ defmodule ToreWeb.TabBarLive do
           </.link>
 
           <p class="menu-sec">{gettext("Household")}</p>
+          <.link navigate={~p"/pantry"} data-role="menu-pantry" class="menu-row row-hover">
+            <span class="ph-house-simple-duotone size-5 shrink-0 text-[color:var(--tag-orange-ink)]">
+            </span>
+            <span class="truncate">{gettext("At home")}</span>
+            <span class="menu-count num">{@menu.at_home}</span>
+          </.link>
           <.link navigate={~p"/settings#members"} class="menu-row row-hover">
             <span class="ph-users-duotone size-5 shrink-0 text-[color:var(--muted)]"></span>
             {gettext("Members")}

@@ -514,6 +514,7 @@ defmodule ToreWeb.RecipeLiveTest do
       # Opened again, it says so straight away: there's nothing left to put on the list.
       {:ok, again, _} = live(authed(conn, user), ~p"/recipes?#{[id: buns.id]}")
       assert has_element?(again, "#home-added")
+      assert has_element?(again, ~s([data-role="to-pantry"][href="/pantry"]))
       refute has_element?(again, ~s([data-role="at-home"] button))
     end
   end
