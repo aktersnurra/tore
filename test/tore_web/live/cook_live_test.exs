@@ -78,6 +78,7 @@ defmodule ToreWeb.CookLiveTest do
 
     html = view |> element(~s([data-role="step-card"])) |> render_click()
     assert html =~ "Skiva vitlökspulver"
+    refute html =~ "vitlökspulveren"
     assert html =~ "vitlökspulver i stället för vitlök"
 
     assert_patch(

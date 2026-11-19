@@ -196,9 +196,10 @@ defmodule ToreWeb.CookLive do
     end
   end
 
-  # The step's own words name the ingredient as the recipe does; they get the swap's name.
+  # The step's own words name the ingredient as the recipe does; the whole word gets the swap's
+  # name, so "vitlöken" becomes "vitlökspulver", not "vitlökspulveren".
   defp swap_text(swap, text) when is_binary(text),
-    do: Regex.replace(~r/#{Regex.escape(swap.for)}/iu, text, fn _ -> swap.use end)
+    do: Regex.replace(~r/(?<!\p{L})#{Regex.escape(swap.for)}\p{L}*/iu, text, fn _ -> swap.use end)
 
   defp swap_text(_swap, text), do: text
 
