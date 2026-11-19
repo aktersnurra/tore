@@ -150,12 +150,12 @@ Every main screen has the same tab bar at the bottom, each tab an icon with its 
 - **The menu** is a drawer from the left, read when it opens: Ask Tore first, as a soft field
   under the household's name (like search in Notion), then the rest of this week (tonight
   marked, open days quiet), starred recipes, the collections with their counts, and the
-  household's pages (At home, Weekly budget). Settings sits alone at its foot (2026-11-19):
+  household's pages (At home, Weekly budget, Offers). Settings sits alone at its foot (2026-11-19):
   configuration, not a page you use every week; members and diet are inside it.
   It closes on the scrim, on Escape, or when one of its links is followed. Tap only; no edge
   swipe.
 - **Settings** is reached from the menu. It holds members, diet and allergies, the
-  household, memory, stores and AI.
+  household, memory and AI. The stores moved to Erbjudanden (§6.10).
 - The current tab is in the text colour with a filled icon, the others muted and outlined.
   Prep counts as Plan. No sparkle icons anywhere: Tore is a chat glyph.
 
@@ -173,6 +173,7 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 /settings      → Settings, from the menu's foot (#members, #diet go to a section)
 /budget        → Veckobudget, from the menu and Plan's budget line (§6.9)
 /budget/receipts/:id → A receipt, over Veckobudget
+/deals         → Erbjudanden, with the stores at its foot, from the menu (§6.10)
 /prep          → Prep guide, via Plan's ⋯ "Prep this week"
 /recipes?type= → Recipes on one collection, from the menu
 /recipes/:id/cook → Cook mode, no tab bar
@@ -1099,7 +1100,6 @@ Diet and allergies
 Your households
 Household
 Kitchen Memory
-Stores
 AI usage
 ```
 
@@ -1177,23 +1177,6 @@ Rules:
 ```md
 Shown at /welcome to a household's members until one of them picks. Everything the household stores is in this language.
 It can't be changed later. New members, and anyone moved into it, start in it.
-```
-
-### Stores
-
-```md
-Paste a link to a store's offers
-[Add]
-
-ICA Supermarket Danvikstull    [On] [Remove]
-```
-
-Rules:
-
-```md
-The link is all it asks for. The store's name and chain come from the link.
-A link Tore has no parser for gets "Tore can't read that store yet".
-No page of deals. Tore's planner reads them.
 ```
 
 ### Kitchen Memory
@@ -1310,6 +1293,32 @@ laptop and over it on a phone. Store, date, the week it counts towards (a tag; t
 the other week), total. Then its lines grouped by section with subtotals, costliest first. Tap
 a line to list the sections and move it; its section is what Tore was told when it logged
 the receipt, otherwise Övrigt.
+
+## 6.10 Erbjudanden (2026-11-20)
+
+### Job
+
+Answer: what's on offer this week that we'd buy anyway? Mockups: "Erbjudanden, its own page"
+and "Erbjudanden on a laptop" in the Tore kitchen pages artifact. No model is asked; everything
+comes from what Tore already knows (`Tore.Deals.page/3`).
+
+### Layout
+
+- "Vecka 47 · 16–22 november", then one sentence: "Spara runt 62 kr på sånt ni ändå köper",
+  the best deal per ingredient over the first two groups.
+- **Till veckans middagar** (orange): deals on what a dinner from today on calls for, with the
+  dinner's name. **Sånt ni brukar köpa** (green): deals on the household's basics. **Övriga
+  erbjudanden** (grey): the rest, folded, with its count.
+- A deal: its name and size, the store's initial and name, "t.o.m. sön 22/11", the price
+  ("89 kr", "2 för 20", "99 kr/kg") over the regular price struck through, and on a laptop
+  what it saves. On a phone the store and end date sit under the name.
+- A + square puts it on this week's list, under its ingredient's name when it's matched to one;
+  a deal already on the list shows "På listan" (a check on a phone, in the same square).
+- **Butiker** at the foot: each store with its offers this week, a switch, and × to remove.
+  "Lägg till butik" opens the link field; it's open from the start when there are none. A link
+  Tore has no parser for gets "Tore kan inte läsa den butiken än".
+- Without stores: "Erbjudanden från butikerna ni handlar i" and where to add one. With stores but
+  nothing in yet: that Tore reads them every Friday.
 
 # 7. Agentic interaction patterns
 

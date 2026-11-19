@@ -824,12 +824,17 @@ Eating out is a state of a day in the plan, not a cost form. "Eating out" on the
 
 **Status: built, for ICA only.**
 
-A store is added in Settings by pasting a link to its offers. `Tore.Deals.Parsers.for_url/1` picks a parser from the
+A store is added on Erbjudanden (`/deals`) by pasting a link to its offers. `Tore.Deals.Parsers.for_url/1` picks a parser from the
 link's host, and each chain is one module implementing `Tore.Deals.Parsers.Parser`. Only https links on a parser's
 hosts get fetched, so a pasted link can't point Tore anywhere else. A link no parser handles gets "Tore can't read
 that store yet". From Friday, `Tore.WeekAhead` fetches each enabled store once a day until its offers for the coming
 week appear, and the planner reads the results through `active_deals`, which shows only
 offers still running in the week being planned (`Deals.valid_in_week/2`).
+
+**Erbjudanden** (`/deals`, `Deals.page/3`) shows the current offers with no model: first those a dinner from today on
+calls for, then those on the household's basics (`Tore.Basics`), each through its product match; the rest folded. Each
+has what it saves over the regular price, and + puts it on this week's list by its ingredient's name. The stores sit at
+its foot.
 
 Each offer stores its price for `quantity` items per `price_unit` ("3 för 40 kr" is 40 for 3, per st), the usual
 price per item and the comparison price per kg or litre, all as numbers. The ICA parser reads the price from the
@@ -1049,7 +1054,6 @@ like Capture does. A receipt is a photo, here or in the chat; there is no typed 
 - **Your households:** a switcher, shown only to someone in two or more.
 - AI: someone with the `tore_ai` claim can let the household use their credits ("Use my credits for this household"). Others see who sponsors it, or that AI is off.
 - **Things Tore has learned:** the household memory (§1), as "Your household" (the profile) and "Notes", each with how full it is and a "Forget" button per entry. Either member can forget anything.
-- **Stores:** add by link, switch on or off, remove (§8).
 - AI usage.
 
 ---

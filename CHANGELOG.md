@@ -7,6 +7,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Erbjudanden (2026-11-20)
+
+- A page of its own under Hushållet in the menu: what the week's offers save on things bought anyway, then the deals for this week's dinners and on what's usually bought, the rest folded.
+- Each deal shows the store, how long it runs, the price over the regular one and, on a laptop, what it saves; + puts it on this week's list.
+- The stores Tore reads offers from moved here from Settings, with each one's offers this week.
+
 ### Veckobudget (2026-11-19)
 
 - A page of its own, from the menu and Plan's budget line: where the week lands against the budget, what's paid and left by the plan, the average week, eight weeks in one sage hue, the last four weeks by Shop's sections, and the receipts.

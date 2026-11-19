@@ -13,6 +13,9 @@ defmodule ToreWeb.DealsLiveTest do
   @store_url "https://www.ica.se/erbjudanden/ica-supermarket-danvikstull-1156002/"
 
   defp add_store(view, url) do
+    if has_element?(view, "[data-role=add-store]"),
+      do: view |> element("[data-role=add-store]") |> render_click()
+
     view |> form(~s(form[phx-submit="add_store"]), %{url: url}) |> render_submit()
   end
 

@@ -10,7 +10,7 @@ defmodule ToreWeb.DealsLive do
 
   @impl true
   def mount(_params, _session, socket),
-    do: {:ok, socket |> assign(store_url: "", store_error: nil) |> load()}
+    do: {:ok, socket |> assign(store_url: "", store_error: nil, adding_store: false) |> load()}
 
   defp load(socket) do
     today = Tore.Clock.today()
@@ -41,7 +41,8 @@ defmodule ToreWeb.DealsLive do
   def handle_event("add_store", %{"url" => url}, socket) do
     case Deals.add_store(socket.assigns.current_scope, url) do
       {:ok, _store} ->
-        {:noreply, socket |> assign(store_url: "", store_error: nil) |> load()}
+        {:noreply,
+         socket |> assign(store_url: "", store_error: nil, adding_store: false) |> load()}
 
       {:error, :unsupported_store} ->
         {:noreply,
@@ -52,6 +53,12 @@ defmodule ToreWeb.DealsLive do
          assign(socket, store_url: url, store_error: gettext("That store is already added"))}
     end
   end
+
+  def handle_event("open_store_form", _, socket),
+    do: {:noreply, assign(socket, adding_store: true)}
+
+  def handle_event("close_store_form", _, socket),
+    do: {:noreply, assign(socket, adding_store: false, store_error: nil)}
 
   def handle_event("toggle_store", %{"id" => id}, socket) do
     _ = Deals.toggle_scraping(socket.assigns.current_scope, String.to_integer(id))
@@ -109,7 +116,12 @@ defmodule ToreWeb.DealsLive do
           />
         </div>
 
-        <.stores stores={@page.stores} url={@store_url} error={@store_error} />
+        <.stores
+          stores={@page.stores}
+          url={@store_url}
+          error={@store_error}
+          adding={@adding_store}
+        />
       </.page>
     </Layouts.app>
     """
@@ -118,6 +130,7 @@ defmodule ToreWeb.DealsLive do
   attr :stores, :list, required: true
   attr :url, :string, required: true
   attr :error, :string, default: nil
+  attr :adding, :boolean, default: false
 
   # The stores Tore reads offers from, at the foot: they're set once and rarely touched.
   defp stores(assigns) do
@@ -164,19 +177,20 @@ defmodule ToreWeb.DealsLive do
           </button>
         </div>
         <button
-          :if={@stores != []}
+          :if={@stores != [] and not @adding and is_nil(@error)}
           type="button"
           data-role="add-store"
-          phx-click={JS.toggle(to: "#store-form", display: "flex") |> JS.focus(to: "#store-url")}
+          phx-click="open_store_form"
           class="row-hover press press-soft -mx-1.5 flex min-h-11 w-full items-center gap-2 rounded-[var(--r-sm)] px-1.5 text-[color:var(--muted)]"
           style="font-size: 14px;"
         >
           <.icon name="ph-plus" class="size-4" /> {gettext("Add a store")}
         </button>
         <form
+          :if={@stores == [] or @adding or @error}
           id="store-form"
           phx-submit="add_store"
-          class={["mt-2 items-center gap-2", if(@stores == [] or @error, do: "flex", else: "hidden")]}
+          class="settle mt-2 flex items-center gap-2"
         >
           <input
             id="store-url"
@@ -186,6 +200,9 @@ defmodule ToreWeb.DealsLive do
             placeholder="https://www.ica.se/erbjudanden/…"
             aria-label={gettext("Link to a store's offers")}
             aria-invalid={@error && "true"}
+            phx-mounted={@adding && JS.focus()}
+            phx-keydown={@stores != [] && "close_store_form"}
+            phx-key="Escape"
             required
             class="h-9 min-w-0 flex-1 rounded-[var(--r-sm)] border border-[color:var(--hairline)] bg-[var(--surface)] px-2.5"
             style="font-size: 14px;"
@@ -281,16 +298,23 @@ defmodule ToreWeb.DealsLive do
         {@entry.saving && "−#{Money.format(@entry.saving)} kr"}
       </span>
       <span class="justify-self-end">
+        <%!-- A phone keeps the + button's square, so the column doesn't shift. --%>
         <span
           :if={@entry.on_list?}
           id={"on-list-#{@entry.deal.id}"}
           data-role="on-list"
-          class="tag tag-grey settle"
-          style="font-size: 11.5px;"
+          class="settle"
         >
-          <span class="hidden lg:inline">{gettext("On the list")}</span>
-          <.icon name="ph-check" class="lg:hidden" />
-          <span class="sr-only lg:hidden">{gettext("On the list")}</span>
+          <span class="tag tag-grey hidden lg:inline-flex" style="font-size: 11.5px;">
+            {gettext("On the list")}
+          </span>
+          <span
+            class="grid size-7 place-items-center rounded-[var(--r-sm)] bg-[var(--tag-grey)] text-[color:var(--tag-grey-ink)] lg:hidden"
+            title={gettext("On the list")}
+          >
+            <.icon name="ph-check" class="size-3.5" />
+            <span class="sr-only">{gettext("On the list")}</span>
+          </span>
         </span>
         <button
           :if={!@entry.on_list?}
@@ -334,13 +358,17 @@ defmodule ToreWeb.DealsLive do
     do: gettext("%{n} for %{price}", n: q, price: kronor(price))
 
   defp price(%{price: price, price_unit: unit}) when unit in ["kg", "l"],
-    do: "#{kronor(price)}/#{unit}"
+    do: "#{kronor(price)} kr/#{unit}"
 
   defp price(%{price: price}), do: with_kr(price)
 
   # The regular price, per item when the offer is for several.
   defp was(%{regular_price: nil}), do: nil
   defp was(%{regular_price: regular, quantity: q}) when q > 1, do: "#{kronor(regular)}/st"
+
+  defp was(%{regular_price: regular, price_unit: unit}) when unit in ["kg", "l"],
+    do: "#{kronor(regular)} kr/#{unit}"
+
   defp was(%{regular_price: regular}), do: with_kr(regular)
 
   defp with_kr(amount) do
