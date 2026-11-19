@@ -158,7 +158,6 @@ defmodule ToreWeb.SettingsLive do
   defp feature_label("pi_find_recipes"), do: gettext("Recipe search on the web")
   defp feature_label("pi_plan_week"), do: gettext("Planning")
   defp feature_label("pi_weekly_reflection"), do: gettext("Memory review")
-  defp feature_label("suggest_recipe"), do: gettext("Recipe suggestions")
   defp feature_label("suggest_substitution"), do: gettext("Substitution suggestions")
   defp feature_label(f), do: f
 

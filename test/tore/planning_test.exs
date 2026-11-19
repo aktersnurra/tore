@@ -1,12 +1,10 @@
 defmodule Tore.PlanningTest do
   use ExUnit.Case, async: false
 
-  import Mox
   import Tore.AccountsFixtures
 
   alias Tore.Planning
 
-  setup :verify_on_exit!
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tore.Repo)
@@ -26,8 +24,6 @@ defmodule Tore.PlanningTest do
   end
 
   defp plan_id, do: Tore.Streams.plan(home_scope(), ~D[2026-04-27])
-
-  defp mock_usage, do: %{prompt_tokens: 100, completion_tokens: 50, cost_usd: 0.001}
 
   test "load_plan returns initial state for new plan" do
     assert {:ok, state} = Planning.load_plan(home_scope(), plan_id())
@@ -137,40 +133,6 @@ defmodule Tore.PlanningTest do
                Planning.suggest_recipes_for_slot(home_scope(), plan_id(), "mon_dinner", limit: 3)
 
       assert length(results) <= 3
-    end
-
-    test ":include_llm true merges an extra LLM-suggested recipe" do
-      r1 = create_recipe("Pasta")
-      r2 = create_recipe("Curry")
-
-      Tore.MockLLM
-      |> expect(:text, fn _system, _user, _opts ->
-        {:ok, %{"recipe_id" => r2.id, "reasoning" => "good fit"}, mock_usage()}
-      end)
-
-      assert {:ok, results} =
-               Planning.suggest_recipes_for_slot(home_scope(), plan_id(), "tue_dinner",
-                 include_llm: true,
-                 limit: 5
-               )
-
-      # r2 should be in the results (from LLM merge or rule-based)
-      assert Enum.any?(results, &(&1.recipe.id == r2.id))
-      _ = r1
-    end
-
-    test ":include_llm true silently falls back when LLM errors" do
-      _r = create_recipe("Pasta")
-
-      Tore.MockLLM
-      |> expect(:text, fn _system, _user, _opts -> {:error, :timeout} end)
-
-      assert {:ok, results} =
-               Planning.suggest_recipes_for_slot(home_scope(), plan_id(), "tue_dinner",
-                 include_llm: true
-               )
-
-      assert is_list(results)
     end
   end
 

@@ -138,16 +138,8 @@ defmodule ToreWeb.PlannerLive do
 
     %{plan_id: plan_id, current_scope: scope} = socket.assigns
 
-    dietary_guidance =
-      Tore.Household.get_preferences(scope) |> Tore.Household.prefs_to_dietary_guidance()
-
     ToreWeb.Background.run(
-      fn ->
-        Planning.suggest_recipes_for_slot(scope, plan_id, sk,
-          limit: 3,
-          dietary_guidance: dietary_guidance
-        )
-      end,
+      fn -> Planning.suggest_recipes_for_slot(scope, plan_id, sk, limit: 3) end,
       fn
         {:ok, suggestions} -> {:suggestions_loaded, sk, suggestions}
         _ -> {:suggestions_loaded, sk, []}
@@ -257,31 +249,6 @@ defmodule ToreWeb.PlannerLive do
     {:noreply, assign(socket, slot_action: nil)}
   end
 
-  def handle_event("regenerate_suggestion", _, socket) do
-    s = socket.assigns.slot_action
-    %{plan_id: plan_id, current_scope: scope} = socket.assigns
-    sk = s.slot_key
-
-    dietary_guidance =
-      Tore.Household.get_preferences(scope) |> Tore.Household.prefs_to_dietary_guidance()
-
-    ToreWeb.Background.run(
-      fn ->
-        Planning.suggest_recipes_for_slot(scope, plan_id, sk,
-          limit: 3,
-          include_llm: true,
-          dietary_guidance: dietary_guidance
-        )
-      end,
-      fn
-        {:ok, suggestions} -> {:suggestions_loaded, sk, suggestions}
-        {:error, reason} -> {:suggestion_error, sk, reason}
-      end
-    )
-
-    {:noreply, update_slot(socket, fn s -> %{s | loading_suggestions: true} end)}
-  end
-
   def handle_event("remove_meal", %{"slot_key" => sk}, socket) do
     Planning.remove_recipe(socket.assigns.current_scope, socket.assigns.plan_id, sk)
     {:noreply, assign(socket, slot_action: nil)}
@@ -384,31 +351,6 @@ defmodule ToreWeb.PlannerLive do
                loading_suggestions: false
            }
          )}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
-  def handle_info({:suggestion_error, sk, reason}, socket) do
-    case socket.assigns.slot_action do
-      %{slot_key: ^sk} = s ->
-        msg =
-          case reason do
-            refused when refused in [:ai_unavailable, :budget_exceeded] ->
-              Tore.LLM.refusal_text(refused)
-
-            :cooldown ->
-              gettext("Please wait a moment before trying again")
-
-            _ ->
-              gettext("Couldn't fetch a new suggestion")
-          end
-
-        {:noreply,
-         socket
-         |> put_flash(:error, msg)
-         |> assign(slot_action: %{s | loading_suggestions: false})}
 
       _ ->
         {:noreply, socket}
@@ -1288,20 +1230,9 @@ defmodule ToreWeb.PlannerLive do
 
               <%= if @slot_action.search == "" do %>
                 <section>
-                  <div class="flex items-center justify-between mb-2">
-                    <h3 class="section-label">
-                      {gettext("Suggested")}
-                    </h3>
-                    <button
-                      type="button"
-                      phx-click="regenerate_suggestion"
-                      disabled={@slot_action.loading_suggestions}
-                      class="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline disabled:opacity-40"
-                      style="font-size: var(--t-meta);"
-                    >
-                      <.icon name="ph-lightbulb" class="size-3.5" /> {gettext("Surprise me")}
-                    </button>
-                  </div>
+                  <h3 class="section-label mb-2">
+                    {gettext("Suggested")}
+                  </h3>
 
                   <ToreWeb.DishChoices.dish_choices
                     choices={@slot_action.suggestions}

@@ -1,8 +1,8 @@
 defmodule Tore.Mcp.Tools.SaveRecipe do
   @moduledoc """
-  Saves a recipe Claude read from a page or a photo. It sends the same shape Tore's own recipe
-  parser produces (`Tore.LLM.Prompts.recipe_json_schema/0`), so one conversion serves both, and the
-  run passes `RecipeProposalVerifier` like any recipe.
+  Saves a recipe pi read from a page or a photo, in the shape `schema/0` describes (which
+  `get_recipe` gives and `update_recipe` takes). The run passes `RecipeProposalVerifier` like any
+  recipe.
   """
   @behaviour Tore.Mcp.Tool
 
@@ -29,17 +29,54 @@ defmodule Tore.Mcp.Tools.SaveRecipe do
     """
 
   @impl true
-  def schema do
-    schema = Tore.LLM.Prompts.recipe_json_schema().json_schema.schema
-
-    schema
-    |> Map.put(:required, ["title", "ingredients", "steps"])
-    |> put_in([:properties, :source_url], %{type: ["string", "null"]})
-    |> put_in([:properties, :ingredients, :items, :required], ["item"])
-    |> put_in([:properties, :steps, :items, :required], ["order", "action"])
-    |> Jason.encode!()
-    |> Jason.decode!()
-  end
+  def schema,
+    do: %{
+      "type" => "object",
+      "required" => ["title", "ingredients", "steps"],
+      "additionalProperties" => false,
+      "properties" => %{
+        "title" => %{"type" => "string"},
+        "recipe_type" => %{
+          "type" => "string",
+          "enum" => ["meal", "baking", "component", "assembly"]
+        },
+        "description" => %{"type" => ["string", "null"]},
+        "prep_time_minutes" => %{"type" => ["integer", "null"]},
+        "cook_time_minutes" => %{"type" => ["integer", "null"]},
+        "base_servings" => %{"type" => ["integer", "null"]},
+        "source_url" => %{"type" => ["string", "null"]},
+        "image_url" => %{"type" => ["string", "null"]},
+        "tags" => %{"type" => "array", "items" => %{"type" => "string"}},
+        "ingredients" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "required" => ["item"],
+            "additionalProperties" => false,
+            "properties" => %{
+              "item" => %{"type" => "string"},
+              "quantity" => %{"type" => ["number", "null"]},
+              "unit" => %{"type" => ["string", "null"]}
+            }
+          }
+        },
+        "steps" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "required" => ["order", "action"],
+            "additionalProperties" => false,
+            "properties" => %{
+              "phase" => %{"type" => "string"},
+              "order" => %{"type" => "integer"},
+              "action" => %{"type" => "string"},
+              "ingredients" => %{"type" => "array", "items" => %{"type" => "string"}},
+              "duration_minutes" => %{"type" => ["integer", "null"]}
+            }
+          }
+        }
+      }
+    }
 
   @impl true
   def call(scope, %{"title" => title, "ingredients" => [_ | _], "steps" => [_ | _]} = args)

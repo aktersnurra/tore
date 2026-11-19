@@ -452,8 +452,7 @@ defmodule Tore.Recipes do
   end
 
   @doc """
-  Recipe attrs from a recipe in the shape `Tore.LLM.Prompts.recipe_json_schema/0` describes,
-  whether Tore's model read it or someone's own Claude did over MCP.
+  Recipe attrs from a recipe in the shape `save_recipe` takes (`Tore.Mcp.Tools.SaveRecipe.schema/0`).
   """
   @spec attrs_from_parsed(map()) :: map()
   def attrs_from_parsed(data) do

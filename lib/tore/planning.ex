@@ -1,7 +1,7 @@
 defmodule Tore.Planning do
   use Gettext, backend: ToreWeb.Gettext
 
-  alias Tore.{Deals, EventStore, Repo, Recipes, Scope, SpendGuard, Streams}
+  alias Tore.{Deals, EventStore, Repo, Recipes, Scope, Streams}
   alias Tore.Planning.{Commands, Decider, Events, State}
   alias Phoenix.PubSub
 
@@ -368,15 +368,13 @@ defmodule Tore.Planning do
   @recency_window_days 14
 
   @doc """
-  Rank recipes for a single slot using rule-based scoring. Optionally merges
-  one LLM-generated suggestion at the top when `:include_llm` is true.
+  Rank recipes for a single slot using rule-based scoring. Anything smarter is a question for pi,
+  from the day's sheet.
 
   Returns `{:ok, [%{recipe, reasons, score}, ...]}`.
   """
   def suggest_recipes_for_slot(%Scope{} = scope, plan_id, slot_key, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
-    include_llm = Keyword.get(opts, :include_llm, false)
-    dietary_guidance = Keyword.get(opts, :dietary_guidance)
 
     with {:ok, state} <- EventStore.load(scope, plan_id, Decider) do
       # Only dinners: baking, sauces and other recipes are cooked without being planned.
@@ -405,27 +403,7 @@ defmodule Tore.Planning do
         |> Enum.sort_by(& &1.score, :desc)
         |> Enum.take(limit)
 
-      if include_llm do
-        case llm_extra_suggestion(
-               scope,
-               state,
-               slot_key,
-               recipes,
-               ranked,
-               pantry_names,
-               deals_names,
-               recent_ids,
-               dietary_guidance
-             ) do
-          {:ok, extra} ->
-            {:ok, [extra | ranked] |> Enum.uniq_by(& &1.recipe.id) |> Enum.take(limit + 1)}
-
-          {:error, _} ->
-            {:ok, ranked}
-        end
-      else
-        {:ok, ranked}
-      end
+      {:ok, ranked}
     end
   end
 
@@ -519,18 +497,6 @@ defmodule Tore.Planning do
     |> MapSet.new()
   end
 
-  defp assigned_recipes_in_state(state, recipes) do
-    by_id = Map.new(recipes, &{&1.id, &1})
-
-    state.slots
-    |> Enum.flat_map(fn {sk, slot} ->
-      case Map.get(by_id, slot.recipe_id) do
-        nil -> []
-        r -> [{sk, r, slot.leftover}]
-      end
-    end)
-  end
-
   defp previous_day_recipe(state, slot_key, recipes) do
     days = ~w[mon tue wed thu fri sat sun]
     [day, _meal] = String.split(slot_key, "_", parts: 2)
@@ -565,81 +531,5 @@ defmodule Tore.Planning do
       Tore.Scope.repo_opts(scope)
     )
     |> MapSet.new()
-  end
-
-  defp llm_extra_suggestion(
-         scope,
-         state,
-         slot_key,
-         recipes,
-         ranked,
-         pantry,
-         deals,
-         recent_ids,
-         dietary_guidance
-       ) do
-    excluded_ids = Enum.map(ranked, & &1.recipe.id)
-    candidate_ids = Enum.map(recipes, & &1.id)
-
-    candidate_summary =
-      Enum.map(recipes, fn r ->
-        %{
-          id: r.id,
-          title: r.title,
-          key_ingredients: Enum.map(Enum.take(r.recipe_ingredients, 3), & &1.ingredient.name),
-          total_time_minutes: (r.prep_time_minutes || 0) + (r.cook_time_minutes || 0),
-          tags: Enum.map(r.tags, & &1.name)
-        }
-      end)
-
-    assigned_context =
-      assigned_recipes_in_state(state, recipes)
-      |> Enum.map(fn {sk, r, leftover} -> %{slot_key: sk, title: r.title, leftover: leftover} end)
-
-    [day, meal] = String.split(slot_key, "_", parts: 2)
-
-    context = %{
-      slot_key: slot_key,
-      day_label: "#{String.capitalize(day)} #{meal}",
-      candidates: candidate_summary,
-      candidate_recipe_ids: candidate_ids,
-      assigned_context: assigned_context,
-      pantry: MapSet.to_list(pantry),
-      deals: MapSet.to_list(deals),
-      recent_recipe_ids: MapSet.to_list(recent_ids),
-      excluded_recipe_ids: excluded_ids,
-      dietary_guidance: dietary_guidance
-    }
-
-    {system, user} = Tore.LLM.Prompts.suggest_slot_recipe(context)
-
-    with :ok <- SpendGuard.allow?(scope, :suggest_recipe),
-         {:ok, %{recipe_id: rid, reasoning: reasoning}, _usage} <-
-           suggest(scope, system, user, context),
-         recipe when not is_nil(recipe) <- Enum.find(recipes, &(&1.id == rid)) do
-      {:ok, %{recipe: recipe, reasons: [reasoning], score: 999}}
-    else
-      nil -> {:error, :recipe_not_found}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp suggest(scope, system, user, context) do
-    case Tore.LLM.text(scope, system, user, feature: :suggest_recipe) do
-      {:ok, %{"recipe_id" => rid} = data, usage} when is_integer(rid) ->
-        candidates = MapSet.new(context.candidate_recipe_ids || [])
-
-        if MapSet.member?(candidates, rid) do
-          {:ok, %{recipe_id: rid, reasoning: data["reasoning"] || ""}, usage}
-        else
-          {:error, :hallucinated_recipe}
-        end
-
-      {:ok, _, _} ->
-        {:error, :invalid_response}
-
-      {:error, _} = err ->
-        err
-    end
   end
 end
