@@ -635,4 +635,73 @@ defmodule ToreWeb.RecipeLiveTest do
              end)
     end
   end
+
+  describe "a meal of parts" do
+    setup do
+      {:ok, sauce} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Bearnaise",
+            recipe_type: :component,
+            base_servings: 4,
+            steps: Jason.encode!([%{"order" => 1, "phase" => "SÅS", "action" => "Smält smöret"}]),
+            ingredients: [%{name: "Smör", quantity: Decimal.new(200), unit: "g"}]
+          },
+          image: false
+        )
+
+      {:ok, meat} =
+        Recipes.create(
+          home_scope(),
+          %{
+            title: "Stekt entrecote",
+            recipe_type: :component,
+            base_servings: 2,
+            instructions: "Stek köttet.",
+            ingredients: [%{name: "Entrecote", quantity: Decimal.new(400), unit: "g"}]
+          },
+          image: false
+        )
+
+      {:ok, meal} =
+        Recipes.put_together(
+          home_scope(),
+          %{title: "Entrecote med bearnaise", servings: 4, part_ids: [meat.id, sauce.id]},
+          image: false
+        )
+
+      %{sauce: sauce, meat: meat, meal: meal}
+    end
+
+    test "shows its parts, their ingredients under each, and their methods until cooked", %{
+      conn: conn,
+      user: user,
+      sauce: sauce,
+      meat: meat,
+      meal: meal
+    } do
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: meal.id]}")
+
+      parts = view |> element(~s([data-role="parts"])) |> render()
+      assert parts =~ ~s(href="/recipes?id=#{meat.id}")
+      assert parts =~ ~s(href="/recipes?id=#{sauce.id}")
+
+      meat_list = view |> element(~s([data-part="#{meat.id}"])) |> render()
+      assert meat_list =~ "Stekt entrecote"
+      assert meat_list =~ "Entrecote"
+      assert meat_list =~ "800 g"
+
+      method = view |> element(~s([data-role="part-methods"])) |> render()
+      assert method =~ "Stek köttet."
+      assert method =~ "Smält smöret"
+    end
+
+    test "a part says which meals it's in", %{conn: conn, user: user, sauce: sauce, meal: meal} do
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: sauce.id]}")
+
+      assert view |> element(~s([data-role="part-of"])) |> render() =~
+               ~s(href="/recipes?id=#{meal.id}")
+    end
+  end
 end

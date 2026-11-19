@@ -141,6 +141,18 @@ defmodule Tore.Recipes do
     end
   end
 
+  @doc "The meals a recipe is a part of, by title."
+  @spec meals_with(Scope.t(), integer()) :: [Recipe.t()]
+  def meals_with(%Scope{} = scope, part_id) do
+    from(r in Recipe,
+      join: p in RecipePart,
+      on: p.recipe_id == r.id,
+      where: p.part_id == ^part_id,
+      order_by: r.title
+    )
+    |> Repo.all(Scope.repo_opts(scope))
+  end
+
   # A meal's parts, and their ingredients as the meal's: each part's scaled from its servings to
   # the meal's, then the same ingredient in the same unit added up. Recipes without parts are
   # left as they are. `recipes` have their ingredients loaded.

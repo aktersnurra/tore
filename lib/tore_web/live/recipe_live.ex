@@ -429,6 +429,7 @@ defmodule ToreWeb.RecipeLive do
 
     assign(socket,
       selected: recipe,
+      part_of: Recipes.meals_with(scope, recipe.id),
       servings: recipe.base_servings || 4,
       home: home,
       # Already on the list when there's nothing left to put there.
@@ -942,6 +943,30 @@ defmodule ToreWeb.RecipeLive do
               </a>
             </dd>
           </div>
+          <div :if={@selected.parts != []}>
+            <dt><.icon name="ph-squares-four" /> {gettext("Parts")}</dt>
+            <dd data-role="parts" class="flex flex-wrap gap-x-3 gap-y-1 py-1.5">
+              <.link
+                :for={part <- @selected.parts}
+                navigate={~p"/recipes?#{[id: part.id]}"}
+                class="underline decoration-[color:var(--hairline)] underline-offset-4 hover:decoration-[color:var(--text)]"
+              >
+                {part.title}
+              </.link>
+            </dd>
+          </div>
+          <div :if={@part_of != []}>
+            <dt><.icon name="ph-squares-four" /> {gettext("Part of")}</dt>
+            <dd data-role="part-of" class="flex flex-wrap gap-x-3 gap-y-1 py-1.5">
+              <.link
+                :for={meal <- @part_of}
+                navigate={~p"/recipes?#{[id: meal.id]}"}
+                class="underline decoration-[color:var(--hairline)] underline-offset-4 hover:decoration-[color:var(--text)]"
+              >
+                {meal.title}
+              </.link>
+            </dd>
+          </div>
           <div :if={@selected.recipe_ingredients != []} data-role="at-home">
             <dt>
               <.link
@@ -1088,28 +1113,67 @@ defmodule ToreWeb.RecipeLive do
         <%!-- Ingredients for the servings above: the name on the left, the amount on the right --%>
         <section :if={@selected.recipe_ingredients != []} class="reveal mt-9" style="--i: 4">
           <h2 class="t-head mb-3">{gettext("Ingredients")}</h2>
-          <ul class="menu-lines">
-            <li
+          <ul :if={@selected.parts == []} class="menu-lines">
+            <.ingredient_line
               :for={ri <- @selected.recipe_ingredients}
-              class="flex items-baseline justify-between gap-4 py-3.5"
-            >
-              <span class="text-[color:var(--text)]" style="font-size: 16px;">
-                {ri.ingredient.name}
-              </span>
-              <span
-                id={"amount-#{ri.id}-#{@servings}"}
-                data-role="amount"
-                class="settle num shrink-0 text-[color:var(--muted)]"
-                style="font-size: 15px;"
-              >
-                {amount(ri, @selected.base_servings, @servings)}
-              </span>
-            </li>
+              ri={ri}
+              base={@selected.base_servings}
+              servings={@servings}
+            />
           </ul>
+          <%!-- A meal of parts: each part's own, for the servings chosen --%>
+          <div :for={part <- @selected.parts} data-part={part.id} class="mb-6 last:mb-0">
+            <h3 class="t-eyebrow mb-1">{part.title}</h3>
+            <ul class="menu-lines">
+              <.ingredient_line
+                :for={ri <- part.recipe_ingredients}
+                ri={ri}
+                base={part.base_servings}
+                servings={@servings}
+              />
+            </ul>
+          </div>
+        </section>
+
+        <%!-- A meal of parts before its first cook: each part's method; one order is written then --%>
+        <section
+          :if={@selected.parts != [] and is_nil(@selected.steps)}
+          data-role="part-methods"
+          class="mt-9"
+        >
+          <h2 class="t-head mb-1">{gettext("Method")}</h2>
+          <p class="mb-5 text-[color:var(--muted)]" style="font-size: 15px;">
+            {gettext("Tore puts the parts in one order when you start cooking.")}
+          </p>
+          <div :for={part <- @selected.parts} class="mb-7 last:mb-0">
+            <h3 class="t-eyebrow mb-3">{part.title}</h3>
+            <ol :if={part_actions(part) != []} class="list-decimal space-y-3 pl-5">
+              <li
+                :for={action <- part_actions(part)}
+                class="text-[color:var(--text)]"
+                style="font-size: 16px; line-height: 1.55;"
+              >
+                {action}
+              </li>
+            </ol>
+            <p
+              :if={part_actions(part) == [] and part.instructions}
+              class="whitespace-pre-line text-[color:var(--text)]"
+              style="font-size: 16px; line-height: 1.55;"
+            >
+              {part.instructions}
+            </p>
+          </div>
         </section>
 
         <%!-- The method: a real sequence, so it is numbered --%>
-        <section :if={@selected.steps || @selected.instructions} class="mt-9">
+        <section
+          :if={
+            (@selected.steps || @selected.instructions) &&
+              !(@selected.parts != [] and is_nil(@selected.steps))
+          }
+          class="mt-9"
+        >
           <h2 class="t-head mb-4">{gettext("Method")}</h2>
           <%= if grouped_steps(@selected) != [] do %>
             <div :for={{phase, steps} <- grouped_steps(@selected)} class="mb-7 last:mb-0">
@@ -1146,6 +1210,35 @@ defmodule ToreWeb.RecipeLive do
       </div>
     </article>
     """
+  end
+
+  attr :ri, :map, required: true
+  attr :base, :integer, default: nil
+  attr :servings, :integer, required: true
+
+  defp ingredient_line(assigns) do
+    ~H"""
+    <li class="flex items-baseline justify-between gap-4 py-3.5">
+      <span class="text-[color:var(--text)]" style="font-size: 16px;">
+        {@ri.ingredient.name}
+      </span>
+      <span
+        id={"amount-#{@ri.id}-#{@servings}"}
+        data-role="amount"
+        class="settle num shrink-0 text-[color:var(--muted)]"
+        style="font-size: 15px;"
+      >
+        {amount(@ri, @base, @servings)}
+      </span>
+    </li>
+    """
+  end
+
+  defp part_actions(part) do
+    part
+    |> Tore.Recipes.Recipe.decode_steps()
+    |> Enum.sort_by(& &1["order"])
+    |> Enum.map(& &1["action"])
   end
 
   defp amount(ri, base, servings) do
