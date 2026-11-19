@@ -67,6 +67,48 @@ defmodule ToreWeb.CookLiveTest do
     assert html =~ "Klar"
   end
 
+  test "a meal of parts takes out everything its parts need, and cooks in one order", %{
+    conn: conn,
+    recipe: pasta
+  } do
+    {:ok, sauce} =
+      Recipes.create(home_scope(), %{
+        title: "Tomatsås",
+        recipe_type: :component,
+        instructions: "Koka tomaterna.",
+        ingredients: [%{name: "Krossade tomater", quantity: "400", unit: "g"}]
+      })
+
+    {:ok, meal} =
+      Recipes.put_together(home_scope(), %{
+        title: "Pasta med tomatsås",
+        servings: 4,
+        part_ids: [pasta.id, sauce.id]
+      })
+
+    expect(Tore.MockLLM, :text, fn _system, _user, _opts ->
+      {:ok,
+       %{
+         "steps" => [
+           %{
+             "phase" => "TOMATSÅS",
+             "order" => 1,
+             "action" => "Koka tomaterna",
+             "ingredients" => []
+           },
+           %{"phase" => "PASTA", "order" => 2, "action" => "Fräs vitlöken", "ingredients" => []}
+         ]
+       }, %{}}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/recipes/#{meal.id}/cook")
+
+    assert eventually(view, "1 av 3")
+    assert render(view) =~ "2 klyftor Vitlök"
+    assert render(view) =~ "400 g Krossade tomater"
+    assert view |> element(~s([data-role="step-card"])) |> render_click() =~ "Koka tomaterna"
+  end
+
   test "swaps from the sheet before cooking are in the cards, and stay while stepping", %{
     conn: conn,
     recipe: recipe

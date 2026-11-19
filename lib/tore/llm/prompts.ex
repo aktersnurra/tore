@@ -187,6 +187,9 @@ defmodule Tore.LLM.Prompts do
     - Do not skip anything the recipe says, and do not invent steps it doesn't imply.
     - A step's "ingredients" are the names it uses, exactly as in the ingredient list.
     - "duration_minutes" only when the step has an explicit wait or cooking time.
+    - A recipe with "parts" is a meal of several dishes: cook them together so everything is
+      ready at the same time. Start what takes longest, and do the quick parts while it cooks
+      or rests. Name each step's phase after its part.
     #{translation_instruction(locale)}
     Respond with a JSON object only. No prose.
     """

@@ -379,7 +379,8 @@ defmodule Tore.Recipes do
       ingredients:
         Enum.map(recipe.recipe_ingredients, fn ri ->
           %{item: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}
-        end)
+        end),
+      parts: Enum.map(recipe.parts, &part_for_steps/1)
     }
 
     {system, user} = Tore.LLM.Prompts.cook_steps(payload, Tore.Household.locale(scope))
@@ -404,6 +405,20 @@ defmodule Tore.Recipes do
 
       {:error, _} = err ->
         err
+    end
+  end
+
+  # A part as the step writer reads it: its own steps when it has them, otherwise its text.
+  defp part_for_steps(part) do
+    case Recipe.decode_steps(part) do
+      [] ->
+        %{title: part.title, instructions: part.instructions}
+
+      steps ->
+        %{
+          title: part.title,
+          steps: steps |> Enum.sort_by(& &1["order"]) |> Enum.map(& &1["action"])
+        }
     end
   end
 

@@ -1,7 +1,11 @@
 defmodule Tore.Recipes.PartsTest do
   use Tore.DataCase, async: false
 
+  import Mox
+
   alias Tore.Recipes
+
+  setup :verify_on_exit!
 
   defp recipe(title, servings, ingredients, type \\ :component) do
     {:ok, recipe} =
@@ -106,5 +110,51 @@ defmodule Tore.Recipes.PartsTest do
     meal = Recipes.get!(home_scope(), meal.id)
     assert meal.steps == nil
     assert {"Smör", "290", "g"} in amounts(meal)
+  end
+
+  test "a meal's cooking order is written from its parts' steps, once", %{
+    bearnaise: bearnaise,
+    entrecote: entrecote
+  } do
+    {:ok, _} =
+      Recipes.update(home_scope(), bearnaise, %{
+        steps:
+          Jason.encode!([
+            %{"order" => 1, "phase" => "SÅS", "action" => "Smält smöret"},
+            %{"order" => 2, "phase" => "SÅS", "action" => "Vispa i äggulorna"}
+          ])
+      })
+
+    {:ok, _} = Recipes.update(home_scope(), entrecote, %{instructions: "Stek köttet. Låt vila."})
+
+    {:ok, meal} =
+      Recipes.put_together(home_scope(), %{
+        title: "Entrecote med bearnaise",
+        servings: 4,
+        part_ids: [entrecote.id, bearnaise.id]
+      })
+
+    expect(Tore.MockLLM, :text, 1, fn system, user, _opts ->
+      assert system =~ "ready at the same time"
+      payload = Jason.decode!(user)
+
+      assert [
+               %{"title" => "Stekt entrecote", "instructions" => "Stek köttet. Låt vila."},
+               %{"title" => "Bearnaise", "steps" => ["Smält smöret", "Vispa i äggulorna"]}
+             ] = payload["parts"]
+
+      {:ok,
+       %{
+         "steps" => [
+           %{"phase" => "SÅS", "order" => 1, "action" => "Smält smöret", "ingredients" => []},
+           %{"phase" => "KÖTT", "order" => 2, "action" => "Stek köttet", "ingredients" => []}
+         ]
+       }, %{}}
+    end)
+
+    assert {:ok, [%{"action" => "Smält smöret"}, %{"action" => "Stek köttet"}]} =
+             Recipes.cook_steps(home_scope(), meal)
+
+    assert {:ok, [_, _]} = Recipes.cook_steps(home_scope(), Recipes.get!(home_scope(), meal.id))
   end
 end
