@@ -364,6 +364,10 @@ defmodule ToreWeb.TabBarLive do
       <span class="ph-piggy-bank-duotone size-5 shrink-0 text-[color:var(--tag-yellow-ink)]"></span>
       {gettext("Weekly budget")}
     </.link>
+    <.link navigate={~p"/deals"} data-role="menu-deals" class="menu-row row-hover">
+      <span class="ph-tag-duotone size-5 shrink-0 text-[color:var(--tag-red-ink)]"></span>
+      {gettext("Offers")}
+    </.link>
     """
   end
 

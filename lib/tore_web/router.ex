@@ -82,6 +82,7 @@ defmodule ToreWeb.Router do
       live "/shop", ShopLive
       live "/pantry", PantryLive
       live "/budget", BudgetLive
+      live "/deals", DealsLive
       live "/budget/receipts/:id", BudgetLive, :receipt
       live "/prep", PrepLive
       live "/settings", SettingsLive

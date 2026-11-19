@@ -125,6 +125,8 @@ defmodule ToreWeb.TabBarLiveTest do
       [before_week, _] = String.split(menu, ~s(data-role="menu-day"), parts: 2)
       assert before_week =~ ~s(data-role="menu-ask")
       assert menu =~ ~s(href="/budget")
+      assert menu =~ ~s(data-role="menu-deals")
+      assert menu =~ ~s(href="/deals")
       refute menu =~ "/settings#members"
       refute menu =~ "/settings#diet"
     end
