@@ -115,6 +115,12 @@ defmodule ToreWeb.HomeLiveTest do
       {:ok, view, html} = live(conn, ~p"/today")
 
       assert html =~ "200 g"
+
+      # The recipe page has them in full: here they're folded, with how many there are.
+      assert view |> element(~s|details[data-role="ingredients"]:not([open]) summary|) |> render() =~
+               "Ingredienser"
+
+      assert view |> element(~s(details[data-role="ingredients"] summary)) |> render() =~ "2"
       assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
 
       view |> element(~s([data-role="at-home"] button)) |> render_click()

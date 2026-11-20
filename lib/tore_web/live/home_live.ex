@@ -38,13 +38,14 @@ defmodule ToreWeb.HomeLive do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <.page max_width={:xl}>
-        <%!-- A phone's column, until a laptop has room for the dish beside its details. --%>
-        <div class="mx-auto w-full max-w-md lg:max-w-none">
+        <%!-- One column on every screen, read top to bottom like a status: the dish, when, and
+           whether anything needs doing. Side by side it looked like the recipe page. --%>
+        <div class="mx-auto w-full max-w-md">
           <div class="relative z-10 h-0">
             <%!-- Over the photo, its buttons sit inside the card's corners. --%>
             <.top_bar
               on_photo={@dish != nil}
-              class={["absolute inset-x-0 -top-2", @dish && "max-lg:inset-x-2 max-lg:top-0"]}
+              class={["absolute inset-x-0 -top-2", @dish && "inset-x-2 top-0"]}
             >
               <:actions :if={@dish}>
                 <.page_menu id="today-menu" on_photo>
@@ -79,15 +80,12 @@ defmodule ToreWeb.HomeLive do
             id="tonight-card"
             phx-hook="LongPress"
             data-long-press-event="open_tonight_sheet"
-            class="lg:grid lg:grid-cols-2 lg:items-start lg:gap-14 lg:pt-14"
           >
             <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
                the dish's name in white on its darkened foot. A rounded card, set in from the
-               edges, so the dark foot never meets the page (in light mode it looked cut off). On a laptop it's the whole picture
-               on the right, as on a recipe page, and the name moves to the left: no words on
-               the picture, so no shade either. --%>
-            <div class="lg:sticky lg:top-6 lg:order-2">
-              <div class="relative h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden rounded-[var(--r-xl)] lg:aspect-[5/4] lg:h-auto lg:max-h-none">
+               edges, so the dark foot never meets the page (in light mode it looked cut off). --%>
+            <div>
+              <div class="relative h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden rounded-[var(--r-xl)]">
                 <img
                   :if={photo?(@dish)}
                   src={~p"/images/recipes/#{@dish.id}"}
@@ -98,13 +96,13 @@ defmodule ToreWeb.HomeLive do
                 <.blank_cover :if={!photo?(@dish)} dish={@dish} icon_class="size-20" />
                 <div
                   :if={photo?(@dish)}
-                  class="photo-shade absolute inset-0 lg:hidden"
+                  class="photo-shade absolute inset-0"
                   aria-hidden="true"
                 >
                 </div>
                 <h1
                   class={[
-                    "reveal t-display absolute inset-x-0 bottom-0 px-4 pb-4 md:px-5 lg:hidden",
+                    "reveal t-display absolute inset-x-0 bottom-0 px-4 pb-4 md:px-5",
                     photo?(@dish) && "on-photo-text"
                   ]}
                   style="--i: 1"
@@ -115,7 +113,6 @@ defmodule ToreWeb.HomeLive do
             </div>
 
             <div class="min-w-0">
-              <h1 class="reveal t-hero hidden lg:block" style="--i: 1">{@dish.title}</h1>
               <.cooked :if={@cooked} title={@cooked} class="mt-4" />
 
               <%!-- When, in one line: the day, how long, ready by. --%>
@@ -266,7 +263,7 @@ defmodule ToreWeb.HomeLive do
 
               <%!-- On a phone the main action is the width of the page, the others a row under it. --%>
               <div
-                class="reveal mt-5 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap [&>:first-child]:col-span-2 [&>:nth-child(2):last-child]:col-span-2"
+                class="reveal mt-5 grid grid-cols-2 gap-2 [&>:first-child]:col-span-2 [&>:nth-child(2):last-child]:col-span-2"
                 style="--i: 3"
               >
                 <.link
@@ -326,9 +323,21 @@ defmodule ToreWeb.HomeLive do
 
               <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
 
-              <section :if={@dish.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
-                <h2 class="t-head mb-1">{gettext("Ingredients")}</h2>
-                <ul class="menu-lines">
+              <%!-- The recipe page has them in full; here they're folded, for a glance. --%>
+              <details
+                :if={@dish.recipe_ingredients != []}
+                data-role="ingredients"
+                class="group reveal mt-8"
+                style="--i: 4"
+              >
+                <summary class="press press-soft">
+                  <.icon name="ph-caret-right" class="arrow size-3.5 text-[color:var(--muted)]" />
+                  <span class="t-head">{gettext("Ingredients")}</span>
+                  <span class="num text-[color:var(--muted)]">
+                    {length(@dish.recipe_ingredients)}
+                  </span>
+                </summary>
+                <ul class="menu-lines mt-1">
                   <li
                     :for={ri <- @dish.recipe_ingredients}
                     class="flex items-baseline justify-between gap-4 py-3"
@@ -341,7 +350,7 @@ defmodule ToreWeb.HomeLive do
                     </span>
                   </li>
                 </ul>
-              </section>
+              </details>
             </div>
           </section>
 
