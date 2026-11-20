@@ -51,7 +51,13 @@ defmodule ToreWeb.RecipeLiveTest do
 
       html = render_click(lv, "new_recipe")
       assert has_element?(lv, "#import-link input[name=url]")
-      assert html =~ "Hämta recept"
+
+      # Sending is an icon in the field, and it's the form's first submit button, so Enter (a
+      # phone's Go key too) fetches the link rather than writing it yourself.
+      assert html =~ ~s(aria-label="Hämta recept")
+      assert [first | _] = Floki.find(Floki.parse_document!(html), "#import-link [type=submit]")
+      assert Floki.attribute(first, "data-role") == ["send"]
+      assert Floki.find(Floki.parse_document!(html), "#import-link .field [data-role=send]") != []
       refute has_element?(lv, ~s(input[name="recipe[title]"]))
 
       lv

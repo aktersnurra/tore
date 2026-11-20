@@ -192,8 +192,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* The chat's box has no border, even while typing: its send icon lights up once there's
    something to send. */
 .field-group input:focus-visible, .field-group textarea:focus-visible { outline: none; }
-.field-group [data-role="send"] { transition: color var(--dur-fast) var(--ease-out); }
-.field-group textarea:not(:placeholder-shown) ~ [data-role="send"] { color: var(--text); }
+.field-group [data-role="send"], .field [data-role="send"] { transition: color var(--dur-fast) var(--ease-out); }
+.field-group textarea:not(:placeholder-shown) ~ [data-role="send"],
+.field > input:not(:placeholder-shown) ~ [data-role="send"] { color: var(--text); }
 
 /* The rim line: thick over thin, like the painted band on the edge of a plate.
    Once per screen, under the title. Nowhere else. */
