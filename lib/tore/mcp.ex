@@ -36,6 +36,7 @@ defmodule Tore.Mcp do
     Tools.LearnIngredients,
     Tools.SetPriceGuesses,
     Tools.MarkCooked,
+    Tools.SuggestSwaps,
     Tools.DeleteRecipe,
     Tools.PutTogether,
     Tools.DeleteReceipt,

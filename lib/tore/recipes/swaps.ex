@@ -1,75 +1,58 @@
 defmodule Tore.Recipes.Swaps do
   @moduledoc """
-  What to use instead of what isn't at home, asked once before cooking. The model picks from what
-  the cook says they have and from the pantry, never anything else, and answers per ingredient.
+  What to use instead of what isn't at home, asked once before cooking. pi picks from what the
+  cook says they have and from the pantry, never anything else, and answers per ingredient with
+  `suggest_swaps`; the sheet before cooking (`ToreWeb.BeforeCooking`) reads them from its result.
 
   Nothing is saved: a swap is for this one cook. Having one red onion today says nothing about
   next week, so neither the ticks nor what's typed reach the pantry.
   """
 
-  alias Tore.Recipes.Recipe
   alias Tore.Scope
 
   @type t :: %{for: String.t(), use: String.t() | nil, note: String.t() | nil, at_home: boolean()}
 
+  @doc "pi's swaps as sent: trimmed, blanks as nil, and whether each is in the pantry."
+  @spec read(Scope.t(), [map()]) :: [t()]
+  def read(%Scope{} = scope, answers) do
+    Enum.flat_map(answers, fn answer ->
+      case is_map(answer) && text(answer["for"]) do
+        name when is_binary(name) ->
+          use = text(answer["use"])
+
+          [
+            %{
+              for: name,
+              use: use,
+              note: text(answer["note"]),
+              at_home: use != nil and Tore.Pantry.at_home(scope, [use]).have == [use]
+            }
+          ]
+
+        _ ->
+          []
+      end
+    end)
+  end
+
   @doc """
-  A swap for each name in `missing`, in that order. `offered` is what the cook typed they have
-  ("rödlök, gräddfil"), or "". `at_home` says the swap is in the pantry. One model call, whatever
-  the number of names.
+  A swap for each name in `missing`, in that order, from `swaps` (`read/2`, or the same keys as
+  strings from a tool's result). A name pi passed over gets no swap.
   """
-  @spec check(Scope.t(), Recipe.t(), [String.t()], String.t()) :: {:ok, [t()]} | {:error, term()}
-  def check(%Scope{} = scope, %Recipe{} = recipe, [_ | _] = missing, offered)
-      when is_binary(offered) do
-    pantry = scope |> Tore.Pantry.list_usable() |> Enum.map(& &1.name) |> Enum.uniq()
+  @spec for_missing([String.t()], [map()]) :: [t()]
+  def for_missing(missing, swaps) do
+    swaps = Enum.map(swaps, &atomize/1)
 
-    payload = %{
-      recipe: %{
-        title: recipe.title,
-        ingredients: Enum.map(recipe.recipe_ingredients, &ingredient/1),
-        instructions: recipe.instructions
-      },
-      missing: missing,
-      they_have: String.trim(offered),
-      pantry: pantry
-    }
-
-    {system, user} = Tore.LLM.Prompts.swaps(payload, Tore.Household.locale(scope))
-
-    case Tore.LLM.text(scope, system, user,
-           response_format: Tore.LLM.Prompts.swaps_schema(),
-           feature: :suggest_substitution
-         ) do
-      {:ok, %{"swaps" => answers}, _usage} when is_list(answers) ->
-        {:ok, Enum.map(missing, &swap(&1, answers, scope))}
-
-      {:ok, _, _} ->
-        {:error, :invalid_response}
-
-      {:error, _} = err ->
-        err
+    for name <- missing do
+      swap = Enum.find(swaps, &same?(&1.for, name)) || %{use: nil, note: nil, at_home: false}
+      Map.put(swap, :for, name)
     end
   end
 
-  defp ingredient(ri) do
-    Enum.join(
-      [ri.quantity && Decimal.to_string(ri.quantity, :normal), ri.unit, ri.ingredient.name]
-      |> Enum.reject(&(&1 in [nil, ""])),
-      " "
-    )
-  end
+  defp atomize(%{"for" => name} = swap),
+    do: %{for: name, use: swap["use"], note: swap["note"], at_home: swap["at_home"] == true}
 
-  # The model's answer for `name`; an ingredient it skipped gets no swap.
-  defp swap(name, answers, scope) do
-    answer = Enum.find(answers, &(is_map(&1) and same?(&1["for"], name))) || %{}
-    use = text(answer["use"])
-
-    %{
-      for: name,
-      use: use,
-      note: text(answer["note"]),
-      at_home: use != nil and Tore.Pantry.at_home(scope, [use]).have == [use]
-    }
-  end
+  defp atomize(%{for: _} = swap), do: swap
 
   defp same?(a, b) when is_binary(a), do: String.downcase(String.trim(a)) == String.downcase(b)
   defp same?(_a, _b), do: false

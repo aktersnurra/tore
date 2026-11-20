@@ -889,16 +889,17 @@ the right holds the page's own actions behind ⋯ (`<.page_menu>`). The menu is 
 
 - **Before cooking** (`ToreWeb.BeforeCooking`, from Cook now on Today or a recipe): what Tore
   can't find at home, each to tick as had (free), and one field for what you'd use instead.
-  Check is one model call for all the rest (`Tore.Recipes.Swaps`): a swap per missing thing,
-  from what was typed first, then the pantry, never anything else, with how to use it; or that
-  nothing fits, with Put on the list. Cook with these carries the swaps to cook mode in
+  Check asks pi once for all the rest, in the person's chat; pi answers with `suggest_swaps`,
+  which saves nothing, and the sheet reads the swaps from its result (`Tore.Recipes.Swaps`): a
+  swap per missing thing, from what was typed first, then the pantry, never anything else, with
+  how to use it; or that nothing fits, with Put on the list. Cook with these carries the swaps to cook mode in
   `?swaps=`. Nothing is saved: one red onion today says nothing about next week.
 - **Done** (cook mode's last card) marks the recipe cooked and the pantry rows the dinner took as
   missing, the swaps' in place of what they stood for (`Tore.Pantry.use_up/2`). Dry goods,
   spices and condiments outlast a dinner and stay. A missing row isn't at home until it's bought
   again. Done shows what's gone, with Undo.
-- **In Capture**, "I don't have Y, I have Z" is `can_i_make` with `lacking` and `instead`: the same
-  swaps on its card, and Cook now carries them.
+- **In the chat**, "I don't have Y, I have Z" gets the same swaps from pi in words
+  (`harness/AGENTS.md`).
 
 ### Planner (`/plan`)
 
@@ -1117,7 +1118,7 @@ and paid by their plan; no MCP tool calls a model, so a household nobody sponsor
   the estimate, the basics, the list, the pantry, what's due), `get_planning_history` (six weeks of days),
   `search_recipes`, `get_recipe`, `list_receipts`, `list_deals` (with the ingredient each offer matched),
   `what_if` (the week's forecast with its plan changed in memory, next to now, by the rung the budget page goes
-  by; nothing is saved). Writes call `Capture.Dispatch`, with `actor: :mcp`: `set_dinner` and `change_day` (both
+  by; nothing is saved), `suggest_swaps` (pi's swaps for the sheet before cooking; nothing is saved). Writes call `Capture.Dispatch`, with `actor: :mcp`: `set_dinner` and `change_day` (both
   take `meal: "lunch"`), `set_days_off`, `add_to_list`, `check_off`,
   `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`, `update_memory`, `mark_cooked`,
   `delete_recipe`, `delete_receipt`, `set_budget`, `set_basics`. `put_together` makes a meal from

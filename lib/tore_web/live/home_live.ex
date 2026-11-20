@@ -542,7 +542,10 @@ defmodule ToreWeb.HomeLive do
 
   def handle_info({:events, _events}, socket), do: {:noreply, reload_tonight(socket)}
 
-  def handle_info({:pi, _session, event}, socket), do: {:noreply, PiReply.event(socket, event)}
+  def handle_info({:pi, _session, event}, socket) do
+    if socket.assigns.before_cooking, do: ToreWeb.BeforeCooking.forward(event)
+    {:noreply, PiReply.event(socket, event)}
+  end
 
   attr :note, :map, required: true
   attr :added, :boolean, required: true

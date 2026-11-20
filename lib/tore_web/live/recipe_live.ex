@@ -443,6 +443,7 @@ defmodule ToreWeb.RecipeLive do
   # pi answers the link in the person's chat. If it is done without saving a recipe, what it said
   # is why (not a recipe, the site refused), next to the field.
   def handle_info({:pi, _session, event}, socket) do
+    if socket.assigns.before_cooking, do: ToreWeb.BeforeCooking.forward(event)
     socket = ToreWeb.PiReply.event(socket, event)
 
     case {event, socket.assigns} do

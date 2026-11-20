@@ -523,6 +523,9 @@ defmodule ToreWeb.RecipeLiveTest do
   end
 
   describe "before cooking" do
+    import Tore.FakePi
+    setup :fake_pi
+
     setup do
       {:ok, stew} =
         Recipes.create(
@@ -566,37 +569,64 @@ defmodule ToreWeb.RecipeLiveTest do
       refute has_element?(view, ~s([data-role="cook-anyway"]))
     end
 
-    test "Check asks once for the rest and cooks with the swaps", %{
+    test "Check asks pi once for the rest, in the person's chat, and cooks with the swaps", %{
       conn: conn,
       user: user,
-      stew: stew
+      stew: stew,
+      pi_log: log
     } do
-      Mox.set_mox_global()
+      result = %{
+        "done" => "Swaps for Kycklinggryta. Nothing is saved.",
+        "swaps" => [
+          %{
+            "for" => "crème fraîche",
+            "use" => "gräddfil",
+            "note" => "Rör ner på låg värme.",
+            "at_home" => false
+          }
+        ]
+      }
 
-      Mox.expect(Tore.MockLLM, :text, fn _system, user_msg, _opts ->
-        sent = Jason.decode!(user_msg)
-        assert sent["missing"] == ["crème fraîche"]
-        assert sent["they_have"] == "gräddfil"
-
-        {:ok,
-         %{
-           "swaps" => [
-             %{"for" => "crème fraîche", "use" => "gräddfil", "note" => "Rör ner på låg värme."}
-           ]
-         }, %{}}
-      end)
+      System.put_env(
+        "FAKE_PI_TOOL",
+        Jason.encode!(%{
+          name: "mcp__tore__suggest_swaps",
+          args: %{recipe_id: stew.id, swaps: result["swaps"]},
+          result: Jason.encode!(result)
+        })
+      )
 
       {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: stew.id]}")
       view |> element(~s(button[data-role="start-cooking"])) |> render_click()
       view |> element(~s([data-missing="gul lök"] button)) |> render_click()
       view |> element("#before-cooking-check") |> render_submit(%{offered: "gräddfil"})
 
-      assert render_async(view) =~ "Rör ner på låg värme."
+      assert eventually(fn -> render(view) =~ "Rör ner på låg värme." end)
       link = view |> element(~s([data-role="cook-with"])) |> render()
       assert link =~ "Laga med det här"
       assert link =~ "swaps[0][use]=gr%C3%A4ddfil"
       assert has_element?(view, ~s([data-role="cook-anyway"]))
       assert Tore.Pantry.at_home(home_scope(), ["gräddfil"]).missing == ["gräddfil"]
+
+      [header | commands] = pi_records(log)
+      assert header["session"] == "chat-#{user.id}"
+      %{"message" => message} = Enum.find(commands, &(&1["type"] == "prompt"))
+      assert message =~ "recipe #{stew.id}"
+      assert message =~ "crème fraîche"
+      refute message =~ "gul lök"
+      assert message =~ "gräddfil"
+    end
+
+    test "says so when pi answers without swaps", %{conn: conn, user: user, stew: stew} do
+      {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: stew.id]}")
+      view |> element(~s(button[data-role="start-cooking"])) |> render_click()
+      view |> element("#before-cooking-check") |> render_submit(%{offered: ""})
+
+      assert eventually(fn ->
+               has_element?(view, ~s([data-role="before-cooking"] [role="alert"]))
+             end)
+
+      refute has_element?(view, ~s([data-role="cook-with"]))
     end
   end
 

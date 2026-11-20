@@ -1,8 +1,11 @@
 defmodule ToreWeb.BeforeCooking do
   @moduledoc """
   The sheet Cook now opens when Tore thinks something isn't at home. Tick what you do have; say
-  what you'd use instead and Kolla asks once for all of it (`Tore.Recipes.Swaps`); then cook
-  with the swaps, or anyway. The swaps travel to cook mode in its address. Nothing is saved.
+  what you'd use instead and Kolla asks pi once for all of it, in the person's chat: pi answers
+  with `suggest_swaps` (`Tore.Recipes.Swaps`). Then cook with the swaps, or anyway. The swaps
+  travel to cook mode in its address. Nothing is saved.
+
+  The screen hands pi's events to `forward/1` while the sheet is open, since only it hears them.
 
       <.live_component
         module={ToreWeb.BeforeCooking}
@@ -17,6 +20,7 @@ defmodule ToreWeb.BeforeCooking do
 
   use ToreWeb, :live_component
 
+  alias Tore.Pi
   alias Tore.Recipes.Swaps
 
   @impl true
@@ -33,9 +37,35 @@ defmodule ToreWeb.BeforeCooking do
   end
 
   @impl true
+  def update(%{pi_event: event}, socket), do: {:ok, pi_event(event, socket)}
+
   def update(assigns, socket) do
-    {:ok, socket |> assign(assigns) |> assign(ai?: Tore.LLM.available?(assigns.scope))}
+    {:ok, socket |> assign(assigns) |> assign(ai?: Pi.check(assigns.scope) == :ok)}
   end
+
+  @doc "One of pi's events, from the screen the sheet is on."
+  def forward(event), do: send_update(__MODULE__, id: "before-cooking", pi_event: event)
+
+  defp pi_event(%{"type" => "tool_execution_end", "isError" => false} = event, socket) do
+    with %{checking: true} <- socket.assigns,
+         "mcp__tore__suggest_swaps" <- event["toolName"],
+         %{"content" => [%{"type" => "text", "text" => text} | _]} <- event["result"],
+         {:ok, %{"swaps" => swaps}} when is_list(swaps) <- Jason.decode(text) do
+      assign(socket,
+        swaps: Swaps.for_missing(still_missing(socket.assigns), swaps),
+        checking: false
+      )
+    else
+      _ -> socket
+    end
+  end
+
+  # pi finished without swaps: it couldn't, or it answered in words only.
+  defp pi_event(%{"type" => type}, %{assigns: %{checking: true}} = socket)
+       when type in ["agent_settled", "exited"],
+       do: assign(socket, failed: failure(nil), checking: false)
+
+  defp pi_event(_event, socket), do: socket
 
   @impl true
   def handle_event("tick", %{"name" => name}, socket) do
@@ -52,10 +82,18 @@ defmodule ToreWeb.BeforeCooking do
         {:noreply, socket}
 
       missing ->
-        {:noreply,
-         socket
-         |> assign(offered: offered, checking: true, swaps: nil, failed: nil)
-         |> start_async(:check, fn -> Swaps.check(scope, recipe, missing, offered) end)}
+        message =
+          "From the sheet before cooking #{recipe.title} (recipe #{recipe.id}): these aren't at " <>
+            "home: #{Enum.join(missing, ", ")}. They have: \"#{String.trim(offered)}\". " <>
+            "Give a swap for each with suggest_swaps, then say it in a sentence."
+
+        case Pi.ask(scope, Pi.chat_session(scope), message) do
+          :ok ->
+            {:noreply, assign(socket, offered: offered, checking: true, swaps: nil, failed: nil)}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, offered: offered, failed: failure(reason))}
+        end
     end
   end
 
@@ -65,16 +103,6 @@ defmodule ToreWeb.BeforeCooking do
     Tore.Shop.add_item(scope, list_id, name, nil, nil, scope.user_id)
     {:noreply, update(socket, :listed, &MapSet.put(&1, name))}
   end
-
-  @impl true
-  def handle_async(:check, {:ok, {:ok, swaps}}, socket),
-    do: {:noreply, assign(socket, swaps: swaps, checking: false)}
-
-  def handle_async(:check, {:ok, {:error, reason}}, socket),
-    do: {:noreply, assign(socket, failed: failure(reason), checking: false)}
-
-  def handle_async(:check, {:exit, _reason}, socket),
-    do: {:noreply, assign(socket, failed: failure(nil), checking: false)}
 
   defp failure(reason) do
     Tore.LLM.refusal_text(reason) || gettext("Couldn't check. Nothing has changed.")

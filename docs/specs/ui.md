@@ -679,8 +679,8 @@ Have something instead?  [rödlök, gräddfil     ] [Check]
 [Cook with these]  Cook anyway
 ```
 
-Ticks are free and only count for this cook. Check is one model call for all of it. Nothing is
-saved. Cook mode shows "rödlök instead of gul lök" where it's used, and the step text uses
+Ticks are free and only count for this cook. Check asks pi once for all of it, in the person's
+chat. Nothing is saved. Cook mode shows "rödlök instead of gul lök" where it's used, and the step text uses
 the swap's name for the whole word ("Skiva vitlöken" → "Skiva vitlökspulver"). Done turns the
 last card into "Cooked" with what's now used up at home; nothing moves: Close takes Done's
 place and Undo the step buttons'.

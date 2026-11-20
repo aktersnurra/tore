@@ -611,6 +611,7 @@ defmodule Tore.Recipes do
 
     :ok
   end
+
   # ── Query filters ──────────────────────────────────────────────────────────
 
   defp filter_tags(query, nil), do: query
