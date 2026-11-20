@@ -12,6 +12,8 @@ defmodule Tore.Budget.Forecast.ScaleOffset do
   """
   @behaviour Tore.Budget.Forecast.Rung
 
+  import Tore.Budget.Forecast.Rung, only: [to_float: 1, to_decimal: 1]
+
   alias Tore.Budget.Forecast.OpenDays
 
   # One standard deviation of the prior: how far the meals' scale and the open days' may stray
@@ -110,7 +112,4 @@ defmodule Tore.Budget.Forecast.ScaleOffset do
         ],
         do: Enum.map(row, &(&1 / det))
   end
-
-  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
-  defp to_decimal(f), do: f |> Float.round(2) |> Decimal.from_float()
 end

@@ -103,7 +103,7 @@ defmodule Tore.Budget.Forecast do
   defp paid_weeks(scope, today, latest) do
     query =
       from(r in Receipt,
-        where: r.week_start < ^Date.add(today, -6),
+        where: r.week_start < ^Date.add(today, -6) and not is_nil(r.total_amount),
         group_by: r.week_start,
         order_by: [desc: r.week_start],
         select: {r.week_start, sum(r.total_amount)}

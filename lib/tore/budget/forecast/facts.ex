@@ -67,7 +67,8 @@ defmodule Tore.Budget.Forecast.Facts do
     before = Enum.min([week_start, this_week], Date)
 
     from(r in Receipt,
-      where: r.week_start < ^before and r.inserted_at <= ^as_of,
+      # A receipt without a total says nothing about what was paid.
+      where: r.week_start < ^before and r.inserted_at <= ^as_of and not is_nil(r.total_amount),
       group_by: r.week_start,
       order_by: [desc: r.week_start],
       limit: @history_weeks,

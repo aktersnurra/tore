@@ -38,6 +38,15 @@ defmodule Tore.Budget.Forecast.Rung do
       do: gaps |> Enum.reduce(&Decimal.add/2) |> Decimal.div(length(gaps)) |> Decimal.round(2)
   end
 
+  @doc "An amount in kronor as a float, for the rungs that work in floats."
+  @spec to_float(Decimal.t()) :: float()
+  def to_float(%Decimal{} = amount), do: Decimal.to_float(amount)
+
+  @doc "A float back in kronor, to the öre."
+  @spec to_decimal(float()) :: Decimal.t()
+  def to_decimal(amount) when is_float(amount),
+    do: amount |> Float.round(2) |> Decimal.from_float()
+
   @doc "A prediction of `amount`, never below nothing, with no range."
   @spec point(Decimal.t()) :: prediction()
   def point(amount),

@@ -12,6 +12,8 @@ defmodule Tore.Budget.Forecast.PerLine do
   """
   @behaviour Tore.Budget.Forecast.Rung
 
+  import Tore.Budget.Forecast.Rung, only: [to_float: 1, to_decimal: 1]
+
   # Weeks' worth of pull: an ingredient's chance toward the household's, the household's toward 1.
   @pull 2
 
@@ -93,7 +95,4 @@ defmodule Tore.Budget.Forecast.PerLine do
       (k + @pull * household) / (n + @pull)
     end
   end
-
-  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
-  defp to_decimal(f), do: f |> Float.round(2) |> Decimal.from_float()
 end

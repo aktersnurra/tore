@@ -5,14 +5,17 @@ defmodule Tore.Budget.Forecast.Simulation do
   and recent weeks' dinners picked at random, and the extras come out around their recent mean.
 
   The runs' mean is the expectation. Their spread is then calibrated against the finished weeks
-  (split conformal): each week is run the same way, and the spread is widened or narrowed until
-  80 % of those weeks would have landed in its 10th–90th percentile. The calibrated runs give the
-  range, and the share of them above a budget the risk of going over it (`:draws`).
+  (split conformal): each week is run the same way from the other weeks, and the spread is
+  widened or narrowed until 80 % of those weeks would have landed in its 10th–90th percentile.
+  The calibrated runs give the range, and the share of them above a budget the risk of going
+  over it (`:draws`).
 
   The runs are seeded from the facts, so the same facts always give the same answer, whenever
   they are read.
   """
   @behaviour Tore.Budget.Forecast.Rung
+
+  import Tore.Budget.Forecast.Rung, only: [to_float: 1, to_decimal: 1]
 
   alias Tore.Budget.Forecast.PerLine
 
@@ -29,7 +32,7 @@ defmodule Tore.Budget.Forecast.Simulation do
 
     {draws, seed} = run(week, history, chance, seed)
     mean = Enum.sum(draws) / @runs
-    widen = widen(history, chance, seed)
+    widen = widen(history, seed)
 
     calibrated =
       draws
@@ -73,15 +76,17 @@ defmodule Tore.Budget.Forecast.Simulation do
   end
 
   # How much the runs' spread must stretch for its 80 % to have held 80 % of the finished weeks:
-  # each week's miss in its own runs' standard deviations, the conformal quantile of those, over
-  # what a normal spread would need. As it is until there are enough weeks.
-  defp widen(history, chance, seed) do
+  # each week, run from the other weeks, its miss in its runs' standard deviations; the conformal
+  # quantile of those, over what a normal spread would need. As it is until there are enough weeks.
+  defp widen(history, seed) do
     scores =
       history
       |> Enum.reject(&Decimal.eq?(&1.meals.amount, 0))
       |> Enum.take(@calibration_weeks)
       |> Enum.map_reduce(seed, fn w, seed ->
-        {draws, seed} = run(w, history, chance, seed)
+        # Learned without the week itself, or its own spend would pull its runs toward it.
+        others = List.delete(history, w)
+        {draws, seed} = run(w, others, PerLine.chances(others), seed)
         mean = Enum.sum(draws) / @runs
         sd = :math.sqrt(Enum.sum(for d <- draws, do: (d - mean) ** 2) / @runs)
         {abs(to_float(w.paid) - mean) / max(sd, 1.0), seed}
@@ -97,7 +102,4 @@ defmodule Tore.Budget.Forecast.Simulation do
   end
 
   defp percentile(sorted, p), do: Enum.at(sorted, floor(p * (length(sorted) - 1)))
-
-  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
-  defp to_decimal(f), do: f |> Float.round(2) |> Decimal.from_float()
 end

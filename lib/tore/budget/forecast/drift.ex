@@ -10,6 +10,8 @@ defmodule Tore.Budget.Forecast.Drift do
   """
   @behaviour Tore.Budget.Forecast.Rung
 
+  import Tore.Budget.Forecast.Rung, only: [to_float: 1, to_decimal: 1]
+
   # Where a and b start, one standard deviation: the scale around 1, the offset around the
   # basics by this many noise guesses, loose enough for the first weeks to set it.
   @scale_sd 0.25
@@ -90,7 +92,4 @@ defmodule Tore.Budget.Forecast.Drift do
 
   defp dot(a, b), do: a |> Enum.zip_with(b, &(&1 * &2)) |> Enum.sum()
   defp mul(m, v), do: Enum.map(m, &dot(&1, v))
-
-  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
-  defp to_decimal(f), do: f |> Float.round(2) |> Decimal.from_float()
 end

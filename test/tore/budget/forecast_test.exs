@@ -453,6 +453,25 @@ defmodule Tore.Budget.ForecastTest do
     end
   end
 
+  test "a receipt without a total says nothing about what a week cost" do
+    stew_weeks(recipe("Gryta", "100"), [Date.add(@week, -14)])
+    {:ok, _} = receipt_without_total(Date.add(@week, -7))
+
+    facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+    assert Enum.map(facts.history, & &1.week_start) == [Date.add(@week, -14)]
+    assert %{weeks: 1} = Forecast.backtest(home_scope(), today: @today)[OpenDays]
+  end
+
+  defp receipt_without_total(week),
+    do:
+      Tore.Costs.log_receipt(home_scope(), %{
+        date: week,
+        week_start: week,
+        store_name: "ICA",
+        user_id: user_fixture().id,
+        line_items: []
+      })
+
   test "a week still being shopped for isn't scored" do
     receipt(@week, "300")
     assert %{weeks: 0, mae: nil} = Forecast.backtest(home_scope(), today: @today)[OpenDays]
