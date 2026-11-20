@@ -616,7 +616,7 @@ Shelf or fridge → Into the pantry, a line with Undo per item
 Unknown → Ask what to do
 ```
 
-The tray looks like Claude's chat: full screen on a laptop, a sheet on a phone, one column about
+The tray looks like Claude's chat: a page beside the menu on a laptop, a sheet on a phone, one column about
 48rem wide. What the person wrote sits on the right in a soft bubble, with no avatar. Tore's
 answers are reading text under its mark and name, shown once per run of its messages, set as
 markdown (`.chat-md`) with a caret while they stream in. A change pi made is a quiet line with a

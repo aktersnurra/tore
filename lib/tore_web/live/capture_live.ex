@@ -393,230 +393,233 @@ defmodule ToreWeb.CaptureLive do
     assigns = assign(assigns, :head, not tore?(List.last(assigns.messages)))
 
     ~H"""
-    <div
-      id="command-tray"
-      data-role="command-tray"
-      phx-mounted={
-        JS.transition(
-          {"motion-safe:transition-transform motion-safe:duration-200 ease-out", "translate-y-full",
-           "translate-y-0"}
-        )
-      }
-      class="fixed inset-x-0 bottom-0 top-8 z-50 flex flex-col rounded-t-[28px] bg-[var(--bg)] shadow-[var(--shadow-pop)] lg:inset-0 lg:rounded-none lg:shadow-none"
-      phx-window-keydown="close_tray"
-      phx-key="Escape"
-    >
-      <div class="flex justify-center py-2 lg:hidden">
-        <.link navigate={@return_to} aria-label={gettext("Close")} data-role="tray-close">
-          <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
-        </.link>
-      </div>
-
-      <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-4 lg:h-14">
-        <span class="truncate text-[15px] font-semibold text-[color:var(--text)]">
-          {if @recipe,
-            do: gettext("About %{dish}", dish: @recipe.title),
-            else: gettext("Ask Tore")}
-        </span>
-        <.link
-          navigate={@return_to}
-          aria-label={gettext("Close")}
-          class="press flex size-9 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-        >
-          <.icon name="ph-x" class="size-5" />
-        </.link>
-      </header>
-
-      <script :type={Phoenix.LiveView.ColocatedHook} name=".ScrollBottom">
-        // The latest of the conversation is in view: when it opens, and as the answer comes in,
-        // unless they have scrolled up to read.
-        export default {
-          mounted() { this.el.scrollTop = this.el.scrollHeight },
-          beforeUpdate() {
-            this.atEnd = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight < 80
-          },
-          updated() { if (this.atEnd) this.el.scrollTop = this.el.scrollHeight },
+    <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
+      <%!-- On a wide screen the chat is a page beside the menu; on a phone it's a sheet over it. --%>
+      <div
+        id="command-tray"
+        data-role="command-tray"
+        phx-mounted={
+          JS.transition(
+            {"motion-safe:transition-transform motion-safe:duration-200 ease-out", "translate-y-full",
+             "translate-y-0"}
+          )
         }
-      </script>
-      <div id="chat-messages" phx-hook=".ScrollBottom" class="flex-1 overflow-y-auto">
-        <div class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6">
-          <div
-            :if={@messages == [] and not @loading}
-            class="my-auto flex flex-col items-center py-10 text-center"
-          >
-            <span
-              class="reveal flex size-12 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)]"
-              style="--i: 0"
-            >
-              <.icon name="ph-cooking-pot-duotone" class="size-6" />
-            </span>
-            <p
-              class="reveal mt-4 text-[26px] font-semibold tracking-[-0.02em] text-[color:var(--text)]"
-              style="--i: 1"
-            >
-              {gettext("What do you need?")}
-            </p>
-            <p
-              class="reveal mt-2 max-w-[38ch] text-[color:var(--muted)]"
-              style="--i: 2; font-size: 15px; line-height: 1.5;"
-            >
-              {if @recipe,
-                do:
-                  gettext(
-                    "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
-                  ),
-                else:
-                  gettext(
-                    "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
-                  )}
-            </p>
-          </div>
-
-          <div class="space-y-6">
-            <.turn :for={{msg, head} <- with_heads(@messages)} msg={msg} head={head} />
-
-            <div
-              :if={@draft}
-              data-role="draft"
-              class={["flex items-start gap-3", !@head && "pl-10"]}
-            >
-              <.avatar :if={@head} />
-              <div class="min-w-0 flex-1 pt-0.5">
-                <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
-                  Tore
-                </div>
-                <div class="chat-md is-streaming text-[color:var(--text)]">
-                  {markdown(@draft)}
-                </div>
-              </div>
-            </div>
-
-            <div
-              :if={@loading and is_nil(@draft)}
-              class={["rise-in flex items-start gap-3", !@head && "pl-10"]}
-            >
-              <.avatar :if={@head} />
-              <div class="min-w-0 flex-1 pt-0.5">
-                <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
-                  Tore
-                </div>
-                <div role="status" class="flex items-center gap-2">
-                  <.icon
-                    name="ph-arrows-clockwise"
-                    class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
-                  />
-                  <span
-                    id={"working-#{:erlang.phash2(@working)}"}
-                    data-role="working"
-                    class="settle text-[15px] text-[color:var(--muted)]"
-                  >
-                    {@working}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mx-auto w-full max-w-3xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:pb-6">
-        <div
-          :if={@swaps != [] and not @loading}
-          data-role="swaps"
-          class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
-        >
-          <button
-            :for={{swap, index} <- Enum.with_index(@swaps)}
-            type="button"
-            phx-click="swap"
-            phx-value-index={index}
-            data-role="swap"
-            class="pill press"
-          >
-            {swap.label}
-          </button>
+        class="fixed inset-x-0 bottom-0 top-8 z-50 flex flex-col rounded-t-[28px] bg-[var(--bg)] shadow-[var(--shadow-pop)] lg:inset-y-0 lg:right-0 lg:left-[248px] lg:z-30 lg:rounded-none lg:shadow-none"
+        phx-window-keydown="close_tray"
+        phx-key="Escape"
+      >
+        <div class="flex justify-center py-2 lg:hidden">
+          <.link navigate={@return_to} aria-label={gettext("Close")} data-role="tray-close">
+            <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
+          </.link>
         </div>
 
-        <script :type={Phoenix.LiveView.ColocatedHook} name=".Composer">
-          // The box grows with what's written, up to a point. Enter sends and Shift+Enter starts a
-          // new line; once sent, the box empties for the next message.
+        <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-4 lg:h-14">
+          <span class="truncate text-[15px] font-semibold text-[color:var(--text)]">
+            {if @recipe,
+              do: gettext("About %{dish}", dish: @recipe.title),
+              else: gettext("Ask Tore")}
+          </span>
+          <.link
+            navigate={@return_to}
+            aria-label={gettext("Close")}
+            class="press flex size-9 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+          >
+            <.icon name="ph-x" class="size-5" />
+          </.link>
+        </header>
+
+        <script :type={Phoenix.LiveView.ColocatedHook} name=".ScrollBottom">
+          // The latest of the conversation is in view: when it opens, and as the answer comes in,
+          // unless they have scrolled up to read.
           export default {
-            mounted() {
-              this.grow = () => {
-                this.el.style.height = "auto"
-                this.el.style.height = Math.min(this.el.scrollHeight, 192) + "px"
-              }
-              this.el.addEventListener("input", this.grow)
-              this.el.addEventListener("keydown", (e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
-                  e.preventDefault()
-                  // While pi works, Enter waits: Stop is where send was.
-                  if (!this.el.form.querySelector('[data-role="stop"]')) this.el.form.requestSubmit()
-                }
-              })
-              // After LiveView has read the form.
-              this.el.form.addEventListener("submit", () =>
-                setTimeout(() => { this.el.value = ""; this.grow() }, 0))
-              this.grow()
+            mounted() { this.el.scrollTop = this.el.scrollHeight },
+            beforeUpdate() {
+              this.atEnd = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight < 80
             },
-            updated() { this.grow() },
+            updated() { if (this.atEnd) this.el.scrollTop = this.el.scrollHeight },
           }
         </script>
-        <form phx-submit="send_message" phx-change="validate">
-          <div class="field-group flex items-end gap-2 rounded-[20px] border border-[color:var(--border)] bg-[var(--surface)] py-2 pr-2 pl-4">
-            <textarea
-              id="chat-input"
-              name="message"
-              rows="1"
-              phx-hook=".Composer"
-              placeholder={gettext("Message Tore…")}
-              aria-label={gettext("Message Tore…")}
-              autocomplete="off"
-              class="block max-h-48 min-w-0 flex-1 resize-none self-center bg-transparent py-1.5 leading-relaxed text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-              style="font-size: 16px;"
-            >{@input}</textarea>
-            <button
-              :if={not @loading}
-              type="submit"
-              aria-label={gettext("Send")}
-              title={gettext("Send")}
-              class="press flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
+        <div id="chat-messages" phx-hook=".ScrollBottom" class="flex-1 overflow-y-auto">
+          <div class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6">
+            <div
+              :if={@messages == [] and not @loading}
+              class="my-auto flex flex-col items-center py-10 text-center"
             >
-              <.icon name="ph-arrow-elbow-down-left" class="size-5" />
-            </button>
+              <span
+                class="reveal flex size-12 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)]"
+                style="--i: 0"
+              >
+                <.icon name="ph-cooking-pot-duotone" class="size-6" />
+              </span>
+              <p
+                class="reveal mt-4 text-[26px] font-semibold tracking-[-0.02em] text-[color:var(--text)]"
+                style="--i: 1"
+              >
+                {gettext("What do you need?")}
+              </p>
+              <p
+                class="reveal mt-2 max-w-[38ch] text-[color:var(--muted)]"
+                style="--i: 2; font-size: 15px; line-height: 1.5;"
+              >
+                {if @recipe,
+                  do:
+                    gettext(
+                      "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
+                    ),
+                  else:
+                    gettext(
+                      "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
+                    )}
+              </p>
+            </div>
+
+            <div class="space-y-6">
+              <.turn :for={{msg, head} <- with_heads(@messages)} msg={msg} head={head} />
+
+              <div
+                :if={@draft}
+                data-role="draft"
+                class={["flex items-start gap-3", !@head && "pl-10"]}
+              >
+                <.avatar :if={@head} />
+                <div class="min-w-0 flex-1 pt-0.5">
+                  <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
+                    Tore
+                  </div>
+                  <div class="chat-md is-streaming text-[color:var(--text)]">
+                    {markdown(@draft)}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                :if={@loading and is_nil(@draft)}
+                class={["rise-in flex items-start gap-3", !@head && "pl-10"]}
+              >
+                <.avatar :if={@head} />
+                <div class="min-w-0 flex-1 pt-0.5">
+                  <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
+                    Tore
+                  </div>
+                  <div role="status" class="flex items-center gap-2">
+                    <.icon
+                      name="ph-arrows-clockwise"
+                      class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
+                    />
+                    <span
+                      id={"working-#{:erlang.phash2(@working)}"}
+                      data-role="working"
+                      class="settle text-[15px] text-[color:var(--muted)]"
+                    >
+                      {@working}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mx-auto w-full max-w-3xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:pb-6">
+          <div
+            :if={@swaps != [] and not @loading}
+            data-role="swaps"
+            class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
+          >
             <button
-              :if={@loading}
+              :for={{swap, index} <- Enum.with_index(@swaps)}
               type="button"
-              phx-click="stop"
-              data-role="stop"
-              aria-label={gettext("Stop")}
-              title={gettext("Stop")}
-              class="press flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
+              phx-click="swap"
+              phx-value-index={index}
+              data-role="swap"
+              class="pill press"
             >
-              <.icon name="ph-stop-fill" class="size-4" />
+              {swap.label}
             </button>
           </div>
-          <div class="mt-1.5 flex flex-wrap items-center gap-2 px-1">
-            <label
-              for={@uploads.chat_photos.ref}
-              aria-label={gettext("Attach photo")}
-              title={gettext("Attach photo")}
-              class="press flex size-9 cursor-pointer items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
-            >
-              <.icon name="ph-camera" class="size-5" />
-            </label>
-            <span
-              :for={entry <- @uploads.chat_photos.entries}
-              class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
-            >
-              <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
-              {entry.client_name} · {entry.progress}%
-            </span>
-          </div>
-          <.live_file_input upload={@uploads.chat_photos} class="hidden" />
-        </form>
+
+          <script :type={Phoenix.LiveView.ColocatedHook} name=".Composer">
+            // The box grows with what's written, up to a point. Enter sends and Shift+Enter starts a
+            // new line; once sent, the box empties for the next message.
+            export default {
+              mounted() {
+                this.grow = () => {
+                  this.el.style.height = "auto"
+                  this.el.style.height = Math.min(this.el.scrollHeight, 192) + "px"
+                }
+                this.el.addEventListener("input", this.grow)
+                this.el.addEventListener("keydown", (e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+                    e.preventDefault()
+                    // While pi works, Enter waits: Stop is where send was.
+                    if (!this.el.form.querySelector('[data-role="stop"]')) this.el.form.requestSubmit()
+                  }
+                })
+                // After LiveView has read the form.
+                this.el.form.addEventListener("submit", () =>
+                  setTimeout(() => { this.el.value = ""; this.grow() }, 0))
+                this.grow()
+              },
+              updated() { this.grow() },
+            }
+          </script>
+          <form phx-submit="send_message" phx-change="validate">
+            <div class="field-group flex items-end gap-2 rounded-[20px] border border-[color:var(--border)] bg-[var(--surface)] py-2 pr-2 pl-4">
+              <textarea
+                id="chat-input"
+                name="message"
+                rows="1"
+                phx-hook=".Composer"
+                placeholder={gettext("Message Tore…")}
+                aria-label={gettext("Message Tore…")}
+                autocomplete="off"
+                class="block max-h-48 min-w-0 flex-1 resize-none self-center bg-transparent py-1.5 leading-relaxed text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+                style="font-size: 16px;"
+              >{@input}</textarea>
+              <button
+                :if={not @loading}
+                type="submit"
+                aria-label={gettext("Send")}
+                title={gettext("Send")}
+                class="press flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
+              >
+                <.icon name="ph-arrow-elbow-down-left" class="size-5" />
+              </button>
+              <button
+                :if={@loading}
+                type="button"
+                phx-click="stop"
+                data-role="stop"
+                aria-label={gettext("Stop")}
+                title={gettext("Stop")}
+                class="press flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
+              >
+                <.icon name="ph-stop-fill" class="size-4" />
+              </button>
+            </div>
+            <div class="mt-1.5 flex flex-wrap items-center gap-2 px-1">
+              <label
+                for={@uploads.chat_photos.ref}
+                aria-label={gettext("Attach photo")}
+                title={gettext("Attach photo")}
+                class="press flex size-9 cursor-pointer items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
+              >
+                <.icon name="ph-camera" class="size-5" />
+              </label>
+              <span
+                :for={entry <- @uploads.chat_photos.entries}
+                class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
+              >
+                <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
+                {entry.client_name} · {entry.progress}%
+              </span>
+            </div>
+            <.live_file_input upload={@uploads.chat_photos} class="hidden" />
+          </form>
+        </div>
       </div>
-    </div>
+    </Layouts.app>
     """
   end
 end

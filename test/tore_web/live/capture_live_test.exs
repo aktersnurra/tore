@@ -177,6 +177,11 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
+  test "the chat keeps the app's menu beside it", %{conn: conn} do
+    {:ok, _lv, html} = live(conn, "/capture")
+    assert html =~ ~s(id="tab-bar-live")
+  end
+
   test "while pi works, send becomes stop, which aborts it and leaves its late answer out", %{
     conn: conn,
     pi_log: log
