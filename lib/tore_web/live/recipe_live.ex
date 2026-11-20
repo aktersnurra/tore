@@ -1419,22 +1419,10 @@ defmodule ToreWeb.RecipeLive do
           placeholder="https://"
           aria-label={gettext("Link to the recipe")}
           errors={List.wrap(@import_error)}
+          send={gettext("Get recipe")}
           enterkeyhint="go"
           phx-mounted={JS.focus()}
-        >
-          <%!-- The form's first submit button, so Enter fetches the link. --%>
-          <:trailing>
-            <button
-              type="submit"
-              data-role="send"
-              aria-label={gettext("Get recipe")}
-              title={gettext("Get recipe")}
-              class="press -mr-2 grid size-9 shrink-0 place-items-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
-            >
-              <.icon name="ph-arrow-elbow-down-left" class="size-5" />
-            </button>
-          </:trailing>
-        </.field>
+        />
 
         <%!-- The way out: the link typed so far comes along as the recipe's source. --%>
         <button

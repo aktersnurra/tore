@@ -266,12 +266,11 @@ defmodule ToreWeb.BeforeCooking do
                 value={@offered}
                 placeholder={gettext("e.g. red onion, sour cream")}
                 autocomplete="off"
+                send={gettext("Check")}
+                busy={@checking}
                 enterkeyhint="send"
                 readonly={@checking}
               />
-              <button type="submit" class="sr-only" disabled={@checking} data-role="check-swaps">
-                {gettext("Check")}
-              </button>
             </div>
           </form>
 

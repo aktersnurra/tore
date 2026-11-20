@@ -1192,6 +1192,8 @@ defmodule ToreWeb.PlannerLive do
                 autocomplete="off"
                 placeholder={gettext("Anything about this day…")}
                 aria-label={gettext("Anything about this day…")}
+                send={gettext("Send")}
+                enterkeyhint="send"
               />
             </form>
           </div>

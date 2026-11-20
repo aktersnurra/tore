@@ -15,6 +15,21 @@ defmodule ToreWeb.FieldTest do
     refute html =~ "field-error"
   end
 
+  test "a field that sends looks like the chat's box, with the send icon in it" do
+    doc = field(%{name: "url", send: "Get recipe"}) |> Floki.parse_fragment!()
+
+    assert [box] = Floki.find(doc, ".field.field-send")
+    assert [{"input", _, _}, {"button", attrs, _}] = Floki.children(box)
+    assert {"type", "submit"} in attrs
+    assert {"data-role", "send"} in attrs
+    assert {"aria-label", "Get recipe"} in attrs
+    refute {"disabled", "disabled"} in attrs
+
+    # While it's sending, the icon (and so Enter) waits.
+    busy = field(%{name: "url", send: "Get recipe", busy: true}) |> Floki.parse_fragment!()
+    assert [_] = Floki.find(busy, "[data-role=send][disabled]")
+  end
+
   test "just saved, the box flashes green" do
     assert field(%{name: "name", saved: true}) =~ ~s(class="field saved-flash")
   end

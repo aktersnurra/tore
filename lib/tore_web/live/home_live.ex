@@ -380,6 +380,8 @@ defmodule ToreWeb.HomeLive do
             autofocus
             placeholder={gettext("Anything about tonight…")}
             aria-label={gettext("Anything about tonight…")}
+            send={gettext("Send")}
+            enterkeyhint="send"
           />
         </form>
       </.bottom_sheet>

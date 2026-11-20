@@ -833,9 +833,16 @@ defmodule ToreWeb.CoreComponents do
   typing in it, flashes green when `saved`, and is red with the reason under it when it has
   `errors`. Icons or buttons go inside the box, before or after the input.
 
+  A field that sends something off (a link to read, a question for Tore) gives `send` the label of
+  its send button: it then looks like the chat's box, with no border while typing and the return
+  icon inside, grey until something is written. That button comes first in the form, so Enter
+  sends. `busy` holds it while the last one is on its way.
+
       <.field name="name" label="Name" value={@name} saved={@just_saved} errors={List.wrap(@error)}>
         <:trailing><button type="submit">…</button></:trailing>
       </.field>
+
+      <.field name="url" send={gettext("Get recipe")} enterkeyhint="go" />
   """
   attr :id, :string, default: nil
   attr :name, :string, required: true
@@ -845,6 +852,8 @@ defmodule ToreWeb.CoreComponents do
   attr :placeholder, :string, default: nil
   attr :errors, :list, default: []
   attr :saved, :boolean, default: false, doc: "just saved: the box flashes green"
+  attr :send, :string, default: nil, doc: "the send button's label: a chat-style box that sends"
+  attr :busy, :boolean, default: false, doc: "with `send`: sending, so it waits"
   attr :class, :any, default: nil, doc: "for the field as a whole, e.g. its width"
   attr :input_class, :any, default: nil, doc: "for the input inside the box"
 
@@ -873,7 +882,8 @@ defmodule ToreWeb.CoreComponents do
         "field",
         @errors != [] && "field-invalid",
         @saved && "saved-flash",
-        @type == "textarea" && "field-area"
+        @type == "textarea" && "field-area",
+        @send && "field-send"
       ]}>
         {render_slot(@leading)}
         <textarea
@@ -899,6 +909,17 @@ defmodule ToreWeb.CoreComponents do
           {@rest}
         />
         {render_slot(@trailing)}
+        <button
+          :if={@send}
+          type="submit"
+          data-role="send"
+          aria-label={@send}
+          title={@send}
+          disabled={@busy}
+          class="press -mr-2 grid size-9 shrink-0 place-items-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
+        >
+          <.icon name="ph-arrow-elbow-down-left" class="size-5" />
+        </button>
       </div>
       <p :if={@errors != []} id={"#{@id}-error"} role="alert" class="field-error settle">
         <.icon name="ph-warning-circle" class="mt-px size-4 shrink-0" />

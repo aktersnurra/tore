@@ -343,7 +343,8 @@ defmodule ToreWeb.ShopLive do
             <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={!@scanning && @pi_working} />
 
             <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
-             (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end. --%>
+             (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end
+             while it's empty, and send takes its place once something is typed. --%>
             <div class="sticky top-0 z-10 -mx-4 mt-3 bg-[var(--bg)] px-4">
               <form
                 id="add-item"
@@ -357,19 +358,16 @@ defmodule ToreWeb.ShopLive do
                   aria-label={gettext("Add to the list")}
                   autocomplete="off"
                   required
+                  send={gettext("Add")}
+                  enterkeyhint="go"
                 >
                   <:leading>
-                    <button
-                      type="submit"
-                      aria-label={gettext("Add")}
-                      class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
-                    >
-                      <.icon name="ph-plus" class="size-5" />
-                    </button>
+                    <.icon name="ph-plus" class="size-5 shrink-0 text-[color:var(--muted)]" />
                   </:leading>
                   <:trailing>
                     <button
                       type="button"
+                      data-role="scan"
                       phx-click="open_scanner"
                       aria-label={gettext("Scan what you bought")}
                       class="icon-btn press -mr-2 shrink-0"
@@ -498,6 +496,8 @@ defmodule ToreWeb.ShopLive do
               autofocus
               placeholder={gettext("Anything about this item…")}
               aria-label={gettext("Anything about this item…")}
+              send={gettext("Send")}
+              enterkeyhint="send"
             />
           </form>
           <button

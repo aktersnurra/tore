@@ -243,6 +243,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .field > input:focus-visible, .field > textarea:focus-visible { outline: none; }
 .field-area { align-items: flex-start; }
 
+/* A field that sends, like the chat's box: a fill and no border while typing. Red still shows. */
+.field.field-send, .field.field-send:focus-within { border-color: transparent; border-radius: 20px; }
+.field.field-send.field-invalid { border-color: var(--danger); }
+/* A field with a scanner: scan while empty, send once there's text, in the same spot. */
+.field:has([data-role="scan"]) > input:placeholder-shown ~ [data-role="send"],
+.field > input:not(:placeholder-shown) ~ [data-role="scan"] { display: none; }
+
 /* A row just added: green for a moment, then as the rest. */
 .member-row { display: flex; align-items: center; gap: 12px; margin-inline: -8px; padding: 4px 8px; border-radius: var(--r-md); }
 .row-added { animation: row-added 1.6s var(--ease-out); }

@@ -599,7 +599,9 @@ Icons and buttons (search, +, scan, return) sit inside the box. Text is 16px, so
 doesn't zoom in on it.
 
 A field on its own is sent with Enter, with no button beside it (the phone's key says Done or
-Send). Something just added, like a member, shows green for a moment on its new row, not on the
+Send). A field that sends something off (a recipe link, a question for Tore, Shop's add line)
+looks like the chat's box: a fill, no border, the return icon inside, grey until something is
+written. Shop's add line shows the scanner there while it's empty. Something just added, like a member, shows green for a moment on its new row, not on the
 field. Removing something is a trash can, with no word; menus and forms of several fields keep
 their words, and so does Undo.
 

@@ -111,6 +111,12 @@ defmodule ToreWeb.ShopLiveTest do
       # A form of several text fields with no submit button never submits on Enter.
       assert has_element?(view, ~s(#add-item button[type="submit"]))
 
+      # The scanner and send share the end of the field: scan while it's empty, send once there's
+      # text (the page's CSS swaps them). Send is the form's only submit button.
+      assert has_element?(view, ~s(#add-item .field-send [data-role="scan"]))
+      assert has_element?(view, ~s(#add-item .field-send [data-role="send"][type="submit"]))
+      refute has_element?(view, ~s{#add-item [type="submit"]:not([data-role="send"])})
+
       view |> form("#add-item", %{name: "feta"}) |> render_submit()
       assert_push_event(view, "reset_form", %{id: "add-item"})
       assert has_element?(view, ~s([data-item-name="feta"]))
