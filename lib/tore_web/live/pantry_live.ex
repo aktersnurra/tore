@@ -16,9 +16,15 @@ defmodule ToreWeb.PantryLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    # What's learned in the background (a section, Jev's picture) moves and redraws the rows.
-    if connected?(socket),
-      do: Phoenix.PubSub.subscribe(Tore.PubSub, Pantry.topic(socket.assigns.current_scope))
+    scope = socket.assigns.current_scope
+
+    if connected?(socket) do
+      # What's learned in the background (a section, Jev's picture) moves and redraws the rows.
+      Phoenix.PubSub.subscribe(Tore.PubSub, Pantry.topic(scope))
+      # Anything Jev hasn't been asked about yet (kept from before it was asked, or left by a
+      # failed call) is asked now; with nothing waiting there's no call.
+      :ok = Pantry.Lasts.later(scope)
+    end
 
     {:ok,
      socket
