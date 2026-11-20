@@ -73,10 +73,11 @@ defmodule Tore.PiTest do
     assert GenServer.whereis(Tore.Pi.Session.via(scope, "job-1")) == nil
   end
 
-  test "each person has a chat of their own, counted as chat" do
+  test "each of a person's chats is a session of its own, counted as chat" do
     scope = scope_fixture()
-    session = Pi.chat_session(scope)
-    assert session == "chat-#{scope.user_id}"
+    {:ok, chat} = Tore.Chats.create(scope)
+    session = Tore.Chats.session(chat)
+    assert session == "chat-#{scope.user_id}-#{chat.id}"
 
     :ok = Pi.subscribe(scope, session)
     assert :ok = Pi.ask(scope, session, "hej")
@@ -134,13 +135,13 @@ defmodule Tore.PiTest do
     user = user_fixture()
     person = %{home_scope() | user_id: user.id}
 
-    :ok = Pi.ask(person, Pi.chat_session(person), "hej")
+    :ok = Pi.ask(person, "chat-#{user.id}-1", "hej")
     :ok = Pi.ask(home_scope(), "plan_week-1", "plan")
 
     wait_for(fn -> length(Enum.filter(pi_records(log), &Map.has_key?(&1, "token"))) == 2 end)
     tokens = for %{"token" => t, "session" => s} <- pi_records(log), into: %{}, do: {s, t}
 
-    assert {:ok, %Tore.Scope{user_id: user_id}} = SessionToken.verify(tokens["chat-#{user.id}"])
+    assert {:ok, %Tore.Scope{user_id: user_id}} = SessionToken.verify(tokens["chat-#{user.id}-1"])
     assert user_id == user.id
     assert {:ok, %Tore.Scope{user_id: nil}} = SessionToken.verify(tokens["plan_week-1"])
   end

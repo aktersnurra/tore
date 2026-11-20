@@ -141,9 +141,10 @@ Every main screen has the same tab bar at the bottom, each tab an icon with its 
 
 - **Tore**, in the middle, is a filled round button in the text colour, not saffron. It
   opens the chat as a sheet over the screen you're on, and Close returns there.
-- **Quick swaps** sit in the chat, above its input: up to three chips that open a screen
+- **Quick swaps** sit in an empty chat, above its input: up to three chips that open a screen
   or send a short request. They come from the stored pick. Plain
-  chips: no AI iconography, no animation.
+  chips: no AI iconography, no animation. After an answer, the chips are pi's suggestions for
+  what to say next (`suggest_replies`); tapping one sends it.
 - **The top bar** is the same on every tab (2026-11-18): the sidebar icon on the left opens the
   menu; the right holds this page's own actions behind ⋯. Page shortcuts live in the page:
   search in Recipes' toolbar, the scanner at the end of Shop's add line.
@@ -624,6 +625,11 @@ check and Undo. The composer is one rounded box: the text grows with what's writ
 and Shift+Enter is a new line, with ↵ on its right; while pi works, ↵ becomes Stop, which aborts
 it and keeps what it had written. The camera sits under the box. With nothing said yet, Tore's
 mark and "What do you need?" sit in the middle.
+
+The chat's title sits top left: pi names it after its first answer, and tapping it lets the person
+change it (Enter or leaving the field saves). The caret beside it opens their chats, latest used
+first, with New chat at the top. A new chat is empty until something is sent in it. A recipe's
+own conversation shows "About <dish>" instead and isn't in the list.
 
 
 ---

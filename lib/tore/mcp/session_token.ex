@@ -32,7 +32,8 @@ defmodule Tore.Mcp.SessionToken do
     with {:ok, %{household: household_id, exp: expires} = claims} <-
            Phoenix.Token.verify(ToreWeb.Endpoint, @salt, token, max_age: @max_seconds),
          true <- System.system_time(:second) < expires || {:error, :expired} do
-      {:ok, %{Scope.for_household(household_id) | user_id: claims[:user]}}
+      {:ok,
+       %{Scope.for_household(household_id) | user_id: claims[:user], pi_session: claims[:job]}}
     end
   end
 end

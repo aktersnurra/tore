@@ -251,7 +251,11 @@ defmodule ToreWeb.HomeLiveTest do
 
       # Opening Today may also start a home_pick job in the same fake.
       records = pi_records(log)
-      assert Enum.any?(records, &(&1["session"] == "chat-#{user.id}"))
+
+      assert Enum.any?(
+               records,
+               &(&1["session"] == Tore.Chats.session(Tore.Chats.current(scope_fixture(user))))
+             )
 
       %{"message" => message} =
         Enum.find(records, &(&1["type"] == "prompt" and &1["message"] =~ "From the Today screen"))
@@ -262,7 +266,7 @@ defmodule ToreWeb.HomeLiveTest do
 
       # The chat used elsewhere afterwards doesn't write into the note.
       assert eventually(fn -> not has_element?(view, ~s([data-role="pi-working"])) end)
-      session = "chat-#{user.id}"
+      session = Tore.Chats.session(Tore.Chats.current(scope_fixture(user)))
 
       send(
         view.pid,

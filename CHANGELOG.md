@@ -19,6 +19,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Gone: "Surprise me" on a day (the sheet asks pi instead), recipe variants, and a duplicate receipt is now caught by its store, date and total rather than the photo.
 - The chat looks like Claude's: full screen on a laptop, your messages on the right, Tore's answers as text with its lists and bold shown as such, and a growing message box where Enter sends. Stop halts Tore mid-answer.
 - On a laptop the chat sits beside the menu instead of covering it.
+- The chat has several conversations: its title sits top left, named by pi after its first answer and yours to change, and beside it the list of your chats and New chat. Screens ask the one you used last. Conversations about a recipe stay with the recipe.
+- After each answer pi suggests up to three things you might say next, as buttons above the box; an empty chat shows the kitchen's quick swaps there instead.
 - A recipe page sits in the middle of the screen like the others, so the sheet before cooking lines up under it.
 - ICA's offers come in again: ICA's firewall turned away everything but curl, so Tore fetches ICA pages with curl's user agent.
 - A recipe page opens like Andy Cooks': name, times and buttons on the left, the whole picture on the right (first, on a phone).

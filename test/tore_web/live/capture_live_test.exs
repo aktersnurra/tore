@@ -20,6 +20,14 @@ defmodule ToreWeb.CaptureLiveTest do
 
   defp prompts(log), do: for(%{"type" => "prompt"} = p <- pi_records(log), do: p)
 
+  # A chat they've talked in before, so the tray opens on it.
+  defp chat_for(user, title \\ nil) do
+    scope = scope_fixture(user)
+    {:ok, chat} = Tore.Chats.create(scope)
+    if title, do: {:ok, _} = Tore.Chats.rename(scope, chat, title)
+    Tore.Chats.get(scope, chat.id)
+  end
+
   # A dinner set the way pi sets one, over MCP: the tool's text and its run.
   defp set_dinner do
     {:ok, recipe} =
@@ -74,20 +82,95 @@ defmodule ToreWeb.CaptureLiveTest do
            |> render() =~ ~s(href="/plan")
   end
 
-  test "a message goes to their own chat with pi, and the answer streams in", %{
+  test "a first message starts a chat of its own with pi, and the answer streams in", %{
     conn: conn,
     user: user,
     pi_log: log
   } do
     {:ok, lv, _html} = live(conn, "/capture")
-    html = lv |> form("form", %{message: "Vad ska jag laga?"}) |> render_submit()
+    assert Tore.Chats.list(scope_fixture(user)) == []
+    html = lv |> form("#chat-form", %{message: "Vad ska jag laga?"}) |> render_submit()
 
     assert html =~ "Vad ska jag laga?"
     assert eventually(fn -> render(lv) =~ "echo: Vad ska jag laga?" end)
 
+    [chat] = Tore.Chats.list(scope_fixture(user))
     [header | _] = pi_records(log)
-    assert header["session"] == "chat-#{user.id}"
+    assert header["session"] == "chat-#{user.id}-#{chat.id}"
     assert [%{"message" => "Vad ska jag laga?"}] = prompts(log)
+  end
+
+  describe "chats" do
+    test "the tray opens on the chat used last, with its title, which can be changed", %{
+      conn: conn,
+      user: user
+    } do
+      _older = chat_for(user, "Lax")
+      latest = chat_for(user, "Helgen")
+
+      {:ok, lv, _html} = live(conn, "/capture")
+      assert has_element?(lv, ~s(input[name="title"][value="Helgen"]))
+
+      lv |> form(~s([data-role="chat-title"]), %{title: "Middag i helgen"}) |> render_submit()
+      assert Tore.Chats.get(scope_fixture(user), latest.id).title == "Middag i helgen"
+    end
+
+    test "a title pi gives shows at once", %{conn: conn, user: user} do
+      chat = chat_for(user)
+      {:ok, lv, _html} = live(conn, "/capture")
+
+      {:ok, _} = Tore.Chats.rename(scope_fixture(user), chat, "Tacos på fredag")
+      assert has_element?(lv, ~s(input[name="title"][value="Tacos på fredag"]))
+    end
+
+    test "the list has their chats, opens one, and starts a new one", %{conn: conn, user: user} do
+      lax = chat_for(user, "Lax")
+      _helgen = chat_for(user, "Helgen")
+
+      {:ok, lv, _html} = live(conn, "/capture?return_to=/plan")
+      lv |> element(~s(button[data-role="chats"])) |> render_click()
+      assert has_element?(lv, ~s([data-role="chat-list"]), "Lax")
+      assert has_element?(lv, ~s([data-role="chat-list"]), "Helgen")
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               lv |> element(~s([data-role="chat-list"] button), "Lax") |> render_click()
+
+      assert to == "/capture?chat=#{lax.id}&return_to=%2Fplan"
+
+      {:ok, lv, _html} = live(conn, "/capture?return_to=/plan")
+      lv |> element(~s(button[data-role="chats"])) |> render_click()
+
+      assert {:error, {:live_redirect, %{to: "/capture?new=true&return_to=%2Fplan"}}} =
+               lv |> element(~s([data-role="new-chat"])) |> render_click()
+
+      {:ok, lv, _html} = live(conn, "/capture?new=true")
+      refute has_element?(lv, ~s(input[name="title"][value]))
+    end
+
+    test "pi's suggestions for what to say next show after its answer, and send when tapped", %{
+      conn: conn,
+      user: user,
+      pi_log: log
+    } do
+      {:ok, lv, _html} = live(conn, "/capture")
+      lv |> form("#chat-form", %{message: "Laxpasta?"}) |> render_submit()
+      assert eventually(fn -> render(lv) =~ "echo: Laxpasta?" end)
+
+      assert eventually(fn -> not has_element?(lv, ~s([data-role="stop"])) end)
+
+      [chat] = Tore.Chats.list(scope_fixture(user))
+      session = Tore.Chats.session(chat)
+      replies = ["Gör den vegetarisk", "Lägg den på fredag"]
+      send(lv.pid, {:pi, session, %{"type" => "tore_suggestions", "replies" => replies}})
+
+      assert has_element?(lv, ~s([data-role="reply"]), "Gör den vegetarisk")
+      refute has_element?(lv, ~s([data-role="swap"]))
+
+      lv |> element(~s([data-role="reply"]), "Gör den vegetarisk") |> render_click()
+      assert eventually(fn -> length(prompts(log)) == 2 end)
+      assert List.last(prompts(log))["message"] == "Gör den vegetarisk"
+      refute has_element?(lv, ~s([data-role="reply"]))
+    end
   end
 
   test "a change pi makes shows its receipt, and Undo takes it back", %{conn: conn} do
@@ -99,7 +182,7 @@ defmodule ToreWeb.CaptureLiveTest do
     )
 
     {:ok, lv, _html} = live(conn, "/capture")
-    lv |> form("form", %{message: "pizza på tisdag"}) |> render_submit()
+    lv |> form("#chat-form", %{message: "pizza på tisdag"}) |> render_submit()
 
     assert eventually(fn -> has_element?(lv, "button", "Ångra") end)
     assert render(lv) =~ dinner.done
@@ -111,7 +194,8 @@ defmodule ToreWeb.CaptureLiveTest do
     assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
-  test "undone by asking pi, the change's receipt says so", %{conn: conn} do
+  test "undone by asking pi, the change's receipt says so", %{conn: conn, user: user} do
+    chat_for(user)
     dinner = set_dinner()
     undone = Jason.encode!(%{done: "Undone.", run_id: dinner.run_id})
 
@@ -138,14 +222,18 @@ defmodule ToreWeb.CaptureLiveTest do
 
     # What pi's undo call does in Tore, while the fake answers with its result.
     {:ok, _} = Tore.Harness.Runs.revert(home_scope(), dinner.run_id)
-    lv |> form("form", %{message: "ångra pizzan"}) |> render_submit()
+    lv |> form("#chat-form", %{message: "ångra pizzan"}) |> render_submit()
 
     assert eventually(fn -> render(lv) =~ "echo: ångra pizzan" end)
     refute has_element?(lv, "button", "Ångra")
     assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
-  test "the conversation is there when the tray opens, with what has been undone", %{conn: conn} do
+  test "the conversation is there when the tray opens, with what has been undone", %{
+    conn: conn,
+    user: user
+  } do
+    chat_for(user)
     dinner = set_dinner()
     {:ok, _} = Tore.Harness.Runs.revert(home_scope(), dinner.run_id)
 
@@ -190,7 +278,7 @@ defmodule ToreWeb.CaptureLiveTest do
     {:ok, lv, _html} = live(conn, "/capture")
     refute has_element?(lv, ~s([data-role="stop"]))
 
-    lv |> form("form", %{message: "Planera veckan"}) |> render_submit()
+    lv |> form("#chat-form", %{message: "Planera veckan"}) |> render_submit()
     assert has_element?(lv, ~s([data-role="stop"]))
     refute has_element?(lv, ~s(button[type="submit"]))
 
@@ -204,7 +292,9 @@ defmodule ToreWeb.CaptureLiveTest do
     refute render(lv) =~ "echo: Planera veckan"
   end
 
-  test "pi's answer is set as markdown, without any HTML it wrote", %{conn: conn} do
+  test "pi's answer is set as markdown, without any HTML it wrote", %{conn: conn, user: user} do
+    chat_for(user)
+
     System.put_env(
       "FAKE_PI_HISTORY",
       Jason.encode!([
@@ -230,12 +320,12 @@ defmodule ToreWeb.CaptureLiveTest do
     {:ok, lv, _html} = live(conn, "/capture")
 
     lv
-    |> file_input("form", :chat_photos, [
+    |> file_input("#chat-form", :chat_photos, [
       %{name: "kvitto.jpg", content: "jpegbytes", type: "image/jpeg"}
     ])
     |> render_upload("kvitto.jpg")
 
-    lv |> form("form", %{message: ""}) |> render_submit()
+    lv |> form("#chat-form", %{message: ""}) |> render_submit()
     assert eventually(fn -> prompts(log) != [] end)
 
     [%{"message" => message, "images" => [image]}] = prompts(log)
@@ -252,7 +342,7 @@ defmodule ToreWeb.CaptureLiveTest do
     Application.delete_env(:tore, :pi)
     {:ok, lv, _html} = live(conn, "/capture")
 
-    html = lv |> form("form", %{message: "hej"}) |> render_submit()
+    html = lv |> form("#chat-form", %{message: "hej"}) |> render_submit()
     assert html =~ "Tore kunde inte slutföra det."
   end
 
@@ -277,7 +367,7 @@ defmodule ToreWeb.CaptureLiveTest do
       {:ok, lv, html} = live(conn, ~p"/capture?#{[recipe: salmon.id]}")
       assert html =~ "Om Laxpasta"
 
-      lv |> form("form", %{message: "Gör den vegetarisk"}) |> render_submit()
+      lv |> form("#chat-form", %{message: "Gör den vegetarisk"}) |> render_submit()
       assert eventually(fn -> render(lv) =~ "echo: " end)
 
       [header | _] = pi_records(log)
@@ -286,7 +376,7 @@ defmodule ToreWeb.CaptureLiveTest do
       assert first =~ "Laxpasta (recipe #{salmon.id})"
       assert first =~ "Gör den vegetarisk"
 
-      lv |> form("form", %{message: "Och för sex"}) |> render_submit()
+      lv |> form("#chat-form", %{message: "Och för sex"}) |> render_submit()
       assert eventually(fn -> length(prompts(log)) == 2 end)
       assert List.last(prompts(log))["message"] == "Och för sex"
     end
@@ -313,9 +403,10 @@ defmodule ToreWeb.CaptureLiveTest do
       {:ok, lv, html} = live(conn, ~p"/capture?#{[recipe: theirs.id]}")
       refute html =~ "Hemlig gryta"
 
-      lv |> form("form", %{message: "hej"}) |> render_submit()
+      lv |> form("#chat-form", %{message: "hej"}) |> render_submit()
       assert eventually(fn -> prompts(log) != [] end)
-      assert hd(pi_records(log))["session"] == "chat-#{user.id}"
+      [chat] = Tore.Chats.list(scope_fixture(user))
+      assert hd(pi_records(log))["session"] == Tore.Chats.session(chat)
       assert [%{"message" => "hej"}] = prompts(log)
     end
   end

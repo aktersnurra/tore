@@ -167,13 +167,14 @@ defmodule ToreWeb.McpControllerTest do
 
     defp session(conn, token), do: put_req_header(conn, "authorization", "Bearer #{token}")
 
-    test "signs in as its household, with no person" do
+    test "signs in as its household, with no person, from the session it was made for" do
       household_id = home_scope().household_id
       token = SessionToken.mint(Tore.Scope.for_household(household_id), "job-1", 60)
 
       conn = ToreWeb.McpAuth.call(build_conn() |> session(token), [])
 
-      assert conn.assigns.current_scope == %Tore.Scope{household_id: household_id}
+      assert conn.assigns.current_scope ==
+               %Tore.Scope{household_id: household_id, pi_session: "job-1"}
     end
 
     test "works with Pocket ID's MCP off", %{conn: conn} do

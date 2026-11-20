@@ -1,8 +1,8 @@
 defmodule ToreWeb.PiReply do
   @moduledoc """
   A screen asking pi something and showing what it says: a working line while pi works, then its
-  words in a note that can be closed. What is asked goes in the person's own chat
-  (`Tore.Pi.chat_session/1`), so the chat tray shows it too, and pi's changes reach the screen
+  words in a note that can be closed. What is asked goes in the person's current chat
+  (`Tore.Chats.asking_session/1`), so the chat shows it too, and pi's changes reach the screen
   the way any change does.
 
   The screen calls `init/1` in mount, `ask/3` to ask, hands `{:pi, _, event}` messages to
@@ -11,16 +11,33 @@ defmodule ToreWeb.PiReply do
   """
   use ToreWeb, :html
 
-  alias Tore.Pi
+  alias Tore.{Chats, Pi}
 
-  @doc "Starts the screen with nothing asked, listening to the person's chat once connected."
+  @doc "Starts the screen with nothing asked, listening to the person's current chat once connected."
   def init(socket) do
-    if Phoenix.LiveView.connected?(socket) do
-      scope = socket.assigns.current_scope
-      Pi.subscribe(scope, Pi.chat_session(scope))
-    end
+    scope = socket.assigns.current_scope
+
+    with true <- Phoenix.LiveView.connected?(socket),
+         %Chats.Chat{} = chat <- Chats.current(scope),
+         do: listen(scope, Chats.session(chat))
 
     Phoenix.Component.assign(socket, pi_reply: nil, pi_working: nil)
+  end
+
+  @doc """
+  Hears the session's events in this screen's process, once however often it's asked: hearing it
+  twice would write every word twice.
+  """
+  @spec listen(Tore.Scope.t(), Pi.session()) :: :ok
+  def listen(scope, session) do
+    key = {__MODULE__, :listening, session}
+
+    unless Process.get(key) do
+      :ok = Pi.subscribe(scope, session)
+      Process.put(key, true)
+    end
+
+    :ok
   end
 
   @doc """
@@ -29,8 +46,10 @@ defmodule ToreWeb.PiReply do
   """
   def ask(socket, message, working, opts \\ []) do
     scope = socket.assigns.current_scope
+    session = Chats.asking_session(scope)
+    :ok = listen(scope, session)
 
-    case Pi.ask(scope, Pi.chat_session(scope), message, opts) do
+    case Pi.ask(scope, session, message, opts) do
       :ok ->
         Phoenix.Component.assign(socket, pi_reply: "", pi_working: working)
 

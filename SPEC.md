@@ -32,6 +32,7 @@
 - **2026-11-19:** All AI goes through pi (`.docs/plans/all-ai-through-pi.md`). pi (`pi --mode rpc`, `Tore.Pi`) is Tore's agent: each person has a chat session, which the chat tray and the Plan, Today and Shop sheets ask, and the `plan_week` and `weekly_reflection` background jobs are task files it runs (`Tore.Agent`). It acts only through Tore's `/mcp` tools, so every write is still a run with its verifier and undo. Every one-off model call in `Tore.LLM` is a pi one-shot (`Tore.LLM.Pi`). pi reads photos itself: a shelf or fridge goes into the pantry with `add_to_pantry` (`seen`), and a recipe is saved with `save_recipe`. Deleted: Capture's router, `PlannerAgent` and its tools, `:planner_command_run`, `:weekly_planning_run`, `:memory_review_run`, `PlanDiffBuilder`, resolver handles, capsule composition (two capsules are left as structs `get_context` and the home pick read), the fridge suggestion tools, per-turn quick swaps, Tore's shelf and recipe photo readers, and the OpenRouter model client with `web_search`, `chat` and `chat_with_tools`. OpenRouter now only draws recipe pictures.
 - **2026-11-19 (later):** Strict MCP: Tore writes no prompts. Every AI task is pi working through `/mcp`, and Tore's one-shots are gone with `Tore.LLM`, `Tore.LLM.Pi`, `Tore.LLM.Prompts`, `harness/ONESHOT.md`, `Tore.SpendGuard` and `Tore.MockLLM`. A link on the Recipes screen, a receipt photo on Shop and Check in the sheet before cooking ask the person's chat (the swaps come back with `suggest_swaps`). A saved or changed recipe gets its steps and picture from a `finish_recipe` job (`update_recipe`, `draw_recipe_picture`). The prep guide is a `prep_guide` job (`save_prep_guide`). New names and products are a `learn` job (`list_ingredients`, `learn_ingredients`, `match_products`), price guesses are part of `plan_week` (`set_price_guesses`), and the home pick is a `home_pick` job (`set_home_pick`). `find_recipes` runs every Thursday. Deleted: the recipe page parser, Tore's receipt reader and `uploaded_images`, typed decisions (Pattern C), "Surprise me" on a day, and recipe variants. The gate and the refusal words are `Tore.Pi`'s.
 - **2026-11-20:** A recipe has its own chat per person (`chat-<user_id>-recipe-<id>`): Ask Tore on a recipe page opens it, and coming back to the recipe comes back to the conversation.
+- **2026-11-20:** A person has several chats (`Tore.Chats`, the `chats` table: a title and when it was last used; pi keeps what was said). Each is a pi session `chat-<user_id>-<chat_id>`; the screens ask the one used last (`Tore.Chats.asking_session/1`). pi names a chat after its first answer (`name_chat`) and ends each answer with `suggest_replies`, shown as buttons and not saved. A pi session token now says which session it is (`Tore.Scope.pi_session`), so a tool can tell a chat from a background job.
 - **2026-11-20:** Offers are fetched every morning (`Tore.Deals.scrape_all/0` at 07:00), not only Friday to Sunday; `Tore.WeekAhead` only plans. An ICA store's own page is accepted as its offers link.
 
 ---
@@ -450,7 +451,7 @@ with its own description of the dish. There are two ways in, both an agent sessi
 
 | Way | Used for | Session |
 |---|---|---|
-| **The chat** | What the person types, and the screens that ask it: a day's sheet and "Plan the open days" on Plan, Today, Shop's sheets and its receipt photo, a link on Recipes (`ToreWeb.PiReply`), and Check in the sheet before cooking (`ToreWeb.BeforeCooking`). A screen's request starts "From the … screen" and says what was asked. | `chat-<user_id>` |
+| **The chat** | What the person types, and the screens that ask it: a day's sheet and "Plan the open days" on Plan, Today, Shop's sheets and its receipt photo, a link on Recipes (`ToreWeb.PiReply`), and Check in the sheet before cooking (`ToreWeb.BeforeCooking`). A screen's request starts "From the … screen" and says what was asked. | `chat-<user_id>-<chat_id>` |
 | **A recipe's chat** | Ask Tore on a recipe page: the person's conversation about that recipe, which opening Ask Tore on it again goes back to. Its first message says which recipe; the quick swaps stay in the main chat. Its cost counts as the chat's. | `chat-<user_id>-recipe-<id>` |
 | **Background jobs** | `harness/tasks/*.md`, run by `Tore.Agent`: `plan_week`, `weekly_reflection` and `find_recipes` on a schedule; `finish_recipe`, `prep_guide`, `learn` and `home_pick` when something needs them. | `<task>-<job id>` |
 
@@ -580,7 +581,7 @@ stream and what people say in the chat.
 
 **Status: built (2026-11-19). Not yet tried against a real model.**
 
-Each person has their own pi session (`Tore.Pi.chat_session/1`, `chat-<user_id>`), so partners
+Each person has their own pi sessions, one per chat (`Tore.Chats`, `chat-<user_id>-<chat_id>`), so partners
 chatting at once don't read each other's turns. The chat tray (`/capture`) talks to it, photos with
 the words, and pi's reply streams in. Three sheets ask the same session with a line saying where the
 person is (`ToreWeb.PiReply`): a day's sheet on Plan, the tonight sheet on Today, and an item's sheet
@@ -1053,7 +1054,7 @@ lib/tore/
   shop.ex                    # imperative shell over the pure Shop aggregate
   shop/                      # Decider aggregate
   capture/                   # dispatch.ex (the writes behind the MCP tools, as runs)
-  pi.ex                      # Tore's client for pi: ask, run, messages, chat_session, the gate
+  pi.ex                      # Tore's client for pi: ask, run, messages, recipe_chat_session, the gate
   pi/session.ex              # one pi process per household session, over a Port
   agent.ex                   # background jobs: a harness/tasks/*.md task sent to pi; agent/job.ex
   week_ahead.ex              # Fri–Sun: the plan_week job, once the coming week's offers are in

@@ -46,7 +46,9 @@ defmodule Tore.Mcp do
     Tools.UpdateRecipe,
     Tools.DrawRecipePicture,
     Tools.LogReceipt,
-    Tools.Undo
+    Tools.Undo,
+    Tools.NameChat,
+    Tools.SuggestReplies
   ]
 
   def tools, do: @tools

@@ -1,9 +1,15 @@
 defmodule ToreWeb.CaptureLive do
   @moduledoc """
-  The chat with Tore: the person's own pi session (`Tore.Pi.chat_session/1`). What they send
-  goes to pi, photos with it; pi's answer streams in, and each change it makes in Tore shows as a
-  receipt with Undo, read from the tool's result. The conversation is pi's, so opening the tray
-  shows it from where it was.
+  The chat with Tore: one of the person's chats (`Tore.Chats`), each its own pi session. What they
+  send goes to pi, photos with it; pi's answer streams in, and each change it makes in Tore shows
+  as a receipt with Undo, read from the tool's result. The conversation is pi's, so opening the
+  tray shows it from where it was.
+
+  The tray opens on the chat used last, or the one asked for (`?chat=<id>`), or a new one
+  (`?new=true`), which gets its row when the first message is sent. The title at the top is pi's
+  name for the chat (`name_chat`), and the person can change it; beside it, the list of their
+  chats and a new one. After an answer, pi's suggestions for what to say next (`suggest_replies`)
+  are buttons above the box; an empty chat has the kitchen's quick swaps there instead.
 
   Opened from a recipe (`?recipe=<id>`), the tray is the person's conversation about that recipe
   (`Tore.Pi.recipe_chat_session/2`), so coming back to the recipe comes back to it. Its first
@@ -11,7 +17,7 @@ defmodule ToreWeb.CaptureLive do
   """
   use ToreWeb, :live_view
 
-  alias Tore.{Home, Pi}
+  alias Tore.{Chats, Home, Pi}
   alias Tore.Harness.Runs
 
   # How much of the conversation the tray shows when it opens.
@@ -22,15 +28,23 @@ defmodule ToreWeb.CaptureLive do
     return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
     scope = socket.assigns.current_scope
     recipe = recipe(scope, params["recipe"])
+    chat = if recipe, do: nil, else: chat(scope, params)
 
     session =
-      if recipe, do: Pi.recipe_chat_session(scope, recipe.id), else: Pi.chat_session(scope)
+      cond do
+        recipe -> Pi.recipe_chat_session(scope, recipe.id)
+        chat -> Chats.session(chat)
+        true -> nil
+      end
 
     socket =
       socket
       |> assign(
         session: session,
         recipe: recipe,
+        chat: chat,
+        chats: nil,
+        replies: [],
         messages: [],
         draft: nil,
         input: params["q"] || "",
@@ -41,11 +55,18 @@ defmodule ToreWeb.CaptureLive do
       |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
     socket =
-      if connected?(socket) do
-        Pi.subscribe(scope, session)
-        start_async(socket, :history, fn -> history(scope, session) end)
-      else
-        socket
+      cond do
+        not connected?(socket) ->
+          socket
+
+        session ->
+          if !recipe, do: :ok = Chats.subscribe(scope)
+          Pi.subscribe(scope, session)
+          start_async(socket, :history, fn -> history(scope, session) end)
+
+        true ->
+          :ok = Chats.subscribe(scope)
+          socket
       end
 
     {:ok, assign(socket, swaps: if(recipe, do: [], else: Home.current(scope).swaps))}
@@ -59,6 +80,33 @@ defmodule ToreWeb.CaptureLive do
   end
 
   defp recipe(_scope, _id), do: nil
+
+  # The chat the tray opens on: a new one when asked, the one asked for, or the one used last.
+  defp chat(_scope, %{"new" => "true"}), do: nil
+
+  defp chat(scope, %{"chat" => id}) when is_binary(id) do
+    case Integer.parse(id) do
+      {id, ""} -> Chats.get(scope, id) || Chats.current(scope)
+      _ -> Chats.current(scope)
+    end
+  end
+
+  defp chat(scope, _params), do: Chats.current(scope)
+
+  # A new chat gets its row, and pi its session, with the first message sent in it.
+  defp started(%{assigns: %{session: nil, current_scope: scope}} = socket) do
+    {:ok, chat} = Chats.create(scope)
+    session = Chats.session(chat)
+    Pi.subscribe(scope, session)
+    assign(socket, chat: chat, session: session)
+  end
+
+  defp started(%{assigns: %{chat: %Chats.Chat{} = chat, current_scope: scope}} = socket) do
+    :ok = Chats.touch(scope, chat)
+    socket
+  end
+
+  defp started(socket), do: socket
 
   @impl true
   def handle_event("validate", _params, socket), do: {:noreply, socket}
@@ -74,6 +122,33 @@ defmodule ToreWeb.CaptureLive do
       nil -> {:noreply, socket}
     end
   end
+
+  def handle_event("reply", %{"index" => index}, socket) do
+    case Enum.at(socket.assigns.replies, String.to_integer(index)) do
+      nil -> {:noreply, socket}
+      text -> handle_event("send_message", %{"message" => text}, socket)
+    end
+  end
+
+  def handle_event("toggle_chats", _params, %{assigns: %{chats: nil}} = socket),
+    do: {:noreply, assign(socket, chats: Chats.list(socket.assigns.current_scope))}
+
+  def handle_event("toggle_chats", _params, socket), do: close_chats(socket)
+  def handle_event("close_chats", _params, socket), do: close_chats(socket)
+
+  def handle_event("open_chat", %{"id" => id}, socket) do
+    to = ~p"/capture?#{[chat: id, return_to: socket.assigns.return_to]}"
+    {:noreply, push_navigate(socket, to: to)}
+  end
+
+  def handle_event("new_chat", _params, socket) do
+    to = ~p"/capture?#{[new: true, return_to: socket.assigns.return_to]}"
+    {:noreply, push_navigate(socket, to: to)}
+  end
+
+  # The title submitted, or left by moving away from it.
+  def handle_event("rename", %{"title" => title}, socket), do: rename(socket, title)
+  def handle_event("rename", %{"value" => title}, socket), do: rename(socket, title)
 
   def handle_event("undo_run", %{"sid" => sid}, socket) do
     case Runs.revert(socket.assigns.current_scope, sid) do
@@ -105,11 +180,13 @@ defmodule ToreWeb.CaptureLive do
     if text == "" and images == [] do
       {:noreply, socket}
     else
+      socket = started(socket)
       %{current_scope: scope, session: session, recipe: recipe, messages: before} = socket.assigns
       bubble = user_bubble_for(text, length(images))
       message = about(recipe, before, if(text == "", do: bubble.text, else: text))
 
-      socket = socket |> assign(input: "") |> update(:messages, &(&1 ++ [bubble]))
+      socket =
+        socket |> assign(input: "", replies: []) |> update(:messages, &(&1 ++ [bubble]))
 
       case Pi.ask(scope, session, message, images: images) do
         :ok ->
@@ -120,6 +197,22 @@ defmodule ToreWeb.CaptureLive do
       end
     end
   end
+
+  defp close_chats(socket), do: {:noreply, assign(socket, chats: nil)}
+
+  # A blank title, or one that didn't change, leaves it as it was.
+  defp rename(%{assigns: %{chat: %Chats.Chat{title: old} = chat}} = socket, title) do
+    if String.trim(title) in ["", old] do
+      {:noreply, socket}
+    else
+      case Chats.rename(socket.assigns.current_scope, chat, title) do
+        {:ok, chat} -> {:noreply, assign(socket, chat: chat)}
+        {:error, _changeset} -> {:noreply, socket}
+      end
+    end
+  end
+
+  defp rename(socket, _title), do: {:noreply, socket}
 
   # A recipe's conversation says what it's about as it starts.
   defp about(nil, _before, message), do: message
@@ -136,8 +229,19 @@ defmodule ToreWeb.CaptureLive do
   # No pi, or pi couldn't be reached: the tray opens empty, and sending says why.
   def handle_async(:history, _result, socket), do: {:noreply, socket}
 
-  # pi's events, heard while it answers something sent from here.
+  # pi's name for the chat, given here or on another screen of theirs.
   @impl true
+  def handle_info({:chat_titled, id, title}, %{assigns: %{chat: %{id: id} = chat}} = socket),
+    do: {:noreply, assign(socket, chat: %{chat | title: title})}
+
+  def handle_info({:chat_titled, _id, _title}, socket), do: {:noreply, socket}
+
+  # What pi suggests saying next, shown once its answer is done.
+  def handle_info({:pi, session, %{"type" => "tore_suggestions", "replies" => replies}}, socket)
+      when session == socket.assigns.session,
+      do: {:noreply, assign(socket, replies: replies)}
+
+  # pi's events, heard while it answers something sent from here.
   def handle_info({:pi, _session, _event}, %{assigns: %{loading: false}} = socket),
     do: {:noreply, socket}
 
@@ -387,6 +491,86 @@ defmodule ToreWeb.CaptureLive do
     """
   end
 
+  # The chat's title, which can be changed in place, and beside it the list of their chats.
+  attr :chat, :any, required: true
+  attr :chats, :list, default: nil
+
+  defp chat_title(assigns) do
+    ~H"""
+    <div class="relative flex min-w-0 items-center gap-0.5" phx-click-away={@chats && "close_chats"}>
+      <form :if={@chat} data-role="chat-title" phx-submit="rename" class="min-w-0">
+        <input
+          type="text"
+          name="title"
+          value={@chat.title}
+          placeholder={gettext("New chat")}
+          aria-label={gettext("Chat title")}
+          maxlength="60"
+          autocomplete="off"
+          phx-blur="rename"
+          class="w-full min-w-0 truncate rounded-[var(--r-sm)] bg-transparent px-2 py-1 text-[15px] font-semibold text-[color:var(--text)] placeholder:text-[color:var(--muted)] hover:bg-[var(--sunken)] focus:bg-[var(--sunken)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+          style="field-sizing: content; max-width: min(28rem, 60vw);"
+        />
+      </form>
+      <span :if={!@chat} class="px-2 text-[15px] font-semibold text-[color:var(--text)]">
+        {gettext("New chat")}
+      </span>
+      <button
+        type="button"
+        phx-click="toggle_chats"
+        data-role="chats"
+        aria-label={gettext("Chats")}
+        aria-expanded={to_string(@chats != nil)}
+        class="icon-btn press shrink-0"
+      >
+        <.icon
+          name="ph-caret-down"
+          class={[
+            "size-4 motion-safe:transition-transform motion-safe:duration-150",
+            @chats && "rotate-180"
+          ]}
+        />
+      </button>
+      <div
+        :if={@chats}
+        data-role="chat-list"
+        class="rise-in absolute left-0 top-11 z-10 w-72 origin-top-left overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] py-1 shadow-[var(--shadow-pop)]"
+      >
+        <button
+          type="button"
+          phx-click="new_chat"
+          data-role="new-chat"
+          class="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-[color:var(--text)] hover:bg-[var(--border)]"
+          style="font-size: 15px;"
+        >
+          <.icon name="ph-plus" class="size-4 text-[color:var(--muted)]" />
+          {gettext("New chat")}
+        </button>
+        <div
+          :if={@chats != []}
+          class="max-h-[60vh] overflow-y-auto border-t border-[color:var(--hairline)] py-1"
+        >
+          <button
+            :for={chat <- @chats}
+            type="button"
+            phx-click="open_chat"
+            phx-value-id={chat.id}
+            class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+            style="font-size: 15px;"
+          >
+            <span class="min-w-0 flex-1 truncate">{chat.title || gettext("Untitled chat")}</span>
+            <.icon
+              :if={@chat && @chat.id == chat.id}
+              name="ph-check"
+              class="size-4 shrink-0 text-[color:var(--muted)]"
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   @impl true
   def render(assigns) do
     # What pi is writing now starts a run of Tore's only after someone else's message.
@@ -414,12 +598,11 @@ defmodule ToreWeb.CaptureLive do
           </.link>
         </div>
 
-        <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-4 lg:h-14">
-          <span class="truncate text-[15px] font-semibold text-[color:var(--text)]">
-            {if @recipe,
-              do: gettext("About %{dish}", dish: @recipe.title),
-              else: gettext("Ask Tore")}
+        <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-3 lg:h-14 lg:px-5">
+          <span :if={@recipe} class="truncate px-1 text-[15px] font-semibold text-[color:var(--text)]">
+            {gettext("About %{dish}", dish: @recipe.title)}
           </span>
+          <.chat_title :if={!@recipe} chat={@chat} chats={@chats} />
           <.link
             navigate={@return_to}
             aria-label={gettext("Close")}
@@ -522,8 +705,27 @@ defmodule ToreWeb.CaptureLive do
         </div>
 
         <div class="mx-auto w-full max-w-3xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:pb-6">
+          <%!-- After an answer, what pi suggests saying next; in an empty chat, the kitchen's swaps. --%>
           <div
-            :if={@swaps != [] and not @loading}
+            :if={@replies != [] and not @loading}
+            id={"replies-#{:erlang.phash2(@replies)}"}
+            data-role="replies"
+            class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
+          >
+            <button
+              :for={{reply, index} <- Enum.with_index(@replies)}
+              type="button"
+              phx-click="reply"
+              phx-value-index={index}
+              data-role="reply"
+              class="pill press reveal shrink-0"
+              style={"--i: #{index}"}
+            >
+              {reply}
+            </button>
+          </div>
+          <div
+            :if={@replies == [] and @messages == [] and @swaps != [] and not @loading}
             data-role="swaps"
             class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
           >
@@ -533,7 +735,7 @@ defmodule ToreWeb.CaptureLive do
               phx-click="swap"
               phx-value-index={index}
               data-role="swap"
-              class="pill press"
+              class="pill press shrink-0"
             >
               {swap.label}
             </button>
@@ -564,7 +766,7 @@ defmodule ToreWeb.CaptureLive do
               updated() { this.grow() },
             }
           </script>
-          <form phx-submit="send_message" phx-change="validate">
+          <form id="chat-form" phx-submit="send_message" phx-change="validate">
             <div class="field-group flex items-end gap-2 rounded-[20px] border border-[color:var(--border)] bg-[var(--surface)] py-2 pr-2 pl-4">
               <textarea
                 id="chat-input"

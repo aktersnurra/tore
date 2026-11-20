@@ -87,7 +87,11 @@ defmodule ToreWeb.BeforeCooking do
             "home: #{Enum.join(missing, ", ")}. They have: \"#{String.trim(offered)}\". " <>
             "Give a swap for each with suggest_swaps, then say it in a sentence."
 
-        case Pi.ask(scope, Pi.chat_session(scope), message) do
+        # The screen hears the answer and hands it on (`forward/1`).
+        session = Tore.Chats.asking_session(scope)
+        :ok = ToreWeb.PiReply.listen(scope, session)
+
+        case Pi.ask(scope, session, message) do
           :ok ->
             {:noreply, assign(socket, offered: offered, checking: true, swaps: nil, failed: nil)}
 
