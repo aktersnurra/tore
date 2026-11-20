@@ -26,7 +26,7 @@ defmodule ToreWeb.SettingsLive do
      |> assign_ai_sponsor()
      |> assign(
        member_username: "",
-       name_state: :saved,
+       name_saved?: false,
        member_notice: nil,
        member_error: nil,
        households: Members.list_households(socket.assigns.current_user),
@@ -125,21 +125,14 @@ defmodule ToreWeb.SettingsLive do
     {:noreply, assign_ai_sponsor(socket)}
   end
 
-  def handle_event("edit_name", %{"name" => name}, socket) do
-    state =
-      case String.trim(name) do
-        "" -> :empty
-        same when same == socket.assigns.household.name -> :saved
-        _new -> :changed
-      end
-
-    {:noreply, assign(socket, name_state: state)}
-  end
+  # Typing again lets the next save flash anew.
+  def handle_event("edit_name", _params, socket),
+    do: {:noreply, assign(socket, name_saved?: false)}
 
   def handle_event("rename_household", %{"name" => name}, socket) do
     case Household.rename(socket.assigns.current_scope, name) do
       {:ok, household} ->
-        {:noreply, assign(socket, household: household, name_state: :just_saved)}
+        {:noreply, assign(socket, household: household, name_saved?: true)}
 
       {:error, _changeset} ->
         {:noreply, socket}
@@ -173,8 +166,6 @@ defmodule ToreWeb.SettingsLive do
 
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
-
-  defp saved?(state), do: state in [:saved, :just_saved]
 
   defp section_title("name"), do: gettext("Name")
   defp section_title("members"), do: gettext("Members")
@@ -354,38 +345,20 @@ defmodule ToreWeb.SettingsLive do
           </header>
           <h1 class="t-display mt-3 mb-6">{section_title(@section)}</h1>
 
-          <%!-- One field. The saved name has a grey check, and saving flashes it green; a new name
-               is sent with return, as in the chat; an empty one can't be. --%>
+          <%!-- A plain field: Enter saves it, and it flashes green when saved. --%>
           <form :if={@section == "name"} phx-submit="rename_household" phx-change="edit_name">
             <.field
               id="household-name"
               name="name"
               value={@household.name}
-              saved={@name_state == :just_saved}
+              saved={@name_saved?}
               aria-label={gettext("Household name")}
               required
               maxlength="100"
               autocomplete="off"
+              enterkeyhint="done"
               input_class="font-medium"
-            >
-              <:trailing>
-                <button
-                  type="submit"
-                  data-state={@name_state}
-                  disabled={@name_state != :changed}
-                  aria-label={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
-                  title={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
-                  class={[
-                    "press -mr-1.5 flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)] transition-colors duration-150",
-                    @name_state == :changed && "text-[color:var(--text)] hover:bg-[var(--sunken)]",
-                    @name_state != :changed && "text-[color:var(--subtle)]"
-                  ]}
-                >
-                  <.icon :if={saved?(@name_state)} name="ph-check" class="size-[18px]" />
-                  <.icon :if={!saved?(@name_state)} name="ph-arrow-elbow-down-left" class="size-5" />
-                </button>
-              </:trailing>
-            </.field>
+            />
           </form>
 
           <div :if={@section == "members"} class="menu-lines py-4">

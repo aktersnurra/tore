@@ -110,29 +110,20 @@ defmodule ToreWeb.SettingsLiveTest do
       assert html =~ "AI är avstängt för det här hushållet."
     end
 
-    test "the saved name has a check, a new one is sent with return, and saving flashes green", %{
-      conn: conn
-    } do
+    test "the name is a plain field: Enter saves it, and saving flashes it green", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/settings/name")
-      field = ~s(form[phx-submit="rename_household"])
-      state = fn state -> has_element?(view, field <> ~s( [data-state="#{state}"])) end
-      save = field <> ~s( button[type="submit"])
+      form = ~s(form[phx-submit="rename_household"])
 
-      assert state.("saved")
-      assert has_element?(view, save <> "[disabled] .ph-check")
+      refute has_element?(view, form <> " .field [class*=ph-]")
+      refute has_element?(view, form <> " .saved-flash")
 
-      view |> form(field, %{name: "Rydholms"}) |> render_change()
-      assert state.("changed")
-      assert has_element?(view, save <> ":not([disabled]) .ph-arrow-elbow-down-left")
-
-      view |> form(field, %{name: "  "}) |> render_change()
-      assert state.("empty")
-      assert has_element?(view, save <> "[disabled] .ph-arrow-elbow-down-left")
-
-      view |> form(field, %{name: "Rydholms"}) |> render_submit()
+      view |> form(form, %{name: "Rydholms"}) |> render_submit()
       assert home_household().name == "Rydholms"
-      assert state.("just_saved")
-      assert has_element?(view, save <> "[disabled] .ph-check")
+      assert has_element?(view, form <> " .field.saved-flash")
+
+      # Typing again lets the next save flash anew.
+      view |> form(form, %{name: "Rydholm"}) |> render_change()
+      refute has_element?(view, form <> " .saved-flash")
     end
   end
 

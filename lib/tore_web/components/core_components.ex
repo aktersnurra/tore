@@ -848,8 +848,8 @@ defmodule ToreWeb.CoreComponents do
 
   attr :rest, :global,
     include:
-      ~w(required disabled autocomplete autocapitalize autofocus spellcheck inputmode pattern step
-         min max maxlength readonly rows form)
+      ~w(required disabled autocomplete autocapitalize autofocus spellcheck inputmode enterkeyhint
+         pattern step min max maxlength readonly rows form)
 
   slot :leading, doc: "an icon or button inside the box, before the input"
   slot :trailing, doc: "an icon or button inside the box, after the input"
