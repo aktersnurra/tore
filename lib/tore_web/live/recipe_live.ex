@@ -847,7 +847,7 @@ defmodule ToreWeb.RecipeLive do
     ~H"""
     <article>
       <%!-- Back and ⋯ on the page, above the hero --%>
-      <div class="flex items-center justify-between px-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:max-w-[1180px] lg:px-14 lg:pt-5">
+      <div class="flex items-center justify-between px-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:mx-auto lg:max-w-[1180px] lg:px-14 lg:pt-5">
         <.link
           patch={~p"/recipes"}
           aria-label={gettext("Back")}
@@ -932,7 +932,7 @@ defmodule ToreWeb.RecipeLive do
            dish comes first. --%>
       <section
         data-role="hero"
-        class="px-5 pt-2 lg:grid lg:max-w-[1180px] lg:grid-cols-2 lg:items-center lg:gap-14 lg:px-16 lg:pt-4"
+        class="px-5 pt-2 lg:grid lg:mx-auto lg:max-w-[1180px] lg:grid-cols-2 lg:items-center lg:gap-14 lg:px-16 lg:pt-4"
       >
         <div class="reveal relative aspect-[5/4] w-full overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] lg:order-2">
           <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
@@ -1029,7 +1029,7 @@ defmodule ToreWeb.RecipeLive do
         </div>
       </section>
 
-      <div class="px-5 pb-28 lg:max-w-[1180px] lg:px-16 lg:pb-16">
+      <div class="px-5 pb-28 lg:mx-auto lg:max-w-[1180px] lg:px-16 lg:pb-16">
         <%!-- The page's properties: quiet rows, a label and its value. Servings is a stepper. --%>
         <dl class="props reveal mt-8 lg:max-w-2xl" style="--i: 5">
           <div>
