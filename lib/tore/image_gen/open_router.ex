@@ -57,5 +57,5 @@ defmodule Tore.ImageGen.OpenRouter do
   end
 
   defp image_model,
-    do: Application.get_env(:tore, :openrouter_image_model, "bytedance-seed/seedream-5-0-pro")
+    do: Application.get_env(:tore, :openrouter_image_model, "black-forest-labs/flux.2-pro")
 end

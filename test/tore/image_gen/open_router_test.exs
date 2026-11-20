@@ -34,7 +34,7 @@ defmodule Tore.ImageGen.OpenRouterTest do
 
     stub(__MODULE__, fn conn ->
       assert %{
-               "model" => "bytedance-seed/seedream-5-0-pro",
+               "model" => "black-forest-labs/flux.2-pro",
                "modalities" => ["image"],
                "messages" => [%{"role" => "user", "content" => "A plated meal"}]
              } = raw_body(conn) |> Jason.decode!()

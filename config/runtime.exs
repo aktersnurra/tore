@@ -55,7 +55,7 @@ if config_env() == :prod do
 
   config :tore,
          :openrouter_image_model,
-         System.get_env("OPENROUTER_IMAGE_MODEL", "bytedance-seed/seedream-5-0-pro")
+         System.get_env("OPENROUTER_IMAGE_MODEL", "black-forest-labs/flux.2-pro")
 
   database_path =
     System.get_env("DATABASE_PATH") ||

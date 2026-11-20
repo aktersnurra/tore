@@ -102,7 +102,7 @@ TORE_PI_LIGHT_MODEL=anthropic/claude-haiku-5-5  # the home pick and learning nam
 ```
 
 Recipe pictures are drawn by an image model through OpenRouter: set `OPENROUTER_API_KEY`, and
-optionally `OPENROUTER_IMAGE_MODEL` (default `bytedance-seed/seedream-5-0-pro`).
+optionally `OPENROUTER_IMAGE_MODEL` (default `black-forest-labs/flux.2-pro`).
 
 Dates and times such as "today" and "Saturday morning" use the server's local clock (`Tore.Clock`), so set `TZ` to the household's time zone.
 
