@@ -1305,7 +1305,7 @@ comes from what Tore already knows (`Tore.Deals.page/3`).
   "Lägg till butik" opens the link field; it's open from the start when there are none. A link
   Tore has no parser for gets "Tore kan inte läsa den butiken än".
 - Without stores: "Erbjudanden från butikerna ni handlar i" and where to add one. With stores but
-  nothing in yet: that Tore reads them every Friday.
+  nothing in yet: that Tore reads them every morning.
 
 # 7. Agentic interaction patterns
 

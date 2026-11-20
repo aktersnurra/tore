@@ -7,20 +7,34 @@ defmodule Tore.Deals.Parsers.ICA do
   @impl Tore.Deals.Parsers.Parser
   def chain, do: "ica"
 
-  @impl Tore.Deals.Parsers.Parser
-  def store_name(%URI{path: path}) do
-    case Regex.run(~r{^/erbjudanden/ica-([a-z0-9-]+)-\d+/?$}, path || "") do
-      [_, slug] ->
-        {:ok, "ICA " <> (slug |> String.split("-") |> Enum.map_join(" ", &String.capitalize/1))}
+  # A store's offers page, `/erbjudanden/<slug>-<id>/`, or its own page,
+  # `/butiker/<kind>/<town>/<slug>-<id>/`, which has the same slug and id.
+  @offers ~r{^/erbjudanden/(ica-[a-z0-9-]+-\d+)/?$}
+  @store_page ~r{^/butiker/[a-z0-9-]+/[a-z0-9-]+/(ica-[a-z0-9-]+-\d+)/?$}
 
-      _ ->
+  @impl Tore.Deals.Parsers.Parser
+  def store_name(%URI{} = uri) do
+    case slug(uri) do
+      nil ->
         {:error, :unsupported_store}
+
+      slug ->
+        [_ | words] = slug |> String.split("-") |> Enum.drop(-1)
+        {:ok, "ICA " <> Enum.map_join(words, " ", &String.capitalize/1)}
     end
   end
 
   @impl Tore.Deals.Parsers.Parser
-  def canonical_url(%URI{path: path}),
-    do: "https://www.ica.se" <> String.trim_trailing(path, "/") <> "/"
+  def canonical_url(%URI{} = uri), do: "https://www.ica.se/erbjudanden/#{slug(uri)}/"
+
+  defp slug(%URI{path: path}) do
+    Enum.find_value([@offers, @store_page], fn re ->
+      case Regex.run(re, path || "") do
+        [_, slug] -> slug
+        nil -> nil
+      end
+    end)
+  end
 
   @impl Tore.Deals.Parsers.Parser
   def parse(html) do

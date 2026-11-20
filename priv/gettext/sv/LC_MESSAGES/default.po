@@ -3028,8 +3028,8 @@ msgstr "%{n} för %{price}"
 
 #: lib/tore_web/live/deals_live.ex:347
 #, elixir-autogen, elixir-format
-msgid "Add a link to a store's offers below, and Tore reads them every Friday."
-msgstr "Lägg till länken till en butiks erbjudanden nedan, så läser Tore dem varje fredag."
+msgid "Add a link to a store or its offers below, and Tore reads them every morning."
+msgstr "Lägg till länken till en butik eller dess erbjudanden nedan, så läser Tore dem varje morgon."
 
 #: lib/tore_web/live/deals_live.ex:337
 #, elixir-autogen, elixir-format
@@ -3074,8 +3074,8 @@ msgstr "Sånt ni brukar köpa"
 
 #: lib/tore_web/live/deals_live.ex:350
 #, elixir-autogen, elixir-format
-msgid "Tore reads the stores' offers every Friday."
-msgstr "Tore läser butikernas erbjudanden varje fredag."
+msgid "Tore reads the stores' offers every morning."
+msgstr "Tore läser butikernas erbjudanden varje morgon."
 
 #: lib/tore_web/live/deals_live.ex:390
 #: lib/tore_web/live/deals_live.ex:393
@@ -3112,8 +3112,8 @@ msgstr "Ta bort %{store}"
 
 #: lib/tore_web/live/deals_live.ex:141
 #, elixir-autogen, elixir-format
-msgid "Tore reads their offers every Friday."
-msgstr "Tore läser deras erbjudanden varje fredag."
+msgid "Tore reads their offers every morning."
+msgstr "Tore läser deras erbjudanden varje morgon."
 
 #: lib/tore_web/live/deals_live.ex:96
 #, elixir-autogen, elixir-format

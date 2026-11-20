@@ -3028,7 +3028,7 @@ msgstr ""
 
 #: lib/tore_web/live/deals_live.ex:347
 #, elixir-autogen, elixir-format
-msgid "Add a link to a store's offers below, and Tore reads them every Friday."
+msgid "Add a link to a store or its offers below, and Tore reads them every morning."
 msgstr ""
 
 #: lib/tore_web/live/deals_live.ex:337
@@ -3074,7 +3074,7 @@ msgstr ""
 
 #: lib/tore_web/live/deals_live.ex:350
 #, elixir-autogen, elixir-format
-msgid "Tore reads the stores' offers every Friday."
+msgid "Tore reads the stores' offers every morning."
 msgstr ""
 
 #: lib/tore_web/live/deals_live.ex:390
@@ -3112,7 +3112,7 @@ msgstr ""
 
 #: lib/tore_web/live/deals_live.ex:141
 #, elixir-autogen, elixir-format
-msgid "Tore reads their offers every Friday."
+msgid "Tore reads their offers every morning."
 msgstr ""
 
 #: lib/tore_web/live/deals_live.ex:96

@@ -20,6 +20,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Ask Tore on a recipe opens a conversation about that recipe, your own, which is still there when you come back to it.
 - OpenRouter only draws recipe pictures now. Turning AI on means setting `TORE_PI_COMMAND`.
 
+### Offers every morning (2026-11-20)
+
+- Tore reads every store's offers each morning instead of only from Friday, so mid-week offers and a newly added store show the next day.
+- A link to an ICA store's own page works as well as one to its offers.
+
 ### Budget forecast (2026-11-20)
 
 - What a week will cost is now a ladder of forecasts, each worked out from what Tore knew at a moment, so any past week can be predicted as it stood on its Monday and every forecast scored against what was really paid.

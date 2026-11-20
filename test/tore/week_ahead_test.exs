@@ -46,39 +46,44 @@ defmodule Tore.WeekAheadTest do
     :ok
   end
 
+  # The morning's fetch, which runs before WeekAhead (`Tore.Deals.scrape_all/0`, daily).
+  defp fetched(ends) do
+    expect(Tore.MockHTTP, :fetch, fn @store_url -> offers(ends) end)
+    :ok = Deals.scrape_all()
+  end
+
   test "nothing before Friday" do
-    # No expectations: a fetch fails the test.
+    fetched(day(7))
     assert :ok = WeekAhead.run(at(4, ~T[09:00:00]))
     assert jobs() == []
   end
 
-  test "fetches daily until the new week's offers are in, then plans once and stops fetching" do
-    expect(Tore.MockHTTP, :fetch, fn @store_url -> offers(day(7)) end)
+  test "plans once, as soon as the new week's offers are in, and never fetches itself" do
+    fetched(day(7))
+    # No expectations: a fetch here fails the test.
     assert :ok = WeekAhead.run(at(5, ~T[09:00:00]))
     assert jobs() == []
     a_day_earlier()
 
-    expect(Tore.MockHTTP, :fetch, fn @store_url -> offers(Date.add(day(7), 7)) end)
+    fetched(Date.add(day(7), 7))
     assert :ok = WeekAhead.run(at(6, ~T[09:00:00]))
     assert [%Job{task: "plan_week", week: week}] = jobs()
     assert week == Date.add(day(1), 7)
 
-    # Sunday: no fetch and no second plan.
     assert :ok = WeekAhead.run(at(7, ~T[09:00:00]))
     assert :ok = WeekAhead.run(at(7, ~T[18:00:00]))
     assert length(jobs()) == 1
   end
 
   test "a few of this week's offers running longer don't count as the new week" do
-    later = Date.add(day(7), 14)
-    expect(Tore.MockHTTP, :fetch, fn @store_url -> offers([day(7), day(7), day(7), later]) end)
+    fetched([day(7), day(7), day(7), Date.add(day(7), 14)])
     assert :ok = WeekAhead.run(at(5, ~T[09:00:00]))
     refute Deals.coming_week_in?(home_scope(), day(5))
     assert jobs() == []
   end
 
-  test "with no new offers by Sunday evening, it plans with what there is, fetching once that day" do
-    expect(Tore.MockHTTP, :fetch, 1, fn @store_url -> offers(day(7)) end)
+  test "with no new offers by Sunday evening, it plans with what there is" do
+    fetched(day(7))
 
     assert :ok = WeekAhead.run(at(7, ~T[09:00:00]))
     assert jobs() == []

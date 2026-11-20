@@ -75,6 +75,17 @@ defmodule Tore.DealsScrapeTest do
       assert Deals.list_stores(home_scope()) == []
     end
 
+    test "a store's own page on ICA is taken as its offers page" do
+      assert {:ok, entry} =
+               Deals.add_store(
+                 home_scope(),
+                 "https://www.ica.se/butiker/supermarket/stockholm/ica-supermarket-danvikstull-1156002/"
+               )
+
+      assert entry.store.url == @store_url
+      assert entry.store.name == "ICA Supermarket Danvikstull"
+    end
+
     test "add_store refuses the same link twice in one household" do
       assert {:ok, _} = Deals.add_store(home_scope(), @store_url)
       assert {:error, %Ecto.Changeset{}} = Deals.add_store(home_scope(), @store_url)
@@ -163,8 +174,10 @@ defmodule Tore.DealsScrapeTest do
     end
   end
 
-  test "no scheduled job generates prep guides" do
+  test "no scheduled job generates prep guides, and offers are fetched every morning" do
     jobs = Application.fetch_env!(:tore, Tore.Scheduler)[:jobs]
+
+    assert {"0 7 * * *", {Tore.Deals, :scrape_all, []}} in jobs
 
     assert Enum.any?(jobs, &match?({_, {Tore.WeekAhead, :run, []}}, &1))
     refute Enum.any?(jobs, &match?({_, {Tore.Prep, _, _}}, &1))

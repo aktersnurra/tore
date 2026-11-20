@@ -76,7 +76,10 @@ config :tore, Tore.Scheduler,
     {"0 6 * * 6", {Tore.Agent, :run_weekly, ["weekly_reflection"]}},
     # New dinners from the web, saved before the coming week is planned.
     {"0 7 * * 4", {Tore.Agent, :run_weekly, ["find_recipes"]}},
-    # The coming week's offers, then its plan: Friday to Sunday mornings, and Sunday's deadline.
+    # Every store's offers, every morning.
+    {"0 7 * * *", {Tore.Deals, :scrape_all, []}},
+    # The coming week's plan, once its offers are in: Friday to Sunday mornings, and Sunday's
+    # deadline.
     {"0 9 * * 0,5,6", {Tore.WeekAhead, :run, []}},
     {"0 18 * * 0", {Tore.WeekAhead, :run, []}}
   ]

@@ -138,7 +138,7 @@ defmodule ToreWeb.DealsLive do
     <section data-role="stores" class="mt-10 max-w-[520px]">
       <h2 class="t-head">{gettext("Stores")}</h2>
       <p class="text-[color:var(--muted)]" style="font-size: 13px;">
-        {gettext("Tore reads their offers every Friday.")}
+        {gettext("Tore reads their offers every morning.")}
       </p>
       <div class="mt-2">
         <div
@@ -344,10 +344,10 @@ defmodule ToreWeb.DealsLive do
   end
 
   defp sub_line(%{stores: []}),
-    do: gettext("Add a link to a store's offers below, and Tore reads them every Friday.")
+    do: gettext("Add a link to a store or its offers below, and Tore reads them every morning.")
 
   defp sub_line(%{meals: [], usual: [], others: []}),
-    do: gettext("Tore reads the stores' offers every Friday.")
+    do: gettext("Tore reads the stores' offers every morning.")
 
   defp sub_line(_page), do: nil
 

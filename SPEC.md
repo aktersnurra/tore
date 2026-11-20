@@ -32,6 +32,7 @@
 - **2026-11-19:** All AI goes through pi (`.docs/plans/all-ai-through-pi.md`). pi (`pi --mode rpc`, `Tore.Pi`) is Tore's agent: each person has a chat session, which the chat tray and the Plan, Today and Shop sheets ask, and the `plan_week` and `weekly_reflection` background jobs are task files it runs (`Tore.Agent`). It acts only through Tore's `/mcp` tools, so every write is still a run with its verifier and undo. Every one-off model call in `Tore.LLM` is a pi one-shot (`Tore.LLM.Pi`). pi reads photos itself: a shelf or fridge goes into the pantry with `add_to_pantry` (`seen`), and a recipe is saved with `save_recipe`. Deleted: Capture's router, `PlannerAgent` and its tools, `:planner_command_run`, `:weekly_planning_run`, `:memory_review_run`, `PlanDiffBuilder`, resolver handles, capsule composition (two capsules are left as structs `get_context` and the home pick read), the fridge suggestion tools, per-turn quick swaps, Tore's shelf and recipe photo readers, and the OpenRouter model client with `web_search`, `chat` and `chat_with_tools`. OpenRouter now only draws recipe pictures.
 - **2026-11-19 (later):** Strict MCP: Tore writes no prompts. Every AI task is pi working through `/mcp`, and Tore's one-shots are gone with `Tore.LLM`, `Tore.LLM.Pi`, `Tore.LLM.Prompts`, `harness/ONESHOT.md`, `Tore.SpendGuard` and `Tore.MockLLM`. A link on the Recipes screen, a receipt photo on Shop and Check in the sheet before cooking ask the person's chat (the swaps come back with `suggest_swaps`). A saved or changed recipe gets its steps and picture from a `finish_recipe` job (`update_recipe`, `draw_recipe_picture`). The prep guide is a `prep_guide` job (`save_prep_guide`). New names and products are a `learn` job (`list_ingredients`, `learn_ingredients`, `match_products`), price guesses are part of `plan_week` (`set_price_guesses`), and the home pick is a `home_pick` job (`set_home_pick`). `find_recipes` runs every Thursday. Deleted: the recipe page parser, Tore's receipt reader and `uploaded_images`, typed decisions (Pattern C), "Surprise me" on a day, and recipe variants. The gate and the refusal words are `Tore.Pi`'s.
 - **2026-11-20:** A recipe has its own chat per person (`chat-<user_id>-recipe-<id>`): Ask Tore on a recipe page opens it, and coming back to the recipe comes back to the conversation.
+- **2026-11-20:** Offers are fetched every morning (`Tore.Deals.scrape_all/0` at 07:00), not only Friday to Sunday; `Tore.WeekAhead` only plans. An ICA store's own page is accepted as its offers link.
 
 ---
 
@@ -727,11 +728,12 @@ Eating out is a state of a day in the plan, not a cost form. "Eating out" on the
 
 **Status: built, for ICA only.**
 
-A store is added on Erbjudanden (`/deals`) by pasting a link to its offers. `Tore.Deals.Parsers.for_url/1` picks a parser from the
+A store is added on Erbjudanden (`/deals`) by pasting a link to its offers, or to the store's own page (ICA's
+`/butiker/<kind>/<town>/<slug>-<id>/` is stored as `/erbjudanden/<slug>-<id>/`). `Tore.Deals.Parsers.for_url/1` picks a parser from the
 link's host, and each chain is one module implementing `Tore.Deals.Parsers.Parser`. Only https links on a parser's
 hosts get fetched, so a pasted link can't point Tore anywhere else. A link no parser handles gets "Tore can't read
-that store yet". From Friday, `Tore.WeekAhead` fetches each enabled store once a day until its offers for the coming
-week appear, and pi reads the current offers through `list_deals`, each with the ingredient it matched.
+that store yet". Every morning at 07:00 `Tore.Deals.scrape_all/0` fetches each enabled store once, however many
+households use it, and pi reads the current offers through `list_deals`, each with the ingredient it matched.
 
 **Erbjudanden** (`/deals`, `Deals.page/3`) shows the current offers with no model: first those a dinner from today on
 calls for, then those on the household's basics (`Tore.Basics`), each through its product match; the rest folded. Each
@@ -834,9 +836,9 @@ list learns first, then adds the basics due, marked as basics. Ticking one off r
 the list restarts its wait and lengthens its interval by half, and three in a row stop it. No model is asked. Until calibration exists, the
 due basics are priced into what the week is expected to cost; after, calibration covers them.
 
-**Timing** (`Tore.WeekAhead`, Friday to Sunday at 09:00 and Sunday at 18:00). Each morning run fetches the stores whose
-offers for the coming week haven't appeared (most of what the latest fetch added runs past Sunday), so a store is
-fetched at most once a day and not again once they're in; the deadline run doesn't fetch. A household that can use pi gets its coming week planned once, by the `plan_week` job: when all its
+**Timing** (`Tore.WeekAhead`, Friday to Sunday at 09:00 and Sunday at 18:00). It never fetches: it reads what
+that morning's 07:00 fetch brought. A store's coming week is in when most of what its latest fetch added runs past
+Sunday. A household that can use pi gets its coming week planned once, by the `plan_week` job: when all its
 stores' new offers are in, or at Sunday 18:00 with whatever prices exist. Later offers change the estimate and the
 alternatives, never the plan.
 
@@ -1053,7 +1055,7 @@ lib/tore/
   pi.ex                      # Tore's client for pi: ask, run, messages, chat_session, the gate
   pi/session.ex              # one pi process per household session, over a Port
   agent.ex                   # background jobs: a harness/tasks/*.md task sent to pi; agent/job.ex
-  week_ahead.ex              # Fri–Sun: fetch the coming week's offers, then the plan_week job
+  week_ahead.ex              # Fri–Sun: the plan_week job, once the coming week's offers are in
   harness/                   # the Agent Harness Layer
     kitchen_run.ex           # the runs row; kitchen_run/transition.ex (pure), kitchen_run/types.ex
     kind.ex                  # the Kind behaviour: propose, resolve, verify, review_question, apply_proposal, after_commit
@@ -1202,8 +1204,10 @@ config :tore, Tore.Scheduler,
     {"30 3 * * *", {Tore.Recipes,                        :draw_missing_pictures, []}},  # off in dev and test
     {"0 4 * * 0",  {Tore.Harness.InboxSweeper,           :sweep_weekly,       []}},
     {"0 6 * * 6",  {Tore.Agent,                          :run_weekly,         ["weekly_reflection"]}},
-    {"0 9 * * 0,5,6", {Tore.WeekAhead,                   :run,                []}},  # fetches offers, runs the plan_week job
-    {"0 18 * * 0", {Tore.WeekAhead,                      :run,                []}}   # the deadline: plans, doesn't fetch
+    {"0 7 * * 4",  {Tore.Agent,                          :run_weekly,         ["find_recipes"]}},
+    {"0 7 * * *",  {Tore.Deals,                          :scrape_all,         []}},  # every store's offers, daily
+    {"0 9 * * 0,5,6", {Tore.WeekAhead,                   :run,                []}},  # runs plan_week once the offers are in
+    {"0 18 * * 0", {Tore.WeekAhead,                      :run,                []}}   # the deadline: plans with what there is
   ]
 ```
 
@@ -1211,9 +1215,9 @@ config :tore, Tore.Scheduler,
 AI's behalf is a pi background job (`Tore.Agent`), whose every write is a `KitchenRun` through
 `/mcp` — it never calls a context function directly, per §A.2's hard rule. A job is recorded in
 `agent_jobs` with pi's summary and cost; a scheduled one runs once a week per household. `Tore.Deals.clear_expired`
-and the fetching in `Tore.WeekAhead` are deterministic maintenance, not AI actions, and stay direct.
-So does `Tore.Recipes.draw_missing_pictures`: it draws the picture a recipe should already
-have, the same way saving one does, and decides nothing.
+and `Tore.Deals.scrape_all` are deterministic maintenance, not AI actions, and stay direct.
+`Tore.Recipes.draw_missing_pictures` only starts a `finish_recipe` job for each recipe that has no
+picture, the same job saving one starts.
 
 ---
 

@@ -116,7 +116,7 @@ defmodule ToreWeb.DealsLiveTest do
   test "with stores but nothing in yet it says when they come", %{conn: conn} do
     use_store("ICA Maxi")
     {:ok, _view, html} = live(conn, ~p"/deals")
-    assert html =~ "fredag"
+    assert html =~ "varje morgon"
   end
 
   describe "stores" do

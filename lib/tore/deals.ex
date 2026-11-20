@@ -250,17 +250,17 @@ defmodule Tore.Deals do
   end
 
   @doc """
-  Fetches each store some household has switched on, once however many households use it, unless
-  its offers for the week after `today`'s are already in (`coming_week?/2`).
+  Fetches each store some household has switched on, once however many households use it. Runs
+  every morning, so offers a store adds during the week, and a newly added store's, show the next
+  day.
   """
-  @spec scrape_all(Date.t()) :: :ok
-  def scrape_all(%Date{} = today \\ Tore.Clock.today()) do
+  @spec scrape_all() :: :ok
+  def scrape_all do
     scopes = Enum.map(Household.list_ids(), &Scope.for_household/1)
 
     scopes
     |> Enum.flat_map(&switched_on_stores/1)
     |> Enum.uniq_by(& &1.id)
-    |> Enum.reject(&coming_week?(&1, today))
     |> Enum.each(&scrape_store/1)
 
     Enum.each(scopes, &match_products/1)
@@ -275,8 +275,9 @@ defmodule Tore.Deals do
     do: scope |> switched_on_stores() |> Enum.all?(&coming_week?(&1, today))
 
   # A store's coming week is in when most of the offers its latest fetch this week added run past
-  # this Sunday. A fetch adds its offers with one timestamp, so the latest timestamp is its batch. Fetching starts on Friday, so this week's own offers are first seen this week
-  # too; a few of them running longer mustn't count, which is why it's most, not any.
+  # this Sunday. A fetch adds its offers with one timestamp, so the latest timestamp is its batch.
+  # This week's own offers are first seen this week too (on Monday's fetch); a few of them running
+  # longer mustn't count, which is why it's most, not any.
   defp coming_week?(%Store{name: name}, today) do
     monday = Streams.monday(today)
     sunday = Date.add(monday, 6)
