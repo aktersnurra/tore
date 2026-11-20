@@ -313,7 +313,8 @@ Four rules:
 - **Red never nags.** An open Thursday is not an error.
 - **One icon family: Phosphor** (MIT, vendored under `assets/vendor/phosphor`, used as
   `ph-NAME`, `ph-NAME-fill` and `ph-NAME-duotone`). Regular in the chrome, fill for the current
-  tab and Tore, duotone in a collection's ink for pages and dishes. No emoji.
+  tab and Tore, duotone in a collection's ink for pages and dishes. No emoji. The one exception
+  is Hemma's rows, which are food pictures (§ Hemma: Iconito Food).
 
 Chosen 2026-11-18, replacing Gjutjärn (cast iron and saffron), which read as heavy. The mock it
 came from: the "Tore kitchen pages" artifact.
@@ -1306,13 +1307,15 @@ page asks to be done.
 - One line to put something away, as on Shop: "1 l mjölk". It's sure from then on.
 - Groups, each a tag that folds like Shop's sections: Kyl (dairy, meat, fish, deli), Frukt
   & grönt, Frys, Skafferi (the rest), and Slut folded shut at the bottom.
-- A row: its emoji, the name, the amount or when it was bought, and at most one thing said
-  about it at the end. The emoji is a Noto Emoji picture (Apache 2.0, served from
-  `/images/emoji`, so every device shows the same one), 32 px, with no tile behind it. Jev
-  picks it per ingredient from the food emoji Tore has (`Tore.Pantry.Icons`); until then the
-  row has its category's (🥛 dairy, 🥩 meat, 🥕 produce, 🌾 dry goods…). Under Slut it's faded
-  and grey. There are no photos: pack photos and the household's own were dropped
-  (2026-11-20) for one consistent look.
+- A row: its picture, the name, the amount or when it was bought, and at most one thing said
+  about it at the end. The picture is one of Iconito's Food icons (MIT, warm flat
+  illustrations; served from `/images/food`, so every device shows the same one), 32 px, with
+  no tile behind it. What a pantry has and the set lacks was drawn in the same style: tin, jar,
+  salt, frozen, avocado, chili, ginger, crispbread. Jev picks one per ingredient from the 99
+  Tore has (`Tore.Pantry.Icons`); until then the row has its category's (milk for dairy, beef
+  for meat, carrot for produce, flour for dry goods, tin, jar…). Under Slut it's faded and
+  grey. There are no photos: pack photos and the household's own were dropped (2026-11-20)
+  for one consistent look.
 
 ### What a row says
 

@@ -687,9 +687,10 @@ household says so. Spent from the household's AI budget, with its sponsor; witho
 by itself. Slut (Gone) teaches it: how long the pack lasted since it was bought moves a basic's
 `interval_days` halfway there (so the list follows too), or else the ingredient's own `lasts_days`,
 which then comes between the rhythm and Jev's guess. What's only for cooking learns nothing.
-The same call picks each ingredient's emoji for its Hemma row (`ingredients.icon`), from the food
-emoji `Tore.Pantry.Icons` has pictures of, each with what it stands for; one Jev answers with that
-isn't there is not kept and is asked again. An ingredient is asked only for what it lacks.
+The same call picks each ingredient's picture for its Hemma row (`ingredients.icon`, a name), from
+the food icons `Tore.Pantry.Icons` has (Iconito Food, MIT, and eight drawn to match), each with what
+it stands for; one Jev answers with that isn't there is not kept and is asked again, and a row whose
+pick is no longer there shows its category's. An ingredient is asked only for what it lacks.
 
 **Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
 `Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same

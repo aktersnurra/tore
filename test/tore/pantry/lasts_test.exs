@@ -30,9 +30,9 @@ defmodule Tore.Pantry.LastsTest do
 
           choice =
             cond do
-              key =~ "icon" and text =~ "mjölk" -> "🥛"
-              key =~ "icon" and text =~ "smör" -> "🧈"
-              key =~ "icon" -> "🍝"
+              key =~ "icon" and text =~ "mjölk" -> "milk"
+              key =~ "icon" and text =~ "smör" -> "butter"
+              key =~ "icon" -> "pasta"
               text =~ "mjölk" -> "days"
               text =~ "smör" -> "weeks"
               true -> "cooking"
@@ -73,21 +73,21 @@ defmodule Tore.Pantry.LastsTest do
     assert Costs.last_llm_call(home_scope(), "pantry_lasts")
   end
 
-  test "Jev picks each thing's picture from the emoji there are" do
+  test "Jev picks each thing's picture from the ones there are" do
     jev()
     {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
 
-    assert icons() == %{"mjölk" => "🥛", "smör" => "🧈", "spaghetti" => "🍝"}
+    assert icons() == %{"mjölk" => "milk", "smör" => "butter", "spaghetti" => "pasta"}
   end
 
-  test "a picture there's no emoji for isn't kept, so it's asked again" do
+  test "a picture there isn't isn't kept, so it's asked again" do
     Req.Test.stub(__MODULE__, fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       %{"questions" => questions} = Jason.decode!(body)
 
       answers =
         Map.new(questions, fn {key, _q} ->
-          choice = if key =~ "icon", do: "🛸", else: "cooking"
+          choice = if key =~ "icon", do: "spaceship", else: "cooking"
           {key, %{"choice" => choice, "confidence" => 0.8}}
         end)
 
@@ -113,7 +113,7 @@ defmodule Tore.Pantry.LastsTest do
     assert {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
     assert_received {:asked, questions}
     assert Enum.all?(Map.keys(questions), &(&1 =~ "icon"))
-    assert icons()["mjölk"] == "🥛"
+    assert icons()["mjölk"] == "milk"
   end
 
   test "each thing is asked about once" do

@@ -77,8 +77,8 @@ defmodule ToreWeb.PantryLive do
     )
   end
 
-  # One row: where it belongs, its emoji (Jev's pick, otherwise its category's), a line under the
-  # name, and what to say about it.
+  # One row: where it belongs, its picture (Jev's pick, otherwise its category's), a line under
+  # the name, and what to say about it.
   defp row(%PantryItem{} = item, today, now) do
     belief = PantryItem.effective_belief(item, now, today)
     category = (item.ingredient && item.ingredient.category) || item.category
@@ -86,7 +86,7 @@ defmodule ToreWeb.PantryLive do
     %{
       item: item,
       group: if(belief == :missing, do: :gone, else: group(category)),
-      icon: (item.ingredient && item.ingredient.icon) || Icons.for_category(category),
+      icon: Icons.shown(item.ingredient && item.ingredient.icon, category),
       status: status(item, belief, today)
     }
   end
@@ -239,7 +239,7 @@ defmodule ToreWeb.PantryLive do
               class="flex min-h-[52px] items-center gap-3 py-1.5"
             >
               <img
-                src={~p"/images/emoji/#{Icons.file(row.icon)}"}
+                src={~p"/images/food/#{Icons.file(row.icon)}"}
                 alt=""
                 class={["size-8 shrink-0", row.group == :gone && "opacity-50 grayscale"]}
               />

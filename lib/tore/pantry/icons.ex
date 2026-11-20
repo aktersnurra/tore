@@ -1,139 +1,152 @@
 defmodule Tore.Pantry.Icons do
   @moduledoc """
-  The pictures a pantry row can have: food emoji, drawn by Noto Emoji (Google, Apache 2.0, kept
-  in `priv/static/images/emoji`, so every device sees the same picture). Jev picks one per
-  ingredient (`Tore.Pantry.Lasts`), from what each one stands for; until it has, a row has its
-  category's.
+  The pictures a pantry row can have: Iconito's Food icons (MIT), with a few drawn in the same
+  style for what a pantry has and the set doesn't (tin, jar, salt, frozen, avocado, chili,
+  ginger, crispbread). They're kept in `priv/static/images/food`, so every device sees the same
+  picture. Jev picks one per ingredient (`Tore.Pantry.Lasts`), from what each stands for; until
+  it has, a row has its category's.
   """
 
-  # Each emoji, and what it stands for, as Jev is told.
+  # Each picture, by name, and what it stands for, as Jev is told.
   @icons [
-    {"🥛", "milk, cream, filmjölk, buttermilk"},
-    {"🧈", "butter, margarine"},
-    {"🧀", "cheese"},
-    {"🥚", "eggs"},
-    {"🥣", "yoghurt, kvarg, cereal, muesli, porridge oats"},
-    {"🍞", "bread, sliced loaf"},
-    {"🥖", "baguette, white bread"},
-    {"🥐", "croissant, pastry"},
-    {"🫓", "flatbread, tortilla, pita, crispbread"},
-    {"🥯", "bagel, bun"},
-    {"🥞", "pancakes, pancake mix"},
-    {"🍝", "pasta, spaghetti, lasagne sheets"},
-    {"🍜", "noodles, ramen"},
-    {"🍚", "rice"},
-    {"🌾", "flour, grains, bulgur, couscous, semolina"},
-    {"🫘", "beans, lentils, chickpeas"},
-    {"🥜", "peanuts, peanut butter"},
-    {"🌰", "nuts, almonds, seeds"},
-    {"🥩", "beef, steak, mince, pork, lamb"},
-    {"🍗", "chicken, poultry"},
-    {"🥓", "bacon"},
-    {"🌭", "sausage, frankfurter, chorizo"},
-    {"🍖", "ham, cold cuts, meat on the bone"},
-    {"🐟", "fish, salmon, cod"},
-    {"🦐", "shrimp, prawns"},
-    {"🦀", "crab"},
-    {"🦞", "lobster, crayfish"},
-    {"🦑", "squid"},
-    {"🦪", "oysters, mussels, clams"},
-    {"🍅", "tomato, passata, crushed tomatoes, tomato purée"},
-    {"🥔", "potato"},
-    {"🍠", "sweet potato"},
-    {"🥕", "carrot, root vegetables"},
-    {"🧅", "onion, shallot, leek"},
-    {"🧄", "garlic"},
-    {"🫚", "ginger"},
-    {"🥒", "cucumber, pickles, zucchini"},
-    {"🥬", "lettuce, cabbage, spinach, kale, leafy greens"},
-    {"🥦", "broccoli, cauliflower"},
-    {"🫑", "bell pepper"},
-    {"🌶️", "chili, hot pepper, chili flakes"},
-    {"🌽", "corn"},
-    {"🫛", "peas, edamame"},
-    {"🍆", "aubergine, eggplant"},
-    {"🍄", "mushrooms"},
-    {"🥑", "avocado"},
-    {"🫒", "olives, olive oil"},
-    {"🌿", "fresh herbs, basil, parsley, dill, coriander"},
-    {"🧂", "salt, spices, stock cubes"},
-    {"🍯", "honey, syrup, jam"},
-    {"🫙", "jar: sauce, pesto, mustard, mayonnaise, condiments"},
-    {"🥫", "tin: canned food, coconut milk, soup"},
-    {"🫗", "oil, vinegar, soy sauce, other bottled liquids"},
-    {"🍎", "apple"},
-    {"🍐", "pear"},
-    {"🍊", "orange, clementine"},
-    {"🍋", "lemon, lime"},
-    {"🍌", "banana"},
-    {"🍇", "grapes, raisins"},
-    {"🍓", "strawberries"},
-    {"🫐", "blueberries, berries"},
-    {"🍒", "cherries"},
-    {"🍑", "peach, nectarine, apricot"},
-    {"🥭", "mango"},
-    {"🍍", "pineapple"},
-    {"🍉", "watermelon"},
-    {"🍈", "melon"},
-    {"🥝", "kiwi"},
-    {"🥥", "coconut"},
-    {"🍫", "chocolate, cocoa"},
-    {"🍪", "biscuits, cookies"},
-    {"🍰", "cake"},
-    {"🍦", "ice cream"},
-    {"🍬", "sweets, candy"},
-    {"🍿", "popcorn, crisps, snacks"},
-    {"🥟", "dumplings"},
-    {"🍕", "pizza"},
-    {"🥗", "salad, ready meals"},
-    {"☕", "coffee"},
-    {"🍵", "tea"},
-    {"🧃", "juice"},
-    {"🥤", "soft drink, soda"},
-    {"🍺", "beer"},
-    {"🍷", "wine"},
-    {"🧊", "ice, frozen food"},
-    {"🍼", "baby food, formula"}
+    {"milk", "milk, filmjölk, buttermilk"},
+    {"cream", "cream, crème fraîche, sour cream"},
+    {"butter", "butter, margarine"},
+    {"cheese", "cheese"},
+    {"yogurt", "yoghurt, kvarg, cottage cheese"},
+    {"egg", "eggs"},
+    {"tofu", "tofu, halloumi, plant protein"},
+    {"bread", "bread, a loaf, buns"},
+    {"baguette", "baguette, white bread"},
+    {"croissant", "croissant, pastries"},
+    {"tortilla", "tortillas, wraps, pita, flatbread"},
+    {"crispbread", "crispbread (knäckebröd), rice cakes"},
+    {"pancake", "pancakes, pancake mix"},
+    {"pasta", "pasta, spaghetti, lasagne sheets"},
+    {"noodles", "noodles"},
+    {"rice", "rice"},
+    {"quinoa", "quinoa, bulgur, couscous"},
+    {"flour", "flour, baking powder, yeast"},
+    {"sugar", "sugar"},
+    {"oats", "oats, muesli, cereal"},
+    {"bean", "beans"},
+    {"chickpea", "chickpeas"},
+    {"lentil", "lentils"},
+    {"almond", "almonds, nuts, seeds"},
+    {"walnut", "walnuts"},
+    {"peanut", "peanuts, peanut butter"},
+    {"beef", "beef, steak, mince"},
+    {"pork", "pork"},
+    {"lamb", "lamb"},
+    {"ham", "ham, cold cuts"},
+    {"bacon", "bacon"},
+    {"sausage", "sausage, chorizo, hot dogs"},
+    {"chicken", "chicken"},
+    {"turkey", "turkey"},
+    {"meatball", "meatballs"},
+    {"fish", "fish, cod, white fish"},
+    {"salmon", "salmon"},
+    {"tuna", "tuna"},
+    {"shrimp", "shrimp, prawns"},
+    {"squid", "squid, mussels, seafood"},
+    {"tomato", "tomatoes"},
+    {"potato", "potatoes, sweet potatoes"},
+    {"carrot", "carrots, root vegetables"},
+    {"onion", "onion, shallot, leek"},
+    {"garlic", "garlic"},
+    {"ginger", "ginger"},
+    {"cucumber", "cucumber"},
+    {"zucchini", "zucchini, aubergine"},
+    {"lettuce", "lettuce, cabbage, salad leaves"},
+    {"spinach", "spinach"},
+    {"kale", "kale"},
+    {"broccoli", "broccoli, cauliflower"},
+    {"bell_pepper", "bell pepper"},
+    {"chili", "chili, hot pepper"},
+    {"corn", "corn"},
+    {"mushroom", "mushrooms"},
+    {"avocado", "avocado"},
+    {"olive", "olives"},
+    {"basil", "basil"},
+    {"parsley", "parsley, dill"},
+    {"cilantro", "coriander"},
+    {"mint", "mint"},
+    {"rosemary", "rosemary"},
+    {"thyme", "thyme"},
+    {"oregano", "oregano, dried herbs"},
+    {"salt", "salt, pepper, spices, stock cubes"},
+    {"olive_oil", "olive oil, cooking oil"},
+    {"vinegar", "vinegar, soy sauce, bottled sauces"},
+    {"mayonnaise", "mayonnaise, ketchup, sauces in tubes"},
+    {"jar", "a jar: pesto, mustard, pickles, jarred sauces"},
+    {"tin", "a tin: crushed tomatoes, coconut milk, tinned food"},
+    {"honey", "honey, jam, marmalade"},
+    {"maple_syrup", "syrup"},
+    {"apple", "apples, pears"},
+    {"banana", "bananas"},
+    {"orange", "oranges, clementines"},
+    {"lemon", "lemons"},
+    {"lime", "limes"},
+    {"grape", "grapes, raisins"},
+    {"strawberry", "strawberries"},
+    {"blueberry", "blueberries, berries"},
+    {"watermelon", "melon"},
+    {"chocolate", "chocolate, cocoa"},
+    {"cookie", "biscuits, cookies"},
+    {"candy", "sweets"},
+    {"cake", "cake"},
+    {"ice_cream", "ice cream"},
+    {"frozen", "frozen food, ice"},
+    {"pizza", "pizza"},
+    {"dumpling", "dumplings"},
+    {"fries", "chips, fries, crisps"},
+    {"soup", "soup"},
+    {"coffee", "coffee"},
+    {"tea", "tea"},
+    {"juice", "juice"},
+    {"soda", "soft drinks"},
+    {"water", "bottled or sparkling water"},
+    {"beer", "beer"},
+    {"wine", "wine"}
   ]
 
-  @emoji Enum.map(@icons, &elem(&1, 0))
+  @names Enum.map(@icons, &elem(&1, 0))
 
-  @doc "What each emoji stands for, by emoji, as Jev's criteria."
+  @doc "What each picture stands for, by name, as Jev's criteria."
   @spec criteria() :: %{String.t() => String.t()}
   def criteria, do: Map.new(@icons)
 
-  @doc "The emojis there are pictures of."
+  @doc "The pictures there are, by name."
   @spec all() :: [String.t()]
-  def all, do: @emoji
+  def all, do: @names
 
-  @doc "Whether there's a picture of `emoji`."
+  @doc "Whether there's a picture called `name`."
   @spec known?(term()) :: boolean()
-  def known?(emoji), do: emoji in @emoji
+  def known?(name), do: name in @names
 
-  @doc "The picture's file, as Noto names it: its code points without the emoji variation selector."
+  @doc "The picture's file in `priv/static/images/food`."
   @spec file(String.t()) :: String.t()
-  def file(emoji) do
-    points =
-      for <<point::utf8 <- emoji>>,
-          point != 0xFE0F,
-          do: point |> Integer.to_string(16) |> String.downcase() |> String.pad_leading(4, "0")
+  def file(name), do: name <> ".svg"
 
-    "emoji_u#{Enum.join(points, "_")}.svg"
-  end
+  @doc """
+  The picture a row shows: Jev's pick while there's a picture of it (a pick can outlive the set
+  it was made from), otherwise its category's.
+  """
+  @spec shown(String.t() | nil, String.t() | nil) :: String.t()
+  def shown(icon, category), do: if(known?(icon), do: icon, else: for_category(category))
 
   @doc "A category's picture, for a row Jev hasn't been asked about."
   @spec for_category(String.t() | nil) :: String.t()
-  def for_category("dairy"), do: "🥛"
-  def for_category("deli"), do: "🧀"
-  def for_category("meat"), do: "🥩"
-  def for_category("fish"), do: "🐟"
-  def for_category("produce"), do: "🥕"
-  def for_category("frozen"), do: "🧊"
-  def for_category("dry_goods"), do: "🌾"
-  def for_category("bread"), do: "🍞"
-  def for_category("beverages"), do: "🧃"
-  def for_category("herbs_spices"), do: "🌿"
-  def for_category("canned"), do: "🥫"
-  def for_category("condiments"), do: "🫙"
-  def for_category(_category), do: "🥣"
+  def for_category("dairy"), do: "milk"
+  def for_category("deli"), do: "cheese"
+  def for_category("meat"), do: "beef"
+  def for_category("fish"), do: "fish"
+  def for_category("produce"), do: "carrot"
+  def for_category("frozen"), do: "frozen"
+  def for_category("dry_goods"), do: "flour"
+  def for_category("bread"), do: "bread"
+  def for_category("beverages"), do: "juice"
+  def for_category("herbs_spices"), do: "salt"
+  def for_category("canned"), do: "tin"
+  def for_category(_category), do: "jar"
 end

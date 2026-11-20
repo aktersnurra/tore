@@ -98,7 +98,7 @@ defmodule ToreWeb.PantryLiveTest do
     assert view |> element("[data-item]") |> render() =~ "2 l"
   end
 
-  test "each row has its emoji: Jev's pick, or its category's until Jev has picked", %{
+  test "each row has its picture: Jev's pick, or its category's until Jev has picked", %{
     conn: conn
   } do
     milk = kept("Mjölk", "dairy")
@@ -109,19 +109,19 @@ defmodule ToreWeb.PantryLiveTest do
       butter.ingredient_id,
       Tore.Scope.repo_opts(home_scope())
     )
-    |> Ecto.Changeset.change(icon: "🧈")
+    |> Ecto.Changeset.change(icon: "butter")
     |> Tore.Repo.update!()
 
     {:ok, view, _html} = live(conn, ~p"/pantry")
 
     assert has_element?(
              view,
-             ~s([data-item="#{milk.id}"] img[src="/images/emoji/emoji_u1f95b.svg"])
+             ~s([data-item="#{milk.id}"] img[src="/images/food/milk.svg"])
            )
 
     assert has_element?(
              view,
-             ~s([data-item="#{butter.id}"] img[src="/images/emoji/emoji_u1f9c8.svg"])
+             ~s([data-item="#{butter.id}"] img[src="/images/food/butter.svg"])
            )
 
     refute has_element?(view, "#photo-picker")

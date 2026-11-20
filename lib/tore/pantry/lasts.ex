@@ -6,7 +6,7 @@ defmodule Tore.Pantry.Lasts do
   coffee). What's eaten between meals gets a half-life from it (`half_life_days/1`), so Tore
   believes it's being eaten without being told; what's only for cooking changes only when a
   dinner or the household says so. The household's own rhythm, once Basics has learned it, beats
-  the guess (`Tore.Pantry.list_inventory/1`). In the same call Jev picks the emoji its pantry row
+  the guess (`Tore.Pantry.list_inventory/1`). In the same call Jev picks the picture its pantry row
   shows (`Tore.Pantry.Icons`).
 
   Spent from the household's AI budget, as pi is, and needs the same sponsor.
@@ -52,7 +52,7 @@ defmodule Tore.Pantry.Lasts do
   end
 
   @doc """
-  Asks Jev how each ingredient in the pantry is used and which emoji is its picture, whichever it
+  Asks Jev how each ingredient in the pantry is used and which picture it gets, whichever it
   hasn't been asked yet, and keeps its answers on the ingredients. Answers how many ingredients it
   kept something for. `opts` go to `Tore.Jev.decide/3`.
   """
@@ -114,7 +114,7 @@ defmodule Tore.Pantry.Lasts do
            @criteria
          )},
       ingredient.icon == nil &&
-        {"icon_#{id}", choice("Which emoji best pictures #{name}?", Icons.criteria())}
+        {"icon_#{id}", choice("Which picture fits #{name} best?", Icons.criteria())}
     ]
     |> Enum.filter(& &1)
   end

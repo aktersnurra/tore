@@ -15,7 +15,7 @@ defmodule Tore.Recipes.Ingredient do
     field :lasts_confidence, :float
     # How many days a pack has been seen to last, from it running out (`Tore.Pantry.mark_gone/2`).
     field :lasts_days, :integer
-    # Its emoji on the pantry row, as Jev picked it (`Tore.Pantry.Icons`).
+    # Its picture on the pantry row, by name, as Jev picked it (`Tore.Pantry.Icons`).
     field :icon, :string
     field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
