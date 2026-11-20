@@ -211,19 +211,38 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   html.kb-open #command-tray .composer-foot { padding-bottom: 0.5rem; }
 }
 
-/* Just saved: the field's border and its check light green, then settle back. */
-@keyframes saved-flash {
-  0%, 35% { border-color: var(--done); }
-  100% { border-color: var(--border); }
+/* A text field (CoreComponents.field/1), the same everywhere but the chat's box: blue while
+   typing in it, green for a moment when just saved, red when something's wrong, with the reason
+   under it. The box draws the state; the input inside it is bare. */
+.field {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding-inline: 12px;
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface); color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
-@keyframes saved-flash-icon {
-  0%, 35% { color: var(--done); }
-  100% { color: var(--subtle); }
-}
-.saved-flash { animation: saved-flash 1.6s var(--ease-out) both; }
-.saved-flash [class*="ph-check"] { animation: saved-flash-icon 1.6s var(--ease-out) both; }
+.field:focus-within { border-color: var(--tag-blue-ink); }
+.field.field-invalid { border-color: var(--danger); }
+/* No fill mode: once the green has faded it's whatever the field is then, blue if still typing. */
+.field.saved-flash { animation: field-saved 1.6s var(--ease-out); }
+.field.saved-flash [class*="ph-check"] { animation: field-saved-icon 1.6s var(--ease-out); }
+@keyframes field-saved { 0%, 35% { border-color: var(--done); } }
+@keyframes field-saved-icon { 0%, 35% { color: var(--done); } }
 @media (prefers-reduced-motion: reduce) {
-  .saved-flash, .saved-flash [class*="ph-check"] { animation-duration: 1ms; }
+  .field.saved-flash, .field.saved-flash [class*="ph-check"] { animation-duration: 1ms; }
+}
+.field > input, .field > textarea {
+  flex: 1; min-width: 0; align-self: stretch;
+  border: 0; padding: 0; background: transparent; color: var(--text);
+  font-size: 16px; /* 16px or more, or iOS zooms in on it */
+}
+.field > input::placeholder, .field > textarea::placeholder { color: var(--muted); }
+.field > input:focus-visible, .field > textarea:focus-visible { outline: none; }
+.field-area { align-items: flex-start; }
+.field-area > textarea { padding-block: 10px; resize: vertical; line-height: 1.5; }
+.field-error {
+  display: flex; align-items: flex-start; gap: 6px; margin-top: 6px;
+  font-size: 13px; line-height: 1.4; color: var(--danger);
 }
 
 /* A list: rows gathered on one soft, rounded surface */

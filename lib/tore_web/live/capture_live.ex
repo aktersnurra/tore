@@ -685,10 +685,10 @@ defmodule ToreWeb.CaptureLive do
           data-role="chat-search"
           phx-change="search_chats"
           phx-submit="search_chats"
-          class="flex items-center gap-2 border-t border-[color:var(--hairline)] px-4"
+          class="border-t border-[color:var(--hairline)] p-2"
         >
-          <.icon name="ph-magnifying-glass" class="size-4 shrink-0 text-[color:var(--muted)]" />
-          <input
+          <.field
+            id="chat-search-q"
             type="search"
             name="q"
             placeholder={gettext("Search chats")}
@@ -696,9 +696,11 @@ defmodule ToreWeb.CaptureLive do
             autocomplete="off"
             phx-debounce="150"
             phx-mounted={JS.focus()}
-            class="h-11 min-w-0 flex-1 bg-transparent text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-            style="font-size: 15px;"
-          />
+          >
+            <:leading>
+              <.icon name="ph-magnifying-glass" class="size-4 shrink-0 text-[color:var(--muted)]" />
+            </:leading>
+          </.field>
         </form>
         <p
           :if={@chats == []}

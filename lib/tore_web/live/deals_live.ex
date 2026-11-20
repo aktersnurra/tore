@@ -250,35 +250,26 @@ defmodule ToreWeb.DealsLive do
           :if={@stores == [] or @adding or @error}
           id="store-form"
           phx-submit="add_store"
-          class="settle mt-2 flex items-center gap-2"
+          class="settle mt-2 flex items-start gap-2"
         >
-          <input
+          <.field
             id="store-url"
             type="url"
             name="url"
             value={@url}
             placeholder="https://www.ica.se/erbjudanden/…"
             aria-label={gettext("Link to a store's offers")}
-            aria-invalid={@error && "true"}
+            errors={List.wrap(@error)}
             phx-mounted={@adding && JS.focus()}
             phx-keydown={@stores != [] && "close_store_form"}
             phx-key="Escape"
             required
-            class="h-9 min-w-0 flex-1 rounded-[var(--r-sm)] border border-[color:var(--hairline)] bg-[var(--surface)] px-2.5"
-            style="font-size: 14px;"
+            class="min-w-0 flex-1"
           />
           <.button type="submit" variant={:secondary} phx-disable-with={gettext("Adding…")}>
             {gettext("Add")}
           </.button>
         </form>
-        <p
-          :if={@error}
-          class="settle mt-1 text-[color:var(--warn)]"
-          style="font-size: 12.5px;"
-          role="alert"
-        >
-          {@error}
-        </p>
       </div>
     </section>
     """

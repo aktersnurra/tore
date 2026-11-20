@@ -827,53 +827,82 @@ defmodule ToreWeb.CoreComponents do
   end
 
   @doc ~S"""
-  Underline-style text input.
+  A text field, the one way every field looks (the chat's own box aside): a box that's blue while
+  typing in it, flashes green when `saved`, and is red with the reason under it when it has
+  `errors`. Icons or buttons go inside the box, before or after the input.
 
-      <.field name="name" label="Name" value={@name} />
+      <.field name="name" label="Name" value={@name} saved={@just_saved} errors={List.wrap(@error)}>
+        <:trailing><button type="submit">…</button></:trailing>
+      </.field>
   """
   attr :id, :string, default: nil
   attr :name, :string, required: true
-  attr :value, :string, default: ""
-  attr :type, :string, default: "text"
+  attr :value, :any, default: ""
+  attr :type, :string, default: "text", doc: "an input type, or \"textarea\""
   attr :label, :string, default: nil
   attr :placeholder, :string, default: nil
   attr :errors, :list, default: []
-  attr :rest, :global, include: ~w(required disabled autocomplete inputmode pattern step min)
+  attr :saved, :boolean, default: false, doc: "just saved: the box flashes green"
+  attr :class, :any, default: nil, doc: "for the field as a whole, e.g. its width"
+  attr :input_class, :any, default: nil, doc: "for the input inside the box"
+
+  attr :rest, :global,
+    include:
+      ~w(required disabled autocomplete autocapitalize autofocus spellcheck inputmode pattern step
+         min max maxlength readonly rows form)
+
+  slot :leading, doc: "an icon or button inside the box, before the input"
+  slot :trailing, doc: "an icon or button inside the box, after the input"
 
   def field(assigns) do
     assigns = assign_new(assigns, :id, fn -> assigns.name end)
 
     ~H"""
-    <label for={@id} class="block">
-      <span
+    <div class={@class}>
+      <label
         :if={@label}
-        class="block mb-1.5 text-[color:var(--muted)]"
+        for={@id}
+        class="mb-1.5 block text-[color:var(--muted)]"
         style="font-size: var(--t-meta); font-weight: 500;"
       >
         {@label}
-      </span>
-      <input
-        id={@id}
-        name={@name}
-        type={@type}
-        value={@value}
-        placeholder={@placeholder}
-        class={[
-          "w-full h-11 px-3.5 bg-[var(--surface)] rounded-[var(--r-md)] border text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none transition-colors",
-          @errors == [] && "border-[color:var(--border)] focus:border-[color:var(--accent)]",
-          @errors != [] && "border-[color:var(--danger)]"
-        ]}
-        style="font-size: var(--t-body);"
-        {@rest}
-      />
-      <p
-        :for={err <- @errors}
-        class="mt-1 text-[color:var(--danger)]"
-        style="font-size: var(--t-meta);"
-      >
-        {err}
+      </label>
+      <div class={[
+        "field",
+        @errors != [] && "field-invalid",
+        @saved && "saved-flash",
+        @type == "textarea" && "field-area"
+      ]}>
+        {render_slot(@leading)}
+        <textarea
+          :if={@type == "textarea"}
+          id={@id}
+          name={@name}
+          placeholder={@placeholder}
+          aria-invalid={@errors != [] && "true"}
+          aria-describedby={@errors != [] && "#{@id}-error"}
+          class={@input_class}
+          {@rest}
+        >{@value}</textarea>
+        <input
+          :if={@type != "textarea"}
+          id={@id}
+          name={@name}
+          type={@type}
+          value={@value}
+          placeholder={@placeholder}
+          aria-invalid={@errors != [] && "true"}
+          aria-describedby={@errors != [] && "#{@id}-error"}
+          class={@input_class}
+          {@rest}
+        />
+        {render_slot(@trailing)}
+      </div>
+      <p :if={@errors != []} id={"#{@id}-error"} role="alert" class="field-error settle">
+        <.icon name="ph-warning-circle" class="mt-px size-4 shrink-0" />
+        <span>{Enum.join(@errors, " ")}</span>
       </p>
-    </label>
+    </div>
     """
   end
 

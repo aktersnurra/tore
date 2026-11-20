@@ -373,14 +373,13 @@ defmodule ToreWeb.HomeLive do
         <p class="t-eyebrow">{gettext("Tonight")}</p>
         <p class="t-head mt-1">{@dish.title}</p>
         <form phx-submit="tonight_command" class="mt-4">
-          <input
-            type="text"
+          <.field
+            id="tonight-command"
             name="command"
             autocomplete="off"
             autofocus
             placeholder={gettext("Anything about tonight…")}
-            class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-            style="font-size: 16px;"
+            aria-label={gettext("Anything about tonight…")}
           />
         </form>
       </.bottom_sheet>

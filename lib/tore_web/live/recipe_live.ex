@@ -583,20 +583,19 @@ defmodule ToreWeb.RecipeLive do
 
           <div class="mt-3 space-y-4">
             <%!-- Search, once asked for --%>
-            <form :if={@show_search or @search != ""} phx-change="search" class="settle relative">
-              <.icon
-                name="ph-magnifying-glass"
-                class="size-5 absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--muted)]"
-              />
-              <input
-                type="text"
+            <form :if={@show_search or @search != ""} phx-change="search" class="settle">
+              <.field
+                id="recipe-search"
                 name="query"
                 value={@search}
                 placeholder={gettext("Search recipes, ingredients, or meals…")}
+                aria-label={gettext("Search recipes, ingredients, or meals…")}
                 autofocus
-                class="w-full h-11 pl-11 pr-4 bg-[var(--surface)] rounded-[var(--r-md)] text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[color:var(--accent)]"
-                style="font-size: var(--t-body);"
-              />
+              >
+                <:leading>
+                  <.icon name="ph-magnifying-glass" class="size-5 shrink-0 text-[color:var(--muted)]" />
+                </:leading>
+              </.field>
             </form>
 
             <%!-- Expanded filters --%>
@@ -1409,8 +1408,8 @@ defmodule ToreWeb.RecipeLive do
       </p>
 
       <form id="import-link" phx-submit="import_link" class="mt-5 space-y-3">
-        <input
-          type="text"
+        <.field
+          id="import"
           name="url"
           inputmode="url"
           autocomplete="off"
@@ -1419,24 +1418,9 @@ defmodule ToreWeb.RecipeLive do
           value={@import_url}
           placeholder="https://"
           aria-label={gettext("Link to the recipe")}
-          aria-invalid={@import_error && "true"}
-          aria-describedby={@import_error && "import-error"}
+          errors={List.wrap(@import_error)}
           phx-mounted={JS.focus()}
-          class={[
-            "w-full rounded-full border bg-[var(--surface)] px-5 py-3 text-[var(--text)] transition-colors duration-[var(--dur-fast)]",
-            @import_error && "border-[color:var(--warn)]",
-            !@import_error && "border-[color:var(--hairline)]"
-          ]}
         />
-        <p
-          :if={@import_error}
-          id="import-error"
-          role="alert"
-          class="settle text-[color:var(--warn)]"
-          style="font-size: var(--t-meta);"
-        >
-          {@import_error}
-        </p>
         <.button type="submit" variant={:primary} full>{gettext("Get recipe")}</.button>
 
         <%!-- The way out: the link typed so far comes along as the recipe's source. --%>
@@ -1485,14 +1469,13 @@ defmodule ToreWeb.RecipeLive do
       </p>
 
       <form id="compose" phx-submit="put_together" class="mt-5">
-        <input
-          type="text"
+        <.field
+          id="compose-title"
           name="title"
           autocomplete="off"
           placeholder={gettext("Name, e.g. Entrecote with béarnaise")}
           aria-label={gettext("Name")}
           phx-mounted={JS.focus()}
-          class="w-full rounded-full border border-[color:var(--hairline)] bg-[var(--surface)] px-5 py-3 text-[var(--text)]"
         />
 
         <div class="mt-4 flex items-center justify-between">
@@ -1638,46 +1621,46 @@ defmodule ToreWeb.RecipeLive do
           <div class="space-y-2">
             <div
               :for={{row, idx} <- Enum.with_index(@ingredient_rows)}
-              class="flex items-center gap-2"
+              class="flex items-start gap-2"
             >
-              <input
-                type="text"
+              <.field
+                id={"ingredient-#{idx}-name"}
                 name={"ingredients[#{idx}][name]"}
                 value={row.name}
                 placeholder={gettext("Ingredient")}
+                aria-label={gettext("Ingredient")}
                 phx-change="sync_ingredient"
                 phx-value-index={idx}
                 phx-debounce="blur"
-                class="flex-1 h-10 px-3 bg-[var(--surface)] rounded-[var(--r-md)] border border-[color:var(--border)] text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none focus:border-[color:var(--accent)]"
-                style="font-size: var(--t-body);"
+                class="min-w-0 flex-1"
               />
-              <input
-                type="text"
+              <.field
+                id={"ingredient-#{idx}-quantity"}
                 name={"ingredients[#{idx}][quantity]"}
                 value={row.quantity}
                 placeholder={gettext("Qty")}
+                aria-label={gettext("Qty")}
                 phx-change="sync_ingredient"
                 phx-value-index={idx}
                 phx-debounce="blur"
-                class="w-20 h-10 px-3 bg-[var(--surface)] rounded-[var(--r-md)] border border-[color:var(--border)] text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none focus:border-[color:var(--accent)]"
-                style="font-size: var(--t-body);"
+                class="w-20 shrink-0"
               />
-              <input
-                type="text"
+              <.field
+                id={"ingredient-#{idx}-unit"}
                 name={"ingredients[#{idx}][unit]"}
                 value={row.unit}
                 placeholder={gettext("Unit")}
+                aria-label={gettext("Unit")}
                 phx-change="sync_ingredient"
                 phx-value-index={idx}
                 phx-debounce="blur"
-                class="w-24 h-10 px-3 bg-[var(--surface)] rounded-[var(--r-md)] border border-[color:var(--border)] text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none focus:border-[color:var(--accent)]"
-                style="font-size: var(--t-body);"
+                class="w-24 shrink-0"
               />
               <button
                 type="button"
                 phx-click="remove_ingredient_row"
                 phx-value-index={idx}
-                class="size-9 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--subtle)] hover:text-[color:var(--danger)] hover:bg-[color:var(--hairline)]"
+                class="size-11 shrink-0 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--subtle)] hover:text-[color:var(--danger)] hover:bg-[color:var(--hairline)]"
               >
                 <.icon name="ph-x" class="size-4" />
               </button>
@@ -1698,17 +1681,14 @@ defmodule ToreWeb.RecipeLive do
           value={@form[:source_url] || ""}
         />
 
-        <label class="block">
-          <span class="block mb-1 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-            {gettext("Instructions")}
-          </span>
-          <textarea
-            name="recipe[instructions]"
-            rows="6"
-            class="w-full bg-transparent border border-[color:var(--border)] rounded-[var(--r-sm)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-0 focus:border-[color:var(--accent)]"
-            style="font-size: var(--t-body);"
-          >{@form[:instructions]}</textarea>
-        </label>
+        <.field
+          type="textarea"
+          id="recipe-instructions"
+          name="recipe[instructions]"
+          label={gettext("Instructions")}
+          rows="6"
+          value={@form[:instructions]}
+        />
 
         <div class="flex gap-2 pt-4 border-t border-[color:var(--border)]">
           <.button type="submit" variant={:primary}>{gettext("Save")}</.button>

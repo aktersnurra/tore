@@ -207,25 +207,25 @@ defmodule ToreWeb.PantryLive do
             id="put-away"
             phx-submit="put_away"
             phx-hook=".ClearOnSubmit"
-            class="flex items-center gap-2 border-b border-[color:var(--hairline)]"
           >
-            <button
-              type="submit"
-              aria-label={gettext("Put away")}
-              class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
-            >
-              <.icon name="ph-plus" class="size-5" />
-            </button>
-            <input
-              type="text"
+            <.field
+              id="put-away-name"
               name="name"
               placeholder={gettext("Add, e.g. 1 l milk")}
               aria-label={gettext("Put away")}
               autocomplete="off"
               required
-              class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-              style="font-size: 16px;"
-            />
+            >
+              <:leading>
+                <button
+                  type="submit"
+                  aria-label={gettext("Put away")}
+                  class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
+                >
+                  <.icon name="ph-plus" class="size-5" />
+                </button>
+              </:leading>
+            </.field>
           </form>
           <script :type={Phoenix.LiveView.ColocatedHook} name=".ClearOnSubmit">
             export default {

@@ -582,6 +582,21 @@ Execute
 
 ## 5.4 Inputs
 
+### Text fields
+
+Every text field is one component (`CoreComponents.field/1`) and looks the same, except the chat's
+own message box (2026-11-20):
+
+```md
+At rest       grey border
+Typing        blue border (the blue tag ink)
+Just saved    green border, fading back in about a second and a half
+Error         red border, and the reason in red under the field
+```
+
+Icons and buttons (search, +, scan, return) sit inside the box. Text is 16px, so a phone
+doesn't zoom in on it.
+
 ### Asking about something on a screen
 
 There is no command bar. The chat (Tore, the centre tab) is where you type. A screen's object

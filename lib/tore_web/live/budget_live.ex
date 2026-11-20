@@ -157,26 +157,25 @@ defmodule ToreWeb.BudgetLive do
               phx-submit="set_budget"
               phx-window-keydown="cancel_budget"
               phx-key="Escape"
-              class="mt-0.5 flex items-center gap-1.5"
+              class="mt-0.5 flex items-start gap-1.5"
             >
-              <input
+              <.field
                 id="budget-input"
-                type="text"
                 name="amount"
                 inputmode="decimal"
                 value={@budget_text}
                 placeholder={gettext("No budget")}
                 aria-label={gettext("Weekly budget in kronor")}
-                aria-invalid={@budget_error && "true"}
+                errors={List.wrap(@budget_error)}
                 phx-mounted={JS.focus()}
-                class={[
-                  "num h-9 w-24 min-w-0 rounded-[var(--r-sm)] border bg-[var(--surface)] px-2 font-semibold",
-                  @budget_error && "border-[color:var(--warn)]",
-                  !@budget_error && "border-[color:var(--hairline)]"
-                ]}
-                style="font-size: 18px;"
+                class="w-32 min-w-0"
+                input_class="num font-semibold"
               />
-              <button type="submit" phx-disable-with="…" class="press text-[13px] font-semibold">
+              <button
+                type="submit"
+                phx-disable-with="…"
+                class="press h-11 text-[13px] font-semibold"
+              >
                 {gettext("Save")}
               </button>
             </form>
@@ -197,14 +196,6 @@ defmodule ToreWeb.BudgetLive do
                 class="size-4 text-[color:var(--muted)] transition-colors group-hover:text-[color:var(--text)]"
               />
             </button>
-            <p
-              :if={@budget_error}
-              class="settle mt-1 text-[color:var(--warn)]"
-              style="font-size: 12.5px;"
-              role="alert"
-            >
-              {@budget_error}
-            </p>
             <p
               :if={!@budget_error}
               class="mt-0.5 text-[color:var(--muted)]"

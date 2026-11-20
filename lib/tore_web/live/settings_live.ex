@@ -357,40 +357,35 @@ defmodule ToreWeb.SettingsLive do
           <%!-- One field. The saved name has a grey check, and saving flashes it green; a new name
                is sent with return, as in the chat; an empty one can't be. --%>
           <form :if={@section == "name"} phx-submit="rename_household" phx-change="edit_name">
-            <div
-              data-state={@name_state}
-              class={[
-                "flex items-center gap-2 rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)] py-1.5 pr-1.5 pl-4",
-                @name_state == :just_saved && "saved-flash"
-              ]}
+            <.field
+              id="household-name"
+              name="name"
+              value={@household.name}
+              saved={@name_state == :just_saved}
+              aria-label={gettext("Household name")}
+              required
+              maxlength="100"
+              autocomplete="off"
+              input_class="font-medium"
             >
-              <input
-                type="text"
-                name="name"
-                value={@household.name}
-                aria-label={gettext("Household name")}
-                required
-                maxlength="100"
-                autocomplete="off"
-                class="min-w-0 flex-1 bg-transparent py-1.5 text-[17px] font-medium text-[color:var(--text)]"
-                style="outline: none;"
-              />
-              <button
-                type="submit"
-                disabled={@name_state != :changed}
-                aria-label={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
-                title={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
-                class={[
-                  "press flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)] transition-colors duration-150",
-                  saved?(@name_state) && "text-[color:var(--subtle)]",
-                  @name_state == :changed && "text-[color:var(--text)] hover:bg-[var(--sunken)]",
-                  @name_state == :empty && "text-[color:var(--subtle)]"
-                ]}
-              >
-                <.icon :if={saved?(@name_state)} name="ph-check" class="size-[18px]" />
-                <.icon :if={!saved?(@name_state)} name="ph-arrow-elbow-down-left" class="size-5" />
-              </button>
-            </div>
+              <:trailing>
+                <button
+                  type="submit"
+                  data-state={@name_state}
+                  disabled={@name_state != :changed}
+                  aria-label={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
+                  title={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
+                  class={[
+                    "press -mr-1.5 flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)] transition-colors duration-150",
+                    @name_state == :changed && "text-[color:var(--text)] hover:bg-[var(--sunken)]",
+                    @name_state != :changed && "text-[color:var(--subtle)]"
+                  ]}
+                >
+                  <.icon :if={saved?(@name_state)} name="ph-check" class="size-[18px]" />
+                  <.icon :if={!saved?(@name_state)} name="ph-arrow-elbow-down-left" class="size-5" />
+                </button>
+              </:trailing>
+            </.field>
           </form>
 
           <div :if={@section == "members"} class="menu-lines py-4">
@@ -442,33 +437,27 @@ defmodule ToreWeb.SettingsLive do
               </div>
             </div>
 
-            <form phx-submit="add_member" class="mt-4 flex items-center gap-2">
-              <input
-                type="text"
+            <form phx-submit="add_member" class="mt-4 flex items-start gap-2">
+              <.field
+                id="member-username"
                 name="username"
                 value={@member_username}
                 placeholder={gettext("Pocket ID username")}
                 aria-label={gettext("Pocket ID username")}
                 autocomplete="off"
+                autocapitalize="off"
                 required
-                class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
-                style="font-size: var(--t-body);"
+                saved={@member_notice != nil}
+                errors={List.wrap(@member_error)}
+                class="min-w-0 flex-1"
               />
               <.button type="submit" variant={:secondary}>{gettext("Add")}</.button>
             </form>
             <p
               :if={@member_notice}
-              class="mt-1 text-[color:var(--muted)]"
-              style="font-size: var(--t-meta);"
+              class="settle mt-1.5 text-[13px] text-[color:var(--muted)]"
             >
               {@member_notice}
-            </p>
-            <p
-              :if={@member_error}
-              class="mt-1 text-[color:var(--danger)]"
-              style="font-size: var(--t-meta);"
-            >
-              {@member_error}
             </p>
           </div>
 

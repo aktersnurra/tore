@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Settings is one grouped list (household, food, Tore, this device, account); each row shows what it's set to and opens its own page. Light, dark or the system's look is chosen there.
 - Today has Ask Tore beside Cook now, opening the conversation about tonight's dish, as on its recipe page.
 - A recipe Tore reads shows in the chat as its card, and a recipe's own chat has the recipe on top, so it's clear what Tore is looking at.
+- Every text field looks the same: blue while you type, green for a moment when saved, red with the reason under it when something's wrong. The household's name is sent with return, as in the chat.
 - What screens ask Tore (importing a link, swaps before cooking) no longer lands in your chats, so the Tore tab opens on what you said there. Switching chats no longer replays the tray's opening.
 
 ### All AI through pi (2026-11-19)

@@ -348,33 +348,36 @@ defmodule ToreWeb.ShopLive do
               <form
                 id="add-item"
                 phx-submit="add_item"
-                class="flex items-center gap-2 border-b border-[color:var(--hairline)]"
+                class="pb-2"
               >
-                <button
-                  type="submit"
-                  aria-label={gettext("Add")}
-                  class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
-                >
-                  <.icon name="ph-plus" class="size-5" />
-                </button>
-                <input
-                  type="text"
+                <.field
+                  id="add-item-name"
                   name="name"
                   placeholder={gettext("Add, e.g. 2 l milk")}
                   aria-label={gettext("Add to the list")}
                   autocomplete="off"
                   required
-                  class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-                  style="font-size: 16px;"
-                />
-                <button
-                  type="button"
-                  phx-click="open_scanner"
-                  aria-label={gettext("Scan what you bought")}
-                  class="icon-btn press -mr-2 shrink-0"
                 >
-                  <.icon name="ph-barcode" class="size-5" />
-                </button>
+                  <:leading>
+                    <button
+                      type="submit"
+                      aria-label={gettext("Add")}
+                      class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
+                    >
+                      <.icon name="ph-plus" class="size-5" />
+                    </button>
+                  </:leading>
+                  <:trailing>
+                    <button
+                      type="button"
+                      phx-click="open_scanner"
+                      aria-label={gettext("Scan what you bought")}
+                      class="icon-btn press -mr-2 shrink-0"
+                    >
+                      <.icon name="ph-barcode" class="size-5" />
+                    </button>
+                  </:trailing>
+                </.field>
               </form>
             </div>
 
@@ -488,14 +491,13 @@ defmodule ToreWeb.ShopLive do
 
         <div class="px-5 pt-3">
           <form phx-submit="item_command">
-            <input
-              type="text"
+            <.field
+              id="item-command"
               name="command"
               autocomplete="off"
               autofocus
               placeholder={gettext("Anything about this item…")}
-              class="h-12 w-full rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-              style="font-size: 16px;"
+              aria-label={gettext("Anything about this item…")}
             />
           </form>
           <button
@@ -583,16 +585,14 @@ defmodule ToreWeb.ShopLive do
         <label for="scanner-name-input" class="block text-[15px] font-semibold">
           {gettext("Tore doesn't know this code. What is it?")}
         </label>
-        <div class="mt-2 flex gap-2">
-          <input
+        <div class="mt-2 flex items-start gap-2">
+          <.field
             id="scanner-name-input"
-            type="text"
             name="name"
             autocomplete="off"
             required
             placeholder={gettext("Name")}
-            class="h-12 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-            style="font-size: 16px;"
+            class="min-w-0 flex-1"
           />
           <button type="submit" class="pill pill-lamp press">{gettext("Save")}</button>
         </div>

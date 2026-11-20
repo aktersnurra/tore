@@ -259,16 +259,14 @@ defmodule ToreWeb.BeforeCooking do
             <label for={"#{@id}-offered"} class="t-eyebrow">
               {gettext("Have something instead?")}
             </label>
-            <div class="mt-2 flex gap-2">
-              <input
+            <div class="mt-2 flex items-start gap-2">
+              <.field
                 id={"#{@id}-offered"}
-                type="text"
                 name="offered"
                 value={@offered}
                 placeholder={gettext("e.g. red onion, sour cream")}
                 autocomplete="off"
-                class="h-[46px] min-w-0 flex-1 rounded-[var(--r-md)] bg-[var(--sunken)] px-4 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-                style="font-size: 16px;"
+                class="min-w-0 flex-1"
               />
               <button
                 type="submit"

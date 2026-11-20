@@ -1186,12 +1186,12 @@ defmodule ToreWeb.PlannerLive do
             </form>
 
             <form phx-submit="slot_command" class="px-6 pb-6">
-              <input
-                type="text"
+              <.field
+                id="slot-command"
                 name="command"
                 autocomplete="off"
                 placeholder={gettext("Anything about this day…")}
-                class="w-full rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                aria-label={gettext("Anything about this day…")}
               />
             </form>
           </div>
@@ -1216,20 +1216,20 @@ defmodule ToreWeb.PlannerLive do
 
             <div class="flex-1 overflow-y-auto px-6 pt-4 pb-6 space-y-4">
               <form phx-change="search_slot_recipes">
-                <div class="relative">
-                  <.icon
-                    name="ph-magnifying-glass"
-                    class="size-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[color:var(--subtle)]"
-                  />
-                  <input
-                    type="text"
-                    name="q"
-                    value={@slot_action.search}
-                    placeholder={gettext("Search recipes…")}
-                    class="w-full h-11 pl-10 pr-3 bg-[var(--surface)] rounded-[var(--r-lg)] border border-[color:var(--border)] text-[var(--text)] placeholder:text-[color:var(--subtle)] focus:outline-none focus:border-[color:var(--accent)]"
-                    style="font-size: var(--t-body);"
-                  />
-                </div>
+                <.field
+                  id="slot-search"
+                  name="q"
+                  value={@slot_action.search}
+                  placeholder={gettext("Search recipes…")}
+                  aria-label={gettext("Search recipes…")}
+                >
+                  <:leading>
+                    <.icon
+                      name="ph-magnifying-glass"
+                      class="size-5 shrink-0 text-[color:var(--muted)]"
+                    />
+                  </:leading>
+                </.field>
               </form>
 
               <%= if @slot_action.search == "" do %>
