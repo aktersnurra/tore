@@ -464,6 +464,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* Sheets rise from the bottom edge */
 @keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
 .sheet { animation: sheet-in var(--dur-slow) var(--ease-out) both; }
+/* On a laptop a sheet is a dialog in the middle, so it settles in place instead of rising */
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (min-width: 64rem) { .sheet { animation: dialog-in var(--dur-base) var(--ease-out) both; } }
 @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
 .scrim { animation: scrim-in var(--dur-base) var(--ease-out) both; }
 

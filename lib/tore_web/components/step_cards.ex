@@ -245,11 +245,11 @@ defmodule ToreWeb.StepCards do
       <div
         :if={@overview}
         id={"#{@id}-overview"}
-        class="scrim fixed inset-0 z-[70] flex flex-col justify-end bg-black/50"
+        class="scrim fixed inset-0 z-[70] flex flex-col justify-end bg-black/50 lg:justify-center lg:p-6"
       >
         <div
           phx-click-away="toggle_overview"
-          class="sheet mx-auto flex max-h-[88vh] w-full max-w-2xl flex-col rounded-t-[28px] bg-[var(--surface)] shadow-[var(--shadow-pop)]"
+          class="sheet mx-auto flex max-h-[88vh] w-full max-w-2xl flex-col rounded-t-[28px] bg-[var(--surface)] shadow-[var(--shadow-pop)] lg:max-h-[85vh] lg:rounded-[var(--r-xl)]"
         >
           <div class="flex items-center justify-between px-5 pt-4 pb-2">
             <h2 class="t-head">{gettext("All steps")}</h2>

@@ -518,10 +518,10 @@ defmodule ToreWeb.RecipeLiveTest do
       {:ok, view, _} = live(authed(conn, user), ~p"/recipes?#{[id: buns.id]}")
 
       assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
-      refute has_element?(view, ~s([data-role="ask-tore"]))
       refute render(view) =~ "Saknas något?"
-      view |> element(~s(#recipe-actions button[aria-label="Mer"])) |> render_click()
-      assert view |> element(~s([data-role="ask-tore"])) |> render() =~ "recipe=#{buns.id}"
+      # Asking Tore about it is one of the buttons under the title, beside Cook now.
+      assert view |> element(~s([data-role="actions"] [data-role="ask-tore"])) |> render() =~
+               "recipe=#{buns.id}"
 
       view |> element(~s([data-role="at-home"] button)) |> render_click()
       assert has_element?(view, "#home-added")

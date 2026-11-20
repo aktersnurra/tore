@@ -56,6 +56,21 @@ defmodule ToreWeb.PlannerLiveTest do
       refute tonight =~ "4 portioner"
     end
 
+    test "a dinner's name opens its recipe; the rest of the row opens the day", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      key = Tore.Streams.slot_key(Tore.Clock.today())
+      {:ok, _} = Planning.assign_recipe(home_scope(), this_plan_id(), key, recipe.id, 4)
+      {:ok, lv, _html} = conn |> authed(user) |> live(~p"/plan")
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               lv |> element("#slot-#{key} [data-role=day-title]") |> render_click()
+
+      assert to == "/recipes?id=#{recipe.id}"
+    end
+
     test "a dinner cooked on its day is tagged Cooked instead of Tonight", %{
       conn: conn,
       user: user,

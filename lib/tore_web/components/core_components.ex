@@ -774,8 +774,9 @@ defmodule ToreWeb.CoreComponents do
   end
 
   @doc ~S"""
-  A sheet that rises from the bottom over a scrim. The handle, a tap on the scrim and Escape
-  all send `on_close`.
+  A sheet that rises from the bottom over a scrim on a phone, and a dialog in the middle of the
+  screen on a laptop, where a drawer from the bottom edge is a phone's gesture. The handle (the ×
+  on a laptop), a tap on the scrim and Escape all send `on_close`.
 
       <.bottom_sheet id="item-sheet" on_close="close_item_sheet">…</.bottom_sheet>
   """
@@ -788,18 +789,35 @@ defmodule ToreWeb.CoreComponents do
     ~H"""
     <div
       id={@id}
-      class="fixed inset-0 z-50 flex items-end justify-center"
+      class="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-6"
       phx-window-keydown={@on_close}
       phx-key="Escape"
     >
       <div class="scrim absolute inset-0 bg-black/50" phx-click={@on_close}></div>
-      <div class={[
-        "sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1.25rem)]",
-        @class
-      ]}>
-        <div class="flex justify-center py-2">
-          <button type="button" phx-click={@on_close} aria-label={gettext("Close")} class="p-2">
-            <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
+      <div
+        role="dialog"
+        aria-modal="true"
+        class={[
+          "sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[var(--surface)] pb-[calc(env(safe-area-inset-bottom)+1.25rem)]",
+          "lg:max-h-[85vh] lg:max-w-lg lg:rounded-[var(--r-xl)] lg:pt-5 lg:pb-5 lg:shadow-[var(--shadow-pop)]",
+          @class
+        ]}
+      >
+        <%!-- One close button: the handle on a phone, an × in the corner on a laptop --%>
+        <div class="flex justify-center py-2 lg:contents">
+          <button
+            type="button"
+            phx-click={@on_close}
+            aria-label={gettext("Close")}
+            class={[
+              "press p-2",
+              "lg:absolute lg:top-3 lg:right-3 lg:z-10 lg:inline-flex lg:size-9 lg:items-center lg:justify-center lg:p-0",
+              "lg:rounded-[var(--r-md)] lg:text-[color:var(--muted)] lg:hover:bg-[var(--sunken)] lg:hover:text-[color:var(--text)]",
+              "focus-visible:outline-2 focus-visible:outline-[color:var(--text)]"
+            ]}
+          >
+            <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)] lg:hidden"></span>
+            <.icon name="ph-x" class="hidden size-5 lg:block" />
           </button>
         </div>
         {render_slot(@inner_block)}

@@ -724,12 +724,16 @@ defmodule ToreWeb.PlannerLive do
               <.blank_cover :if={!@recipe.image_path} dish={@recipe} icon_class="size-6" />
             </span>
             <span class="min-w-0">
-              <span
-                class="block truncate font-semibold text-[color:var(--text)]"
+              <%!-- The name opens the recipe; the rest of the row opens the day. --%>
+              <button
+                type="button"
+                data-role="day-title"
+                phx-click={JS.navigate(~p"/recipes?#{[id: @recipe.id]}")}
+                class="block max-w-full truncate text-left font-semibold text-[color:var(--text)] underline-offset-4 hover:underline focus-visible:underline"
                 style="font-size: 15.5px;"
               >
                 {@recipe.title}
-              </span>
+              </button>
               <span class="mt-1 flex flex-wrap items-center gap-1.5">
                 <span :if={@cooked} class="tag tag-green">
                   <span class="tag-dot"></span>{pgettext("dinner", "Cooked")}

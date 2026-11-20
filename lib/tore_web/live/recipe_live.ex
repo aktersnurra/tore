@@ -871,17 +871,6 @@ defmodule ToreWeb.RecipeLive do
             phx-click-away="toggle_recipe_menu"
             class="rise-in absolute right-0 top-12 z-10 w-48 origin-top-right overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] py-1 shadow-[var(--shadow-pop)]"
           >
-            <.link
-              navigate={
-                ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", recipe: @selected.id]}"
-              }
-              data-role="ask-tore"
-              class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
-              style="font-size: 15px;"
-            >
-              <.icon name="ph-chat-circle" class="size-4 text-[color:var(--muted)]" />
-              {gettext("Ask Tore")}
-            </.link>
             <button
               type="button"
               phx-click="toggle_favorite"
@@ -995,7 +984,7 @@ defmodule ToreWeb.RecipeLive do
           </p>
 
           <%!-- What you can do with it --%>
-          <div class="reveal mt-6 flex flex-wrap gap-2" style="--i: 4">
+          <div data-role="actions" class="reveal mt-6 flex flex-wrap gap-2" style="--i: 4">
             <.link
               :if={@home.missing == []}
               navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
@@ -1025,6 +1014,15 @@ defmodule ToreWeb.RecipeLive do
             >
               <.icon name="ph-calendar-blank" /> {gettext("Put on the week")}
             </button>
+            <.link
+              navigate={
+                ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", recipe: @selected.id]}"
+              }
+              data-role="ask-tore"
+              class="pill pill-lg press"
+            >
+              <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
+            </.link>
           </div>
         </div>
       </section>

@@ -247,7 +247,9 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   chart and where the money went beside the receipts); on a wide screen the chart takes the full
   width, drawn wide so its text stays a phone's size, with where the money went and the receipts
   as two equal columns under it. Veckobudget, Erbjudanden and Shop are as wide as Recipes; Plan and
-  Hemma a step wider than before. Settings and the forms stay a reading column. A phone sees
+  Hemma a step wider than before. Settings and the forms stay a reading column. A sheet from the
+  bottom edge is a phone's gesture: on a laptop every sheet is a dialog in the middle of the
+  screen, with × in its corner, that settles in place. A phone sees
   no change.
 - **One palette, two lights.** Papper: ink on white, graphite when the phone is dark
   (follows the phone, or `data-theme`). The main action is ink; type on it uses `--on-accent`.
@@ -799,7 +801,8 @@ opens its week. Servings are set in the day's sheet, not shown in the row.
 The date sits in the margin (today's number in red). A planned day shows the dish's photo or
 tinted cover, its name, and tags: Cooked (green, when Done in cook mode was pressed that day),
 Tonight (red, until it's cooked), Uses leftovers / Leftovers for (purple),
-Eating out and Skipped (grey). A pinned day has a small lock.
+Eating out and Skipped (grey). A pinned day has a small lock. The dish's name opens its recipe;
+the rest of the row opens the day.
 
 States:
 
@@ -1862,10 +1865,10 @@ surface.
 Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4.2).
 
 - **A recipe is a page:** cover photo, title, then quiet property rows (Collection, Time,
-  Servings as a stepper that scales the amounts, At home, Source, Last made), then two
-  actions (Cook/Bake now, Put on the week), then sections. Ask Tore and the star are in ⋯;
-  Ask Tore opens the tray on that recipe's own conversation ("About <dish>"), which is there
-  again next time. What's missing is asked about when cooking starts. The name is on the cover photo.
+  Servings as a stepper that scales the amounts, At home, Source, Last made), then three
+  actions (Cook/Bake now, Put on the week, Ask Tore), then sections. The star is in ⋯. Ask Tore
+  opens the tray on that recipe's own conversation ("About <dish>"), which is there again next
+  time. What's missing is asked about when cooking starts. The name is on the cover photo.
 - **Put on the week** lists the next seven days. Tapping a day puts the dish there (green,
   with a tick); another day moves it, the same day again takes it off. "On Saturday · Undo"
   stays on one line under the days. A day that had the dish before shows it in plain text.

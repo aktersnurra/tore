@@ -20,6 +20,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - The chat looks like Claude's: full screen on a laptop, your messages on the right, Tore's answers as text with its lists and bold shown as such, and a growing message box where Enter sends. Stop halts Tore mid-answer.
 - On a laptop the chat sits beside the menu instead of covering it.
 - The chat has several conversations: its title sits top left, named by pi after its first answer and yours to change, and beside it the list of your chats and New chat. Screens ask the one you used last. Conversations about a recipe stay with the recipe.
+- On a laptop, sheets open as dialogs in the middle of the screen instead of rising from the bottom. A recipe's page has Ask Tore beside Cook now and Put on the week, and a dinner's name on Plan opens its recipe.
 - A week's budget forecast never lands below what's already been paid towards it; the end-of-week verdict still compares with what the plan predicted.
 - On a wide screen Veckobudget's eight weeks run the full width with spending and receipts side by side under them, and Shop's list runs in two columns.
 - Erbjudanden sorts the offers for you: Jev, a small decision model, decides from what Tore knows of you (diet, meals, what you buy, your recipes) whether each is something you buy, might want, or isn't for you, each morning and when you add a store. What isn't for you is folded away at the foot. It gets better as receipts come in.
