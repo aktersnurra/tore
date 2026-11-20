@@ -381,14 +381,16 @@ defmodule Tore.Recipes do
   Draws a picture of `dish` in Tore's one house style and stores it for the recipe, without
   setting it: `update_picture` in a run does that, so undo puts the old one back. `dish`
   describes only the finished food; the light, surface and frame are fixed here, so the library
-  reads as one cookbook.
+  reads as one cookbook. What it cost goes into the household's AI spend as `recipe_picture`.
   """
   @spec draw_picture(Scope.t(), integer(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def draw_picture(%Scope{} = scope, recipe_id, dish) when is_binary(dish) do
     key = "households/#{scope.household_id}/recipes/#{recipe_id}/#{Ecto.UUID.generate()}.jpg"
 
-    with {:ok, binary} <-
+    with {:ok, %{image: binary, cost_usd: cost}} <-
            @image_gen.generate_food_image(String.trim(dish) <> "\n\n" <> @house_style),
+         {:ok, _usage} <-
+           Tore.Costs.log_llm_usage(scope, %{feature: "recipe_picture", cost_usd: cost}),
          {:ok, _url} <-
            Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, binary,
              content_type: "image/jpeg"

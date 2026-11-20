@@ -155,6 +155,7 @@ defmodule ToreWeb.SettingsLive do
   defp feature_label("pi_home_pick"), do: gettext("Home screen pick")
   defp feature_label("pi_chat"), do: gettext("Chat")
   defp feature_label("pi_finish_recipe"), do: gettext("Recipe steps and pictures")
+  defp feature_label("recipe_picture"), do: gettext("Drawing recipe pictures")
   defp feature_label("pi_find_recipes"), do: gettext("Recipe search on the web")
   defp feature_label("pi_plan_week"), do: gettext("Planning")
   defp feature_label("pi_weekly_reflection"), do: gettext("Memory review")

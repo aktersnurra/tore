@@ -27,7 +27,7 @@ defmodule Tore.ImageGen.OpenRouterTest do
     %{req: Req.new(plug: {Req.Test, __MODULE__})}
   end
 
-  test "unwraps an OpenRouter response envelope and decodes image bytes from a data URL", %{
+  test "decodes the image from a data URL, with what it cost", %{
     req: req
   } do
     image_bytes = <<137, 80, 78, 71>>
@@ -52,10 +52,12 @@ defmodule Tore.ImageGen.OpenRouterTest do
               ]
             }
           }
-        ]
+        ],
+        "usage" => %{"cost" => 0.03}
       })
     end)
 
-    assert {:ok, ^image_bytes} = OpenRouter.generate_food_image("A plated meal", req: req)
+    assert {:ok, %{image: ^image_bytes, cost_usd: 0.03}} =
+             OpenRouter.generate_food_image("A plated meal", req: req)
   end
 end

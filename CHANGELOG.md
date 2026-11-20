@@ -24,6 +24,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 - Tore reads every store's offers each morning instead of only from Friday, so mid-week offers and a newly added store show the next day.
 - A link to an ICA store's own page works as well as one to its offers.
+- Recipe pictures are drawn by FLUX.2 Pro, and what each costs now counts toward the household's monthly AI budget (Settings shows it as Receptbilder).
 
 ### Budget forecast (2026-11-20)
 

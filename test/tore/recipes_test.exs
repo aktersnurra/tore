@@ -27,6 +27,18 @@ defmodule Tore.RecipesTest do
       assert {:ok, _png} = Tore.Storage.Mock.get_object(Tore.Storage.Buckets.recipes(), key)
       assert Recipes.get!(home_scope(), recipe.id).image_path == nil
     end
+
+    test "what drawing it cost counts toward the household's AI spend" do
+      Tore.Storage.Mock.reset()
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
+
+      assert {:ok, _key} = Recipes.draw_picture(home_scope(), recipe.id, "Soup.")
+
+      assert [{"recipe_picture", 1, cost}] =
+               Tore.Costs.llm_calls_this_month_by_feature(home_scope())
+
+      assert cost > 0
+    end
   end
 
   describe "snapshot/1 and restore/3" do

@@ -1,6 +1,7 @@
 defmodule Tore.ImageGen.OpenRouter do
   @moduledoc """
-  OpenRouter-backed implementation of `Tore.ImageGen`.
+  OpenRouter-backed implementation of `Tore.ImageGen`. What a call cost is OpenRouter's own
+  figure, `usage.cost` in its answer.
   """
 
   @behaviour Tore.ImageGen
@@ -19,7 +20,9 @@ defmodule Tore.ImageGen.OpenRouter do
 
     with {:ok, %OpenRouter.Response{body: response_body}} <-
            OpenRouter.chat_completions(client(), body, opts) do
-      decode_image(response_body)
+      with {:ok, image} <- decode_image(response_body),
+           do:
+             {:ok, %{image: image, cost_usd: (get_in(response_body, ["usage", "cost"]) || 0) / 1}}
     end
   end
 

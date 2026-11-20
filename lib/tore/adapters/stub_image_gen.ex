@@ -10,6 +10,6 @@ defmodule Tore.Adapters.StubImageGen do
   @impl true
   def generate_food_image(prompt) do
     send(self(), {:image_prompt, prompt})
-    {:ok, @png}
+    {:ok, %{image: @png, cost_usd: 0.03}}
   end
 end

@@ -444,7 +444,7 @@ affordance.
 
 Every model call goes through pi (`pi --mode rpc`, `Tore.Pi`), started per household session by
 `harness/pi-session`. Tore has no model client and writes no prompts; only recipe pictures are
-drawn by an image model through OpenRouter (`Tore.ImageGen`), when pi calls `draw_recipe_picture`
+drawn by an image model (FLUX.2 Pro, `OPENROUTER_IMAGE_MODEL`) through OpenRouter (`Tore.ImageGen`), when pi calls `draw_recipe_picture`
 with its own description of the dish. There are two ways in, both an agent session with Tore's
 `/mcp` tools and the web, under `harness/AGENTS.md`:
 
@@ -464,7 +464,8 @@ again.
 
 - No call site picks a model. The model is set in runtime config, per kind of session.
 - Usage is counted in `llm_usage` only, as `pi_<session kind>` (`pi_chat`, `pi_plan_week`), when a
-  session's run settles or the session stops first. A run holds none.
+  session's run settles or the session stops first. A run holds none. A recipe picture is counted
+  as `recipe_picture`, at what OpenRouter says it cost.
 - A person's chat signs in to `/mcp` as that person, so what it changes is theirs; a background
   job signs in as the household.
 - The household's monthly limit (`Tore.Pi.monthly_limit_usd/0`) gates every session
@@ -1166,7 +1167,7 @@ started the household with the claim), and `{:error, :budget_exceeded}` once the
 spent `Tore.Pi.monthly_limit_usd/0` this calendar month. `Tore.Pi.refusal_text/1` is what a screen
 says for the last two, instead of "try again". Each session records its cost in `llm_usage` when a
 run settles. Image generation (`Tore.ImageGen`) runs only from `draw_recipe_picture`, inside a
-gated session, and its cost isn't recorded yet.
+gated session, and records what OpenRouter says it cost as `recipe_picture`.
 
 ---
 
