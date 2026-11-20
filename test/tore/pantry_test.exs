@@ -495,12 +495,25 @@ defmodule Tore.PantryTest do
       {:ok, _} = Pantry.add_item(home_scope(), %{name: "Smör"})
 
       assert Pantry.at_home(home_scope(), ["vetemjöl", "Kanel", "smör", "Kardemumma"]) ==
-               %{have: ["vetemjöl", "smör"], missing: ["Kanel", "Kardemumma"]}
+               %{have: ["vetemjöl", "smör"], missing: ["Kanel", "Kardemumma"], unsure: []}
+    end
+
+    test "says which of what's at home Tore is unsure of, with the row and when it was seen" do
+      :ok = Tore.Basics.ask(home_scope(), [%{name: "Mjölk"}])
+      {:ok, milk, _, _} = Pantry.upsert_belief(home_scope(), %{catalogue_name: "Mjölk"})
+      {:ok, _} = Pantry.add_item(home_scope(), %{name: "Smör"})
+      seen = DateTime.utc_now() |> DateTime.add(-8, :day) |> DateTime.truncate(:second)
+      {:ok, _} = milk |> Ecto.Changeset.change(last_seen_at: seen) |> Tore.Repo.update()
+
+      assert %{have: ["Mjölk", "smör"], missing: [], unsure: [unsure]} =
+               Pantry.at_home(home_scope(), ["Mjölk", "smör"])
+
+      assert unsure == %{name: "Mjölk", id: milk.id, last_seen_at: seen}
     end
 
     test "water, salt and pepper are taken as always at home" do
       assert Pantry.at_home(home_scope(), ["Vatten", "salt", "svartpeppar", "jäst"]) ==
-               %{have: ["Vatten", "salt", "svartpeppar"], missing: ["jäst"]}
+               %{have: ["Vatten", "salt", "svartpeppar"], missing: ["jäst"], unsure: []}
     end
   end
 

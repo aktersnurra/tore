@@ -114,7 +114,6 @@ defmodule ToreWeb.HomeLiveTest do
       {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
       {:ok, view, html} = live(conn, ~p"/today")
 
-      assert html =~ "Bakning"
       assert html =~ "200 g"
       assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
 
@@ -135,6 +134,85 @@ defmodule ToreWeb.HomeLiveTest do
       view |> element(~s(button[data-role="start-cooking"])) |> render_click()
       assert view |> element(~s([data-missing="kanel"])) |> render() =~ "kanel"
       assert has_element?(view, ~s(a[data-role="cook-anyway"][href*="from=%2Ftoday"]))
+    end
+  end
+
+  describe "can I start?" do
+    defp tonight_with(names) do
+      {:ok, dish} =
+        Tore.Recipes.create(home_scope(), %{
+          title: "Pannkakor",
+          recipe_type: :meal,
+          base_servings: 4,
+          ingredients: Enum.map(names, &%{name: &1})
+        })
+
+      Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), dish.id, 4)
+      dish
+    end
+
+    # Milk, a weekly basic, last seen ten days ago: likely drunk, so Tore is unsure.
+    defp unsure_milk do
+      :ok = Tore.Basics.ask(home_scope(), [%{name: "Mjölk"}])
+      {:ok, milk, _, _} = Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: "Mjölk"})
+      seen = DateTime.utc_now() |> DateTime.add(-10, :day) |> DateTime.truncate(:second)
+      {:ok, milk} = milk |> Ecto.Changeset.change(last_seen_at: seen) |> Tore.Repo.update()
+      milk
+    end
+
+    test "with everything at home it says so, and nothing else about the dish", %{conn: conn} do
+      tonight_with(["Ägg"])
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ägg"})
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+
+      assert view |> element(~s([data-role="ready"])) |> render() =~ "Allt finns hemma"
+      refute has_element?(view, ~s([data-role="unsure"]))
+      refute has_element?(view, "dl.props")
+    end
+
+    test "what Tore is unsure of is asked: Finns makes it sure, Slut puts it with what's missing",
+         %{conn: conn} do
+      tonight_with(["Mjölk", "Ägg"])
+      {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "ägg"})
+      milk = unsure_milk()
+      row = ~s([data-role="unsure"] [data-item="#{milk.id}"])
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+      refute has_element?(view, ~s([data-role="ready"]))
+      assert view |> element(row) |> render() =~ "Mjölk"
+
+      view |> element(row <> ~s( [data-role="gone"])) |> render_click()
+      refute has_element?(view, row)
+      assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: Mjölk"
+
+      unsure_milk()
+      {:ok, view, _html} = live(conn, ~p"/today")
+      view |> element(row <> ~s( [data-role="still-there"])) |> render_click()
+      refute has_element?(view, ~s([data-role="unsure"]))
+      assert view |> element(~s([data-role="ready"])) |> render() =~ "Allt finns hemma"
+    end
+
+    test "it asks about three at most, and says how many more there are", %{conn: conn} do
+      names = ["Mjölk", "Fil", "Bröd", "Ost", "Juice"]
+      tonight_with(names)
+      :ok = Tore.Basics.ask(home_scope(), Enum.map(names, &%{name: &1}))
+      seen = DateTime.utc_now() |> DateTime.add(-10, :day) |> DateTime.truncate(:second)
+
+      for name <- names do
+        {:ok, item, _, _} = Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: name})
+        {:ok, _} = item |> Ecto.Changeset.change(last_seen_at: seen) |> Tore.Repo.update()
+      end
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+
+      assert view
+             |> render()
+             |> Floki.parse_document!()
+             |> Floki.find(~s([data-role="unsure"] [data-item]))
+             |> length() == 3
+
+      assert view |> element(~s([data-role="unsure"] a[href="/pantry"])) |> render() =~ "2 till"
     end
   end
 

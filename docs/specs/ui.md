@@ -698,9 +698,13 @@ Today is tonight's recipe page (2026-11-18):
 ```md
 Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
            dish's name on it
-Props    — Day (Tonight tag + date) · Lunch (when one is planned, opening its recipe) ·
-           Collection · Time (and ready by) · Servings · At home (missing things as red tags,
-           Put on the list)
+When     — one line: Tonight · 20 min · ready by 20:58; Lunch under it when one is planned
+Can I start? — the first thing it answers (2026-11-20):
+           ✓ Everything's at home                                   At home ›
+           or 🛒 Shop first, the missing things as red tags · Put on the list
+           and ⓘ Still there? — up to three things Tore is unsure of (eaten over
+           time, or past their date), each with when it was seen and [Finns] [Slut];
+           Slut puts it with what's missing, "+2 more" opens Hemma
 Actions  — [Cook now] [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page)
 Note     — the home pick's one note, with its action, when there is one
 Ingredients, for tonight's servings
@@ -715,8 +719,8 @@ what can still be sorted out this evening:
 ```md
 ✓ Kycklinggryta, lagad ikväll
 [cover] Laxpasta
-Day      [Tomorrow] tor 19
-At home  Saknas: [lax] [dill]   Put on the list
+Tomorrow · 35 min
+🛒 Shop first   [lax] [dill]   Put on the list
 [Open the recipe] [Something else]
 ```
 

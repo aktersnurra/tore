@@ -358,11 +358,11 @@ defmodule ToreWeb.PantryLive do
                   :if={@editing_left == row.item.id}
                   id={"left-#{row.item.id}"}
                   phx-submit="set_left"
+                  phx-value-id={row.item.id}
                   phx-window-keydown="cancel_left"
                   phx-key="Escape"
                   class="settle"
                 >
-                  <input type="hidden" name="id" value={row.item.id} />
                   <input
                     type="text"
                     name="left"

@@ -118,59 +118,72 @@ defmodule ToreWeb.HomeLive do
               <h1 class="reveal t-hero hidden lg:block" style="--i: 1">{@dish.title}</h1>
               <.cooked :if={@cooked} title={@cooked} class="mt-4" />
 
-              <dl class="props reveal mt-4" style="--i: 2">
-                <div>
-                  <dt><.icon name="ph-calendar-blank" /> {gettext("Day")}</dt>
-                  <dd class="flex items-center gap-2">
-                    <span :if={@day == :tonight} class="tag tag-red">{gettext("Tonight")}</span>
-                    <span :if={@day == :tomorrow} class="tag tag-blue">{gettext("Tomorrow")}</span>
-                    <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@date)}</span>
-                  </dd>
+              <%!-- When, in one line: the day, how long, ready by. --%>
+              <p
+                data-role="when"
+                class="reveal num mt-3 text-[color:var(--muted)]"
+                style="--i: 2; font-size: 15px;"
+              >
+                <span class={[
+                  "font-semibold",
+                  if(@day == :tonight,
+                    do: "text-[color:var(--tag-red-ink)]",
+                    else: "text-[color:var(--tag-blue-ink)]"
+                  )
+                ]}>
+                  {if @day == :tonight, do: gettext("Tonight"), else: gettext("Tomorrow")}
+                </span>
+                <span :if={minutes(@dish) > 0}>
+                  · {gettext("%{minutes} min", minutes: minutes(@dish))}
+                </span>
+                <span :if={@day == :tonight and minutes(@dish) > 0}>
+                  · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
+                </span>
+              </p>
+              <p
+                :if={@lunch}
+                data-role="lunch"
+                class="reveal mt-1 flex items-center gap-2 text-[color:var(--muted)]"
+                style="--i: 2; font-size: 15px;"
+              >
+                <.icon name="ph-bowl-food" class="size-4" />
+                {gettext("Lunch")}:
+                <.link
+                  navigate={~p"/recipes?#{[id: @lunch.id]}"}
+                  class="press text-[color:var(--text)] hover:underline"
+                >
+                  {@lunch.title}
+                </.link>
+              </p>
+
+              <%!-- Can I start? What Today answers first: everything's here, or what to buy
+                 first, and what Tore isn't sure is still here, asked right there. --%>
+              <div
+                :if={@dish.recipe_ingredients != []}
+                class="menu-lines reveal mt-5"
+                style="--i: 2"
+              >
+                <div
+                  :if={@home.missing == [] and @home.unsure == []}
+                  data-role="ready"
+                  class="flex items-center gap-3 py-3.5"
+                >
+                  <.icon name="ph-check-circle-fill" class="size-5 text-[color:var(--done)]" />
+                  <span class="flex-1 font-semibold" style="font-size: 16px;">
+                    {gettext("Everything's at home")}
+                  </span>
+                  <.pantry_link />
                 </div>
-                <div :if={@lunch} data-role="lunch">
-                  <dt><.icon name="ph-bowl-food" /> {gettext("Lunch")}</dt>
-                  <dd>
-                    <.link navigate={~p"/recipes?#{[id: @lunch.id]}"} class="press hover:underline">
-                      {@lunch.title}
-                    </.link>
-                  </dd>
-                </div>
-                <div>
-                  <dt><.icon name="ph-tag" /> {gettext("Collection")}</dt>
-                  <dd>
-                    <span class={["tag", "tag-#{ToreWeb.Look.tint(@dish.recipe_type)}"]}>
-                      <.icon name={ToreWeb.Look.collection_icon(@dish.recipe_type)} />
-                      {collection_label(@dish.recipe_type)}
+
+                <div :if={@home.missing != []} data-role="at-home" class="py-3">
+                  <div class="flex items-center gap-3">
+                    <.icon name="ph-shopping-cart" class="size-5 text-[color:var(--danger)]" />
+                    <span class="flex-1 font-semibold" style="font-size: 16px;">
+                      {gettext("Shop first")}
                     </span>
-                  </dd>
-                </div>
-                <div :if={minutes(@dish) > 0}>
-                  <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
-                  <dd class="num">
-                    {gettext("%{minutes} min", minutes: minutes(@dish))}
-                    <span :if={@day == :tonight} class="text-[color:var(--muted)]">
-                      · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
-                    </span>
-                  </dd>
-                </div>
-                <div :if={@servings}>
-                  <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
-                  <dd class="num">{@servings}</dd>
-                </div>
-                <div :if={@dish.recipe_ingredients != []} data-role="at-home">
-                  <dt>
-                    <.link
-                      navigate={~p"/pantry"}
-                      data-role="to-pantry"
-                      class="press flex items-center gap-2 hover:underline"
-                    >
-                      <.icon name="ph-house-simple" /> {gettext("At home")}
-                    </.link>
-                  </dt>
-                  <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
-                    {gettext("All of it")}
-                  </dd>
-                  <dd :if={@home.missing != []} class="flex flex-wrap items-center gap-1.5 py-1.5">
+                    <.pantry_link />
+                  </div>
+                  <div class="mt-2 flex flex-wrap items-center gap-1.5 pl-8">
                     <span class="sr-only">
                       {gettext("Missing: %{things}", things: Enum.join(@home.missing, ", "))}
                     </span>
@@ -181,7 +194,7 @@ defmodule ToreWeb.HomeLive do
                       :if={!@home_added}
                       type="button"
                       phx-click="add_missing"
-                      class="press text-[color:var(--muted)] underline decoration-[color:var(--subtle)] underline-offset-4 hover:text-[color:var(--text)]"
+                      class="press ml-1 text-[color:var(--muted)] underline decoration-[color:var(--subtle)] underline-offset-4 hover:text-[color:var(--text)]"
                       style="font-size: 14px;"
                     >
                       {gettext("Put on the list")}
@@ -190,14 +203,66 @@ defmodule ToreWeb.HomeLive do
                       :if={@home_added}
                       id="home-added"
                       navigate={~p"/shop"}
-                      class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
+                      class="settle ml-1 inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
                       style="font-size: 14px;"
                     >
                       <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
                     </.link>
-                  </dd>
+                  </div>
                 </div>
-              </dl>
+
+                <div :if={@home.unsure != []} data-role="unsure" class="py-3">
+                  <div class="flex items-center gap-3">
+                    <.icon name="ph-warning-circle" class="size-5 text-[color:var(--muted)]" />
+                    <span class="flex-1 font-semibold" style="font-size: 16px;">
+                      {gettext("Still there?")}
+                    </span>
+                  </div>
+                  <ul class="mt-1 pl-8">
+                    <li
+                      :for={thing <- asked(@home)}
+                      data-item={thing.id}
+                      class="flex items-center gap-2 py-1.5"
+                    >
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate">{thing.name}</span>
+                        <span
+                          :if={thing.last_seen_at}
+                          class="num block text-[12.5px] text-[color:var(--muted)]"
+                        >
+                          {seen_ago(thing.last_seen_at)}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        phx-click="still_there"
+                        phx-value-id={thing.id}
+                        data-role="still-there"
+                        class="pill press h-8"
+                      >
+                        {gettext("Still there")}
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="gone"
+                        phx-value-id={thing.id}
+                        data-role="gone"
+                        class="pill press h-8"
+                      >
+                        {gettext("Gone")}
+                      </button>
+                    </li>
+                  </ul>
+                  <.link
+                    :if={more(@home) > 0}
+                    navigate={~p"/pantry"}
+                    class="press ml-8 mt-1 inline-block text-[color:var(--muted)] hover:text-[color:var(--text)]"
+                    style="font-size: 14px;"
+                  >
+                    {gettext("+%{count} more", count: more(@home))}
+                  </.link>
+                </div>
+              </div>
 
               <%!-- On a phone the main action is the width of the page, the others a row under it. --%>
               <div
@@ -567,6 +632,17 @@ defmodule ToreWeb.HomeLive do
 
   def handle_event("dismiss_pi_reply", _params, socket), do: {:noreply, PiReply.dismiss(socket)}
 
+  # Something Tore was unsure of: still there makes it sure, gone puts it with what's missing.
+  def handle_event("still_there", %{"id" => id}, socket) do
+    {:ok, _item} = Tore.Pantry.confirm_item(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, reload_tonight(socket)}
+  end
+
+  def handle_event("gone", %{"id" => id}, socket) do
+    {:ok, _item} = Tore.Pantry.mark_gone(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, reload_tonight(socket)}
+  end
+
   def handle_info({:choices, suggestions}, %{assigns: %{choices: %{} = choices}} = socket) do
     list = suggestions |> Enum.reject(&(&1.recipe.id == choices.without)) |> Enum.take(3)
     {:noreply, assign(socket, choices: %{choices | list: list, loading: false})}
@@ -675,10 +751,35 @@ defmodule ToreWeb.HomeLive do
 
   defp minutes(recipe), do: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
 
-  defp collection_label(:meal), do: gettext("Dinner")
-  defp collection_label(:baking), do: gettext("Baking")
-  defp collection_label(:component), do: gettext("Sauces & sides")
-  defp collection_label(:assembly), do: gettext("Assemblies")
+  # Today asks about this many things it's unsure of; the rest wait on Hemma.
+  @ask_at_most 3
+
+  defp asked(home), do: Enum.take(home.unsure, @ask_at_most)
+  defp more(home), do: max(length(home.unsure) - @ask_at_most, 0)
+
+  # When an unsure thing was last bought or seen, as a person says it.
+  defp seen_ago(%DateTime{} = seen) do
+    case Date.diff(Tore.Clock.today(), DateTime.to_date(seen)) do
+      days when days <= 1 -> gettext("last seen yesterday")
+      days -> gettext("last seen %{count} days ago", count: days)
+    end
+  end
+
+  attr :rest, :global
+
+  # Hemma, from the card that says what's at home.
+  defp pantry_link(assigns) do
+    ~H"""
+    <.link
+      navigate={~p"/pantry"}
+      data-role="to-pantry"
+      class="press flex items-center gap-1 text-[color:var(--muted)] hover:text-[color:var(--text)]"
+      style="font-size: 14px;"
+    >
+      {gettext("At home")} <.icon name="ph-caret-right" class="size-3.5" />
+    </.link>
+    """
+  end
 
   defp amount(ri, base, servings) do
     quantity = Recipes.scale_quantity(ri.quantity, base, servings || base)

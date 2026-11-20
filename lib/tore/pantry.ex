@@ -182,19 +182,36 @@ defmodule Tore.Pantry do
                     &Ingredient.to_key/1
                   )
 
+  @typedoc "Something at home Tore is unsure is still there: as the dish names it, and its row."
+  @type unsure :: %{name: String.t(), id: integer(), last_seen_at: DateTime.t() | nil}
+
   @doc """
   `names` (a dish's ingredients) split into what the pantry holds and what's missing, each in the
-  order given. Matched exactly by ingredient key, as the shopping list is, so a near miss counts
-  as missing rather than as had.
+  order given, and which of what it holds Tore is unsure of (`unsure`, also in `have`). Matched
+  exactly by ingredient key, as the shopping list is, so a near miss counts as missing rather
+  than as had.
   """
-  @spec at_home(Scope.t(), [String.t()]) :: %{have: [String.t()], missing: [String.t()]}
+  @spec at_home(Scope.t(), [String.t()]) :: %{
+          have: [String.t()],
+          missing: [String.t()],
+          unsure: [unsure()]
+        }
   def at_home(%Scope{} = scope, names) do
-    held = scope |> list_usable() |> MapSet.new(&Ingredient.to_key(&1.name))
+    now = DateTime.utc_now()
+    today = Tore.Clock.today()
+    held = scope |> list_usable() |> Map.new(&{Ingredient.to_key(&1.name), &1})
     {have, missing} = Enum.split_with(names, &at_home?(held, Ingredient.to_key(&1)))
-    %{have: have, missing: missing}
+
+    unsure =
+      for name <- have,
+          %PantryItem{} = item <- [held[Ingredient.to_key(name)]],
+          PantryItem.effective_belief(item, now, today) == :uncertain,
+          do: %{name: name, id: item.id, last_seen_at: item.last_seen_at}
+
+    %{have: have, missing: missing, unsure: unsure}
   end
 
-  defp at_home?(held, key), do: MapSet.member?(held, key) or MapSet.member?(@always_at_home, key)
+  defp at_home?(held, key), do: Map.has_key?(held, key) or MapSet.member?(@always_at_home, key)
 
   @spec add_item(Scope.t(), map()) :: {:ok, PantryItem.t()} | {:error, Ecto.Changeset.t()}
   def add_item(%Scope{} = scope, attrs) do
