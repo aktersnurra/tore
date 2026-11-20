@@ -41,7 +41,11 @@ defmodule ToreWeb.HomeLive do
         <%!-- A phone's column, until a laptop has room for the dish beside its details. --%>
         <div class="mx-auto w-full max-w-md lg:max-w-none">
           <div class="relative z-10 h-0">
-            <.top_bar on_photo={@dish != nil} class="absolute inset-x-0 -top-2">
+            <%!-- Over the photo, its buttons sit inside the card's corners. --%>
+            <.top_bar
+              on_photo={@dish != nil}
+              class={["absolute inset-x-0 -top-2", @dish && "max-lg:inset-x-2 max-lg:top-0"]}
+            >
               <:actions :if={@dish}>
                 <.page_menu id="today-menu" on_photo>
                   <.menu_item
@@ -78,10 +82,11 @@ defmodule ToreWeb.HomeLive do
             class="lg:grid lg:grid-cols-2 lg:items-start lg:gap-14 lg:pt-14"
           >
             <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
-               the dish's name in white on its darkened foot. On a laptop it's the whole picture
+               the dish's name in white on its darkened foot. A rounded card, set in from the
+               edges, so the dark foot never meets the page (in light mode it looked cut off). On a laptop it's the whole picture
                on the right, as on a recipe page, and the name moves to the left. --%>
             <div class="lg:sticky lg:top-6 lg:order-2">
-              <div class="relative -mx-4 -mt-4 h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)] lg:aspect-[5/4] lg:h-auto lg:max-h-none">
+              <div class="relative h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden rounded-[var(--r-xl)] lg:aspect-[5/4] lg:h-auto lg:max-h-none">
                 <img
                   :if={photo?(@dish)}
                   src={~p"/images/recipes/#{@dish.id}"}

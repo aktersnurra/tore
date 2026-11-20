@@ -295,9 +295,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   -webkit-mask-image: linear-gradient(to top, #000 25%, transparent 100%);
 }
 
-/* A photograph with words on it: darkens the foot of the picture so white type reads. */
+/* A photograph with words on it: darkens the foot of the picture, behind the words only, so white
+   type reads. Always inside a rounded card, so the dark never meets the page. */
 .photo-shade {
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.35) 38%, rgba(0, 0, 0, 0) 68%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.22) 32%, rgba(0, 0, 0, 0) 56%);
 }
 
 /* Nothing shows a scrollbar: pages, sheets and chip rows still scroll */
