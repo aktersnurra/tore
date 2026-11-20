@@ -5,9 +5,11 @@ defmodule Tore.Chats do
   used. The latest used is the person's current chat, which the screens' own questions go to
   (`ToreWeb.PiReply`). A chat gets its row when something is first said in it.
 
-  pi names a chat after its first answer (`name_chat`), and the person can rename it. A
-  conversation about one recipe is a session of its own (`Tore.Pi.recipe_chat_session/2`) and not
-  one of these.
+  pi writes each chat's card after its first answer, and again when the talk moves on
+  (`describe_chat`): a title, a line or two of what it's about and a few tags. The person can rename
+  it. Finding a chat again searches the cards (`search/2`), in the list and when someone asks pi for
+  an earlier conversation (`find_chats`, `open_chat`). A conversation about one recipe is a session
+  of its own (`Tore.Pi.recipe_chat_session/2`) and not one of these.
   """
 
   import Ecto.Query
@@ -68,14 +70,72 @@ defmodule Tore.Chats do
     :ok
   end
 
+  @doc "pi's card for the chat (`Tore.Chats.Chat.card_changeset/2`); a new title is told on."
+  @spec describe(Scope.t(), Chat.t(), map()) :: {:ok, Chat.t()} | {:error, Ecto.Changeset.t()}
+  def describe(%Scope{} = scope, %Chat{} = chat, attrs) do
+    with {:ok, described} <- chat |> Chat.card_changeset(attrs) |> Repo.update() do
+      if described.title != chat.title, do: titled(scope, described)
+      {:ok, described}
+    end
+  end
+
+  @doc """
+  The person's chats whose card has the words in `query`, best first: a word in the title counts
+  most, then in a tag, then in the summary. A blank query is every chat, latest used first.
+  """
+  @spec search(Scope.t(), String.t(), pos_integer()) :: [Chat.t()]
+  def search(%Scope{} = scope, query, limit \\ 20) do
+    case query |> String.downcase() |> String.split(~r/[^\p{L}\p{N}]+/u, trim: true) do
+      [] ->
+        scope |> list() |> Enum.take(limit)
+
+      words ->
+        scope
+        |> list()
+        |> Enum.map(&{score(&1, words), &1})
+        |> Enum.filter(fn {score, _chat} -> score > 0 end)
+        |> Enum.sort_by(fn {score, _chat} -> -score end)
+        |> Enum.take(limit)
+        |> Enum.map(fn {_score, chat} -> chat end)
+    end
+  end
+
+  defp score(chat, words) do
+    title = String.downcase(chat.title || "")
+    summary = String.downcase(chat.summary || "")
+    tags = Enum.join(chat.tags, " ")
+
+    Enum.sum(
+      for word <- words,
+          do:
+            if(title =~ word, do: 3, else: 0) + if(tags =~ word, do: 2, else: 0) +
+              if(summary =~ word, do: 1, else: 0)
+    )
+  end
+
+  @doc "Removes one of the person's chats from their list. pi's own record of it stays with pi."
+  @spec delete(Scope.t(), Chat.t()) :: :ok
+  def delete(%Scope{} = scope, %Chat{id: id}) do
+    from(c in Chat, where: c.id == ^id) |> Repo.delete_all(Scope.repo_opts(scope))
+    :ok
+  end
+
+  @doc "Tells the person's tray showing `from` to open their chat `id`."
+  @spec open(Scope.t(), String.t(), integer()) :: :ok
+  def open(%Scope{} = scope, from, id),
+    do: Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:open_chat, from, id})
+
   @doc "Names the chat, and tells the person's other screens."
   @spec rename(Scope.t(), Chat.t(), String.t()) :: {:ok, Chat.t()} | {:error, Ecto.Changeset.t()}
   def rename(%Scope{} = scope, %Chat{} = chat, title) do
     with {:ok, chat} <- chat |> Chat.title_changeset(title) |> Repo.update() do
-      Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:chat_titled, chat.id, chat.title})
+      titled(scope, chat)
       {:ok, chat}
     end
   end
+
+  defp titled(scope, chat),
+    do: Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:chat_titled, chat.id, chat.title})
 
   @doc "The chat's pi session."
   @spec session(Chat.t()) :: String.t()

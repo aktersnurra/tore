@@ -7,8 +7,9 @@ defmodule ToreWeb.CaptureLive do
 
   The tray opens on the chat used last, or the one asked for (`?chat=<id>`), or a new one
   (`?new=true`), which gets its row when the first message is sent. The title at the top is pi's
-  name for the chat (`name_chat`), and the person can change it; beside it, the list of their
-  chats and a new one. After an answer, pi's suggestions for what to say next (`suggest_replies`)
+  name for the chat (`describe_chat`), and the person can change it; beside it, the list of their
+  chats, searchable by their cards, and a new one. Asked for an earlier conversation, pi finds it
+  and opens it (`open_chat`), and the tray goes there. After an answer, pi's suggestions for what to say next (`suggest_replies`)
   are buttons above the box; an empty chat has the kitchen's quick swaps there instead.
 
   Opened from a recipe (`?recipe=<id>`), the tray is the person's conversation about that recipe
@@ -131,7 +132,10 @@ defmodule ToreWeb.CaptureLive do
   end
 
   def handle_event("toggle_chats", _params, %{assigns: %{chats: nil}} = socket),
-    do: {:noreply, assign(socket, chats: Chats.list(socket.assigns.current_scope))}
+    do: {:noreply, assign(socket, chats: Chats.search(socket.assigns.current_scope, ""))}
+
+  def handle_event("search_chats", %{"q" => query}, socket),
+    do: {:noreply, assign(socket, chats: Chats.search(socket.assigns.current_scope, query))}
 
   def handle_event("toggle_chats", _params, socket), do: close_chats(socket)
   def handle_event("close_chats", _params, socket), do: close_chats(socket)
@@ -235,6 +239,14 @@ defmodule ToreWeb.CaptureLive do
     do: {:noreply, assign(socket, chat: %{chat | title: title})}
 
   def handle_info({:chat_titled, _id, _title}, socket), do: {:noreply, socket}
+
+  # pi found the earlier chat they asked for, from the one shown here.
+  def handle_info({:open_chat, session, id}, %{assigns: %{session: session}} = socket) do
+    to = ~p"/capture?#{[chat: id, return_to: socket.assigns.return_to]}"
+    {:noreply, push_navigate(socket, to: to)}
+  end
+
+  def handle_info({:open_chat, _session, _id}, socket), do: {:noreply, socket}
 
   # What pi suggests saying next, shown once its answer is done.
   def handle_info({:pi, session, %{"type" => "tore_suggestions", "replies" => replies}}, socket)
@@ -546,6 +558,32 @@ defmodule ToreWeb.CaptureLive do
           <.icon name="ph-plus" class="size-4 text-[color:var(--muted)]" />
           {gettext("New chat")}
         </button>
+        <form
+          data-role="chat-search"
+          phx-change="search_chats"
+          phx-submit="search_chats"
+          class="flex items-center gap-2 border-t border-[color:var(--hairline)] px-4"
+        >
+          <.icon name="ph-magnifying-glass" class="size-4 shrink-0 text-[color:var(--muted)]" />
+          <input
+            type="search"
+            name="q"
+            placeholder={gettext("Search chats")}
+            aria-label={gettext("Search chats")}
+            autocomplete="off"
+            phx-debounce="150"
+            phx-mounted={JS.focus()}
+            class="h-11 min-w-0 flex-1 bg-transparent text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+            style="font-size: 15px;"
+          />
+        </form>
+        <p
+          :if={@chats == []}
+          class="border-t border-[color:var(--hairline)] px-4 py-3 text-[color:var(--muted)]"
+          style="font-size: 14px;"
+        >
+          {gettext("No chat matches.")}
+        </p>
         <div
           :if={@chats != []}
           class="max-h-[60vh] overflow-y-auto border-t border-[color:var(--hairline)] py-1"
@@ -558,7 +596,16 @@ defmodule ToreWeb.CaptureLive do
             class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
             style="font-size: 15px;"
           >
-            <span class="min-w-0 flex-1 truncate">{chat.title || gettext("Untitled chat")}</span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate">{chat.title || gettext("Untitled chat")}</span>
+              <span
+                :if={chat.summary}
+                class="block truncate text-[color:var(--muted)]"
+                style="font-size: 13px;"
+              >
+                {chat.summary}
+              </span>
+            </span>
             <.icon
               :if={@chat && @chat.id == chat.id}
               name="ph-check"

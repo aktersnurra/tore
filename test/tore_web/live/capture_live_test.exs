@@ -147,6 +147,32 @@ defmodule ToreWeb.CaptureLiveTest do
       refute has_element?(lv, ~s(input[name="title"][value]))
     end
 
+    test "the list can be searched by the chats' cards", %{conn: conn, user: user} do
+      scope = scope_fixture(user)
+      {:ok, lax} = Tore.Chats.create(scope)
+      {:ok, _} = Tore.Chats.describe(scope, lax, %{"title" => "Lax", "summary" => "Laxpasta."})
+      chat_for(user, "Budgeten")
+
+      {:ok, lv, _html} = live(conn, "/capture")
+      lv |> element(~s(button[data-role="chats"])) |> render_click()
+      lv |> form(~s([data-role="chat-search"]), %{q: "laxpasta"}) |> render_change()
+
+      assert has_element?(lv, ~s([data-role="chat-list"] button), "Lax")
+      refute has_element?(lv, ~s([data-role="chat-list"] button), "Budgeten")
+    end
+
+    test "when pi opens an earlier chat, the tray goes there", %{conn: conn, user: user} do
+      lookup = chat_for(user)
+      earlier = chat_for(user, "Lax")
+
+      {:ok, lv, _html} =
+        live(conn, "/capture?#{URI.encode_query(chat: lookup.id, return_to: "/plan")}")
+
+      :ok = Tore.Chats.open(scope_fixture(user), Tore.Chats.session(lookup), earlier.id)
+
+      assert_redirect(lv, "/capture?chat=#{earlier.id}&return_to=%2Fplan")
+    end
+
     test "pi's suggestions for what to say next show after its answer, and send when tapped", %{
       conn: conn,
       user: user,

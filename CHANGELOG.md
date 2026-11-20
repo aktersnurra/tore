@@ -23,6 +23,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Erbjudanden picks out the offers Tore thinks you'll want: Jev, a small decision model, guesses from what Tore knows of you (diet, meals, what you buy, your recipes) each morning and when you add a store, and gets better as receipts come in.
 - A budget holds from a week on: raise it from week 41 and the weeks before keep theirs. Veckobudget's chart draws each week's budget, stepping where it changed, and pi can set one from any week.
 - On a laptop the pages use the width: Today puts tonight's dinner beside its picture, Shop puts the month's spending beside the list, and Veckobudget lays the chart, where the money went and the receipts side by side.
+- Chats can be found again: the list has a search field and shows what each chat was about, and asking Tore in a new chat for an earlier conversation ("the salmon thing from last week") opens it.
 - After each answer pi suggests up to three things you might say next, as buttons above the box; an empty chat shows the kitchen's quick swaps there instead.
 - A recipe page sits in the middle of the screen like the others, so the sheet before cooking lines up under it.
 - ICA's offers come in again: ICA's firewall turned away everything but curl, so Tore fetches ICA pages with curl's user agent.

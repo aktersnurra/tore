@@ -635,7 +635,9 @@ mark and "What do you need?" sit in the middle.
 
 The chat's title sits top left: pi names it after its first answer, and tapping it lets the person
 change it (Enter or leaving the field saves). The caret beside it opens their chats, latest used
-first, with New chat at the top. A new chat is empty until something is sent in it. A recipe's
+first, each with pi's one-line summary under its title, with New chat at the top and a search
+field (focused) that narrows the list by title, tags and summary. Asking in a chat for an earlier
+one ("laxgrejen från förra veckan") has pi find it and open it; the tray goes there. A new chat is empty until something is sent in it. A recipe's
 own conversation shows "About <dish>" instead and isn't in the list.
 
 

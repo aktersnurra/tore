@@ -47,7 +47,9 @@ defmodule Tore.Mcp do
     Tools.DrawRecipePicture,
     Tools.LogReceipt,
     Tools.Undo,
-    Tools.NameChat,
+    Tools.DescribeChat,
+    Tools.FindChats,
+    Tools.OpenChat,
     Tools.SuggestReplies
   ]
 

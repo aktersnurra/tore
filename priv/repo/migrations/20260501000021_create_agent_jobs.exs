@@ -16,11 +16,13 @@ defmodule Tore.Repo.Migrations.CreateAgentJobs do
 
     create index(:agent_jobs, [:household_id, :task, :week])
 
-    # A person's chats with pi; pi keeps what was said, this is each one's name.
+    # A person's chats with pi; pi keeps what was said, this is each one's card.
     create table(:chats) do
       add :household_id, references(:households, on_delete: :delete_all), null: false
       add :user_id, references(:users, on_delete: :delete_all), null: false
       add :title, :string
+      add :summary, :text
+      add :tags, {:array, :string}, null: false, default: []
       timestamps(type: :utc_datetime_usec)
     end
 

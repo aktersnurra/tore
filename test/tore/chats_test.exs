@@ -58,4 +58,49 @@ defmodule Tore.ChatsTest do
 
     assert {:error, %Ecto.Changeset{}} = Chats.rename(scope, chat, "   ")
   end
+
+  test "pi's card for a chat: a summary and tags, and a title only while it has none", %{
+    scope: scope
+  } do
+    {:ok, chat} = Chats.create(scope)
+    :ok = Chats.subscribe(scope)
+
+    {:ok, chat} =
+      Chats.describe(scope, chat, %{
+        "title" => "Lax på fredag",
+        "summary" => "Laxpasta till fredag, utan grädde.",
+        "tags" => ["lax", " Fredag ", ""]
+      })
+
+    assert {chat.title, chat.summary, chat.tags} ==
+             {"Lax på fredag", "Laxpasta till fredag, utan grädde.", ["lax", "fredag"]}
+
+    assert_received {:chat_titled, _, "Lax på fredag"}
+
+    # The person's own title stays.
+    {:ok, chat} = Chats.rename(scope, chat, "Fredagsmiddag")
+    {:ok, chat} = Chats.describe(scope, chat, %{"title" => "Något annat", "summary" => "Ny."})
+    assert {chat.title, chat.summary} == {"Fredagsmiddag", "Ny."}
+  end
+
+  test "search finds a person's chats by title, tags and summary, best first", %{scope: scope} do
+    card = fn title, summary, tags ->
+      {:ok, chat} = Chats.create(scope)
+
+      {:ok, chat} =
+        Chats.describe(scope, chat, %{"title" => title, "summary" => summary, "tags" => tags})
+
+      chat
+    end
+
+    lax = card.("Lax på fredag", "Laxpasta utan grädde.", ["fisk"])
+    soppa = card.("Soppor i veckan", "Två soppor, en med lax.", ["soppa"])
+    _budget = card.("Budgeten", "Veckobudget 1 400 kr.", ["pengar"])
+    {:ok, _theirs} = Chats.create(scope_fixture(user_fixture()))
+
+    assert Enum.map(Chats.search(scope, "lax"), & &1.id) == [lax.id, soppa.id]
+    assert Enum.map(Chats.search(scope, "FISK"), & &1.id) == [lax.id]
+    assert Chats.search(scope, "tacos") == []
+    assert length(Chats.search(scope, "  ")) == 3
+  end
 end
