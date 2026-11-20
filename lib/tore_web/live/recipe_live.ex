@@ -57,7 +57,6 @@ defmodule ToreWeb.RecipeLive do
     socket =
       assign(socket,
         adding: true,
-        importing: false,
         import_error: nil,
         import_url: shared || String.trim(params["url"] || params["text"] || ""),
         form: nil,
@@ -77,7 +76,7 @@ defmodule ToreWeb.RecipeLive do
     end
   end
 
-  # The sheet stays open when a shared link's address is cleaned up.
+  # The sheet stays open when a shared link's address is cleaned up and pi couldn't take it.
   def handle_params(_params, _uri, %{assigns: %{adding: true}} = socket), do: {:noreply, socket}
 
   # A collection picked in the menu.
@@ -137,7 +136,6 @@ defmodule ToreWeb.RecipeLive do
     {:noreply,
      assign(socket,
        adding: true,
-       importing: false,
        import_error: nil,
        import_url: "",
        form: nil,
@@ -154,7 +152,6 @@ defmodule ToreWeb.RecipeLive do
     {:noreply,
      assign(socket,
        adding: false,
-       importing: false,
        form: Map.put(blank_form(), field, typed),
        selected: nil,
        error: nil,
@@ -428,32 +425,29 @@ defmodule ToreWeb.RecipeLive do
   def handle_info({:recipe_favorite, id, favorite?}, socket),
     do: {:noreply, put_favorite(socket, id, favorite?)}
 
-  # The recipe pi saved from the link opens. One that lands after the sheet closed only shows up
-  # in the list.
-  def handle_info({:recipe_saved, id}, %{assigns: %{importing: true, adding: true}} = socket),
-    do:
-      {:noreply,
-       socket
-       |> assign(importing: false, adding: false)
-       |> reload_recipes()
-       |> push_patch(to: ~p"/recipes?#{[id: id]}")}
+  # The recipe pi saved from the link: a toast says so, and it is in the list.
+  def handle_info({:recipe_saved, id}, %{assigns: %{importing: true}} = socket) do
+    title = Recipes.get!(socket.assigns.current_scope, id).title
+
+    {:noreply,
+     socket
+     |> assign(importing: false)
+     |> put_flash(:info, gettext("Saved %{title}.", title: title))
+     |> reload_recipes()}
+  end
 
   def handle_info({:recipe_saved, _id}, socket), do: {:noreply, reload_recipes(socket)}
 
   # pi answers the link in the person's chat. If it is done without saving a recipe, what it said
-  # is why (not a recipe, the site refused), next to the field.
+  # is why (not a recipe, the site refused), in a toast.
   def handle_info({:pi, _session, event}, socket) do
     if socket.assigns.before_cooking, do: ToreWeb.BeforeCooking.forward(event)
     socket = ToreWeb.PiReply.event(socket, event)
 
     case {event, socket.assigns} do
       {%{"type" => type}, %{importing: true}} when type in ["agent_settled", "exited"] ->
-        {:noreply,
-         assign(socket,
-           importing: false,
-           import_error:
-             blank_to_nil(socket.assigns.pi_reply) || gettext("Couldn't import that URL.")
-         )}
+        why = blank_to_nil(socket.assigns.pi_reply) || gettext("Couldn't import that URL.")
+        {:noreply, socket |> assign(importing: false) |> put_flash(:error, why)}
 
       _other ->
         {:noreply, socket}
@@ -502,7 +496,6 @@ defmodule ToreWeb.RecipeLive do
       form: nil,
       adding: false,
       compose: nil,
-      importing: false,
       import_error: nil,
       error: nil,
       show_recipe_menu: false,
@@ -1401,7 +1394,6 @@ defmodule ToreWeb.RecipeLive do
           aria-label={gettext("Link to the recipe")}
           aria-invalid={@import_error && "true"}
           aria-describedby={@import_error && "import-error"}
-          readonly={@importing}
           phx-mounted={JS.focus()}
           class={[
             "w-full rounded-full border bg-[var(--surface)] px-5 py-3 text-[var(--text)] transition-colors duration-[var(--dur-fast)]",
@@ -1418,13 +1410,7 @@ defmodule ToreWeb.RecipeLive do
         >
           {@import_error}
         </p>
-        <.button type="submit" variant={:primary} full disabled={@importing}>
-          <span :if={@importing} class="inline-flex items-center gap-2" role="status">
-            <.icon name="ph-arrows-clockwise" class="size-4 animate-spin" />
-            {gettext("Reading the recipe")}
-          </span>
-          <span :if={!@importing}>{gettext("Get recipe")}</span>
-        </.button>
+        <.button type="submit" variant={:primary} full>{gettext("Get recipe")}</.button>
 
         <%!-- The way out: the link typed so far comes along as the recipe's source. --%>
         <button
@@ -1730,14 +1716,16 @@ defmodule ToreWeb.RecipeLive do
   end
 
   # pi reads the page and saves it in the person's own chat, so they can ask for changes there.
+  # The sheet closes once pi has the link; the outcome comes as a toast. If pi can't take it, the
+  # sheet stays, with why in a toast.
   defp start_import(socket, url) do
     socket
-    |> assign(importing: true, import_error: nil)
+    |> assign(import_error: nil)
     |> ToreWeb.PiReply.ask(
       "From the Recipes screen: save the recipe at #{url}. Read the page itself.",
       gettext("Reading the recipe")
     )
-    |> then(&if &1.assigns.pi_working, do: &1, else: assign(&1, importing: false))
+    |> then(&if &1.assigns.pi_working, do: assign(&1, importing: true, adding: false), else: &1)
   end
 
   defp blank_to_nil(text) when text in [nil, ""], do: nil

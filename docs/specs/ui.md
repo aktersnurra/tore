@@ -240,7 +240,8 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   gallery. A recipe never shows an empty block: until its picture is drawn it shows its icon
   on its collection's tint (`<.blank_cover>`, `ToreWeb.Look`), never a stock image. Pictures
   that failed are drawn again at night (`Tore.Recipes.draw_missing_pictures/0`).
-  Its + starts from a link: paste one and Tore reads the recipe in and opens it. "Write it
+  Its + starts from a link: paste one and the sheet closes at once while Tore reads the recipe
+  in; a toast at the bottom says "Sparade …" or why it couldn't, in pi's words. "Write it
   yourself" under the field is the way out to the form, taking along what was typed (a link as
   the source, anything else as the name).
   A link shared to Tore opens `/recipes?url=…` (or `?text=…`, where apps like Instagram put it)

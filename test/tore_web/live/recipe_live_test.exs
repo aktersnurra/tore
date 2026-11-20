@@ -90,37 +90,32 @@ defmodule ToreWeb.RecipeLiveTest do
       end)
     end
 
-    test "a link goes to pi in the person's chat, and the recipe pi saves opens", %{
-      conn: conn,
-      user: user,
-      pi_log: log
-    } do
+    test "a link goes to pi in the person's chat, the sheet closes, and a toast says it's saved",
+         %{conn: conn, user: user, pi_log: log} do
       hold(log)
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "new_recipe")
 
-      html = lv |> form("#import-link", %{url: " https://example.com/soppa "}) |> render_submit()
-      assert html =~ "Läser receptet"
+      lv |> form("#import-link", %{url: " https://example.com/soppa "}) |> render_submit()
+      refute has_element?(lv, "#import-link")
       assert asked?(log, "save the recipe at https://example.com/soppa.")
+      refute has_element?(lv, "#flash-info")
 
-      # Saving starts the finishing job, which this fake also holds: let go once the recipe opens.
-      saving =
-        Task.async(fn -> pi_saves(Map.put(@soup, "source_url", "https://example.com/soppa")) end)
-
-      opened = assert_patch(lv)
+      pi_saves(Map.put(@soup, "source_url", "https://example.com/soppa"))
       release(log)
-      assert opened == "/recipes?id=#{Task.await(saving).id}"
+
+      assert eventually(fn -> has_element?(lv, "#flash-info", "Sparade Morotssoppa.") end)
+      assert has_element?(lv, "a", "Morotssoppa")
     end
 
-    test "a page pi can't save says why, next to the field", %{conn: conn, user: user} do
+    test "a page pi can't save says why, in a toast", %{conn: conn, user: user} do
       System.put_env("FAKE_PI_REPLY", "Sidan är inte ett recept.")
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       render_click(lv, "new_recipe")
       lv |> form("#import-link", %{url: "https://example.com/hej"}) |> render_submit()
+      refute has_element?(lv, "#import-link")
 
-      assert eventually(fn -> render(lv) =~ "Sidan är inte ett recept." end)
-      assert has_element?(lv, ~s(#import-link input[aria-invalid="true"]))
-      assert render(lv) =~ "Skriv in det själv"
+      assert eventually(fn -> has_element?(lv, "#flash-error", "Sidan är inte ett recept.") end)
     end
 
     test "a link shared to Tore is read in straight away, and the address drops it", %{
@@ -138,13 +133,11 @@ defmodule ToreWeb.RecipeLiveTest do
         )
 
       assert asked?(log, "save the recipe at https://example.com/soppa.")
-      # Saving starts the finishing job, which this fake also holds: let go once the recipe opens.
-      saving =
-        Task.async(fn -> pi_saves(Map.put(@soup, "source_url", "https://example.com/soppa")) end)
+      refute has_element?(lv, "#import-link")
 
-      opened = assert_patch(lv)
+      pi_saves(Map.put(@soup, "source_url", "https://example.com/soppa"))
       release(log)
-      assert opened == "/recipes?id=#{Task.await(saving).id}"
+      assert eventually(fn -> has_element?(lv, "#flash-info", "Sparade Morotssoppa.") end)
     end
 
     test "something shared without a link opens the sheet and says what's missing", %{
