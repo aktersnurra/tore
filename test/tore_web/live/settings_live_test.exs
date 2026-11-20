@@ -27,10 +27,27 @@ defmodule ToreWeb.SettingsLiveTest do
     } do
       {:ok, view, _html} = live(conn, ~p"/settings/members")
 
-      html = add_member(view, "bo")
+      add_member(view, "bo")
 
-      assert html =~ "bo går med vid sin första inloggning."
-      assert html =~ "Går med vid första inloggningen"
+      # The new row flashes green; the field only empties.
+      assert view |> element(~s([data-role="member"].row-added)) |> render() =~
+               "Går med vid första inloggningen"
+
+      assert has_element?(view, ~s([data-role="member"].row-added), "bo")
+      refute has_element?(view, ~s(form[phx-submit="add_member"] .saved-flash))
+    end
+
+    test "adding someone who has an account flashes their row", %{conn: conn} do
+      # Someone who signed in on their own, so they're in a household of their own.
+      {:ok, _bo} =
+        Tore.Accounts.sign_in(%{"sub" => "sub-bo", "preferred_username" => "bo", "name" => "Bo"})
+
+      {:ok, view, _html} = live(conn, ~p"/settings/members")
+
+      add_member(view, "bo")
+
+      assert has_element?(view, ~s([data-role="member"].row-added), "Bo")
+      refute has_element?(view, ~s{[data-role="member"]:not(.row-added)}, "Bo")
     end
 
     test "adding someone already a member says so", %{conn: conn, user: user} do

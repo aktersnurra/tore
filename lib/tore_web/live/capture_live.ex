@@ -979,7 +979,7 @@ defmodule ToreWeb.CaptureLive do
             }
           </script>
           <form id="chat-form" phx-submit="send_message" phx-change="validate">
-            <div class="field-group flex items-end gap-2 rounded-[20px] border border-[color:var(--border)] bg-[var(--surface)] py-2 pr-2 pl-4">
+            <div class="field-group flex items-end gap-2 rounded-[20px] bg-[var(--surface)] py-2 pr-2 pl-4">
               <textarea
                 id="chat-input"
                 name="message"
@@ -996,6 +996,7 @@ defmodule ToreWeb.CaptureLive do
                 type="submit"
                 aria-label={gettext("Send")}
                 title={gettext("Send")}
+                data-role="send"
                 class="press flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
               >
                 <.icon name="ph-arrow-elbow-down-left" class="size-5" />

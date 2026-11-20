@@ -27,7 +27,7 @@ defmodule ToreWeb.SettingsLive do
      |> assign(
        member_username: "",
        name_saved?: false,
-       member_notice: nil,
+       member_added: nil,
        member_error: nil,
        households: Members.list_households(socket.assigns.current_user),
        ai: ai,
@@ -47,7 +47,7 @@ defmodule ToreWeb.SettingsLive do
      assign(socket,
        section: section,
        name_saved?: false,
-       member_notice: nil,
+       member_added: nil,
        member_error: nil
      )}
   end
@@ -64,30 +64,31 @@ defmodule ToreWeb.SettingsLive do
   def handle_event("add_member", %{"username" => username}, socket) do
     case Members.add(socket.assigns.current_scope, username) do
       {:ok, result} ->
-        notice =
+        # The new row flashes green; it already says whether they've joined or join later.
+        added =
           case result do
-            {:pending, name} ->
-              gettext("%{name} joins at their first sign-in.", name: name)
+            {:pending, username} ->
+              {:pending, username}
 
             {:moved, user} ->
               # Their empty household is gone, so their open pages move here.
               UserSession.disconnect(user.id)
-              gettext("%{name} is now a member.", name: user.name)
+              {:user, user.id}
 
             {:added, user} ->
-              gettext("%{name} is now a member.", name: user.name)
+              {:user, user.id}
           end
 
         {:noreply,
          socket
          |> assign_members()
-         |> assign(member_username: "", member_notice: notice, member_error: nil)}
+         |> assign(member_username: "", member_added: added, member_error: nil)}
 
       {:error, reason} ->
         {:noreply,
          assign(socket,
            member_username: username,
-           member_notice: nil,
+           member_added: nil,
            member_error: member_error(reason)
          )}
     end
@@ -371,7 +372,11 @@ defmodule ToreWeb.SettingsLive do
 
           <div :if={@section == "members"} class="menu-lines py-4">
             <div class="flex flex-col gap-3">
-              <div :for={user <- @users} class="flex items-center gap-3">
+              <div
+                :for={user <- @users}
+                data-role="member"
+                class={["member-row", @member_added == {:user, user.id} && "row-added"]}
+              >
                 <span
                   class="size-9 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-ink)] inline-flex items-center justify-center font-semibold shrink-0"
                   style="font-size: var(--t-meta);"
@@ -399,7 +404,11 @@ defmodule ToreWeb.SettingsLive do
                   phx-value-id={user.id}
                 />
               </div>
-              <div :for={pending <- @pending} class="flex items-center gap-3">
+              <div
+                :for={pending <- @pending}
+                data-role="member"
+                class={["member-row", @member_added == {:pending, pending.username} && "row-added"]}
+              >
                 <div class="flex-1 min-w-0">
                   <p class="font-medium text-[var(--text)] truncate" style="font-size: var(--t-body);">
                     {pending.username}
@@ -428,18 +437,11 @@ defmodule ToreWeb.SettingsLive do
                 autocomplete="off"
                 autocapitalize="off"
                 required
-                saved={@member_notice != nil}
                 errors={List.wrap(@member_error)}
                 enterkeyhint="done"
               />
               <button type="submit" class="sr-only">{gettext("Add")}</button>
             </form>
-            <p
-              :if={@member_notice}
-              class="settle mt-1.5 text-[13px] text-[color:var(--muted)]"
-            >
-              {@member_notice}
-            </p>
           </div>
 
           <div :if={@section == "food"} class="space-y-6">
