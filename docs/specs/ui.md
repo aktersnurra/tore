@@ -230,10 +230,15 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
 - **Soft, not editorial.** Headlines are 26–30px bold, never poster-sized or tightly tracked.
   Lists sit on one rounded surface (`.menu-lines`), not as ruled lines on the page.
-- **The dish's name is on its photograph.** A cover (Today, a recipe page, a gallery tile) darkens at
-  its foot (`.photo-shade`) and carries the name in white (`.on-photo-text`), then the page
-  starts. A cover still waiting for its picture keeps its tint and the name in the page's
-  own type colour, with no shade (2026-11-19).
+- **The dish's name is on its photograph** on Today and a gallery tile: the cover darkens at its
+  foot (`.photo-shade`) and carries the name in white (`.on-photo-text`). A cover still waiting
+  for its picture keeps its tint and the name in the page's own type colour, with no shade
+  (2026-11-19).
+- **A recipe page has a split hero, like Andy Cooks'** (2026-11-20): the words on the left (the
+  collection as a breadcrumb, the name in capitals (`.t-hero`), prep, cook and total time with
+  bold labels, the description, Cook now and Put on the week) and the picture on the right,
+  whole and rounded rather than cropped to a strip. On a phone the picture comes first. Back and
+  ⋯ sit on the page above it; the other properties follow below.
 - **One palette, two lights.** Papper: ink on white, graphite when the phone is dark
   (follows the phone, or `data-theme`). The main action is ink; type on it uses `--on-accent`.
 - **Pictures lead where there's a dish.** Today opens on tonight's cover; Recipes is a

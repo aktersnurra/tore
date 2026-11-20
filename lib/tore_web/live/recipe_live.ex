@@ -846,127 +846,192 @@ defmodule ToreWeb.RecipeLive do
   defp render_detail(assigns) do
     ~H"""
     <article>
-      <%!-- The dish, with its name in white on the darkened foot of the photograph --%>
-      <div class="relative h-[58svh] min-h-[360px] max-h-[560px] w-full overflow-hidden lg:h-[40vh] lg:min-h-[260px] lg:max-h-[400px]">
-        <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
-        <img
-          :if={@selected.image_path}
-          src={~p"/images/recipes/#{@selected.id}"}
-          alt=""
-          class="absolute inset-0 size-full object-cover"
-          style={"view-transition-name: dish-#{@selected.id}"}
-        />
-        <div :if={@selected.image_path} class="photo-shade absolute inset-0" aria-hidden="true"></div>
-
-        <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+1rem)] lg:px-6">
-          <.link
-            patch={~p"/recipes"}
-            aria-label={gettext("Back")}
-            data-role="recipe-close"
-            class="on-photo press"
+      <%!-- Back and ⋯ on the page, above the hero --%>
+      <div class="flex items-center justify-between px-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:max-w-[1180px] lg:px-14 lg:pt-5">
+        <.link
+          patch={~p"/recipes"}
+          aria-label={gettext("Back")}
+          data-role="recipe-close"
+          class="icon-btn press"
+        >
+          <.icon name="ph-caret-left" class="size-5" />
+        </.link>
+        <div class="relative" id="recipe-actions">
+          <button
+            type="button"
+            phx-click="toggle_recipe_menu"
+            aria-label={gettext("More")}
+            aria-expanded={to_string(@show_recipe_menu)}
+            class="icon-btn press"
           >
-            <.icon name="ph-caret-left" class="size-5" />
-          </.link>
-          <div class="relative" id="recipe-actions">
+            <.icon name="ph-dots-three" class="size-5" />
+          </button>
+          <div
+            :if={@show_recipe_menu}
+            phx-click-away="toggle_recipe_menu"
+            class="rise-in absolute right-0 top-12 z-10 w-48 origin-top-right overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] py-1 shadow-[var(--shadow-pop)]"
+          >
+            <.link
+              navigate={
+                ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", recipe: @selected.id]}"
+              }
+              data-role="ask-tore"
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+              style="font-size: 15px;"
+            >
+              <.icon name="ph-chat-circle" class="size-4 text-[color:var(--muted)]" />
+              {gettext("Ask Tore")}
+            </.link>
             <button
               type="button"
-              phx-click="toggle_recipe_menu"
-              aria-label={gettext("More")}
-              aria-expanded={to_string(@show_recipe_menu)}
-              class="on-photo press"
+              phx-click="toggle_favorite"
+              data-role="toggle-favorite"
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+              style="font-size: 15px;"
             >
-              <.icon name="ph-dots-three" class="size-5" />
+              <.icon
+                name={if @selected.favorite, do: "ph-star-fill", else: "ph-star"}
+                class="size-4 text-[color:var(--muted)]"
+              />
+              {if @selected.favorite,
+                do: gettext("Remove from favourites"),
+                else: gettext("Add to favourites")}
             </button>
-            <div
-              :if={@show_recipe_menu}
-              phx-click-away="toggle_recipe_menu"
-              class="rise-in absolute right-0 top-12 z-10 w-48 origin-top-right overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] py-1 shadow-[var(--shadow-pop)]"
+            <button
+              type="button"
+              phx-click="edit_recipe"
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+              style="font-size: 15px;"
             >
-              <.link
-                navigate={
-                  ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", recipe: @selected.id]}"
-                }
-                data-role="ask-tore"
-                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
-                style="font-size: 15px;"
-              >
-                <.icon name="ph-chat-circle" class="size-4 text-[color:var(--muted)]" />
-                {gettext("Ask Tore")}
-              </.link>
-              <button
-                type="button"
-                phx-click="toggle_favorite"
-                data-role="toggle-favorite"
-                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
-                style="font-size: 15px;"
-              >
-                <.icon
-                  name={if @selected.favorite, do: "ph-star-fill", else: "ph-star"}
-                  class="size-4 text-[color:var(--muted)]"
-                />
-                {if @selected.favorite,
-                  do: gettext("Remove from favourites"),
-                  else: gettext("Add to favourites")}
-              </button>
-              <button
-                type="button"
-                phx-click="edit_recipe"
-                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
-                style="font-size: 15px;"
-              >
-                <.icon name="ph-pencil-simple" class="size-4 text-[color:var(--muted)]" />
-                {gettext("Edit")}
-              </button>
-              <button
-                type="button"
-                phx-click="make_image"
-                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
-                style="font-size: 15px;"
-              >
-                <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
-                {gettext("New picture")}
-              </button>
-              <button
-                type="button"
-                phx-click="delete_recipe"
-                class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--danger)] hover:bg-[var(--border)]"
-                style="font-size: 15px;"
-              >
-                <.icon name="ph-trash" class="size-4" />
-                {gettext("Delete")}
-              </button>
-            </div>
+              <.icon name="ph-pencil-simple" class="size-4 text-[color:var(--muted)]" />
+              {gettext("Edit")}
+            </button>
+            <button
+              type="button"
+              phx-click="make_image"
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"
+              style="font-size: 15px;"
+            >
+              <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
+              {gettext("New picture")}
+            </button>
+            <button
+              type="button"
+              phx-click="delete_recipe"
+              class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--danger)] hover:bg-[var(--border)]"
+              style="font-size: 15px;"
+            >
+              <.icon name="ph-trash" class="size-4" />
+              {gettext("Delete")}
+            </button>
           </div>
-        </div>
-
-        <div class="absolute inset-x-0 bottom-0 px-5 pb-5 lg:px-16 lg:pb-7">
-          <h1 class={["reveal t-display", @selected.image_path && "on-photo-text"]} style="--i: 1">
-            {@selected.title}
-          </h1>
         </div>
       </div>
 
+      <%!-- The hero, like Andy Cooks': the words on the left, the dish on the right. On a phone the
+           dish comes first. --%>
+      <section
+        data-role="hero"
+        class="px-5 pt-2 lg:grid lg:max-w-[1180px] lg:grid-cols-2 lg:items-center lg:gap-14 lg:px-16 lg:pt-4"
+      >
+        <div class="reveal relative aspect-[5/4] w-full overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)] lg:order-2">
+          <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
+          <img
+            :if={@selected.image_path}
+            src={~p"/images/recipes/#{@selected.id}"}
+            alt=""
+            class="absolute inset-0 size-full object-cover"
+            style={"view-transition-name: dish-#{@selected.id}"}
+          />
+        </div>
+
+        <div class="mt-6 lg:order-1 lg:mt-0">
+          <nav
+            aria-label={gettext("Collection")}
+            data-role="collection"
+            class="reveal t-eyebrow flex items-center gap-1"
+            style="--i: 1"
+          >
+            <.link patch={~p"/recipes"} class="hover:text-[color:var(--text)]">
+              {gettext("Recipes")}
+            </.link>
+            <.icon name="ph-caret-right" class="size-3" />
+            <.link
+              patch={~p"/recipes?#{[type: @selected.recipe_type]}"}
+              class="hover:text-[color:var(--text)]"
+            >
+              {type_label(@selected.recipe_type)}
+            </.link>
+          </nav>
+          <h1 class="reveal t-hero mt-2" style="--i: 2">{@selected.title}</h1>
+
+          <dl
+            :if={total_minutes(@selected) > 0}
+            data-role="times"
+            class="reveal num mt-4 flex flex-wrap items-center gap-x-5 gap-y-1"
+            style="--i: 3; font-size: 15px;"
+          >
+            <.icon name="ph-clock" class="size-5 text-[color:var(--muted)]" />
+            <div :if={@selected.prep_time_minutes} class="flex gap-1">
+              <dt class="font-semibold">{gettext("Prep:")}</dt>
+              <dd>{duration(@selected.prep_time_minutes)}</dd>
+            </div>
+            <div :if={@selected.cook_time_minutes} class="flex gap-1">
+              <dt class="font-semibold">{gettext("Cook:")}</dt>
+              <dd>{duration(@selected.cook_time_minutes)}</dd>
+            </div>
+            <div class="flex gap-1">
+              <dt class="font-semibold">{gettext("Total:")}</dt>
+              <dd>{duration(total_minutes(@selected))}</dd>
+            </div>
+          </dl>
+
+          <p
+            :if={@selected.description not in [nil, ""]}
+            class="reveal mt-4 text-[color:var(--text)] lg:max-w-[52ch]"
+            style="--i: 3; font-size: 16px; line-height: 1.55;"
+          >
+            {@selected.description}
+          </p>
+
+          <%!-- What you can do with it --%>
+          <div class="reveal mt-6 flex flex-wrap gap-2" style="--i: 4">
+            <.link
+              :if={@home.missing == []}
+              navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
+              data-role="start-cooking"
+              class="pill pill-lg pill-lamp press"
+            >
+              <.icon name="ph-fire-fill" />
+              {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
+            </.link>
+            <button
+              :if={@home.missing != []}
+              type="button"
+              phx-click="before_cooking"
+              data-role="start-cooking"
+              class="pill pill-lg pill-lamp press"
+            >
+              <.icon name="ph-fire-fill" />
+              {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
+            </button>
+            <button
+              :if={@selected.recipe_type == :meal}
+              type="button"
+              phx-click="toggle_week"
+              aria-expanded={to_string(@week != nil)}
+              data-role="put-on-week"
+              class="pill pill-lg press"
+            >
+              <.icon name="ph-calendar-blank" /> {gettext("Put on the week")}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <div class="px-5 pb-28 lg:max-w-[1180px] lg:px-16 lg:pb-16">
         <%!-- The page's properties: quiet rows, a label and its value. Servings is a stepper. --%>
-        <dl class="props reveal mt-4 lg:max-w-2xl" style="--i: 2">
-          <div>
-            <dt><.icon name="ph-squares-four" /> {gettext("Collection")}</dt>
-            <dd data-role="collection">
-              <span class={["tag", "tag-#{ToreWeb.Look.tint(@selected.recipe_type)}"]}>
-                <.icon name={type_icon(@selected.recipe_type)} />
-                {type_label(@selected.recipe_type)}
-              </span>
-            </dd>
-          </div>
-          <div :if={total_time(@selected) != "—"}>
-            <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
-            <dd class="num">
-              {total_time(@selected)}
-              <span :if={@selected.prep_time_minutes} class="text-[color:var(--muted)]">
-                · {gettext("%{minutes} min hands-on", minutes: @selected.prep_time_minutes)}
-              </span>
-            </dd>
-          </div>
+        <dl class="props reveal mt-8 lg:max-w-2xl" style="--i: 5">
           <div>
             <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
             <dd class="flex items-center gap-1">
@@ -1077,39 +1142,6 @@ defmodule ToreWeb.RecipeLive do
           </div>
         </dl>
 
-        <%!-- What you can do with it, before anything to read --%>
-        <div class="reveal -mx-5 mt-5 flex gap-2 overflow-x-auto px-5 lg:mx-0 lg:px-0" style="--i: 3">
-          <.link
-            :if={@home.missing == []}
-            navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}
-            data-role="start-cooking"
-            class="pill pill-lamp press"
-          >
-            <.icon name="ph-fire-fill" />
-            {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
-          </.link>
-          <button
-            :if={@home.missing != []}
-            type="button"
-            phx-click="before_cooking"
-            data-role="start-cooking"
-            class="pill pill-lamp press"
-          >
-            <.icon name="ph-fire-fill" />
-            {if @selected.recipe_type == :baking, do: gettext("Bake now"), else: gettext("Cook now")}
-          </button>
-          <button
-            :if={@selected.recipe_type == :meal}
-            type="button"
-            phx-click="toggle_week"
-            aria-expanded={to_string(@week != nil)}
-            data-role="put-on-week"
-            class="pill press"
-          >
-            <.icon name="ph-calendar-blank" /> {gettext("Put on the week")}
-          </button>
-        </div>
-
         <%!-- Which day: the next seven, each with what it has now. --%>
         <.live_component
           :if={@before_cooking}
@@ -1170,14 +1202,6 @@ defmodule ToreWeb.RecipeLive do
             </button>
           </p>
         </div>
-
-        <p
-          :if={@selected.description not in [nil, ""]}
-          class="reveal mt-5 text-[color:var(--muted)] lg:max-w-[65ch]"
-          style="--i: 4; font-size: 15px; line-height: 1.55;"
-        >
-          {@selected.description}
-        </p>
 
         <%!-- On a wide screen the ingredients sit beside the method, both in view while cooking --%>
         <div
@@ -1874,16 +1898,17 @@ defmodule ToreWeb.RecipeLive do
 
   # "35 min, vegetarian, quick": time first, then up to two tags.
   defp recipe_meta(recipe) do
-    time = if total_time(recipe) == "—", do: [], else: [total_time(recipe)]
+    time = if total_minutes(recipe) > 0, do: [duration(total_minutes(recipe))], else: []
     Enum.join(time ++ (recipe.tags |> Enum.take(2) |> Enum.map(& &1.name)), ", ")
   end
 
-  defp total_time(recipe) do
-    prep = recipe.prep_time_minutes || 0
-    cook = recipe.cook_time_minutes || 0
-    total = prep + cook
-    if total > 0, do: "#{total} min", else: "—"
-  end
+  defp total_minutes(recipe),
+    do: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
+
+  # 45 min, 2 h, 3 h 30 min
+  defp duration(minutes) when minutes < 60, do: "#{minutes} min"
+  defp duration(minutes) when rem(minutes, 60) == 0, do: "#{div(minutes, 60)} h"
+  defp duration(minutes), do: "#{div(minutes, 60)} h #{rem(minutes, 60)} min"
 
   defp error_message(changeset) do
     changeset.errors

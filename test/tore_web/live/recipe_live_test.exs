@@ -253,6 +253,30 @@ defmodule ToreWeb.RecipeLiveTest do
       refute has_element?(lv, ~s([data-role="put-done"]))
     end
 
+    test "the hero has the words beside the picture: collection, name, times and what to do", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, dish} =
+        Recipes.create(home_scope(), %{
+          title: "Tagliatelle al ragù",
+          recipe_type: :meal,
+          prep_time_minutes: 30,
+          cook_time_minutes: 180,
+          description: "Långkokt ragù med pancetta.",
+          image_path: "recipes/1.png"
+        })
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes?id=#{dish.id}")
+
+      assert has_element?(lv, ~s([data-role="hero"] a[href="/recipes?type=meal"]), "Middag")
+      assert has_element?(lv, ~s([data-role="hero"] h1), "Tagliatelle al ragù")
+      assert has_element?(lv, ~s([data-role="hero"] [data-role="times"]), "3 h 30 min")
+      assert has_element?(lv, ~s([data-role="hero"] p), "Långkokt ragù med pancetta.")
+      assert has_element?(lv, ~s([data-role="hero"] [data-role="start-cooking"]))
+      assert has_element?(lv, ~s([data-role="hero"] img[src="/images/recipes/#{dish.id}"]))
+    end
+
     test "baking is started, not planned", %{conn: conn, user: user} do
       {:ok, buns} =
         Recipes.create(home_scope(), %{title: "Kanelbullar", recipe_type: :baking})
