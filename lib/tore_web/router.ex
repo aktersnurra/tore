@@ -86,6 +86,7 @@ defmodule ToreWeb.Router do
       live "/budget/receipts/:id", BudgetLive, :receipt
       live "/prep", PrepLive
       live "/settings", SettingsLive
+      live "/settings/:section", SettingsLive
       live "/capture", CaptureLive
     end
   end

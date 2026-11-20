@@ -9,7 +9,7 @@ defmodule ToreWeb.SettingsLiveTest do
   end
 
   test "lists the members, with no codes or roles", %{conn: conn, user: user} do
-    {:ok, view, html} = live(conn, ~p"/settings")
+    {:ok, view, html} = live(conn, ~p"/settings/members")
 
     assert html =~ "Gustaf"
     assert html =~ user.username
@@ -25,7 +25,7 @@ defmodule ToreWeb.SettingsLiveTest do
     test "adding someone who hasn't signed in says they join at their first sign-in", %{
       conn: conn
     } do
-      {:ok, view, _html} = live(conn, ~p"/settings")
+      {:ok, view, _html} = live(conn, ~p"/settings/members")
 
       html = add_member(view, "bo")
 
@@ -34,7 +34,7 @@ defmodule ToreWeb.SettingsLiveTest do
     end
 
     test "adding someone already a member says so", %{conn: conn, user: user} do
-      {:ok, view, _html} = live(conn, ~p"/settings")
+      {:ok, view, _html} = live(conn, ~p"/settings/members")
 
       assert add_member(view, user.username) =~ "Personen är redan medlem."
     end
@@ -44,7 +44,7 @@ defmodule ToreWeb.SettingsLiveTest do
     } do
       partner = user_fixture(name: "Partner")
       ToreWeb.Endpoint.subscribe("users_sessions:#{partner.id}")
-      {:ok, view, _html} = live(conn, ~p"/settings")
+      {:ok, view, _html} = live(conn, ~p"/settings/members")
 
       html =
         view
@@ -62,7 +62,7 @@ defmodule ToreWeb.SettingsLiveTest do
       user: user
     } do
       {:ok, view, _html} = live(conn, ~p"/settings")
-      refute has_element?(view, ~s(button[phx-click="switch_household"]))
+      refute has_element?(view, ~s(a[href="/settings/households"]))
 
       # Home holds something, so being added elsewhere adds a household rather than moving them.
       Tore.Repo.insert!(%Tore.Recipes.Recipe{
@@ -73,8 +73,9 @@ defmodule ToreWeb.SettingsLiveTest do
 
       other = household_fixture(%{name: "Stugan"})
       {:ok, {:added, _}} = Tore.Members.add(scope_fixture(other), user.username)
-      {:ok, view, html} = live(conn, ~p"/settings")
-      assert html =~ "Dina hushåll"
+      {:ok, view, _html} = live(conn, ~p"/settings")
+      assert view |> element(~s(a[href="/settings/households"])) |> render() =~ "Dina hushåll"
+      {:ok, view, _html} = live(conn, ~p"/settings/households")
 
       view
       |> element(~s(button[phx-click="switch_household"][phx-value-id="#{other.id}"]))
@@ -91,7 +92,7 @@ defmodule ToreWeb.SettingsLiveTest do
         |> Tore.Repo.update!()
 
       conn = build_conn() |> Plug.Test.init_test_session(%{user_id: user.id})
-      {:ok, view, _html} = live(conn, ~p"/settings")
+      {:ok, view, _html} = live(conn, ~p"/settings/ai")
 
       view |> element(~s(button[phx-click="toggle_ai_sponsor"])) |> render_click()
 
@@ -103,14 +104,14 @@ defmodule ToreWeb.SettingsLiveTest do
         set: [ai_sponsor_id: nil]
       )
 
-      {:ok, view, html} = live(conn, ~p"/settings")
+      {:ok, view, html} = live(conn, ~p"/settings/ai")
 
       refute has_element?(view, ~s(button[phx-click="toggle_ai_sponsor"]))
       assert html =~ "AI är avstängt för det här hushållet."
     end
 
     test "renames the household", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/settings")
+      {:ok, view, _html} = live(conn, ~p"/settings/name")
 
       view
       |> form(~s(form[phx-submit="rename_household"]), %{name: "Rydholms"})
@@ -169,7 +170,7 @@ defmodule ToreWeb.SettingsLiveTest do
     end
 
     test "shows both parts and how full each is, with no confidence labels", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/settings")
+      {:ok, _view, html} = live(conn, ~p"/settings/memory")
 
       assert html =~ "Anna dislikes mushrooms"
       assert html =~ "Friday pizza"
@@ -180,7 +181,7 @@ defmodule ToreWeb.SettingsLiveTest do
     end
 
     test "removing an entry forgets it for the household", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/settings")
+      {:ok, view, _html} = live(conn, ~p"/settings/memory")
       [entry | _] = Tore.Household.Memory.list(home_scope(), "notes")
 
       html =
@@ -190,6 +191,50 @@ defmodule ToreWeb.SettingsLiveTest do
 
       refute html =~ "Friday pizza"
       assert Tore.Household.Memory.list(home_scope(), "notes") == []
+    end
+  end
+
+  describe "the list" do
+    test "each setting is a row with what it's set to, opening its page", %{conn: conn} do
+      {:ok, _} = Tore.Household.update_preferences(home_scope(), %{allergies: ["nuts"]})
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      for {section, value} <- [
+            {"name", home_household().name},
+            {"members", "#{length(Tore.Accounts.list_members(home_scope()))} personer"},
+            {"food", "Nötter"},
+            {"memory", "Inga än"},
+            {"ai", "$0.00"}
+          ] do
+        assert view
+               |> element(~s(a[data-role="setting"][href="/settings/#{section}"]))
+               |> render() =~
+                 value
+      end
+
+      view |> element(~s(a[href="/settings/food"])) |> render_click()
+      assert_patch(view, "/settings/food")
+
+      assert has_element?(
+               view,
+               ~s(button[phx-click="toggle_allergy"][aria-pressed="true"]),
+               "Nötter"
+             )
+
+      assert has_element?(view, ~s(a[data-role="settings-back"][href="/settings"]))
+    end
+
+    test "light, dark or the system's look is chosen on the list", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      for theme <- ~w(system light dark) do
+        assert has_element?(view, ~s([data-role="look"] button[data-phx-theme="#{theme}"]))
+      end
+    end
+
+    test "a section that isn't one is the list", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings/nope")
+      assert has_element?(view, ~s(a[data-role="setting"]))
     end
   end
 

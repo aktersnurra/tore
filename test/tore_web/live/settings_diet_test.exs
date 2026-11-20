@@ -10,7 +10,7 @@ defmodule ToreWeb.SettingsDietTest do
   end
 
   test "Settings sets the diet and allergies every plan is checked against", %{conn: conn} do
-    {:ok, view, html} = live(conn, ~p"/settings")
+    {:ok, view, html} = live(conn, ~p"/settings/food")
 
     assert html =~ "Vegetarisk"
     assert html =~ "Nötter"

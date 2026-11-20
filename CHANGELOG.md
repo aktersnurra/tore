@@ -7,6 +7,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Settings, Ask Tore on Today, recipes in the chat (2026-11-20)
+
+- Settings is one grouped list (household, food, Tore, this device, account); each row shows what it's set to and opens its own page. Light, dark or the system's look is chosen there.
+- Today has Ask Tore beside Cook now, opening the conversation about tonight's dish, as on its recipe page.
+- A recipe Tore reads shows in the chat as its card, and a recipe's own chat has the recipe on top, so it's clear what Tore is looking at.
+- What screens ask Tore (importing a link, swaps before cooking) no longer lands in your chats, so the Tore tab opens on what you said there. Switching chats no longer replays the tray's opening.
+
 ### All AI through pi (2026-11-19)
 
 - Tore talks to one agent, pi, for everything. Each person has their own conversation with it; the Tore tab, and asking about a day on Plan, tonight on Today or an item on Shop, all go to it. It acts through Tore's tools, and each change it makes shows a receipt with Undo.

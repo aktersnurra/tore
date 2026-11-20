@@ -155,8 +155,8 @@ Every main screen has the same tab bar at the bottom, each tab an icon with its 
   configuration, not a page you use every week; members and diet are inside it.
   It closes on the scrim, on Escape, or when one of its links is followed. Tap only; no edge
   swipe.
-- **Settings** is reached from the menu. It holds members, diet and allergies, the
-  household, memory and AI. The stores moved to Erbjudanden (§6.10).
+- **Settings** is reached from the menu. It's one grouped list (§6.6): the household,
+  food, Tore, this device's look, and the account. The stores moved to Erbjudanden (§6.10).
 - The current tab is in the text colour with a filled icon, the others muted and outlined.
   Prep counts as Plan. No sparkle icons anywhere: Tore is a chat glyph.
 
@@ -171,7 +171,8 @@ Without AI, a fixed rule picks the screen and the swaps, and nothing else change
 /shop          → Shop, with this month's spending under the list (tab)
 /recipes       → Recipes (tab)
 /capture       → Tore's chat (the centre tab; presents as a sheet)
-/settings      → Settings, from the menu's foot (#members, #diet go to a section)
+/settings      → Settings, from the menu's foot: the grouped list
+/settings/:section → One setting's page (name, members, food, memory, ai, households)
 /budget        → Veckobudget, from the menu and Plan's budget line (§6.9)
 /budget/receipts/:id → A receipt, over Veckobudget
 /deals         → Erbjudanden, with the stores at its foot, from the menu (§6.10)
@@ -669,7 +670,7 @@ Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with
 Props    — Day (Tonight tag + date) · Lunch (when one is planned, opening its recipe) ·
            Collection · Time (and ready by) · Servings · At home (missing things as red tags,
            Put on the list)
-Actions  — [Cook now] [Something else]
+Actions  — [Cook now] [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page)
 Note     — the home pick's one note, with its action, when there is one
 Ingredients, for tonight's servings
 ⋯        — Open the recipe · Ask about tonight · No dinner tonight
@@ -1110,14 +1111,18 @@ What does Tore know, and how can I correct it?
 
 ### Sections
 
+One grouped list, like a phone's own settings (2026-11-20). Each row shows what it's set to, and
+opens its setting on a page of its own (`/settings/<section>`, with ‹ Settings back to the list).
+
 ```md
-Members
-Diet and allergies
-Your households
-Household
-Kitchen Memory
-AI usage
+Household     Name › · Members › · Language (shown, chosen once)
+Food          Diet and allergies ›
+Tore          Things Tore has learned › · AI usage ›
+This device   Look  [System | Light | Dark]
+Account       Your households › (two or more) · Sign out
 ```
+
+The look is the device's, kept in the browser, so it's chosen on the list itself.
 
 Diet and allergies are two rows of chips, "We eat" and "Never include". Every plan is
 checked against them. A chosen chip is filled in the text colour, not saffron.

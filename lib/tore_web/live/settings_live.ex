@@ -1,4 +1,9 @@
 defmodule ToreWeb.SettingsLive do
+  @moduledoc """
+  Settings as one grouped list, each row with what it's set to; a row opens its setting on a page
+  of its own (`/settings/<section>`), patched in so going back is instant. The look (system, light
+  or dark) is chosen on the list itself: it's the device's, kept in the browser.
+  """
   use ToreWeb, :live_view
 
   alias Tore.Household.Memory
@@ -29,6 +34,13 @@ defmodule ToreWeb.SettingsLive do
        household: Household.get!(socket.assigns.current_scope),
        prefs: Household.get_preferences(scope)
      )}
+  end
+
+  @sections ~w(name members food memory ai households)
+
+  def handle_params(params, _uri, socket) do
+    section = if params["section"] in @sections, do: params["section"]
+    {:noreply, assign(socket, section: section)}
   end
 
   @dietary_restrictions ~w(vegetarian vegan gluten_free lactose_free low_carb high_protein nut_free)
@@ -147,6 +159,31 @@ defmodule ToreWeb.SettingsLive do
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
 
+  defp section_title("name"), do: gettext("Name")
+  defp section_title("members"), do: gettext("Members")
+  defp section_title("food"), do: gettext("Diet and allergies")
+  defp section_title("memory"), do: gettext("Things Tore has learned")
+  defp section_title("ai"), do: gettext("AI usage")
+  defp section_title("households"), do: gettext("Your households")
+
+  # What a row shows it's set to.
+  defp food_value(prefs) do
+    case (prefs.dietary_restrictions || []) ++ (prefs.allergies || []) do
+      [] -> gettext("Anything")
+      chosen -> Enum.map_join(chosen, " · ", &preference_label/1)
+    end
+  end
+
+  defp memory_value(memory) do
+    case Enum.sum_by(memory, &length(&1.entries)) do
+      0 -> gettext("None yet")
+      n -> ngettext("%{count} thing", "%{count} things", n)
+    end
+  end
+
+  defp members_value(users, pending),
+    do: ngettext("%{count} person", "%{count} people", length(users) + length(pending))
+
   defp memory_part_label("profile"), do: gettext("Your household")
   defp memory_part_label("notes"), do: gettext("Notes")
 
@@ -215,30 +252,106 @@ defmodule ToreWeb.SettingsLive do
     assigns = assign(assigns, dietary_restrictions: @dietary_restrictions, allergies: @allergies)
 
     ~H"""
-    <Layouts.app
-      flash={@flash}
-      socket={@socket}
-      current_user={@current_user}
-    >
+    <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <.page max_width={:md}>
-        <header class="flex items-center gap-3 pt-2">
-          <.link
-            navigate={~p"/today"}
-            aria-label={gettext("Back")}
-            class="press -ml-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-          >
-            <.icon name="ph-caret-left" class="size-5" />
-          </.link>
-        </header>
-        <h1 class="t-display mt-5 mb-6">{gettext("Settings")}</h1>
+        <%!-- The list --%>
+        <div :if={!@section} id="settings-list" class="settle">
+          <h1 class="t-display mt-4 mb-6">{gettext("Settings")}</h1>
 
-        <div class="space-y-3">
-          <%!-- Members --%>
-          <section id="members" class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
-            <h2 class="section-label mb-3">
-              {gettext("Members")}
-            </h2>
+          <.group label={gettext("Household")}>
+            <.setting section="name" label={gettext("Name")} value={@household.name} />
+            <.setting
+              section="members"
+              label={gettext("Members")}
+              value={members_value(@users, @pending)}
+            />
+            <div class="flex min-h-12 items-center justify-between gap-3 py-2">
+              <span>{gettext("Language")}</span>
+              <span class="text-[color:var(--muted)]">
+                {Household.locale_label(@household.locale)}
+              </span>
+            </div>
+            <:footer>
+              {gettext("Used for reading receipts, recipes and grocery labels. Chosen once.")}
+            </:footer>
+          </.group>
 
+          <.group label={gettext("Food")}>
+            <.setting section="food" label={gettext("Diet and allergies")} value={food_value(@prefs)} />
+            <:footer>
+              {gettext("Tore checks every plan against these. Tastes it learns as you plan.")}
+            </:footer>
+          </.group>
+
+          <.group label="Tore">
+            <.setting
+              section="memory"
+              label={gettext("Things Tore has learned")}
+              value={memory_value(@memory)}
+            />
+            <.setting
+              section="ai"
+              label={gettext("AI usage")}
+              value={gettext("%{amount} this month", amount: format_usd(@ai.this_month))}
+            />
+          </.group>
+
+          <.group label={gettext("This device")}>
+            <div class="flex min-h-12 items-center justify-between gap-3 py-2">
+              <span>{gettext("Look")}</span>
+              <.look />
+            </div>
+          </.group>
+
+          <.group label={gettext("Account")}>
+            <.setting
+              :if={length(@households) >= 2}
+              section="households"
+              label={gettext("Your households")}
+              value={@household.name}
+            />
+            <.link
+              href={~p"/logout"}
+              method="delete"
+              class="press -mx-4 flex min-h-12 items-center gap-2 px-4 py-2 text-[color:var(--danger)] row-hover"
+            >
+              <.icon name="ph-sign-out" class="size-[18px]" />
+              {gettext("Sign out")}
+            </.link>
+          </.group>
+        </div>
+
+        <%!-- One setting, on its own page --%>
+        <div :if={@section} id={"settings-#{@section}"} class="settle">
+          <header class="flex items-center gap-2 pt-2">
+            <.link
+              patch={~p"/settings"}
+              data-role="settings-back"
+              aria-label={gettext("Settings")}
+              class="press -ml-2 flex h-11 items-center gap-0.5 rounded-full pr-3 pl-1 text-[color:var(--muted)] hover:text-[color:var(--text)]"
+            >
+              <.icon name="ph-caret-left" class="size-5" />
+              <span class="text-[15px]">{gettext("Settings")}</span>
+            </.link>
+          </header>
+          <h1 class="t-display mt-3 mb-6">{section_title(@section)}</h1>
+
+          <div :if={@section == "name"} class="menu-lines py-4">
+            <form phx-submit="rename_household" class="flex items-center gap-2">
+              <input
+                type="text"
+                name="name"
+                value={@household.name}
+                aria-label={gettext("Household name")}
+                required
+                maxlength="100"
+                class="min-w-0 flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--bg)] px-3 py-2.5 text-[16px]"
+              />
+              <.button type="submit" variant={:secondary}>{gettext("Rename")}</.button>
+            </form>
+          </div>
+
+          <div :if={@section == "members"} class="menu-lines py-4">
             <div class="flex flex-col gap-3">
               <div :for={user <- @users} class="flex items-center gap-3">
                 <span
@@ -315,122 +428,27 @@ defmodule ToreWeb.SettingsLive do
             >
               {@member_error}
             </p>
+          </div>
 
-            <.link
-              href={~p"/logout"}
-              method="delete"
-              class="press mt-4 inline-flex h-10 items-center gap-2 font-semibold text-[color:var(--muted)] hover:text-[color:var(--text)]"
-              style="font-size: 15px;"
-            >
-              <.icon name="ph-sign-out" class="size-4" />
-              {gettext("Sign out")}
-            </.link>
-          </section>
-
-          <%!-- Households: a switcher for someone in two or more --%>
-          <section
-            :if={length(@households) >= 2}
-            class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5"
-          >
-            <h2 class="section-label mb-3">
-              {gettext("Your households")}
-            </h2>
-            <div class="flex flex-col gap-3">
-              <div :for={entry <- @households} class="flex items-center gap-3">
-                <p
-                  class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
-                  style="font-size: var(--t-body);"
-                >
-                  {entry.household.name}
-                </p>
-                <span
-                  :if={entry.active}
-                  class="text-[color:var(--muted)]"
-                  style="font-size: var(--t-meta);"
-                >
-                  {gettext("Current")}
-                </span>
-                <button
-                  :if={!entry.active}
-                  type="button"
-                  phx-click="switch_household"
-                  phx-value-id={entry.household.id}
-                  class="font-medium text-[color:var(--accent)] hover:underline"
-                  style="font-size: var(--t-meta);"
-                >
-                  {gettext("Switch")}
-                </button>
-              </div>
+          <div :if={@section == "food"} class="space-y-6">
+            <div>
+              <p class="section-label mb-2">{gettext("We eat")}</p>
+              <.preference_chips
+                items={@dietary_restrictions}
+                chosen={@prefs.dietary_restrictions}
+                event="toggle_restriction"
+              />
             </div>
-          </section>
-
-          <%!-- Diet and allergies: every plan is checked against these --%>
-          <section
-            id="diet"
-            class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5"
-          >
-            <h2 class="section-label mb-1">{gettext("Diet and allergies")}</h2>
-            <p class="mb-3 text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+            <div>
+              <p class="section-label mb-2">{gettext("Never include")}</p>
+              <.preference_chips items={@allergies} chosen={@prefs.allergies} event="toggle_allergy" />
+            </div>
+            <p class="text-[13px] text-[color:var(--muted)]">
               {gettext("Tore checks every plan against these. Tastes it learns as you plan.")}
             </p>
-            <p class="mb-2 text-[color:var(--text)]" style="font-size: var(--t-meta);">
-              {gettext("We eat")}
-            </p>
-            <.preference_chips
-              items={@dietary_restrictions}
-              chosen={@prefs.dietary_restrictions}
-              event="toggle_restriction"
-            />
-            <p class="mt-4 mb-2 text-[color:var(--text)]" style="font-size: var(--t-meta);">
-              {gettext("Never include")}
-            </p>
-            <.preference_chips items={@allergies} chosen={@prefs.allergies} event="toggle_allergy" />
-          </section>
+          </div>
 
-          <%!-- Household --%>
-          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
-            <h2 class="section-label mb-3">
-              {gettext("Household")}
-            </h2>
-            <form phx-submit="rename_household" class="mb-4 flex items-center gap-2">
-              <input
-                type="text"
-                name="name"
-                value={@household.name}
-                aria-label={gettext("Household name")}
-                required
-                maxlength="100"
-                class="flex-1 min-w-0 rounded-[var(--r-md)] border border-[color:var(--hairline)] bg-[color:var(--surface)] px-3 py-2"
-                style="font-size: var(--t-body);"
-              />
-              <button
-                type="submit"
-                class="h-11 shrink-0 px-2 text-[13px] font-semibold text-[color:var(--accent)] hover:underline"
-              >
-                {gettext("Rename")}
-              </button>
-            </form>
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex-1 min-w-0">
-                <p class="font-medium text-[var(--text)]" style="font-size: var(--t-body);">
-                  {gettext("Language")}
-                </p>
-                <p class="text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-                  {gettext("Used for reading receipts, recipes and grocery labels. Chosen once.")}
-                </p>
-              </div>
-              <p class="text-[var(--text)]" style="font-size: var(--t-body);">
-                {Household.locale_label(@household.locale)}
-              </p>
-            </div>
-          </section>
-
-          <%!-- Device tokens --%>
-          <%!-- Kitchen memory --%>
-          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
-            <h2 class="section-label mb-3">
-              {gettext("Things Tore has learned")}
-            </h2>
+          <div :if={@section == "memory"}>
             <%= if Enum.all?(@memory, &(&1.entries == [])) do %>
               <p class="text-sm text-[color:var(--muted)]">
                 {gettext("No memories yet. Tore learns as you cook.")}
@@ -460,13 +478,9 @@ defmodule ToreWeb.SettingsLive do
                 </ul>
               </div>
             <% end %>
-          </section>
+          </div>
 
-          <%!-- AI usage --%>
-          <section class="reveal rounded-[var(--r-xl)] bg-[var(--surface)] px-5 py-5">
-            <h2 class="section-label mb-3">
-              {gettext("AI usage")}
-            </h2>
+          <div :if={@section == "ai"} class="menu-lines py-4">
             <div :if={@current_user.ai_enabled} class="mb-4 flex items-center justify-between gap-3">
               <p class="flex-1 min-w-0 text-[var(--text)]" style="font-size: var(--t-body);">
                 {gettext("Use my credits for this household")}
@@ -549,10 +563,115 @@ defmodule ToreWeb.SettingsLive do
                 </span>
               </div>
             </div>
-          </section>
+          </div>
+
+          <div :if={@section == "households"} class="menu-lines py-4">
+            <div class="flex flex-col gap-3">
+              <div :for={entry <- @households} class="flex items-center gap-3">
+                <p
+                  class="flex-1 min-w-0 font-medium text-[var(--text)] truncate"
+                  style="font-size: var(--t-body);"
+                >
+                  {entry.household.name}
+                </p>
+                <span
+                  :if={entry.active}
+                  class="text-[color:var(--muted)]"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Current")}
+                </span>
+                <button
+                  :if={!entry.active}
+                  type="button"
+                  phx-click="switch_household"
+                  phx-value-id={entry.household.id}
+                  class="font-medium text-[color:var(--accent)] hover:underline"
+                  style="font-size: var(--t-meta);"
+                >
+                  {gettext("Switch")}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </.page>
     </Layouts.app>
+    """
+  end
+
+  # A group of rows under a quiet label, with a line of explanation under it when it needs one.
+  attr :label, :string, required: true
+  slot :inner_block, required: true
+  slot :footer
+
+  defp group(assigns) do
+    ~H"""
+    <section class="mb-7">
+      <h2 class="section-label mb-2 px-1">{@label}</h2>
+      <div class="menu-lines overflow-hidden text-[16px] text-[color:var(--text)]">
+        {render_slot(@inner_block)}
+      </div>
+      <p :for={footer <- @footer} class="mt-2 px-1 text-[13px] leading-snug text-[color:var(--muted)]">
+        {render_slot(footer)}
+      </p>
+    </section>
+    """
+  end
+
+  # A setting: its name, what it's set to, and a way into its page.
+  attr :section, :string, required: true
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :rest, :global
+
+  defp setting(assigns) do
+    ~H"""
+    <.link
+      patch={~p"/settings/#{@section}"}
+      data-role="setting"
+      class="press row-hover -mx-4 flex min-h-12 items-center gap-3 px-4 py-2"
+      {@rest}
+    >
+      <span class="shrink-0">{@label}</span>
+      <span class="min-w-0 flex-1 truncate text-right text-[color:var(--muted)]">{@value}</span>
+      <.icon name="ph-caret-right" class="size-4 shrink-0 text-[color:var(--subtle)]" />
+    </.link>
+    """
+  end
+
+  # System, light or dark: the browser keeps it (see the root layout), so which one is on is shown
+  # from the page's own data-theme rather than from the server.
+  defp look(assigns) do
+    ~H"""
+    <div
+      data-role="look"
+      role="group"
+      aria-label={gettext("Look")}
+      class="flex rounded-full bg-[var(--sunken)] p-0.5 text-[14px] font-semibold"
+    >
+      <button
+        :for={
+          {theme, label, on} <- [
+            {"system", gettext("System"),
+             "[html:not([data-theme])_&]:bg-[var(--surface)] [html:not([data-theme])_&]:text-[color:var(--text)] [html:not([data-theme])_&]:shadow-sm"},
+            {"light", gettext("Light"),
+             "[[data-theme=light]_&]:bg-[var(--surface)] [[data-theme=light]_&]:text-[color:var(--text)] [[data-theme=light]_&]:shadow-sm"},
+            {"dark", gettext("Dark"),
+             "[[data-theme=dark]_&]:bg-[var(--surface)] [[data-theme=dark]_&]:text-[color:var(--text)] [[data-theme=dark]_&]:shadow-sm"}
+          ]
+        }
+        type="button"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme={theme}
+        class={[
+          "press h-8 rounded-full px-3 text-[color:var(--muted)] transition-colors duration-150",
+          on
+        ]}
+      >
+        {label}
+      </button>
+    </div>
     """
   end
 end
