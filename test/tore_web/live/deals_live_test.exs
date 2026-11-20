@@ -86,25 +86,38 @@ defmodule ToreWeb.DealsLiveTest do
     assert has_element?(view, "[data-role=store]", "2 erbjudanden")
   end
 
-  test "offers Jev thinks they'll want stand out, open, before the rest", %{conn: conn} do
+  test "Jev's sorting: what they buy, what they might want, and a sure no folded at the foot", %{
+    conn: conn
+  } do
     use_store("ICA Maxi")
     offer("Laxfilé", "99", "129")
+    offer("Glass", "30", "45")
     offer("Kattmat", "20", "29")
 
     for deal <- Deals.list_current(home_scope()) do
+      {kind, confidence} =
+        case deal.product_name do
+          "Laxfilé" -> {"usual", 0.8}
+          "Glass" -> {"maybe", 0.6}
+          "Kattmat" -> {"no", 0.9}
+        end
+
       Tore.Repo.insert!(%Tore.Deals.Pick{
         household_id: home_scope().household_id,
         deal_id: deal.id,
-        chance: if(deal.product_name == "Laxfilé", do: 0.8, else: 0.2)
+        kind: kind,
+        confidence: confidence
       })
     end
 
     {:ok, view, _} = live(conn, ~p"/deals")
 
-    assert has_element?(view, "[data-role=group-picked][open]", "Laxfilé")
-    assert has_element?(view, "[data-role=group-picked]", "Tore tror att ni vill ha")
-    assert has_element?(view, "[data-role=group-others]", "Kattmat")
-    refute has_element?(view, "[data-role=group-others]", "Laxfilé")
+    assert has_element?(view, "[data-role=group-usual][open]", "Laxfilé")
+    assert has_element?(view, "[data-role=group-maybe][open]", "Glass")
+    assert has_element?(view, "[data-role=group-maybe]", "Kanske något för er")
+    assert has_element?(view, "[data-role=group-not-for-us]:not([open])", "Kattmat")
+    assert has_element?(view, "[data-role=group-not-for-us]", "Inte för er")
+    refute has_element?(view, "[data-role=group-others]")
   end
 
   test "+ puts the ingredient on this week's list, once", %{conn: conn} do

@@ -151,11 +151,11 @@ defmodule ToreWeb.DealsLive do
             open
           />
           <.group
-            :if={@page.picked != []}
-            role="picked"
-            label={gettext("Tore thinks you'll want")}
+            :if={@page.maybe != []}
+            role="maybe"
+            label={gettext("Might be for you")}
             tint="blue"
-            entries={@page.picked}
+            entries={@page.maybe}
             open
           />
           <.group
@@ -164,6 +164,14 @@ defmodule ToreWeb.DealsLive do
             label={gettext("Other offers")}
             tint="grey"
             entries={@page.others}
+            open={false}
+          />
+          <.group
+            :if={@page.not_for_us != []}
+            role="not-for-us"
+            label={gettext("Not for you")}
+            tint="grey"
+            entries={@page.not_for_us}
             open={false}
           />
         </div>
@@ -386,7 +394,8 @@ defmodule ToreWeb.DealsLive do
 
   defp headline(%{stores: []}), do: gettext("Offers from the stores you shop at")
 
-  defp headline(%{meals: [], usual: [], picked: [], others: []}), do: gettext("No offers in yet")
+  defp headline(%{meals: [], usual: [], maybe: [], others: [], not_for_us: []}),
+    do: gettext("No offers in yet")
 
   defp headline(%{saving: saving}) do
     if Decimal.gt?(saving, 0),
@@ -398,7 +407,7 @@ defmodule ToreWeb.DealsLive do
   defp sub_line(%{stores: []}),
     do: gettext("Add a link to a store or its offers below, and Tore reads them every morning.")
 
-  defp sub_line(%{meals: [], usual: [], picked: [], others: []}),
+  defp sub_line(%{meals: [], usual: [], maybe: [], others: [], not_for_us: []}),
     do: gettext("Tore reads the stores' offers every morning.")
 
   defp sub_line(_page), do: nil

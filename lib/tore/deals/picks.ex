@@ -1,11 +1,12 @@
 defmodule Tore.Deals.Picks do
   @moduledoc """
-  Which of the current offers a household is likely to want, guessed by Jev (`Tore.Jev`) from what
-  Tore knows of them: diet and allergies, their memory, this week's meals, what they usually buy,
-  what they bought lately and their recipes. With little known it guesses from the little there
-  is, and it gets better as receipts come in. Each offer is asked about once per household, as a
-  `noul` question, after the morning's fetch and when a store is added. It is spent from the
-  household's AI budget, as pi is, and needs the same sponsor.
+  How each current offer fits a household, sorted by Jev (`Tore.Jev`) from what Tore knows of
+  them: diet and allergies, their memory, this week's meals, what they usually buy, what they
+  bought lately and their recipes. Each offer is something they buy (`:usual`), something they
+  might want (`:maybe`) or not for them (`:no`). With little known Jev guesses from the little
+  there is, and it gets better as receipts come in. Each offer is asked about once per household,
+  as a `choice` question, after the morning's fetch and when a store is added. It is spent from
+  the household's AI budget, as pi is, and needs the same sponsor.
   """
 
   import Ecto.Query
@@ -19,12 +20,26 @@ defmodule Tore.Deals.Picks do
   @lately_days 8 * 7
   @max_lines 40
 
-  @doc "Each current offer's chance, by deal id, of those Jev has been asked about."
-  @spec chances(Scope.t()) :: %{integer() => float()}
-  def chances(%Scope{} = scope) do
-    from(p in Pick, select: {p.deal_id, p.chance})
+  @type kind :: :usual | :maybe | :no
+
+  @kinds %{"usual" => :usual, "maybe" => :maybe, "no" => :no}
+
+  # What each answer means, as Jev is told.
+  @criteria %{
+    "usual" =>
+      "Something they buy regularly, or the same kind of thing: it's in what they buy or bought lately.",
+    "maybe" =>
+      "Not something they usually buy, but it fits their diet, their cooking and their tastes, so they might well want it this week.",
+    "no" =>
+      "Not for them: it breaks their diet or allergies, it's for a pet, baby or need they don't have, or nothing about them suggests they'd buy it."
+  }
+
+  @doc "Jev's answer for each offer it has been asked about, by deal id: its kind and how sure."
+  @spec all(Scope.t()) :: %{integer() => {kind(), float()}}
+  def all(%Scope{} = scope) do
+    from(p in Pick, select: {p.deal_id, p.kind, p.confidence})
     |> Repo.all(Scope.repo_opts(scope))
-    |> Map.new()
+    |> Map.new(fn {id, kind, confidence} -> {id, {Map.fetch!(@kinds, kind), confidence}} end)
   end
 
   @doc """
@@ -34,7 +49,7 @@ defmodule Tore.Deals.Picks do
   @spec sort(Scope.t(), keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def sort(%Scope{} = scope, opts \\ []) do
     with :ok <- check(scope) do
-      asked = chances(scope)
+      asked = all(scope)
 
       case Enum.reject(Deals.list_current(scope), &Map.has_key?(asked, &1.id)) do
         [] -> {:ok, 0}
@@ -58,7 +73,11 @@ defmodule Tore.Deals.Picks do
     |> Enum.chunk_every(@batch)
     |> Enum.reduce_while({:ok, 0}, fn batch, {:ok, kept} ->
       questions =
-        Map.new(batch, &{key(&1), %{"type" => "noul", "instructions" => question(&1)}})
+        Map.new(
+          batch,
+          &{key(&1),
+           %{"type" => "choice", "instructions" => question(&1), "criteria" => @criteria}}
+        )
 
       case Jev.decide(state, questions, opts) do
         {:ok, answers, cost} ->
@@ -76,12 +95,13 @@ defmodule Tore.Deals.Picks do
 
     rows =
       for deal <- batch,
-          chance = get_in(answers, [key(deal), "noul"]),
-          is_number(chance),
+          %{"choice" => kind, "confidence" => confidence} <- [answers[key(deal)]],
+          Map.has_key?(@kinds, kind) and is_number(confidence),
           do: %{
             household_id: scope.household_id,
             deal_id: deal.id,
-            chance: chance / 1,
+            kind: kind,
+            confidence: confidence / 1,
             inserted_at: now
           }
 
@@ -105,7 +125,7 @@ defmodule Tore.Deals.Picks do
     price = if deal.price, do: " for #{Tore.Money.format(deal.price)} kr", else: ""
     condition = if deal.offer_condition, do: " (#{deal.offer_condition})", else: ""
 
-    "Would this household want to buy this offer at #{deal.store} this week: " <>
+    "How does this offer at #{deal.store} this week fit this household: " <>
       "#{what}#{price}#{condition}?"
   end
 

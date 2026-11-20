@@ -1327,10 +1327,13 @@ already knows (`Tore.Deals.page/3`), and one from Jev's guesses (2026-11-20, bel
   the best deal per ingredient over the first two groups.
 - **Till veckans middagar** (orange): deals on what a dinner from today on calls for, with the
   dinner's name. **Sånt ni brukar köpa** (green): deals on the household's basics. **Övriga
-  erbjudanden** (grey): the rest, folded, with its count. Between them, open, **Tore tror att ni
-  vill ha** (blue): offers Jev (`Tore.Deals.Picks`) thinks the household is likely to want, from
-  their diet, memory, meals, basics, recent receipts and recipes, likeliest first. Jev guesses
-  from the little it knows at first and gets better as receipts come in.
+  erbjudanden** (grey): the rest, folded, with its count. Jev (`Tore.Deals.Picks`) sorts every
+  offer from the household's diet, memory, meals, basics, recent receipts and recipes: something
+  they buy joins Sånt ni brukar köpa; **Kanske något för er** (blue, open, surest first) is what
+  they might want; **Inte för er** (grey, folded, last) is what Jev is at least half sure isn't
+  for them (cat food for a household without a cat). Offers Jev hasn't been asked about, or
+  says no to unsurely, stay under Övriga. It guesses from the little it knows at first and gets
+  better as receipts come in.
 - A deal: its name and size, the store's initial and name, "t.o.m. sön 22/11", the price
   ("89 kr", "2 för 20", "99 kr/kg") over the regular price struck through, and on a laptop
   what it saves. On a phone the store and end date sit under the name.

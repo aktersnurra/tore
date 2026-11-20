@@ -41,7 +41,7 @@ msgstr "1 recept"
 msgid "Actions"
 msgstr "Åtgärder"
 
-#: lib/tore_web/live/deals_live.ex:263
+#: lib/tore_web/live/deals_live.ex:271
 #: lib/tore_web/live/settings_live.ex:302
 #: lib/tore_web/live/shop_live.ex:355
 #, elixir-autogen, elixir-format
@@ -1052,7 +1052,7 @@ msgstr "okänt%{when}"
 msgid "Anything about this day…"
 msgstr "Något om den här dagen…"
 
-#: lib/tore_web/live/deals_live.ex:253
+#: lib/tore_web/live/deals_live.ex:261
 #, elixir-autogen, elixir-format
 msgid "Link to a store's offers"
 msgstr "Länk till butikens erbjudanden"
@@ -1072,7 +1072,7 @@ msgstr "På"
 msgid "Prep this week"
 msgstr "Förbered veckan"
 
-#: lib/tore_web/live/deals_live.ex:191
+#: lib/tore_web/live/deals_live.ex:199
 #, elixir-autogen, elixir-format
 msgid "Stores"
 msgstr "Butiker"
@@ -2305,9 +2305,9 @@ msgid "Missing: %{things}"
 msgstr "Saknas: %{things}"
 
 #: lib/tore_web/components/before_cooking.ex:201
-#: lib/tore_web/live/deals_live.ex:361
-#: lib/tore_web/live/deals_live.ex:365
-#: lib/tore_web/live/deals_live.ex:368
+#: lib/tore_web/live/deals_live.ex:369
+#: lib/tore_web/live/deals_live.ex:373
+#: lib/tore_web/live/deals_live.ex:376
 #: lib/tore_web/live/home_live.ex:186
 #: lib/tore_web/live/home_live.ex:590
 #: lib/tore_web/live/recipe_live.ex:1135
@@ -2895,7 +2895,7 @@ msgid "The week lands around %{amount} kr"
 msgstr "Veckan landar runt %{amount} kr"
 
 #: lib/tore_web/live/budget_live.ex:787
-#: lib/tore_web/live/deals_live.ex:451
+#: lib/tore_web/live/deals_live.ex:459
 #, elixir-autogen, elixir-format
 msgid "Week %{n} · %{range}"
 msgstr "Vecka %{n} · %{range}"
@@ -3001,22 +3001,22 @@ msgstr "Kvittot har inga rader."
 msgid "Week %{n}"
 msgstr "Vecka %{n}"
 
-#: lib/tore_web/live/deals_live.ex:410
+#: lib/tore_web/live/deals_live.ex:418
 #, elixir-autogen, elixir-format
 msgid "%{n} for %{price}"
 msgstr "%{n} för %{price}"
 
-#: lib/tore_web/live/deals_live.ex:399
+#: lib/tore_web/live/deals_live.ex:407
 #, elixir-autogen, elixir-format
 msgid "Add a link to a store or its offers below, and Tore reads them every morning."
 msgstr "Lägg till länken till en butik eller dess erbjudanden nedan, så läser Tore dem varje morgon."
 
-#: lib/tore_web/live/deals_live.ex:389
+#: lib/tore_web/live/deals_live.ex:397
 #, elixir-autogen, elixir-format
 msgid "No offers in yet"
 msgstr "Inga erbjudanden än"
 
-#: lib/tore_web/live/deals_live.ex:395
+#: lib/tore_web/live/deals_live.ex:403
 #, elixir-autogen, elixir-format
 msgid "Nothing you usually buy is on offer this week"
 msgstr "Inget ni brukar köpa är på erbjudande den här veckan"
@@ -3027,7 +3027,7 @@ msgstr "Inget ni brukar köpa är på erbjudande den här veckan"
 msgid "Offers"
 msgstr "Erbjudanden"
 
-#: lib/tore_web/live/deals_live.ex:387
+#: lib/tore_web/live/deals_live.ex:395
 #, elixir-autogen, elixir-format
 msgid "Offers from the stores you shop at"
 msgstr "Erbjudanden från butikerna ni handlar i"
@@ -3037,12 +3037,12 @@ msgstr "Erbjudanden från butikerna ni handlar i"
 msgid "Other offers"
 msgstr "Övriga erbjudanden"
 
-#: lib/tore_web/live/deals_live.ex:377
+#: lib/tore_web/live/deals_live.ex:385
 #, elixir-autogen, elixir-format
 msgid "Put %{name} on the list"
 msgstr "Lägg %{name} på listan"
 
-#: lib/tore_web/live/deals_live.ex:394
+#: lib/tore_web/live/deals_live.ex:402
 #, elixir-autogen, elixir-format
 msgid "Save around %{amount} kr on things you buy anyway"
 msgstr "Spara runt %{amount} kr på sånt ni ändå köper"
@@ -3052,45 +3052,45 @@ msgstr "Spara runt %{amount} kr på sånt ni ändå köper"
 msgid "Things you usually buy"
 msgstr "Sånt ni brukar köpa"
 
-#: lib/tore_web/live/deals_live.ex:402
+#: lib/tore_web/live/deals_live.ex:410
 #, elixir-autogen, elixir-format
 msgid "Tore reads the stores' offers every morning."
 msgstr "Tore läser butikernas erbjudanden varje morgon."
 
-#: lib/tore_web/live/deals_live.ex:442
-#: lib/tore_web/live/deals_live.ex:445
+#: lib/tore_web/live/deals_live.ex:450
+#: lib/tore_web/live/deals_live.ex:453
 #, elixir-autogen, elixir-format
 msgid "until %{day}"
 msgstr "t.o.m. %{day}"
 
-#: lib/tore_web/live/deals_live.ex:209
+#: lib/tore_web/live/deals_live.ex:217
 #, elixir-autogen, elixir-format
 msgid "%{count} offer"
 msgid_plural "%{count} offers"
 msgstr[0] "%{count} erbjudande"
 msgstr[1] "%{count} erbjudanden"
 
-#: lib/tore_web/live/deals_live.ex:239
+#: lib/tore_web/live/deals_live.ex:247
 #, elixir-autogen, elixir-format
 msgid "Add a store"
 msgstr "Lägg till butik"
 
-#: lib/tore_web/live/deals_live.ex:262
+#: lib/tore_web/live/deals_live.ex:270
 #, elixir-autogen, elixir-format
 msgid "Adding…"
 msgstr "Lägger till…"
 
-#: lib/tore_web/live/deals_live.ex:215
+#: lib/tore_web/live/deals_live.ex:223
 #, elixir-autogen, elixir-format
 msgid "Read offers from %{store}"
 msgstr "Läs erbjudanden från %{store}"
 
-#: lib/tore_web/live/deals_live.ex:225
+#: lib/tore_web/live/deals_live.ex:233
 #, elixir-autogen, elixir-format
 msgid "Remove %{store}"
 msgstr "Ta bort %{store}"
 
-#: lib/tore_web/live/deals_live.ex:193
+#: lib/tore_web/live/deals_live.ex:201
 #, elixir-autogen, elixir-format
 msgid "Tore reads their offers every morning."
 msgstr "Tore läser deras erbjudanden varje morgon."
@@ -3100,7 +3100,7 @@ msgstr "Tore läser deras erbjudanden varje morgon."
 msgid "For this week's meals"
 msgstr "Till veckans måltider"
 
-#: lib/tore_web/live/deals_live.ex:332
+#: lib/tore_web/live/deals_live.ex:340
 #, elixir-autogen, elixir-format
 msgid "for %{meal}"
 msgstr "till %{meal}"
@@ -3287,11 +3287,6 @@ msgstr "Ingen veckobudget från vecka %{week}."
 msgid "Weekly budget %{amount} kr from week %{week}."
 msgstr "Veckobudgeten är %{amount} kr från vecka %{week}."
 
-#: lib/tore_web/live/deals_live.ex:156
-#, elixir-autogen, elixir-format
-msgid "Tore thinks you'll want"
-msgstr "Tore tror att ni vill ha"
-
 #: lib/tore_web/live/capture_live.ex:585
 #, elixir-autogen, elixir-format
 msgid "No chat matches."
@@ -3302,3 +3297,13 @@ msgstr "Ingen chatt passar."
 #, elixir-autogen, elixir-format
 msgid "Search chats"
 msgstr "Sök bland chattar"
+
+#: lib/tore_web/live/deals_live.ex:156
+#, elixir-autogen, elixir-format
+msgid "Might be for you"
+msgstr "Kanske något för er"
+
+#: lib/tore_web/live/deals_live.ex:172
+#, elixir-autogen, elixir-format
+msgid "Not for you"
+msgstr "Inte för er"

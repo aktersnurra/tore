@@ -8,8 +8,8 @@ defmodule Tore.Deals do
 
   @http Application.compile_env(:tore, :http_client)
 
-  # How sure Jev must be that the household wants an offer for it to stand out.
-  @likely 0.5
+  # How sure Jev must be that an offer isn't for the household for it to be folded away.
+  @sure 0.5
 
   @doc """
   Stores offers, each week's as its own row. An offer without an end date is taken to run to
@@ -96,17 +96,18 @@ defmodule Tore.Deals do
         }
 
   @doc """
-  The Erbjudanden page for the week starting `week_start`, as of `today`. Current deals in four
-  groups: those a meal from today on calls for, those on something the household usually buys
-  (`Tore.Basics`), those Jev guessed they'd likely want (`Tore.Deals.Picks`, likeliest first), and
-  the rest. `saving` is what the first two save together, the
+  The Erbjudanden page for the week starting `week_start`, as of `today`. Current deals in groups:
+  those a meal from today on calls for; those on something the household usually buys, a basic
+  (`Tore.Basics`) or so Jev says (`Tore.Deals.Picks`); those Jev thinks they might want, surest
+  first; those it hasn't been asked about or isn't sure of; and those it's sure aren't for them. `saving` is what the first two save together, the
   best deal per ingredient; `stores` the household's stores with their deals counted.
   """
   @spec page(Scope.t(), Date.t(), Date.t()) :: %{
           meals: [entry()],
           usual: [entry()],
-          picked: [entry()],
+          maybe: [entry()],
           others: [entry()],
+          not_for_us: [entry()],
           saving: Decimal.t(),
           stores: [%{store: HouseholdStore.t(), deals: non_neg_integer()}]
         }
@@ -142,22 +143,31 @@ defmodule Tore.Deals do
 
     {for_meals, rest} = Enum.split_with(entries, & &1.meal)
 
-    {usual, rest} =
-      Enum.split_with(rest, &(&1.ingredient && MapSet.member?(basics, &1.ingredient.id)))
+    picks = Tore.Deals.Picks.all(scope)
+    kind = fn entry -> elem(picks[entry.deal.id] || {nil, 0}, 0) end
+    confidence = fn entry -> elem(picks[entry.deal.id] || {nil, 0}, 1) end
 
-    chances = Tore.Deals.Picks.chances(scope)
-    {picked, others} = Enum.split_with(rest, &((chances[&1.deal.id] || 0) >= @likely))
+    {usual, rest} =
+      Enum.split_with(
+        rest,
+        &((&1.ingredient != nil and MapSet.member?(basics, &1.ingredient.id)) or
+            kind.(&1) == :usual)
+      )
+
+    {maybe, rest} = Enum.split_with(rest, &(kind.(&1) == :maybe))
+    {not_for_us, others} = Enum.split_with(rest, &(kind.(&1) == :no and confidence.(&1) >= @sure))
 
     counts = Enum.frequencies_by(deals, & &1.store)
 
     %{
       meals: sorted(for_meals),
       usual: sorted(usual),
-      picked:
-        picked
-        |> Enum.sort_by(&{-chances[&1.deal.id], &1.name})
+      maybe:
+        maybe
+        |> Enum.sort_by(&{-confidence.(&1), &1.name})
         |> Enum.map(&Map.delete(&1, :ingredient)),
       others: sorted(others),
+      not_for_us: sorted(not_for_us),
       saving: best_per_ingredient(for_meals ++ usual),
       stores:
         for(hs <- list_stores(scope), do: %{store: hs, deals: Map.get(counts, hs.store.name, 0)})
@@ -184,7 +194,7 @@ defmodule Tore.Deals do
   defp best_per_ingredient(entries) do
     entries
     |> Enum.filter(& &1.saving)
-    |> Enum.group_by(& &1.ingredient.id, & &1.saving)
+    |> Enum.group_by(&if(&1.ingredient, do: &1.ingredient.id, else: &1.name), & &1.saving)
     |> Enum.map(fn {_id, savings} -> Enum.max(savings, Decimal) end)
     |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
   end

@@ -34,7 +34,8 @@ defmodule Tore.Repo.Migrations.CreateDeals do
     create table(:deal_picks) do
       add :household_id, references(:households, on_delete: :delete_all), null: false
       add :deal_id, references(:deals, on_delete: :delete_all), null: false
-      add :chance, :float, null: false
+      add :kind, :string, null: false
+      add :confidence, :float, null: false
       timestamps(updated_at: false)
     end
 
