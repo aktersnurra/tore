@@ -35,13 +35,14 @@ defmodule Tore.Budget do
         }
 
   @typedoc """
-  A week's plan priced as Tore knew it at a moment: its meals and the basics due, how many dinners
-  are open, a typical dinner (the median of this week's and recent weeks' priced dinners, nil
-  while none has a price), and the open days at it.
+  A week's plan priced as Tore knew it at a moment: its meals and the basics due, what each
+  ingredient on that list costs, how many dinners are open, a typical dinner (the median of this
+  week's and recent weeks' priced dinners, nil while none has a price), and the open days at it.
   """
   @type costs :: %{
           meals: Prices.cost(),
           basics: Prices.cost(),
+          lines: %{integer() => Decimal.t()},
           open_days: 0..7,
           typical: Decimal.t() | nil,
           open_cost: Decimal.t()
@@ -293,9 +294,15 @@ defmodule Tore.Budget do
 
     typical = median(for c <- typical, Decimal.gt?(c.amount, 0), do: c.amount)
 
+    lines =
+      for {recipe, servings} <- pairs.(meals), line <- Prices.lines(recipe, servings) do
+        line
+      end
+
     %{
       meals: Prices.sum(priced.(meals)),
       basics: Prices.cost(basics, prices),
+      lines: line_costs(lines ++ basics, prices),
       open_days: open_days,
       typical: typical,
       open_cost:
@@ -304,6 +311,15 @@ defmodule Tore.Budget do
           else: Decimal.new(0)
         )
     }
+  end
+
+  # What each ingredient on the list costs, its lines together; unpriced lines are left out.
+  defp line_costs(lines, prices) do
+    for line <- lines,
+        {_source, amount} <- [Prices.line_cost(line, Map.get(prices, line.ingredient_id, %{}))],
+        reduce: %{} do
+      acc -> Map.update(acc, line.ingredient_id, amount, &Decimal.add(&1, amount))
+    end
   end
 
   defp past_dinners(scope, week_start, as_of) do

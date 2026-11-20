@@ -14,7 +14,9 @@ defmodule Tore.Budget.Forecast.Facts do
   import Ecto.Query
 
   alias Tore.{Budget, Clock, Planning, Repo, Scope, Streams}
-  alias Tore.Costs.Receipt
+  alias Tore.Costs.{LineItem, Receipt}
+  alias Tore.Prices.Products
+  alias Tore.Recipes.Ingredient
   alias Tore.Planning.State
 
   # Enough finished weeks for the rungs that calibrate on them.
@@ -22,10 +24,14 @@ defmodule Tore.Budget.Forecast.Facts do
 
   defstruct [:week_start, :as_of, :week, :history]
 
-  @typedoc "A finished week: its costs as known at `as_of`, and what was paid towards it by then."
+  @typedoc """
+  A finished week: its costs as known at `as_of`, what was paid towards it by then, and which
+  ingredients its receipts' lines show were bought (nil when they had no lines).
+  """
   @type finished :: %{
           required(:week_start) => Date.t(),
           required(:paid) => Decimal.t(),
+          required(:bought) => MapSet.t(integer()) | nil,
           optional(atom()) => term()
         }
 
@@ -68,13 +74,39 @@ defmodule Tore.Budget.Forecast.Facts do
       select: {r.week_start, sum(r.total_amount)}
     )
     |> Repo.all(Scope.repo_opts(scope))
-    |> Enum.map(fn {week, paid} ->
-      {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week), as_of)
+    |> then(fn weeks ->
+      bought = bought(scope, Enum.map(weeks, &elem(&1, 0)), as_of)
 
-      scope
-      |> Budget.week_costs(plan, week, as_of)
-      |> Map.merge(%{week_start: week, paid: to_decimal(paid)})
+      Enum.map(weeks, fn {week, paid} ->
+        {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week), as_of)
+
+        scope
+        |> Budget.week_costs(plan, week, as_of)
+        |> Map.merge(%{week_start: week, paid: to_decimal(paid), bought: bought[week]})
+      end)
     end)
+  end
+
+  # The ingredients each week's receipts show were bought, by the lines' matches; nil for a week
+  # whose receipts had no lines, which says nothing either way.
+  defp bought(scope, weeks, as_of) do
+    lines =
+      from(l in LineItem,
+        join: r in Receipt,
+        on: r.id == l.receipt_id,
+        where: r.week_start in ^weeks and r.inserted_at <= ^as_of,
+        select: {r.week_start, l.product_name}
+      )
+      |> Repo.all(Scope.repo_opts(scope))
+
+    matches = Products.lookup(scope, Enum.uniq(for {_, name} <- lines, do: name))
+
+    for {week, name} <- lines, reduce: %{} do
+      acc ->
+        id = matches[Ingredient.to_key(name)]
+        acc = Map.put_new(acc, week, MapSet.new())
+        if id, do: Map.update!(acc, week, &MapSet.put(&1, id)), else: acc
+    end
   end
 
   defp to_decimal(%Decimal{} = d), do: d

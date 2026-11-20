@@ -5,7 +5,7 @@ defmodule Tore.Budget.ForecastTest do
 
   alias Tore.{Budget, Planning, Recipes, Streams}
   alias Tore.Budget.Forecast
-  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, ScaleOffset}
+  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, PerLine, ScaleOffset}
 
   import Tore.BudgetFixtures, only: [one_dinner: 3, scaled_weeks: 3]
   alias Tore.EventStore.Event
@@ -327,6 +327,52 @@ defmodule Tore.Budget.ForecastTest do
       # Scale and offset weighs the old, cheaper weeks as much as the new ones.
       assert Decimal.lt?(off.(drift), off.(ScaleOffset.predict(facts)))
       assert Decimal.lt?(drift.low, truth) and Decimal.gt?(drift.high, truth)
+    end
+  end
+
+  describe "per line" do
+    # Monday's stew and Tuesday's saffron bun for `buns` (4 is 50 kr), eating out the rest.
+    defp stew_and_buns(week, stew, buns, servings) do
+      plan = Streams.plan(home_scope(), week)
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan, "mon_dinner", stew.id, 4)
+      {:ok, _} = Planning.assign_recipe(home_scope(), plan, "tue_dinner", buns.id, servings)
+
+      for day <- ~w(wed thu fri sat sun) do
+        {:ok, _} = Planning.eat_out(home_scope(), plan, day <> "_dinner", %{})
+      end
+    end
+
+    test "with nothing to learn from, says what open days say, with a range around it" do
+      one_dinner(home_scope(), @week, recipe("Gryta", "100"))
+      facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+      %{expected: expected, low: low, high: high} = PerLine.predict(facts)
+
+      assert Decimal.eq?(expected, OpenDays.predict(facts).expected)
+      assert Decimal.lt?(low, expected) and Decimal.gt?(high, expected)
+    end
+
+    test "a line the household never buys counts for little" do
+      stew = recipe("Gryta", "100")
+      buns = recipe("Saffran", "50")
+      stew_i = Repo.get_by!(Ingredient, [name: "Gryta i"], opts())
+      Tore.Prices.Products.put(home_scope(), "Gryta i", stew_i.id)
+
+      # Four weeks that bought the stew and 50 kr of other things, never the saffron.
+      for n <- 1..4, week = Date.add(@week, -7 * n) do
+        stew_and_buns(week, stew, buns, 4)
+
+        receipt(week, "150", [
+          %{product_name: "Gryta i", quantity: d(1), unit: "st", total_price: d(100)}
+        ])
+      end
+
+      # Twice the buns this week: open days counts 200 kr, but the shop will be 150 kr again.
+      stew_and_buns(@week, stew, buns, 8)
+      facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+      off = fn %{expected: e} -> e |> Decimal.sub(150) |> Decimal.abs() end
+
+      assert Decimal.eq?(OpenDays.predict(facts).expected, 200)
+      assert Decimal.lt?(off.(PerLine.predict(facts)), off.(OpenDays.predict(facts)))
     end
   end
 

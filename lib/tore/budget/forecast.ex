@@ -9,10 +9,10 @@ defmodule Tore.Budget.Forecast do
   import Ecto.Query
 
   alias Tore.{Clock, Repo, Scope}
-  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, Rung, ScaleOffset}
+  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, PerLine, Rung, ScaleOffset}
   alias Tore.Costs.Receipt
 
-  @rungs [Baseline, OpenDays, ScaleOffset, Drift]
+  @rungs [Baseline, OpenDays, ScaleOffset, Drift, PerLine]
   # Live without a gate: it is what the budget has always gone by.
   @floor OpenDays
 
