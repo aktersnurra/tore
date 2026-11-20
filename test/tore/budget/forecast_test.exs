@@ -5,7 +5,7 @@ defmodule Tore.Budget.ForecastTest do
 
   alias Tore.{Budget, Planning, Recipes, Streams}
   alias Tore.Budget.Forecast
-  alias Tore.Budget.Forecast.{Baseline, Facts, OpenDays, ScaleOffset}
+  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, ScaleOffset}
 
   import Tore.BudgetFixtures, only: [one_dinner: 3, scaled_weeks: 3]
   alias Tore.EventStore.Event
@@ -302,6 +302,34 @@ defmodule Tore.Budget.ForecastTest do
     end
   end
 
+  describe "drift" do
+    test "with nothing to learn from, says what open days say, with a range around it" do
+      one_dinner(home_scope(), @week, recipe("Gryta", "100"))
+      facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+      %{expected: expected, low: low, high: high} = Drift.predict(facts)
+
+      assert Decimal.eq?(expected, OpenDays.predict(facts).expected)
+      assert Decimal.lt?(low, expected) and Decimal.gt?(high, expected)
+    end
+
+    test "follows a shop that grows dearer week by week" do
+      prices = [300, 200, 350, 250, 400, 150, 300, 250]
+      # 40 kr more each week, newest first.
+      scaled_weeks(home_scope(), @week, Enum.zip(prices, [280, 240, 200, 160, 120, 80, 40, 0]))
+      one_dinner(home_scope(), @week, recipe("Fest", "300"))
+
+      facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+      # 300 kr of dinner, half as much again, 100 kr and this week's 320 kr more.
+      truth = Decimal.new(870)
+      off = fn %{expected: e} -> e |> Decimal.sub(truth) |> Decimal.abs() end
+      drift = Drift.predict(facts)
+
+      # Scale and offset weighs the old, cheaper weeks as much as the new ones.
+      assert Decimal.lt?(off.(drift), off.(ScaleOffset.predict(facts)))
+      assert Decimal.lt?(drift.low, truth) and Decimal.gt?(drift.high, truth)
+    end
+  end
+
   describe "the gate" do
     test "a rung goes live when it beats the one below and its range holds about 80 %" do
       below = %{weeks: 10, mae: Decimal.new(60), coverage: nil}
@@ -322,14 +350,13 @@ defmodule Tore.Budget.ForecastTest do
       assert Forecast.live(home_scope(), today: @today) == OpenDays
     end
 
-    test "scale and offset goes live once it has beaten open days for long enough" do
+    test "the ladder is climbed while each rung beats the one below for long enough" do
       scaled_weeks(home_scope(), @week, Tore.BudgetFixtures.noisy_weeks())
       scores = Forecast.backtest(home_scope(), today: @today, weeks: 12)
 
-      assert %{weeks: 12, coverage: coverage} = scores[ScaleOffset]
-      assert Decimal.lt?(scores[ScaleOffset].mae, scores[OpenDays].mae)
-      assert coverage >= 0.7 and coverage <= 0.9
-      assert Forecast.live(home_scope(), today: @today) == ScaleOffset
+      assert Forecast.beats?(scores[ScaleOffset], scores[OpenDays])
+      assert Forecast.beats?(scores[Drift], scores[ScaleOffset])
+      assert Forecast.live(home_scope(), today: @today) == Drift
     end
   end
 

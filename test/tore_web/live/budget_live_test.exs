@@ -321,7 +321,7 @@ defmodule ToreWeb.BudgetLiveTest do
       assert view |> element(~s([data-role="lands"])) |> render() =~ "Veckan landar runt"
     end
 
-    test "once scale and offset has earned it, the week lands in a range", %{conn: conn} do
+    test "once a rung with a range has earned it, the week lands in that range", %{conn: conn} do
       Tore.BudgetFixtures.scaled_weeks(
         home_scope(),
         week_start(),
@@ -336,7 +336,7 @@ defmodule ToreWeb.BudgetLiveTest do
           home_scope(),
           week_start(),
           NaiveDateTime.utc_now(),
-          Tore.Budget.Forecast.ScaleOffset
+          Tore.Budget.Forecast.live(home_scope())
         )
 
       floor = low |> Decimal.div(10) |> Decimal.round(0, :floor) |> Decimal.mult(10)

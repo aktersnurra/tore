@@ -912,7 +912,8 @@ It absorbs basics, pack sizes and what's already at home.
 stood. Basics, the model's price estimates and product matches keep no history and are read as they stand.
 `Baseline` counts no open days; `OpenDays` (the calibration above) is what `Budget.status` goes by everywhere;
 `ScaleOffset` fits paid ≈ a·meals + b + c·open days' cost over the last eight finished weeks, shrunk toward
-`OpenDays`, and gives an 80 % range. `backtest/2` predicts each finished week from its Monday and reports each rung's
+`OpenDays`, and gives an 80 % range; `Drift` walks the weeks oldest first with a Kalman filter on (a, b), so recent
+weeks count most, its range from the filter's variance. `backtest/2` predicts each finished week from its Monday and reports each rung's
 mean absolute error, and how often its range held. `live/2` climbs from `OpenDays` while each next rung beats the one
 below over the latest 12 finished weeks (`beats?/2`: at least 8 weeks, a smaller error, a range that held 70–90 % of
 the time). Only the Veckobudget page asks, in the background as it opens, since the backtest takes about half a
