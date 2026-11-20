@@ -131,7 +131,7 @@ defmodule ToreWeb.BudgetLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
-      <.page max_width={:lg}>
+      <.page max_width={:xl}>
         <.top_bar title={gettext("Weekly budget")} />
 
         <header class="pt-2">
@@ -234,43 +234,46 @@ defmodule ToreWeb.BudgetLive do
           </.kpi>
         </div>
 
-        <%!-- On a laptop the chart sits beside where the money went, at about a phone's scale. --%>
-        <div class="mt-9 grid gap-9 lg:grid-cols-2 lg:gap-x-12">
-          <section>
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 class="t-head">{gettext("Eight weeks")}</h2>
-              <div class="key" aria-hidden="true">
-                <span><i class="past"></i>{gettext("Earlier")}</span>
-                <span><i class="now"></i>{gettext("This week")}</span>
-                <span><i class="exp"></i>{gettext("Expected")}</span>
+        <%!-- On a laptop the chart and where the money went share a column beside the receipts;
+             on a wide screen each has its own, so the chart stays near a phone's scale. --%>
+        <div class="mt-9 grid gap-9 lg:grid-cols-2 lg:items-start lg:gap-x-14 xl:grid-cols-3 xl:gap-x-12">
+          <div class="grid gap-9 xl:contents">
+            <section>
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="t-head">{gettext("Eight weeks")}</h2>
+                <div class="key" aria-hidden="true">
+                  <span><i class="past"></i>{gettext("Earlier")}</span>
+                  <span><i class="now"></i>{gettext("This week")}</span>
+                  <span><i class="exp"></i>{gettext("Expected")}</span>
+                </div>
               </div>
-            </div>
-            <.chart page={@page} />
-          </section>
+              <.chart page={@page} />
+            </section>
 
-          <section class="sections">
-            <h2 class="t-head">{gettext("Where the money went")}</h2>
-            <p
-              :if={@page.sections != []}
-              class="mt-0.5 mb-2 text-[color:var(--muted)]"
-              style="font-size: 13px;"
-            >
-              {sections_line(@page)}
-            </p>
-            <p
-              :if={@page.sections == []}
-              class="mt-1.5 text-[color:var(--muted)]"
-              style="font-size: 15px;"
-            >
-              {gettext("No receipt lines to split up in these weeks yet.")}
-            </p>
-            <.section_row
-              :for={section <- @page.sections}
-              section={section}
-              total={sections_total(@page.sections)}
-              top={hd(@page.sections).total}
-            />
-          </section>
+            <section class="sections">
+              <h2 class="t-head">{gettext("Where the money went")}</h2>
+              <p
+                :if={@page.sections != []}
+                class="mt-0.5 mb-2 text-[color:var(--muted)]"
+                style="font-size: 13px;"
+              >
+                {sections_line(@page)}
+              </p>
+              <p
+                :if={@page.sections == []}
+                class="mt-1.5 text-[color:var(--muted)]"
+                style="font-size: 15px;"
+              >
+                {gettext("No receipt lines to split up in these weeks yet.")}
+              </p>
+              <.section_row
+                :for={section <- @page.sections}
+                section={section}
+                total={sections_total(@page.sections)}
+                top={hd(@page.sections).total}
+              />
+            </section>
+          </div>
 
           <section :if={@page.receipts != []}>
             <h2 class="t-head">{gettext("Receipts")}</h2>

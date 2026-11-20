@@ -413,7 +413,7 @@ defmodule ToreWeb.PlannerLive do
       socket={@socket}
       current_user={@current_user}
     >
-      <.page max_width={:md}>
+      <.page max_width={:lg}>
         <.top_bar>
           <:actions>
             <.page_menu id="plan-menu">

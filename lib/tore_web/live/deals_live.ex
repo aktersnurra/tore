@@ -118,7 +118,7 @@ defmodule ToreWeb.DealsLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
-      <.page max_width={:lg}>
+      <.page max_width={:xl}>
         <.top_bar title={gettext("Offers")} />
 
         <header class="pt-2">

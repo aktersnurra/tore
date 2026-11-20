@@ -317,7 +317,7 @@ defmodule ToreWeb.ShopLive do
       socket={@socket}
       current_user={@current_user}
     >
-      <.page max_width={:md}>
+      <.page max_width={:xl}>
         <.top_bar>
           <:actions :if={@total > 0}>
             <.page_menu id="shop-menu">
@@ -336,118 +336,137 @@ defmodule ToreWeb.ShopLive do
           </p>
         </header>
 
-        <%!-- A receipt being read shows by its button instead. --%>
-        <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={!@scanning && @pi_working} />
+        <%!-- On a laptop the list is one column and what was spent the other. --%>
+        <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:items-start lg:gap-x-16">
+          <div class="min-w-0">
+            <%!-- A receipt being read shows by its button instead. --%>
+            <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={!@scanning && @pi_working} />
 
-        <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
+            <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
              (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end. --%>
-        <div class="sticky top-0 z-10 -mx-4 mt-3 bg-[var(--bg)] px-4">
-          <form
-            id="add-item"
-            phx-submit="add_item"
-            class="flex items-center gap-2 border-b border-[color:var(--hairline)]"
-          >
-            <button
-              type="submit"
-              aria-label={gettext("Add")}
-              class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
-            >
-              <.icon name="ph-plus" class="size-5" />
-            </button>
-            <input
-              type="text"
-              name="name"
-              placeholder={gettext("Add, e.g. 2 l milk")}
-              aria-label={gettext("Add to the list")}
-              autocomplete="off"
-              required
-              class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-              style="font-size: 16px;"
-            />
-            <button
-              type="button"
-              phx-click="open_scanner"
-              aria-label={gettext("Scan what you bought")}
-              class="icon-btn press -mr-2 shrink-0"
-            >
-              <.icon name="ph-barcode" class="size-5" />
-            </button>
-          </form>
-        </div>
+            <div class="sticky top-0 z-10 -mx-4 mt-3 bg-[var(--bg)] px-4">
+              <form
+                id="add-item"
+                phx-submit="add_item"
+                class="flex items-center gap-2 border-b border-[color:var(--hairline)]"
+              >
+                <button
+                  type="submit"
+                  aria-label={gettext("Add")}
+                  class="press -ml-1 flex size-8 shrink-0 items-center justify-center text-[color:var(--muted)]"
+                >
+                  <.icon name="ph-plus" class="size-5" />
+                </button>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder={gettext("Add, e.g. 2 l milk")}
+                  aria-label={gettext("Add to the list")}
+                  autocomplete="off"
+                  required
+                  class="h-12 min-w-0 flex-1 border-0 bg-transparent text-[var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+                  style="font-size: 16px;"
+                />
+                <button
+                  type="button"
+                  phx-click="open_scanner"
+                  aria-label={gettext("Scan what you bought")}
+                  class="icon-btn press -mr-2 shrink-0"
+                >
+                  <.icon name="ph-barcode" class="size-5" />
+                </button>
+              </form>
+            </div>
 
-        <div
-          :if={@export_text}
-          class="rise-in mt-4 rounded-[var(--r-xl)] bg-[var(--surface)] p-4"
-        >
-          <div class="mb-2 flex items-center justify-between">
-            <span class="section-label">{gettext("The list as text")}</span>
-            <.icon_button icon="ph-x" label={gettext("Close")} phx-click="clear_export" />
+            <div
+              :if={@export_text}
+              class="rise-in mt-4 rounded-[var(--r-xl)] bg-[var(--surface)] p-4"
+            >
+              <div class="mb-2 flex items-center justify-between">
+                <span class="section-label">{gettext("The list as text")}</span>
+                <.icon_button icon="ph-x" label={gettext("Close")} phx-click="clear_export" />
+              </div>
+              <textarea
+                readonly
+                aria-label={gettext("The list as text")}
+                class="w-full resize-none bg-transparent text-[var(--text)] focus:outline-none"
+                style="font-size: var(--t-meta);"
+                rows="6"
+              ><%= @export_text %></textarea>
+            </div>
+
+            <div :if={@total == 0} class="pt-8 pb-2">
+              <p class="t-head">{gettext("Nothing to buy")}</p>
+              <p
+                :if={@dinners == %{}}
+                class="mt-1.5 text-[color:var(--muted)]"
+                style="font-size: 15px;"
+              >
+                {gettext("Add what you need above, or plan some dinners and the list makes itself.")}
+              </p>
+              <p
+                :if={@dinners != %{}}
+                class="mt-1.5 text-[color:var(--muted)]"
+                style="font-size: 15px;"
+              >
+                {gettext("The week's dinners are planned. The list leaves out what's at home.")}
+              </p>
+              <button
+                :if={@dinners != %{}}
+                type="button"
+                phx-click="make_list"
+                disabled={@making_list}
+                data-role="make-list"
+                class="pill pill-lamp press mt-5"
+              >
+                <.icon
+                  name={if @making_list, do: "ph-arrows-clockwise", else: "ph-list-bullets"}
+                  class={@making_list && "motion-safe:animate-spin"}
+                />
+                {if @making_list, do: gettext("Making the list…"), else: gettext("Make the list")}
+              </button>
+            </div>
+
+            <%!-- The store's sections, each a tinted tag that folds its rows away --%>
+            <section :for={{section, section_items} <- @groups} class="mt-4">
+              <.group_head
+                id={"items-#{section}"}
+                label={ToreWeb.Look.section_label(section)}
+                tint={ToreWeb.Look.section_tint(section)}
+                count={length(section_items)}
+              />
+              <ul id={"items-#{section}"} class="pl-6" phx-hook=".Tick">
+                <.item_row
+                  :for={item <- section_items}
+                  item={item}
+                  dinner={dinner_line(@dinners, item)}
+                />
+              </ul>
+            </section>
+
+            <%!-- The basket, folded shut at the bottom --%>
+            <section :if={@checked != []} class="mt-4">
+              <.group_head
+                id="items-basket"
+                label={gettext("In the basket")}
+                tint="grey"
+                count={length(@checked)}
+                open={false}
+              />
+              <ul id="items-basket" class="hidden pl-6" phx-hook=".Tick">
+                <.item_row :for={item <- @checked} item={item} />
+              </ul>
+            </section>
           </div>
-          <textarea
-            readonly
-            aria-label={gettext("The list as text")}
-            class="w-full resize-none bg-transparent text-[var(--text)] focus:outline-none"
-            style="font-size: var(--t-meta);"
-            rows="6"
-          ><%= @export_text %></textarea>
-        </div>
 
-        <div :if={@total == 0} class="pt-8 pb-2">
-          <p class="t-head">{gettext("Nothing to buy")}</p>
-          <p :if={@dinners == %{}} class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
-            {gettext("Add what you need above, or plan some dinners and the list makes itself.")}
-          </p>
-          <p :if={@dinners != %{}} class="mt-1.5 text-[color:var(--muted)]" style="font-size: 15px;">
-            {gettext("The week's dinners are planned. The list leaves out what's at home.")}
-          </p>
-          <button
-            :if={@dinners != %{}}
-            type="button"
-            phx-click="make_list"
-            disabled={@making_list}
-            data-role="make-list"
-            class="pill pill-lamp press mt-5"
-          >
-            <.icon
-              name={if @making_list, do: "ph-arrows-clockwise", else: "ph-list-bullets"}
-              class={@making_list && "motion-safe:animate-spin"}
+          <div class="min-w-0 lg:sticky lg:top-4 lg:[&>section]:mt-3">
+            <ToreWeb.Spending.spending
+              spending={@spending}
+              scanning={@scanning}
+              upload={@uploads.receipt_photo}
             />
-            {if @making_list, do: gettext("Making the list…"), else: gettext("Make the list")}
-          </button>
+          </div>
         </div>
-
-        <%!-- The store's sections, each a tinted tag that folds its rows away --%>
-        <section :for={{section, section_items} <- @groups} class="mt-4">
-          <.group_head
-            id={"items-#{section}"}
-            label={ToreWeb.Look.section_label(section)}
-            tint={ToreWeb.Look.section_tint(section)}
-            count={length(section_items)}
-          />
-          <ul id={"items-#{section}"} class="pl-6" phx-hook=".Tick">
-            <.item_row :for={item <- section_items} item={item} dinner={dinner_line(@dinners, item)} />
-          </ul>
-        </section>
-
-        <%!-- The basket, folded shut at the bottom --%>
-        <section :if={@checked != []} class="mt-4">
-          <.group_head
-            id="items-basket"
-            label={gettext("In the basket")}
-            tint="grey"
-            count={length(@checked)}
-            open={false}
-          />
-          <ul id="items-basket" class="hidden pl-6" phx-hook=".Tick">
-            <.item_row :for={item <- @checked} item={item} />
-          </ul>
-        </section>
-
-        <ToreWeb.Spending.spending
-          spending={@spending}
-          scanning={@scanning}
-          upload={@uploads.receipt_photo}
-        />
       </.page>
 
       <.scanner :if={@scanner} scanner={@scanner} />

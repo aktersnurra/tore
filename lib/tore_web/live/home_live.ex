@@ -37,256 +37,268 @@ defmodule ToreWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
-      <.page max_width={:sm}>
-        <div class="relative z-10 h-0">
-          <.top_bar on_photo={@dish != nil} class="absolute inset-x-0 -top-2">
-            <:actions :if={@dish}>
-              <.page_menu id="today-menu" on_photo>
-                <.menu_item
-                  menu="today-menu"
-                  icon="ph-book-open"
+      <.page max_width={:xl}>
+        <%!-- A phone's column, until a laptop has room for the dish beside its details. --%>
+        <div class="mx-auto w-full max-w-md lg:max-w-none">
+          <div class="relative z-10 h-0">
+            <.top_bar on_photo={@dish != nil} class="absolute inset-x-0 -top-2">
+              <:actions :if={@dish}>
+                <.page_menu id="today-menu" on_photo>
+                  <.menu_item
+                    menu="today-menu"
+                    icon="ph-book-open"
+                    navigate={~p"/recipes?#{[id: @dish.id]}"}
+                  >
+                    {gettext("Open the recipe")}
+                  </.menu_item>
+                  <.menu_item
+                    :if={@day == :tonight}
+                    menu="today-menu"
+                    icon="ph-chat-circle"
+                    event="open_tonight_sheet"
+                  >
+                    {gettext("Ask about tonight")}
+                  </.menu_item>
+                  <.menu_item menu="today-menu" icon="ph-x-circle" event="skip_tonight">
+                    {if @day == :tonight,
+                      do: gettext("No dinner tonight"),
+                      else: gettext("No dinner tomorrow")}
+                  </.menu_item>
+                </.page_menu>
+              </:actions>
+            </.top_bar>
+          </div>
+
+          <%!-- Tonight: the dish is the screen --%>
+          <section
+            :if={@dish}
+            id="tonight-card"
+            phx-hook="LongPress"
+            data-long-press-event="open_tonight_sheet"
+            class="lg:grid lg:grid-cols-2 lg:items-start lg:gap-14 lg:pt-14"
+          >
+            <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
+               the dish's name in white on its darkened foot. On a laptop it's the whole picture
+               on the right, as on a recipe page, and the name moves to the left. --%>
+            <div class="lg:sticky lg:top-6 lg:order-2">
+              <div class="relative -mx-4 -mt-4 h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)] lg:aspect-[5/4] lg:h-auto lg:max-h-none">
+                <img
+                  :if={photo?(@dish)}
+                  src={~p"/images/recipes/#{@dish.id}"}
+                  alt=""
+                  class="absolute inset-0 size-full object-cover"
+                  style={"view-transition-name: dish-#{@dish.id}"}
+                />
+                <.blank_cover :if={!photo?(@dish)} dish={@dish} icon_class="size-20" />
+                <div :if={photo?(@dish)} class="photo-shade absolute inset-0" aria-hidden="true">
+                </div>
+                <h1
+                  class={[
+                    "reveal t-display absolute inset-x-0 bottom-0 px-4 pb-4 md:px-5 lg:hidden",
+                    photo?(@dish) && "on-photo-text"
+                  ]}
+                  style="--i: 1"
+                >
+                  {@dish.title}
+                </h1>
+              </div>
+            </div>
+
+            <div class="min-w-0">
+              <h1 class="reveal t-hero hidden lg:block" style="--i: 1">{@dish.title}</h1>
+              <.cooked :if={@cooked} title={@cooked} class="mt-4" />
+
+              <dl class="props reveal mt-4" style="--i: 2">
+                <div>
+                  <dt><.icon name="ph-calendar-blank" /> {gettext("Day")}</dt>
+                  <dd class="flex items-center gap-2">
+                    <span :if={@day == :tonight} class="tag tag-red">{gettext("Tonight")}</span>
+                    <span :if={@day == :tomorrow} class="tag tag-blue">{gettext("Tomorrow")}</span>
+                    <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@date)}</span>
+                  </dd>
+                </div>
+                <div :if={@lunch} data-role="lunch">
+                  <dt><.icon name="ph-bowl-food" /> {gettext("Lunch")}</dt>
+                  <dd>
+                    <.link navigate={~p"/recipes?#{[id: @lunch.id]}"} class="press hover:underline">
+                      {@lunch.title}
+                    </.link>
+                  </dd>
+                </div>
+                <div>
+                  <dt><.icon name="ph-tag" /> {gettext("Collection")}</dt>
+                  <dd>
+                    <span class={["tag", "tag-#{ToreWeb.Look.tint(@dish.recipe_type)}"]}>
+                      <.icon name={ToreWeb.Look.collection_icon(@dish.recipe_type)} />
+                      {collection_label(@dish.recipe_type)}
+                    </span>
+                  </dd>
+                </div>
+                <div :if={minutes(@dish) > 0}>
+                  <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
+                  <dd class="num">
+                    {gettext("%{minutes} min", minutes: minutes(@dish))}
+                    <span :if={@day == :tonight} class="text-[color:var(--muted)]">
+                      · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
+                    </span>
+                  </dd>
+                </div>
+                <div :if={@servings}>
+                  <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
+                  <dd class="num">{@servings}</dd>
+                </div>
+                <div :if={@dish.recipe_ingredients != []} data-role="at-home">
+                  <dt>
+                    <.link
+                      navigate={~p"/pantry"}
+                      data-role="to-pantry"
+                      class="press flex items-center gap-2 hover:underline"
+                    >
+                      <.icon name="ph-house-simple" /> {gettext("At home")}
+                    </.link>
+                  </dt>
+                  <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
+                    {gettext("All of it")}
+                  </dd>
+                  <dd :if={@home.missing != []} class="flex flex-wrap items-center gap-1.5 py-1.5">
+                    <span class="sr-only">
+                      {gettext("Missing: %{things}", things: Enum.join(@home.missing, ", "))}
+                    </span>
+                    <span :for={thing <- @home.missing} class="tag tag-red" aria-hidden="true">
+                      {thing}
+                    </span>
+                    <button
+                      :if={!@home_added}
+                      type="button"
+                      phx-click="add_missing"
+                      class="press text-[color:var(--muted)] underline decoration-[color:var(--subtle)] underline-offset-4 hover:text-[color:var(--text)]"
+                      style="font-size: 14px;"
+                    >
+                      {gettext("Put on the list")}
+                    </button>
+                    <.link
+                      :if={@home_added}
+                      id="home-added"
+                      navigate={~p"/shop"}
+                      class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
+                      style="font-size: 14px;"
+                    >
+                      <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
+                    </.link>
+                  </dd>
+                </div>
+              </dl>
+
+              <div class="reveal mt-5 flex gap-2" style="--i: 3">
+                <.link
+                  :if={@day == :tomorrow}
                   navigate={~p"/recipes?#{[id: @dish.id]}"}
+                  class="pill press"
+                  data-role="open-recipe"
                 >
-                  {gettext("Open the recipe")}
-                </.menu_item>
-                <.menu_item
-                  :if={@day == :tonight}
-                  menu="today-menu"
-                  icon="ph-chat-circle"
-                  event="open_tonight_sheet"
-                >
-                  {gettext("Ask about tonight")}
-                </.menu_item>
-                <.menu_item menu="today-menu" icon="ph-x-circle" event="skip_tonight">
-                  {if @day == :tonight,
-                    do: gettext("No dinner tonight"),
-                    else: gettext("No dinner tomorrow")}
-                </.menu_item>
-              </.page_menu>
-            </:actions>
-          </.top_bar>
-        </div>
-
-        <%!-- Tonight: the dish is the screen --%>
-        <section
-          :if={@dish}
-          id="tonight-card"
-          phx-hook="LongPress"
-          data-long-press-event="open_tonight_sheet"
-        >
-          <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
-               the dish's name in white on its darkened foot --%>
-          <div class="relative -mx-4 -mt-4 h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden md:mx-0 md:mt-0 md:rounded-[var(--r-xl)]">
-            <img
-              :if={photo?(@dish)}
-              src={~p"/images/recipes/#{@dish.id}"}
-              alt=""
-              class="absolute inset-0 size-full object-cover"
-              style={"view-transition-name: dish-#{@dish.id}"}
-            />
-            <.blank_cover :if={!photo?(@dish)} dish={@dish} icon_class="size-20" />
-            <div :if={photo?(@dish)} class="photo-shade absolute inset-0" aria-hidden="true"></div>
-            <h1
-              class={[
-                "reveal t-display absolute inset-x-0 bottom-0 px-4 pb-4 md:px-5",
-                photo?(@dish) && "on-photo-text"
-              ]}
-              style="--i: 1"
-            >
-              {@dish.title}
-            </h1>
-          </div>
-          <.cooked :if={@cooked} title={@cooked} class="mt-4" />
-
-          <dl class="props reveal mt-4" style="--i: 2">
-            <div>
-              <dt><.icon name="ph-calendar-blank" /> {gettext("Day")}</dt>
-              <dd class="flex items-center gap-2">
-                <span :if={@day == :tonight} class="tag tag-red">{gettext("Tonight")}</span>
-                <span :if={@day == :tomorrow} class="tag tag-blue">{gettext("Tomorrow")}</span>
-                <span class="num text-[color:var(--muted)]">{ToreWeb.Dates.long(@date)}</span>
-              </dd>
-            </div>
-            <div :if={@lunch} data-role="lunch">
-              <dt><.icon name="ph-bowl-food" /> {gettext("Lunch")}</dt>
-              <dd>
-                <.link navigate={~p"/recipes?#{[id: @lunch.id]}"} class="press hover:underline">
-                  {@lunch.title}
+                  <.icon name="ph-book-open" /> {gettext("Open the recipe")}
                 </.link>
-              </dd>
-            </div>
-            <div>
-              <dt><.icon name="ph-tag" /> {gettext("Collection")}</dt>
-              <dd>
-                <span class={["tag", "tag-#{ToreWeb.Look.tint(@dish.recipe_type)}"]}>
-                  <.icon name={ToreWeb.Look.collection_icon(@dish.recipe_type)} />
-                  {collection_label(@dish.recipe_type)}
-                </span>
-              </dd>
-            </div>
-            <div :if={minutes(@dish) > 0}>
-              <dt><.icon name="ph-clock" /> {gettext("Time")}</dt>
-              <dd class="num">
-                {gettext("%{minutes} min", minutes: minutes(@dish))}
-                <span :if={@day == :tonight} class="text-[color:var(--muted)]">
-                  · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
-                </span>
-              </dd>
-            </div>
-            <div :if={@servings}>
-              <dt><.icon name="ph-users" /> {gettext("Servings")}</dt>
-              <dd class="num">{@servings}</dd>
-            </div>
-            <div :if={@dish.recipe_ingredients != []} data-role="at-home">
-              <dt>
                 <.link
-                  navigate={~p"/pantry"}
-                  data-role="to-pantry"
-                  class="press flex items-center gap-2 hover:underline"
+                  :if={@day == :tonight and @home.missing == []}
+                  navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
+                  class="pill pill-lamp press"
+                  data-role="start-cooking"
                 >
-                  <.icon name="ph-house-simple" /> {gettext("At home")}
+                  <.icon name="ph-fire-fill" /> {gettext("Cook now")}
                 </.link>
-              </dt>
-              <dd :if={@home.missing == []} class="font-semibold text-[color:var(--done)]">
-                {gettext("All of it")}
-              </dd>
-              <dd :if={@home.missing != []} class="flex flex-wrap items-center gap-1.5 py-1.5">
-                <span class="sr-only">
-                  {gettext("Missing: %{things}", things: Enum.join(@home.missing, ", "))}
-                </span>
-                <span :for={thing <- @home.missing} class="tag tag-red" aria-hidden="true">
-                  {thing}
-                </span>
                 <button
-                  :if={!@home_added}
+                  :if={@day == :tonight and @home.missing != []}
                   type="button"
-                  phx-click="add_missing"
-                  class="press text-[color:var(--muted)] underline decoration-[color:var(--subtle)] underline-offset-4 hover:text-[color:var(--text)]"
-                  style="font-size: 14px;"
+                  phx-click="before_cooking"
+                  class="pill pill-lamp press"
+                  data-role="start-cooking"
                 >
-                  {gettext("Put on the list")}
+                  <.icon name="ph-fire-fill" /> {gettext("Cook now")}
                 </button>
-                <.link
-                  :if={@home_added}
-                  id="home-added"
-                  navigate={~p"/shop"}
-                  class="settle inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
-                  style="font-size: 14px;"
-                >
-                  <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
-                </.link>
-              </dd>
-            </div>
-          </dl>
+                <button type="button" phx-click="something_else" class="pill press">
+                  <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
+                </button>
+              </div>
 
-          <div class="reveal mt-5 flex gap-2" style="--i: 3">
-            <.link
-              :if={@day == :tomorrow}
-              navigate={~p"/recipes?#{[id: @dish.id]}"}
-              class="pill press"
-              data-role="open-recipe"
-            >
-              <.icon name="ph-book-open" /> {gettext("Open the recipe")}
-            </.link>
-            <.link
-              :if={@day == :tonight and @home.missing == []}
-              navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
-              class="pill pill-lamp press"
-              data-role="start-cooking"
-            >
-              <.icon name="ph-fire-fill" /> {gettext("Cook now")}
-            </.link>
-            <button
-              :if={@day == :tonight and @home.missing != []}
-              type="button"
-              phx-click="before_cooking"
-              class="pill pill-lamp press"
-              data-role="start-cooking"
-            >
-              <.icon name="ph-fire-fill" /> {gettext("Cook now")}
-            </button>
-            <button type="button" phx-click="something_else" class="pill press">
-              <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
-            </button>
-          </div>
+              <.note :if={@note} note={@note} added={@note_added} class="mt-5" />
 
-          <.note :if={@note} note={@note} added={@note_added} class="mt-5" />
-
-          <p
-            :if={@changed}
-            id="tonight-changed"
-            class="settle mt-4 flex items-center gap-3 text-[color:var(--muted)]"
-            style="font-size: 15px;"
-          >
-            <span :if={@changed.from}>{gettext("Instead of %{dish}.", dish: @changed.from)}</span>
-            <button
-              type="button"
-              phx-click="undo_tonight"
-              class="press font-semibold text-[color:var(--accent-ink)]"
-            >
-              {gettext("Undo")}
-            </button>
-          </p>
-
-          <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
-
-          <section :if={@dish.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
-            <h2 class="t-head mb-1">{gettext("Ingredients")}</h2>
-            <ul class="menu-lines">
-              <li
-                :for={ri <- @dish.recipe_ingredients}
-                class="flex items-baseline justify-between gap-4 py-3"
+              <p
+                :if={@changed}
+                id="tonight-changed"
+                class="settle mt-4 flex items-center gap-3 text-[color:var(--muted)]"
+                style="font-size: 15px;"
               >
-                <span class="text-[color:var(--text)]" style="font-size: 16px;">
-                  {ri.ingredient.name}
-                </span>
-                <span class="num shrink-0 text-[color:var(--muted)]" style="font-size: 15px;">
-                  {amount(ri, @dish.base_servings, @servings)}
-                </span>
-              </li>
-            </ul>
-          </section>
-        </section>
+                <span :if={@changed.from}>{gettext("Instead of %{dish}.", dish: @changed.from)}</span>
+                <button
+                  type="button"
+                  phx-click="undo_tonight"
+                  class="press font-semibold text-[color:var(--accent-ink)]"
+                >
+                  {gettext("Undo")}
+                </button>
+              </p>
 
-        <%!-- Nothing tonight: say so plainly, and offer the way forward --%>
-        <section :if={!@dish} class="pt-20">
-          <.cooked :if={@cooked} title={@cooked} class="mb-6" />
-          <p class="reveal t-eyebrow num" style="--i: 0">{ToreWeb.Dates.long(@date)}</p>
-          <h1 class="reveal t-display mt-2" style="--i: 1">
-            {empty_title(@day, @eating_out)}
-          </h1>
-          <p
-            :if={!@eating_out}
-            class="reveal mt-3 max-w-[30ch] text-[color:var(--muted)]"
-            style="--i: 2; font-size: 15px; line-height: 1.5;"
-          >
-            {if @day == :tonight,
-              do: gettext("Plan the week, or ask Tore what to make tonight."),
-              else: gettext("Plan the week, or ask Tore what to make tomorrow.")}
-          </p>
-          <p :if={@changed} class="settle mt-4 text-[color:var(--muted)]" style="font-size: 15px;">
-            <button
-              type="button"
-              phx-click="undo_tonight"
-              class="press font-semibold text-[color:var(--accent-ink)]"
+              <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
+
+              <section :if={@dish.recipe_ingredients != []} class="reveal mt-8" style="--i: 4">
+                <h2 class="t-head mb-1">{gettext("Ingredients")}</h2>
+                <ul class="menu-lines">
+                  <li
+                    :for={ri <- @dish.recipe_ingredients}
+                    class="flex items-baseline justify-between gap-4 py-3"
+                  >
+                    <span class="text-[color:var(--text)]" style="font-size: 16px;">
+                      {ri.ingredient.name}
+                    </span>
+                    <span class="num shrink-0 text-[color:var(--muted)]" style="font-size: 15px;">
+                      {amount(ri, @dish.base_servings, @servings)}
+                    </span>
+                  </li>
+                </ul>
+              </section>
+            </div>
+          </section>
+
+          <%!-- Nothing tonight: say so plainly, and offer the way forward --%>
+          <section :if={!@dish} class="pt-20">
+            <.cooked :if={@cooked} title={@cooked} class="mb-6" />
+            <p class="reveal t-eyebrow num" style="--i: 0">{ToreWeb.Dates.long(@date)}</p>
+            <h1 class="reveal t-display mt-2" style="--i: 1">
+              {empty_title(@day, @eating_out)}
+            </h1>
+            <p
+              :if={!@eating_out}
+              class="reveal mt-3 max-w-[30ch] text-[color:var(--muted)]"
+              style="--i: 2; font-size: 15px; line-height: 1.5;"
             >
-              {gettext("Undo")}
-            </button>
-          </p>
-          <.note :if={@note} note={@note} added={@note_added} class="mt-6" />
-          <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
-          <div :if={!@eating_out} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
-            <button type="button" phx-click="something_else" class="pill pill-lamp press">
-              <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
-            </button>
-            <.link navigate={~p"/plan"} class="pill press">
-              <.icon name="ph-calendar-blank" /> {gettext("Plan the week")}
-            </.link>
-            <.link navigate={~p"/capture?#{[return_to: "/today"]}"} class="pill press">
-              <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
-            </.link>
-          </div>
-        </section>
+              {if @day == :tonight,
+                do: gettext("Plan the week, or ask Tore what to make tonight."),
+                else: gettext("Plan the week, or ask Tore what to make tomorrow.")}
+            </p>
+            <p :if={@changed} class="settle mt-4 text-[color:var(--muted)]" style="font-size: 15px;">
+              <button
+                type="button"
+                phx-click="undo_tonight"
+                class="press font-semibold text-[color:var(--accent-ink)]"
+              >
+                {gettext("Undo")}
+              </button>
+            </p>
+            <.note :if={@note} note={@note} added={@note_added} class="mt-6" />
+            <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
+            <div :if={!@eating_out} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
+              <button type="button" phx-click="something_else" class="pill pill-lamp press">
+                <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
+              </button>
+              <.link navigate={~p"/plan"} class="pill press">
+                <.icon name="ph-calendar-blank" /> {gettext("Plan the week")}
+              </.link>
+              <.link navigate={~p"/capture?#{[return_to: "/today"]}"} class="pill press">
+                <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
+              </.link>
+            </div>
+          </section>
+        </div>
       </.page>
 
       <.live_component
