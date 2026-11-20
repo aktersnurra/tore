@@ -147,7 +147,8 @@ bin/dev        # first run seeds .env and stops — fill it in, then re-run
 (`TORE_PI_COMMAND=harness/pi-session` unless set). `ANTHROPIC_API_KEY` and
 `OPENROUTER_API_KEY` that `.env` leaves out are read from `pass`, when installed
 (entries `claude/api-key-tore` and `openrouter_api_key`, or `TORE_PASS_ANTHROPIC` /
-`TORE_PASS_OPENROUTER`). Fill `.env` with:
+`TORE_PASS_OPENROUTER`). Run from a jj workspace (`tore.workspaces/<name>`), it uses the main
+checkout's `.env` and Garage, so every workspace shares them. Fill `.env` with:
 
 - `OPENROUTER_API_KEY` — your OpenRouter key, for recipe pictures and Jev's offer guesses.
 - `GARAGE_ACCESS_KEY_ID` / `GARAGE_SECRET_ACCESS_KEY` — credentials you choose

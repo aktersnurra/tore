@@ -1,16 +1,27 @@
 #!/usr/bin/env sh
 set -eu
 
+# The checkout that owns the env file and Garage. A jj workspace (<repo>.workspaces/<name>) uses
+# its repo's, so every workspace runs against the one Garage with the same credentials.
+home=$PWD
+case "$(dirname "$PWD")" in
+  *.workspaces)
+    main="$(dirname "$PWD")"
+    main="${main%.workspaces}"
+    [ -f "$main/.env" ] && home=$main
+    ;;
+esac
+
 # First run: seed .env and stop so the user fills in creds before anything uses them.
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "Created .env from .env.example. Fill in GARAGE_* creds + API keys, then re-run bin/dev."
+if [ ! -f "$home/.env" ]; then
+  cp .env.example "$home/.env"
+  echo "Created $home/.env from .env.example. Fill in GARAGE_* creds + API keys, then re-run bin/dev."
   exit 1
 fi
 
 # Load env FIRST — the bootstrap imports GARAGE_ACCESS_KEY_ID/SECRET into Garage.
 set -a
-. ./.env
+. "$home/.env"
 set +a
 
 # pi runs every AI task (import, chat, pictures), so it's on unless TORE_PI_COMMAND says otherwise.
@@ -29,10 +40,9 @@ if command -v pass >/dev/null 2>&1; then
   export ANTHROPIC_API_KEY OPENROUTER_API_KEY
 fi
 
-# Bring up Garage and BLOCK until its healthcheck passes (no sleep, no poll loop).
-docker compose up -d --wait
-
-# Provision once / no-op on subsequent runs (imports .env creds, makes the bucket).
-./bin/garage-bootstrap.sh
+# Bring up Garage, from the checkout whose compose project owns it, and BLOCK until its
+# healthcheck passes (no sleep, no poll loop). Then provision once / no-op on later runs (imports
+# the creds, makes the bucket).
+(cd "$home" && docker compose up -d --wait && ./bin/garage-bootstrap.sh)
 
 exec mix phx.server
