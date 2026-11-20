@@ -482,9 +482,46 @@ defmodule Tore.Pantry do
   @spec mark_gone(Scope.t(), integer()) :: {:ok, PantryItem.t()} | {:error, :not_found}
   def mark_gone(%Scope{} = scope, item_id) do
     with {:ok, item} <- fetch_item(scope, item_id) do
+      :ok = learn_lasted(scope, item)
       item |> Ecto.Changeset.change(belief: "missing", last_seen_at: now()) |> Repo.update()
     end
   end
+
+  # Gone: how long the pack lasted teaches how fast it goes, for what's eaten between meals. A
+  # regular buy's rhythm moves halfway to it (so it's also on the list sooner or later); anything
+  # else with a half-life learns its own days. What's only for cooking learns nothing.
+  defp learn_lasted(_scope, %PantryItem{belief: "missing"}), do: :ok
+  defp learn_lasted(_scope, %PantryItem{added_at: nil}), do: :ok
+  defp learn_lasted(_scope, %PantryItem{ingredient_id: nil}), do: :ok
+
+  defp learn_lasted(scope, %PantryItem{} = item) do
+    opts = Scope.repo_opts(scope)
+    lasted = max(Date.diff(Tore.Clock.today(), item.added_at), 1)
+
+    basic =
+      Repo.one(
+        from(b in Tore.Basics.Basic,
+          where: b.ingredient_id == ^item.ingredient_id and not b.stopped
+        ),
+        opts
+      )
+
+    if basic do
+      basic
+      |> Ecto.Changeset.change(interval_days: halfway(basic.interval_days, lasted))
+      |> Repo.update!()
+    else
+      ingredient = Repo.get!(Ingredient, item.ingredient_id, opts)
+
+      if days = ingredient.lasts_days || Tore.Pantry.Lasts.half_life_days(ingredient.lasts) do
+        ingredient |> Ecto.Changeset.change(lasts_days: halfway(days, lasted)) |> Repo.update!()
+      end
+    end
+
+    :ok
+  end
+
+  defp halfway(days, lasted), do: max(round((days + lasted) / 2), 1)
 
   @doc """
   What's left of it, said by the household (some used without cooking through Tore): sure now,
@@ -578,7 +615,8 @@ defmodule Tore.Pantry do
 
   @doc """
   Everything kept, each with its half-life when it's eaten between meals: the household's own
-  rhythm when Basics has learned one, otherwise Jev's guess (`Tore.Pantry.Lasts`).
+  rhythm when Basics has learned one, then the days it's been seen to last (`mark_gone/2`),
+  otherwise Jev's guess (`Tore.Pantry.Lasts`).
   """
   @spec list_inventory(Scope.t()) :: [PantryItem.t()]
   def list_inventory(%Scope{} = scope) do
@@ -589,11 +627,11 @@ defmodule Tore.Pantry do
       on:
         b.ingredient_id == p.ingredient_id and b.household_id == p.household_id and not b.stopped,
       order_by: p.name,
-      select: {p, b.interval_days, i.lasts}
+      select: {p, b.interval_days, i.lasts_days, i.lasts}
     )
     |> Repo.all(Scope.repo_opts(scope))
-    |> Enum.map(fn {item, rhythm, lasts} ->
-      %{item | half_life_days: rhythm || Tore.Pantry.Lasts.half_life_days(lasts)}
+    |> Enum.map(fn {item, rhythm, seen, lasts} ->
+      %{item | half_life_days: rhythm || seen || Tore.Pantry.Lasts.half_life_days(lasts)}
     end)
   end
 

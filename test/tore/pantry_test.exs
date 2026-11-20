@@ -247,6 +247,62 @@ defmodule Tore.PantryTest do
     assert Pantry.at_home(home_scope(), ["mjölk"]).missing == []
   end
 
+  describe "Slut teaches how fast it goes" do
+    defp bought_days_ago(item, days) do
+      item
+      |> Ecto.Changeset.change(added_at: Date.add(Tore.Clock.today(), -days))
+      |> Tore.Repo.update!()
+    end
+
+    defp ingredient(item),
+      do:
+        Tore.Repo.get!(
+          Tore.Recipes.Ingredient,
+          item.ingredient_id,
+          Tore.Scope.repo_opts(home_scope())
+        )
+
+    test "a regular buy's rhythm moves halfway to how long the pack lasted" do
+      :ok = Tore.Basics.ask(home_scope(), [%{name: "Mjölk"}])
+      {:ok, milk, _, _} = Pantry.upsert_belief(home_scope(), %{catalogue_name: "Mjölk"})
+      bought_days_ago(milk, 3)
+
+      {:ok, _} = Pantry.mark_gone(home_scope(), milk.id)
+
+      assert [%{basic: %{interval_days: 5}}] = Tore.Basics.list(home_scope())
+      # Already gone, a second Slut teaches nothing.
+      {:ok, _} = Pantry.mark_gone(home_scope(), milk.id)
+      assert [%{basic: %{interval_days: 5}}] = Tore.Basics.list(home_scope())
+    end
+
+    test "something else eaten between meals learns its own days, which then set its half-life" do
+      {:ok, yoghurt, _, _} = Pantry.upsert_belief(home_scope(), %{catalogue_name: "Yoghurt"})
+
+      {:ok, _} =
+        yoghurt |> ingredient() |> Ecto.Changeset.change(lasts: "week") |> Tore.Repo.update()
+
+      bought_days_ago(yoghurt, 13)
+
+      {:ok, _} = Pantry.mark_gone(home_scope(), yoghurt.id)
+
+      assert ingredient(yoghurt).lasts_days == 10
+      assert [%{half_life_days: 10}] = Pantry.list_inventory(home_scope())
+    end
+
+    test "what's only for cooking learns nothing from running out" do
+      {:ok, pasta, _, _} = Pantry.upsert_belief(home_scope(), %{catalogue_name: "Pasta"})
+
+      {:ok, _} =
+        pasta |> ingredient() |> Ecto.Changeset.change(lasts: "cooking") |> Tore.Repo.update()
+
+      bought_days_ago(pasta, 30)
+
+      {:ok, _} = Pantry.mark_gone(home_scope(), pasta.id)
+
+      assert ingredient(pasta).lasts_days == nil
+    end
+  end
+
   test "PantryItem.effective_belief/3 leaves uncertain and missing untouched" do
     now = ~U[2026-06-29 12:00:00Z]
     ancient = ~U[2024-01-01 00:00:00Z]

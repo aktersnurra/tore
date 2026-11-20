@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - What's eaten between meals (milk, bread, yoghurt) is believed eaten over time, with no one telling Tore: Jev judges once per ingredient how fast it goes, and your own buying rhythm takes over once Tore knows it. Pasta, spices and what's only for cooking no longer go unsure with age.
 - Cooking takes its amounts off what's at home: 400 g of spaghetti from a 1 kg bag leaves 600 g (for the servings cooked; grams and kilos, decilitres and litres, pieces). Only what ran out is said to be out. Telling Tore you cooked something does the same, and on Hemma a tap on an amount says what's left.
 - Today answers "can I start?" first: Everything's at home, or Shop first with what's missing, and up to three things Tore is unsure are still there, each with Finns/Slut right on the page. The Day, Collection and Servings rows are gone; the day, the time and when it's ready are one line.
+- Slut teaches how fast it goes: milk gone three days after it was bought moves a weekly rhythm to five days, so it's believed eaten sooner and comes on the list sooner. Other things eaten between meals learn their own days the same way.
 
 ### Settings, Ask Tore on Today, recipes in the chat (2026-11-20)
 

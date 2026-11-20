@@ -15,6 +15,8 @@ defmodule Tore.Recipes.Ingredient do
     # How long a pack lasts the household, as Jev judged it (`Tore.Pantry.Lasts`).
     field :lasts, :string
     field :lasts_confidence, :float
+    # How many days a pack has been seen to last, from it running out (`Tore.Pantry.mark_gone/2`).
+    field :lasts_days, :integer
     field :household_id, :integer
     has_many :recipe_ingredients, Tore.Recipes.RecipeIngredient
     timestamps()

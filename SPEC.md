@@ -683,7 +683,9 @@ an item is still there halves every half-life since it was last seen: at a half 
 `:uncertain`, at a quarter or less `:missing`, and no longer counts as at home. Buying it, seeing it
 or confirming it starts over. What's only for cooking changes only when a dinner uses it or the
 household says so. Spent from the household's AI budget, with its sponsor; without one nothing decays
-by itself.
+by itself. Slut (Gone) teaches it: how long the pack lasted since it was bought moves a basic's
+`interval_days` halfway there (so the list follows too), or else the ingredient's own `lasts_days`,
+which then comes between the rhythm and Jev's guess. What's only for cooking learns nothing.
 
 **Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
 `Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same
