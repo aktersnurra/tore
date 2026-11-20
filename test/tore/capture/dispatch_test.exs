@@ -137,16 +137,16 @@ defmodule Tore.Capture.DispatchTest do
     end
 
     test "the usual budget, a week's own, and back", %{ctx: ctx} do
-      assert %{text: "Veckobudgeten är nu 2 000 kr."} =
-               Dispatch.set_budget(Decimal.new(2000), nil, ctx)
+      assert %{text: "Veckobudgeten är 2 000 kr från vecka 47."} =
+               Dispatch.set_budget(Decimal.new(2000), {:from, ~D[2026-11-18]}, ctx)
 
       assert %{text: "Budgeten för vecka 47 är nu 1 500 kr."} =
-               Dispatch.set_budget(Decimal.new(1500), ~D[2026-11-19], ctx)
+               Dispatch.set_budget(Decimal.new(1500), {:week, ~D[2026-11-19]}, ctx)
 
       assert Tore.Budget.amount(home_scope(), ~D[2026-11-16]) == Decimal.new(1500)
 
       assert %{text: "Vecka 47 har den vanliga budgeten igen."} =
-               Dispatch.set_budget(nil, ~D[2026-11-16], ctx)
+               Dispatch.set_budget(nil, {:week, ~D[2026-11-16]}, ctx)
 
       assert Tore.Budget.amount(home_scope(), ~D[2026-11-16]) == Decimal.new(2000)
     end

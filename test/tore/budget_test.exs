@@ -34,10 +34,28 @@ defmodule Tore.BudgetTest do
 
   defp plan, do: Streams.plan(home_scope(), @week)
 
-  test "a week's own budget, else the default, else none" do
+  test "a budget holds from its week on, and a household's first one reaches back" do
+    :ok = Budget.set_from(home_scope(), @week, d("1400"))
+    assert Budget.amount(home_scope(), Date.add(@week, -70)) == d("1400")
+
+    # Set from any day of a week: from its Monday.
+    :ok = Budget.set_from(home_scope(), Date.add(@week, 23), d("1500"))
+    assert Budget.amount(home_scope(), Date.add(@week, 14)) == d("1400")
+    assert Budget.amount(home_scope(), Date.add(@week, 21)) == d("1500")
+    assert Budget.amount(home_scope(), Date.add(@week, 70)) == d("1500")
+
+    # No budget from a week on, and the weeks before keep theirs.
+    :ok = Budget.set_from(home_scope(), Date.add(@week, 28), nil)
+    assert Budget.amount(home_scope(), Date.add(@week, 35)) == nil
+    assert Budget.amount(home_scope(), Date.add(@week, 21)) == d("1500")
+
+    assert {:error, :invalid_amount} = Budget.set_from(home_scope(), @week, d("0"))
+  end
+
+  test "a week's own budget, else the one it falls under, else none" do
     assert Budget.amount(home_scope(), @week) == nil
 
-    :ok = Budget.set_default(home_scope(), d("2000"))
+    :ok = Budget.set_from(home_scope(), @week, d("2000"))
     assert Budget.amount(home_scope(), @week) == d("2000")
 
     :ok = Budget.set_week(home_scope(), Date.add(@week, 2), d("1500"))
@@ -164,7 +182,7 @@ defmodule Tore.BudgetTest do
 
   test "the page reads the week, the eight weeks up to it, and where the money went" do
     user = user_fixture()
-    :ok = Budget.set_default(home_scope(), d("900"))
+    :ok = Budget.set_from(home_scope(), @week, d("900"))
 
     {:ok, _} =
       Planning.assign_recipe(home_scope(), plan(), "mon_dinner", recipe("Gryta", "100").id, 4)

@@ -3,15 +3,17 @@ defmodule Tore.Budget do
   What a week's shop should cost, and what its plan is estimated to cost.
 
   A week's budget is its own, set when someone asks to plan to one, or else the household's
-  default (`Tore.Household.Preferences`). The estimate is worked out by code from stored prices
+  budget from the latest change on or before it (`Tore.Budget.BudgetChange`), so raising it from
+  week 41 leaves the weeks before at what they had. A household's first budget also covers the
+  weeks before it. The estimate is worked out by code from stored prices
   (`Tore.Prices`), never read from a model, and always comes with its coverage. A budget aims the
   planner; it never refuses or replaces anyone's own choice.
   """
 
   import Ecto.Query
 
-  alias Tore.{Costs, Household, Planning, Prices, Recipes, Repo, Scope, Streams}
-  alias Tore.Budget.WeekBudget
+  alias Tore.{Costs, Planning, Prices, Recipes, Repo, Scope, Streams}
+  alias Tore.Budget.{BudgetChange, WeekBudget}
   alias Tore.Budget.Forecast.{Facts, OpenDays}
   alias Tore.Planning.State
 
@@ -89,16 +91,61 @@ defmodule Tore.Budget do
   # A typical dinner is the median of what's cooked this week and in the weeks before it.
   @typical_weeks 4
 
-  @doc "The week's budget: its own, else the household's default, else none."
+  @doc """
+  The week's budget: its own, else the latest change on or before it, else the household's first
+  change, else none.
+  """
   @spec amount(Scope.t(), Date.t()) :: Decimal.t() | nil
   def amount(%Scope{} = scope, %Date{} = week_start) do
     case Repo.get_by(WeekBudget, [week_start: week_start], Scope.repo_opts(scope)) do
       %WeekBudget{amount: amount} -> amount
-      nil -> Household.get_preferences(scope).weekly_budget
+      nil -> standing(scope, week_start)
     end
   end
 
-  @doc "Sets the week's own budget; nil goes back to the default."
+  defp standing(scope, week_start) do
+    latest =
+      from(c in BudgetChange,
+        where: c.from_week <= ^week_start,
+        order_by: [desc: c.from_week],
+        limit: 1,
+        select: c.amount
+      )
+
+    first =
+      from(c in BudgetChange, order_by: [asc: c.from_week], limit: 1, select: c.amount)
+
+    case Repo.all(latest, Scope.repo_opts(scope)) do
+      [amount] -> amount
+      [] -> Repo.one(first, Scope.repo_opts(scope))
+    end
+  end
+
+  @doc "Sets the household's budget from the week of `date` on; nil is no budget from then."
+  @spec set_from(Scope.t(), Date.t(), Decimal.t() | nil) :: :ok | {:error, :invalid_amount}
+  def set_from(%Scope{} = scope, %Date{} = date, amount) do
+    if amount == nil or Decimal.gt?(amount, 0) do
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+      Repo.insert!(
+        %BudgetChange{
+          household_id: scope.household_id,
+          from_week: Streams.monday(date),
+          amount: amount,
+          inserted_at: now,
+          updated_at: now
+        },
+        on_conflict: [set: [amount: amount, updated_at: now]],
+        conflict_target: [:household_id, :from_week]
+      )
+
+      :ok
+    else
+      {:error, :invalid_amount}
+    end
+  end
+
+  @doc "Sets the week's own budget; nil goes back to the household's."
   @spec set_week(Scope.t(), Date.t(), Decimal.t() | nil) :: :ok | {:error, :invalid_amount}
   def set_week(%Scope{} = scope, %Date{} = week_start, nil) do
     Repo.delete_all(
@@ -129,12 +176,6 @@ defmodule Tore.Budget do
     else
       {:error, :invalid_amount}
     end
-  end
-
-  @doc "Sets the household's default weekly budget; nil means none."
-  @spec set_default(Scope.t(), Decimal.t() | nil) :: :ok | {:error, Ecto.Changeset.t()}
-  def set_default(%Scope{} = scope, amount) do
-    with {:ok, _} <- Household.update_preferences(scope, %{weekly_budget: amount}), do: :ok
   end
 
   @doc """

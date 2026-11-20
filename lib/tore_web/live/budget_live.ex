@@ -91,14 +91,16 @@ defmodule ToreWeb.BudgetLive do
   def handle_event("cancel_budget", _, socket),
     do: {:noreply, assign(socket, editing: false, budget_error: nil)}
 
-  # The number shown is the number typed: it becomes the household's budget, and a week's own
-  # budget, set by asking Tore, gives way to it. Blank means no budget.
+  # The number shown is the number typed: it becomes the household's budget from the week shown
+  # on, and that week's own budget, set by asking Tore, gives way to it. The weeks before keep
+  # theirs. Blank means no budget from this week.
   def handle_event("set_budget", %{"amount" => text}, socket) do
     scope = socket.assigns.current_scope
+    week = socket.assigns.page.week_start
 
     with {:ok, amount} <- parse_amount(text),
-         :ok <- Budget.set_default(scope, amount),
-         :ok <- Budget.set_week(scope, socket.assigns.page.week_start, nil) do
+         :ok <- Budget.set_from(scope, week, amount),
+         :ok <- Budget.set_week(scope, week, nil) do
       {:noreply, socket |> assign(editing: false, budget_error: nil) |> load()}
     else
       _ ->
@@ -567,14 +569,16 @@ defmodule ToreWeb.BudgetLive do
   attr :page, :map, required: true
 
   # Eight weeks of what was paid, in one sage hue. This week is the strong bar, with what the plan
-  # still expects paler above it; a week over its budget shows only as its red number.
+  # still expects paler above it; a week over its budget shows only as its red number. The budget
+  # is each week's own, a dashed line that steps where it changed, named where it starts and at
+  # each step.
   defp chart(assigns) do
     %{page: page} = assigns
     expected = page.status.expected
     budget = page.status.budget
 
     top =
-      [expected, budget | Enum.map(page.weeks, & &1.paid)]
+      [expected, budget | Enum.flat_map(page.weeks, &[&1.paid, &1.budget])]
       |> Enum.reject(&is_nil/1)
       |> Enum.max(Decimal, fn -> Decimal.new(0) end)
       |> ceiling()
@@ -599,12 +603,14 @@ defmodule ToreWeb.BudgetLive do
         }
       end
 
+    steps = budget_steps(page.weeks, y)
+
     assigns =
       assign(assigns,
         bars: bars,
         ticks: for(n <- 0..2, do: {top * n / 2, y.(Decimal.from_float(top * n / 2))}),
-        budget_y: budget && y.(budget),
-        budget: budget,
+        steps: steps,
+        budget_path: budget_path(steps),
         expected: expected
       )
 
@@ -656,10 +662,18 @@ defmodule ToreWeb.BudgetLive do
             v{Streams.week_number(bar.week.week_start)}
           </text>
         </g>
-        <g :if={@budget_y}>
-          <line class="bud" x1="42" x2="320" y1={@budget_y} y2={@budget_y} />
-          <text class="bud-l num" x="44" y={@budget_y - 5} text-anchor="start">
-            {gettext("Budget %{amount}", amount: Money.format(@budget))}
+        <g :if={@steps != []} data-role="chart-budget">
+          <path class="bud" d={@budget_path} fill="none" />
+          <text
+            :for={{step, n} <- Enum.with_index(@steps)}
+            class="bud-l num"
+            x={step.x1 + 2}
+            y={step.y - 5}
+            text-anchor="start"
+          >
+            {if n == 0,
+              do: gettext("Budget %{amount}", amount: Money.format(step.amount)),
+              else: Money.format(step.amount)}
           </text>
         </g>
       </svg>
@@ -673,6 +687,38 @@ defmodule ToreWeb.BudgetLive do
       </table>
     </div>
     """
+  end
+
+  # The runs of weeks with the same budget, each a level stretch across its weeks' slots. Weeks
+  # with no budget leave a gap.
+  defp budget_steps(weeks, y) do
+    weeks
+    |> Enum.with_index()
+    |> Enum.chunk_by(fn {week, _i} -> week.budget && Decimal.to_float(week.budget) end)
+    |> Enum.flat_map(fn [{%{budget: amount}, first} | _] = run ->
+      {_week, last} = List.last(run)
+
+      if amount,
+        do: [
+          %{amount: amount, x1: 42 + first * 34.75, x2: 42 + (last + 1) * 34.75, y: y.(amount)}
+        ],
+        else: []
+    end)
+  end
+
+  # One dashed path: level across each run, straight up or down into the next where it follows on.
+  defp budget_path(steps) do
+    {parts, _previous} =
+      Enum.map_reduce(steps, nil, fn step, previous ->
+        into =
+          if previous && previous.x2 == step.x1,
+            do: "V#{f(step.y)}",
+            else: "M#{f(step.x1)},#{f(step.y)}"
+
+        {"#{into} H#{f(step.x2)}", step}
+      end)
+
+    Enum.join(parts, " ")
   end
 
   # The chart's top: the largest amount rounded up to a step that gives at most three gridlines.

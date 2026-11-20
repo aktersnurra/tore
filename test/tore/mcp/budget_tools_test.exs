@@ -48,6 +48,14 @@ defmodule Tore.Mcp.BudgetToolsTest do
     assert %{"isError" => true} = call("set_budget", %{"amount" => -5})
   end
 
+  test "set_budget from a week on leaves the weeks before at theirs" do
+    ok("set_budget", %{"amount" => 1400})
+    ok("set_budget", %{"amount" => 1500, "from" => monday() |> Date.add(16) |> Date.to_iso8601()})
+
+    assert Decimal.eq?(Budget.amount(home_scope(), Date.add(monday(), 7)), 1400)
+    assert Decimal.eq?(Budget.amount(home_scope(), Date.add(monday(), 14)), 1500)
+  end
+
   test "set_basics adds basics, get_context lists them, and stop takes one off" do
     ok("set_basics", %{
       "items" => [%{"name" => "Mjölk", "quantity" => 3, "unit" => "l"}, %{"name" => "Kaffe"}]

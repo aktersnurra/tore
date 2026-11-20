@@ -771,8 +771,10 @@ the guide with `save_prep_guide`; the page shows it when it arrives. It's a docu
 
 **Status: built (2026-11-16).** Not yet tried against live ICA offers, which `Req` can't fetch (§8). Spec `.docs/specs/weekly-budget.md`, plan `.docs/plans/weekly-budget.md`.
 
-A week's budget covers the whole shop. It is the week's own, set when someone asks to plan to one, or the household's
-default from Settings (`Tore.Budget`). The plan is aimed at it and never refused for it: a dinner someone chose is never
+A week's budget covers the whole shop. It is the week's own, set when someone asks to plan to one, or else the
+household's budget from the latest change on or before that week (`budget_changes`, `Tore.Budget.set_from/3`, 2026-11-20):
+raising it from week 41 leaves the weeks before at what they had, and a household's first budget covers the weeks
+before it too. The plan is aimed at it and never refused for it: a dinner someone chose is never
 changed to save money.
 
 **Prices** (`Tore.Prices`) are derived every time, never stored. An ingredient's price is the first of these that
@@ -796,7 +798,8 @@ of what was paid, the last four weeks by Shop's sections, and the receipts; the 
 Settings. A receipt line carries the section Claude gave when logging it (`log_receipt`), else other, and can be
 moved on the receipt. The plan screen shows "About 1 850 of 2 000 kr, 14 of 18 ingredients priced", or how far
 over, and leads to Veckobudget. A day's suggested alternatives show the difference ("−35 kr"). In the chat pi sets a
-budget (`set_budget`, written directly as a setting the person states) and plans the open days, as Plan's button asks
+budget (`set_budget`, written directly as a setting the person states: from this week on, from a week given as
+`from`, or for one week as `week_of`) and plans the open days, as Plan's button asks
 it to.
 
 **After the week.** Each receipt counts towards a week (`receipts.week_start`): the list ticked most recently when

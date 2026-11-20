@@ -68,7 +68,7 @@ defmodule ToreWeb.BudgetLiveTest do
     setup do
       eat_out(week_start(), ~w[tue wed thu fri sat sun])
       plan("mon_dinner", recipe("Gryta", "700"))
-      :ok = Budget.set_default(home_scope(), Decimal.new(900))
+      :ok = Budget.set_from(home_scope(), week_start(), Decimal.new(900))
       :ok
     end
 
@@ -105,6 +105,33 @@ defmodule ToreWeb.BudgetLiveTest do
       assert view |> element(~s([data-role="section-item"]), "Laxfilé") |> render() =~ "1 gång"
 
       assert view |> element(~s([data-role="receipt"]), "412 kr") |> render() =~ "ICA Supermarket"
+    end
+
+    test "the chart draws each week's budget, and says where it changed", %{conn: conn} do
+      :ok = Budget.set_from(home_scope(), Date.add(week_start(), -21), Decimal.new(1200))
+      {:ok, view, _html} = live(conn, ~p"/budget")
+
+      labels =
+        for el <-
+              view
+              |> element(~s([data-role="chart"]))
+              |> render()
+              |> LazyHTML.from_fragment()
+              |> LazyHTML.query(".bud-l"),
+            do: el |> LazyHTML.text() |> String.trim()
+
+      assert labels == ["Budget 1 200", "900"]
+    end
+
+    test "a budget changed on the page holds from the week shown on", %{conn: conn} do
+      :ok = Budget.set_from(home_scope(), Date.add(week_start(), -28), Decimal.new(900))
+      {:ok, view, _html} = live(conn, ~p"/budget")
+      view |> element(~s([data-role="kpi-budget"] button)) |> render_click()
+      view |> form(~s([data-role="budget-form"]), %{"amount" => "1 100"}) |> render_submit()
+
+      assert Decimal.eq?(Budget.amount(home_scope(), week_start()), 1100)
+      assert Decimal.eq?(Budget.amount(home_scope(), Date.add(week_start(), 14)), 1100)
+      assert Decimal.eq?(Budget.amount(home_scope(), Date.add(week_start(), -7)), 900)
     end
 
     test "the budget is changed where it's shown", %{conn: conn} do
@@ -204,7 +231,7 @@ defmodule ToreWeb.BudgetLiveTest do
     test "shows the week's estimate against its budget, and how far over", %{conn: conn} do
       eat_out(week_start(), ~w[wed thu fri sat sun])
       plan("mon_dinner", recipe("Gryta", "300"))
-      :ok = Budget.set_default(home_scope(), Decimal.new(2000))
+      :ok = Budget.set_from(home_scope(), week_start(), Decimal.new(2000))
 
       # Tuesday is open, so it counts as a typical dinner: 300 kr.
       {:ok, view, html} = live(conn, ~p"/plan")

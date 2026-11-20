@@ -199,19 +199,25 @@ defmodule Tore.Capture.Dispatch do
   # ── budget and basics ──────────────────────────────────────────────────
 
   @doc """
-  Sets a budget the person stated: the week's own when `date` is given, otherwise the household's
-  default. A setting, so it's written directly. `nil` removes it.
+  Sets a budget the person stated: the household's from the week of `date` on (`{:from, date}`),
+  or that week's own (`{:week, date}`). A setting, so it's written directly. `nil` removes it.
   """
-  @spec set_budget(Decimal.t() | nil, Date.t() | nil, ctx()) :: bubble()
-  def set_budget(amount, nil, ctx) do
-    case Tore.Budget.set_default(ctx.scope, amount) do
+  @spec set_budget(Decimal.t() | nil, {:from | :week, Date.t()}, ctx()) :: bubble()
+  def set_budget(amount, {:from, %Date{} = date}, ctx) do
+    week = date |> Streams.monday() |> Streams.week_number()
+
+    case Tore.Budget.set_from(ctx.scope, date, amount) do
       :ok when amount == nil ->
-        %{role: :assistant, text: gettext("Removed the weekly budget.")}
+        %{role: :assistant, text: gettext("No weekly budget from week %{week}.", week: week)}
 
       :ok ->
         %{
           role: :assistant,
-          text: gettext("Weekly budget set to %{amount} kr.", amount: Tore.Money.format(amount))
+          text:
+            gettext("Weekly budget %{amount} kr from week %{week}.",
+              amount: Tore.Money.format(amount),
+              week: week
+            )
         }
 
       {:error, reason} ->
@@ -219,7 +225,7 @@ defmodule Tore.Capture.Dispatch do
     end
   end
 
-  def set_budget(amount, %Date{} = date, ctx) do
+  def set_budget(amount, {:week, %Date{} = date}, ctx) do
     week = date |> Streams.monday() |> Streams.week_number()
 
     case Tore.Budget.set_week(ctx.scope, Streams.monday(date), amount) do

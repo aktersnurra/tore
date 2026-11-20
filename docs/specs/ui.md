@@ -1293,7 +1293,9 @@ Tore kitchen pages artifact.
   enligt planen** (expected minus paid, with how many open days were counted), **Snitt per
   vecka** (the weeks before this one that had receipts).
 - **Åtta veckor**: what each week paid, one sage hue. Earlier weeks pale, this week strong
-  with what's still expected paler above it ("≈972"), the budget as a dashed line. A week over
+  with what's still expected paler above it ("≈972"), each week's budget as a dashed line that
+  steps where it changed, named where it starts ("Budget 1 400") and at each step ("1 500").
+  Changing the budget on the page sets it from the week shown on. A week over
   budget shows only as its red number. Each bar says its week and amount on hover.
 - **Var pengarna gick**: the last four weeks' receipt lines by Shop's sections, costliest
   first, each a bar in its section's tint with kronor and share. A row opens to its five
