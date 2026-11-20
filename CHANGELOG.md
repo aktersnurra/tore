@@ -17,6 +17,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Something put away on Hemma whose name Tore knows from a recipe but hasn't sorted (Cheddar) is now sorted too, instead of staying in Skafferi. Hemma moves a row to where it belongs, and shows Jev's picture, as soon as that's learned, without a reload.
 - Opening Hemma asks Jev about anything it hasn't judged yet (kept from before Jev was asked, or left by a failed call), and has anything without a section sorted, so it moves out of Skafferi; with nothing waiting it makes no call.
 - Hemma's "what's left" field is wide enough for its hint.
+- Today, tidied: what's missing is a "Handla" list in Shop's style, each with its picture (Jev picks pictures for tonight's ingredients too), with Byt ut on its head; what Tore is unsure of is the same, with Finns/Slut. No card, no icon twice, no ingredient list. "Ready by" shows only from 15:00 until the evening's over.
 - Today is one column on a laptop too, read top to bottom: the dish, when, whether anything's needed first, the buttons, the note. The ingredients are folded under "Ingredienser (14)", since the recipe page has them.
 - Today, Plan, Hemma and a recipe page are the same width on a laptop. On Today the photo opens the recipe (the ⋯ menu is gone), Cook now replaces "Everything's at home", and what's missing has Byt ut (what to use instead, or cook anyway) and Fråga (asks Tore, the question already typed) in place of Put on the list.
 

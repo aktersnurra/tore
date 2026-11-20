@@ -73,6 +73,27 @@ defmodule Tore.Pantry.LastsTest do
     assert Costs.last_llm_call(home_scope(), "pantry_lasts")
   end
 
+  test "tonight's ingredients that aren't kept get a picture, and nothing else is asked" do
+    jev()
+
+    {:ok, recipe} =
+      Tore.Recipes.create(home_scope(), %{title: "Aglio", ingredients: [%{name: "Vitlök"}]})
+
+    [%{ingredient: garlic}] =
+      Tore.Repo.preload(recipe, recipe_ingredients: :ingredient).recipe_ingredients
+
+    assert {:ok, 1} = Lasts.pictures(home_scope(), [garlic.id], req: req(), api_key: "k")
+    assert_received {:asked, questions}
+    assert Map.keys(questions) == ["icon_#{garlic.id}"]
+
+    garlic = Tore.Repo.reload!(garlic, Tore.Scope.repo_opts(home_scope()))
+    assert garlic.icon == "pasta" and garlic.lasts == nil
+
+    # Once it has one, it isn't asked again.
+    assert {:ok, 0} = Lasts.pictures(home_scope(), [garlic.id], req: req(), api_key: "k")
+    refute_received {:asked, _}
+  end
+
   test "what Jev says reaches the pantry's screens" do
     Phoenix.PubSub.subscribe(Tore.PubSub, Pantry.topic(home_scope()))
     jev()

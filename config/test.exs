@@ -68,4 +68,6 @@ config :tore, :draw_missing_pictures, false
 
 # Today switches to tomorrow at 21:00; in tests only when a test says so, whatever the hour.
 config :tore, :evening_over, 24
+# Cooking could start any time, so tests show when dinner will be ready whatever the hour.
+config :tore, :cooking_from, 0
 config :tore, :learn, :off

@@ -61,7 +61,36 @@ defmodule Tore.Pantry.Lasts do
     with :ok <- check(scope) do
       case unasked(scope) do
         [] -> {:ok, 0}
-        ingredients -> scope |> ask(ingredients, opts) |> tell(scope)
+        ingredients -> scope |> ask(ingredients, opts, &questions/1) |> tell(scope)
+      end
+    end
+  end
+
+  @doc """
+  Pictures for `ingredient_ids` that haven't one, in the background: what tonight needs and isn't
+  kept, so Today's list to buy shows them as Hemma would.
+  """
+  @spec pictures_later(Scope.t(), [integer()]) :: :ok
+  def pictures_later(%Scope{} = scope, ingredient_ids) do
+    if Application.get_env(:tore, :learn, :background) == :background do
+      Task.Supervisor.start_child(Tore.TaskSupervisor, fn -> pictures(scope, ingredient_ids) end)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Asks Jev only for the picture of each of `ingredient_ids` that hasn't one; how fast it goes is
+  asked once it's kept (`sort/2`). Answers how many it kept a picture for.
+  """
+  @spec pictures(Scope.t(), [integer()], keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def pictures(%Scope{} = scope, ingredient_ids, opts \\ []) do
+    with :ok <- check(scope) do
+      from(i in Ingredient, where: i.id in ^ingredient_ids and is_nil(i.icon), order_by: i.name)
+      |> Repo.all(Scope.repo_opts(scope))
+      |> case do
+        [] -> {:ok, 0}
+        ingredients -> scope |> ask(ingredients, opts, &[picture_question(&1)]) |> tell(scope)
       end
     end
   end
@@ -85,15 +114,13 @@ defmodule Tore.Pantry.Lasts do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
-  defp ask(scope, ingredients, opts) do
+  defp ask(scope, ingredients, opts, questions) do
     state = state(scope)
 
     ingredients
     |> Enum.chunk_every(@batch)
     |> Enum.reduce_while({:ok, 0}, fn batch, {:ok, kept} ->
-      questions = batch |> Enum.flat_map(&questions/1) |> Map.new()
-
-      case Jev.decide(state, questions, opts) do
+      case Jev.decide(state, batch |> Enum.flat_map(questions) |> Map.new(), opts) do
         {:ok, answers, cost} ->
           {:ok, _} = Costs.log_llm_usage(scope, %{feature: "pantry_lasts", cost_usd: cost})
           {:cont, {:ok, kept + keep(scope, batch, answers)}}
@@ -113,16 +140,18 @@ defmodule Tore.Pantry.Lasts do
            "How does this household use #{name}, and how long does a pack of it last them?",
            @criteria
          )},
-      ingredient.icon == nil &&
-        {"icon_#{id}", choice("Which picture fits #{name} best?", Icons.criteria())}
+      ingredient.icon == nil && picture_question(ingredient)
     ]
     |> Enum.filter(& &1)
   end
 
+  defp picture_question(%Ingredient{id: id, name: name}),
+    do: {"icon_#{id}", choice("Which picture fits #{name} best?", Icons.criteria())}
+
   defp choice(instructions, criteria),
     do: %{"type" => "choice", "instructions" => instructions, "criteria" => criteria}
 
-  # Hemma shows the half-lives and pictures it's just been given.
+  # Hemma and Today show the half-lives and pictures just given.
   defp tell({:ok, kept} = sorted, scope) when kept > 0 do
     :ok = Tore.Pantry.changed(scope)
     sorted

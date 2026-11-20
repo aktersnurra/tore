@@ -702,21 +702,26 @@ start? One column on every screen, the phone's, read top to bottom (2026-11-20):
 ```md
 Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
            dish's name on it; tapping it opens the recipe. No ⋯ menu (2026-11-20)
-When     — one line: Tonight · 20 min · ready by 20:58; Lunch under it when one is planned
-Can I start? — the first thing it answers (2026-11-20):
+When     — one line: Tonight · 20 min · ready by 18:40; Lunch under it when one is planned.
+           Ready by only from 15:00 until the evening's over (`:cooking_from`), since
+           "ready 00:57" says nothing
+Can I start? — the first thing it answers (2026-11-21), in Shop's and Hemma's style: a group
+           head (caret, tag, count) with a row each, no card:
            tonight, nothing missing: [🔥 Cook now] is the answer, first, in a fixed place
-           🛒 Missing, the missing things as red tags · At home ›
-              [Byt ut] opens Before you start (say what to use instead, or cook anyway)
-              [Fråga] opens the dish's conversation with the question already typed
-           ⓘ Still there? — up to three things Tore is unsure of (eaten over time, or past
-           their date), each with when it was seen and [Finns] [Slut]; Slut puts it with
-           what's missing, "+2 more" opens Hemma
-           tomorrow, nothing missing or unsure: ✓ Everything's at home · At home ›
-Actions  — [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page);
-           No dinner tonight is in Something else's sheet
+           ▾ [Handla] 6                                              Byt ut ›
+               🍝 spaghetti   (each with its picture, as Hemma shows it)
+             Byt ut opens Before you start (what to use instead, or cook anyway)
+           ▾ [Finns det kvar?] 2                                     Hemma ›
+               🥛 mjölk, last seen 10 days ago      [Finns] [Slut]
+             up to three; Slut puts it under Handla; "+2 more" opens Hemma
+           tomorrow, nothing missing or unsure: [✓ Everything's at home] · Hemma ›
+Actions  — [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page; with
+           something missing the question about it is already typed). One of each: no icon
+           appears twice. No dinner tonight is in Something else's sheet
 Note     — the home pick's one note, with its action, when there is one
-Ingredients (14) — folded, for tonight's servings; the recipe page has them in full
 ```
+No ingredient list: the recipe page has it. Opening Today asks Jev for the pictures of tonight's
+ingredients that have none (`Tore.Pantry.Lasts.pictures_later/2`), and Today redraws when they come.
 
 ### After dinner (2026-11-19)
 
@@ -727,8 +732,9 @@ what can still be sorted out this evening:
 ✓ Kycklinggryta, lagad ikväll
 [cover] Laxpasta
 Tomorrow · 35 min
-🛒 Missing   [lax] [dill]
-   [Byt ut] [Fråga]
+▾ [Handla] 2                    Byt ut ›
+   lax
+   dill
 [Something else] [Ask Tore]
 ```
 

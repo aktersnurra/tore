@@ -94,7 +94,7 @@ defmodule ToreWeb.HomeLiveTest do
       refute has_element?(view, "[data-role=lunch]")
     end
 
-    test "shows the dish and its ingredients, and what's missing can be swapped or asked about", %{
+    test "what's missing is a list to buy, which can be swapped or asked about", %{
       conn: conn
     } do
       Mox.set_mox_global()
@@ -112,25 +112,28 @@ defmodule ToreWeb.HomeLiveTest do
 
       Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), buns.id, 8)
       {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "smör"})
-      {:ok, view, html} = live(conn, ~p"/today")
+      {:ok, view, _html} = live(conn, ~p"/today")
 
-      assert html =~ "200 g"
+      # What to buy, as Shop lists it: a head with how many, then a row each with its picture.
+      # The ingredients themselves are on the recipe page.
+      assert view |> element(~s([data-role="at-home"] [data-role="group-head"])) |> render() =~
+               "Handla"
 
-      # The recipe page has them in full: here they're folded, with how many there are.
-      assert view |> element(~s|details[data-role="ingredients"]:not([open]) summary|) |> render() =~
-               "Ingredienser"
+      assert has_element?(
+               view,
+               ~s([data-role="at-home"] li[data-buy="kanel"] img[src^="/images/food/"])
+             )
 
-      assert view |> element(~s(details[data-role="ingredients"] summary)) |> render() =~ "2"
-      assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
-      assert has_element?(view, ~s([data-role="to-pantry"][href="/pantry"]))
+      refute has_element?(view, ~s([data-role="at-home"] li[data-buy="smör"]))
+      refute has_element?(view, ~s([data-role="ingredients"]))
 
       # The photo opens the recipe; there's no menu, and no Cook now while something's missing.
       assert has_element?(view, ~s(a[data-role="cover"][href="/recipes?id=#{buns.id}"]))
       refute has_element?(view, "#today-menu")
       refute has_element?(view, ~s([data-role="start-cooking"]))
 
-      # Fråga asks Tore about what's missing, in the dish's conversation.
-      ask = view |> element(~s([data-role="at-home"] a[data-role="ask-missing"])) |> render()
+      # Fråga Tore asks about what's missing, in the dish's conversation: one way to ask.
+      ask = view |> element(~s(a[data-role="ask-tore"])) |> render()
       assert ask =~ "recipe=#{buns.id}" and ask =~ "kanel"
 
       # Byt ut says what to use instead, and can still cook anyway, back here after.
@@ -179,6 +182,25 @@ defmodule ToreWeb.HomeLiveTest do
       refute has_element?(view, "dl.props")
     end
 
+    test "when it'll be ready shows only when cooking could start now", %{conn: conn} do
+      {:ok, dish} =
+        Tore.Recipes.create(home_scope(), %{
+          title: "Omelett",
+          recipe_type: :meal,
+          cook_time_minutes: 20
+        })
+
+      Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), dish.id, 2)
+      {:ok, _view, html} = live(conn, ~p"/today")
+      assert html =~ "klar "
+
+      # After midnight, "ready 00:57" says nothing.
+      Application.put_env(:tore, :cooking_from, 24)
+      on_exit(fn -> Application.put_env(:tore, :cooking_from, 0) end)
+      {:ok, _view, html} = live(conn, ~p"/today")
+      refute html =~ "klar "
+    end
+
     test "what Tore is unsure of is asked: Finns makes it sure, Slut puts it with what's missing",
          %{conn: conn} do
       tonight_with(["Mjölk", "Ägg"])
@@ -192,7 +214,7 @@ defmodule ToreWeb.HomeLiveTest do
 
       view |> element(row <> ~s( [data-role="gone"])) |> render_click()
       refute has_element?(view, row)
-      assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: Mjölk"
+      assert has_element?(view, ~s([data-role="at-home"] li[data-buy="Mjölk"]))
 
       unsure_milk()
       {:ok, view, _html} = live(conn, ~p"/today")
@@ -220,7 +242,8 @@ defmodule ToreWeb.HomeLiveTest do
              |> Floki.find(~s([data-role="unsure"] [data-item]))
              |> length() == 3
 
-      assert view |> element(~s([data-role="unsure"] a[href="/pantry"])) |> render() =~ "2 till"
+      assert view |> element(~s([data-role="unsure"] li a[href="/pantry"])) |> render() =~
+               "2 till"
     end
   end
 
@@ -251,8 +274,8 @@ defmodule ToreWeb.HomeLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/today")
 
-      assert view |> element(~s(a[data-role="ask-tore"])) |> render() =~
-               ~s(href="/capture?recipe=#{stew.id}&amp;return_to=%2Ftoday")
+      ask = view |> element(~s(a[data-role="ask-tore"])) |> render()
+      assert ask =~ "recipe=#{stew.id}" and ask =~ "return_to=%2Ftoday"
     end
 
     test "tonight cooked, Today is tomorrow's dinner", %{conn: conn} do

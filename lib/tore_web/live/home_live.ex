@@ -2,6 +2,7 @@ defmodule ToreWeb.HomeLive do
   use ToreWeb, :live_view
 
   alias Tore.{Recipes, Planning}
+  alias Tore.Pantry.Icons
   alias ToreWeb.PiReply
 
   def mount(_params, _session, socket) do
@@ -11,27 +12,38 @@ defmodule ToreWeb.HomeLive do
     pick = Tore.Home.current(scope)
     if connected?(socket) and pick.stale?, do: Tore.Home.refresh(scope)
 
-    # Tonight follows the plan, whoever changes it: pi asked from here, or anyone elsewhere.
-    if connected?(socket), do: Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(scope))
+    # Tonight follows the plan, whoever changes it: pi asked from here, or anyone elsewhere;
+    # and the pantry, so what's at home and the pictures Jev picks show as they change.
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Tore.PubSub, Planning.topic(scope))
+      Phoenix.PubSub.subscribe(Tore.PubSub, Tore.Pantry.topic(scope))
+    end
 
-    {:ok,
-     socket
-     |> assign(
-       day: day,
-       date: date,
-       cooked: cooked,
-       note: note(pick.note, day),
-       note_added: false,
-       plan_id: Tore.Streams.plan(scope, week_start),
-       week_start: week_start,
-       day_key: Tore.Streams.slot_key(date),
-       tonight_sheet: false,
-       before_cooking: false,
-       choices: nil,
-       changed: nil
-     )
-     |> PiReply.init()
-     |> reload_tonight()}
+    socket =
+      socket
+      |> assign(
+        day: day,
+        date: date,
+        cooked: cooked,
+        note: note(pick.note, day),
+        note_added: false,
+        plan_id: Tore.Streams.plan(scope, week_start),
+        week_start: week_start,
+        day_key: Tore.Streams.slot_key(date),
+        tonight_sheet: false,
+        before_cooking: false,
+        choices: nil,
+        changed: nil
+      )
+      |> PiReply.init()
+      |> reload_tonight()
+
+    # Tonight's ingredients get the pictures Hemma would show, for the list to buy.
+    with %{dish: %{recipe_ingredients: [_ | _] = needed}} <- socket.assigns,
+         true <- connected?(socket),
+         do: Tore.Pantry.Lasts.pictures_later(scope, Enum.map(needed, & &1.ingredient_id))
+
+    {:ok, socket}
   end
 
   def render(assigns) do
@@ -115,7 +127,7 @@ defmodule ToreWeb.HomeLive do
                 <span :if={minutes(@dish) > 0}>
                   · {gettext("%{minutes} min", minutes: minutes(@dish))}
                 </span>
-                <span :if={@day == :tonight and minutes(@dish) > 0}>
+                <span :if={@day == :tonight and minutes(@dish) > 0 and ready_by(minutes(@dish))}>
                   · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
                 </span>
               </p>
@@ -136,8 +148,8 @@ defmodule ToreWeb.HomeLive do
               </p>
 
               <%!-- Can I start? Tonight with everything at home the answer is Cook now, first
-                 and always in the same place. Otherwise what's missing, with what to do about it
-                 (use something else, or ask), and what Tore isn't sure is still here. --%>
+                 and always in the same place. Otherwise what to buy, as Shop lists it, and what
+                 Tore isn't sure is still here, as Hemma asks it: a tag for a head, a row each. --%>
               <.link
                 :if={@day == :tonight and @home.missing == []}
                 navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
@@ -148,122 +160,129 @@ defmodule ToreWeb.HomeLive do
                 <.icon name="ph-fire-fill" /> {gettext("Cook now")}
               </.link>
 
-              <div
+              <p
                 :if={
-                  @dish.recipe_ingredients != [] and
-                    (@home.missing != [] or @home.unsure != [] or @day == :tomorrow)
+                  @day == :tomorrow and @dish.recipe_ingredients != [] and @home.missing == [] and
+                    @home.unsure == []
                 }
-                class="menu-lines reveal mt-5"
+                data-role="ready"
+                class="reveal mt-5 flex items-center gap-3"
                 style="--i: 2"
               >
-                <div
-                  :if={@home.missing == [] and @home.unsure == []}
-                  data-role="ready"
-                  class="flex items-center gap-3 py-3.5"
-                >
-                  <.icon name="ph-check-circle-fill" class="size-5 text-[color:var(--done)]" />
-                  <span class="flex-1 font-semibold" style="font-size: 16px;">
-                    {gettext("Everything's at home")}
-                  </span>
-                  <.pantry_link />
-                </div>
+                <span class="tag tag-green">
+                  <.icon name="ph-check" class="size-3.5" /> {gettext("Everything's at home")}
+                </span>
+                <.pantry_link />
+              </p>
 
-                <div :if={@home.missing != []} data-role="at-home" class="py-3">
-                  <div class="flex items-center gap-3">
-                    <.icon name="ph-shopping-cart" class="size-5 text-[color:var(--danger)]" />
-                    <span class="flex-1 font-semibold" style="font-size: 16px;">
-                      {gettext("Missing")}
-                    </span>
-                    <.pantry_link />
-                  </div>
-                  <div class="mt-2 flex flex-wrap items-center gap-1.5 pl-8">
-                    <span class="sr-only">
-                      {gettext("Missing: %{things}", things: Enum.join(@home.missing, ", "))}
-                    </span>
-                    <span :for={thing <- @home.missing} class="tag tag-red" aria-hidden="true">
-                      {thing}
-                    </span>
-                  </div>
-                  <div class="mt-3 flex gap-2 pl-8">
-                    <button
-                      type="button"
-                      phx-click="before_cooking"
-                      data-role="swap-missing"
-                      class="pill press h-9"
-                    >
-                      <.icon name="ph-arrows-left-right" /> {gettext("Swap")}
-                    </button>
-                    <.link
-                      navigate={
-                        ~p"/capture?#{[return_to: "/today", recipe: @dish.id, q: ask_missing(@home.missing)]}"
-                      }
-                      data-role="ask-missing"
-                      class="pill press h-9"
-                    >
-                      <.icon name="ph-chat-circle" /> {gettext("Ask")}
-                    </.link>
-                  </div>
-                </div>
-
-                <div :if={@home.unsure != []} data-role="unsure" class="py-3">
-                  <div class="flex items-center gap-3">
-                    <.icon name="ph-warning-circle" class="size-5 text-[color:var(--muted)]" />
-                    <span class="flex-1 font-semibold" style="font-size: 16px;">
-                      {gettext("Still there?")}
-                    </span>
-                  </div>
-                  <ul class="mt-1 pl-8">
-                    <li
-                      :for={thing <- asked(@home)}
-                      data-item={thing.id}
-                      class="flex items-center gap-2 py-1.5"
-                    >
-                      <span class="min-w-0 flex-1">
-                        <span class="block truncate">{thing.name}</span>
-                        <span
-                          :if={thing.last_seen_at}
-                          class="num block text-[12.5px] text-[color:var(--muted)]"
-                        >
-                          {seen_ago(thing.last_seen_at)}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        phx-click="still_there"
-                        phx-value-id={thing.id}
-                        data-role="still-there"
-                        class="pill press h-8"
-                      >
-                        {gettext("Still there")}
-                      </button>
-                      <button
-                        type="button"
-                        phx-click="gone"
-                        phx-value-id={thing.id}
-                        data-role="gone"
-                        class="pill press h-8"
-                      >
-                        {gettext("Gone")}
-                      </button>
-                    </li>
-                  </ul>
-                  <.link
-                    :if={more(@home) > 0}
-                    navigate={~p"/pantry"}
-                    class="press ml-8 mt-1 inline-block text-[color:var(--muted)] hover:text-[color:var(--text)]"
+              <section
+                :if={@home.missing != []}
+                data-role="at-home"
+                class="reveal mt-6"
+                style="--i: 2"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <.group_head
+                    id="today-buy"
+                    label={gettext("To buy")}
+                    tint="red"
+                    count={length(@home.missing)}
+                  />
+                  <%!-- Or use something else: Before you start, which can still cook anyway --%>
+                  <button
+                    type="button"
+                    phx-click="before_cooking"
+                    data-role="swap-missing"
+                    class="press flex items-center gap-1 text-[color:var(--muted)] hover:text-[color:var(--text)]"
                     style="font-size: 14px;"
                   >
-                    {gettext("+%{count} more", count: more(@home))}
-                  </.link>
+                    {gettext("Swap")} <.icon name="ph-caret-right" class="size-3.5" />
+                  </button>
                 </div>
-              </div>
+                <ul id="today-buy" class="pl-6">
+                  <li
+                    :for={name <- @home.missing}
+                    data-buy={name}
+                    class="flex min-h-[44px] items-center gap-3 py-1"
+                  >
+                    <img
+                      src={~p"/images/food/#{Icons.file(picture(@dish, name))}"}
+                      alt=""
+                      class="size-7 shrink-0"
+                    />
+                    <span class="min-w-0 truncate">{name}</span>
+                  </li>
+                </ul>
+              </section>
 
-              <div class="reveal mt-5 grid grid-cols-2 gap-2 md:flex md:flex-wrap" style="--i: 3">
+              <section :if={@home.unsure != []} data-role="unsure" class="reveal mt-4" style="--i: 2">
+                <div class="flex items-center justify-between gap-3">
+                  <.group_head
+                    id="today-unsure"
+                    label={gettext("Still there?")}
+                    tint="grey"
+                    count={length(@home.unsure)}
+                  />
+                  <.pantry_link />
+                </div>
+                <ul id="today-unsure" class="pl-6">
+                  <li
+                    :for={thing <- asked(@home)}
+                    data-item={thing.id}
+                    class="flex min-h-[52px] items-center gap-3 py-1.5"
+                  >
+                    <img
+                      src={~p"/images/food/#{Icons.file(picture(@dish, thing.name))}"}
+                      alt=""
+                      class="size-7 shrink-0"
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate">{thing.name}</span>
+                      <span
+                        :if={thing.last_seen_at}
+                        class="num block text-[12.5px] text-[color:var(--muted)]"
+                      >
+                        {seen_ago(thing.last_seen_at)}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      phx-click="still_there"
+                      phx-value-id={thing.id}
+                      data-role="still-there"
+                      class="pill press h-8 shrink-0"
+                    >
+                      {gettext("Still there")}
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="gone"
+                      phx-value-id={thing.id}
+                      data-role="gone"
+                      class="pill press h-8 shrink-0"
+                    >
+                      {gettext("Gone")}
+                    </button>
+                  </li>
+                  <li :if={more(@home) > 0} class="py-1">
+                    <.link
+                      navigate={~p"/pantry"}
+                      class="press text-[color:var(--muted)] hover:text-[color:var(--text)]"
+                      style="font-size: 14px;"
+                    >
+                      {gettext("+%{count} more", count: more(@home))}
+                    </.link>
+                  </li>
+                </ul>
+              </section>
+
+              <div class="reveal mt-6 grid grid-cols-2 gap-2 md:flex md:flex-wrap" style="--i: 3">
                 <button type="button" phx-click="something_else" class="pill press">
                   <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
                 </button>
+                <%!-- With something missing, the question about it is already typed. --%>
                 <.link
-                  navigate={~p"/capture?#{[return_to: "/today", recipe: @dish.id]}"}
+                  navigate={~p"/capture?#{ask_params(@dish, @home)}"}
                   data-role="ask-tore"
                   class="pill press"
                 >
@@ -290,35 +309,6 @@ defmodule ToreWeb.HomeLive do
               </p>
 
               <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
-
-              <%!-- The recipe page has them in full; here they're folded, for a glance. --%>
-              <details
-                :if={@dish.recipe_ingredients != []}
-                data-role="ingredients"
-                class="group reveal mt-8"
-                style="--i: 4"
-              >
-                <summary class="press press-soft">
-                  <.icon name="ph-caret-right" class="arrow size-3.5 text-[color:var(--muted)]" />
-                  <span class="t-head">{gettext("Ingredients")}</span>
-                  <span class="num text-[color:var(--muted)]">
-                    {length(@dish.recipe_ingredients)}
-                  </span>
-                </summary>
-                <ul class="menu-lines mt-1">
-                  <li
-                    :for={ri <- @dish.recipe_ingredients}
-                    class="flex items-baseline justify-between gap-4 py-3"
-                  >
-                    <span class="text-[color:var(--text)]" style="font-size: 16px;">
-                      {ri.ingredient.name}
-                    </span>
-                    <span class="num shrink-0 text-[color:var(--muted)]" style="font-size: 15px;">
-                      {amount(ri, @dish.base_servings, @servings)}
-                    </span>
-                  </li>
-                </ul>
-              </details>
             </div>
           </section>
 
@@ -624,6 +614,7 @@ defmodule ToreWeb.HomeLive do
   def handle_info({:choices, _suggestions}, socket), do: {:noreply, socket}
 
   def handle_info({:events, _events}, socket), do: {:noreply, reload_tonight(socket)}
+  def handle_info(:pantry_changed, socket), do: {:noreply, reload_tonight(socket)}
 
   def handle_info({:pi, _session, event}, socket) do
     if socket.assigns.before_cooking, do: ToreWeb.BeforeCooking.forward(event)
@@ -754,12 +745,30 @@ defmodule ToreWeb.HomeLive do
     """
   end
 
-  defp amount(ri, base, servings) do
-    quantity = Recipes.scale_quantity(ri.quantity, base, servings || base)
-    unit = if ri.unit not in [nil, ""], do: " #{ri.unit}"
-    "#{quantity}#{unit}"
+  # When dinner is ready if it's started now: only when it could be (from the afternoon until
+  # the evening's over), since "ready 00:57" says nothing.
+  defp ready_by(minutes) do
+    now = Tore.Clock.now()
+
+    if now.hour >= cooking_from() and now.hour < evening_over(),
+      do: now |> NaiveDateTime.add(minutes, :minute) |> Calendar.strftime("%H:%M")
   end
 
-  defp ready_by(minutes),
-    do: Tore.Clock.now() |> NaiveDateTime.add(minutes, :minute) |> Calendar.strftime("%H:%M")
+  defp cooking_from, do: Application.get_env(:tore, :cooking_from, 15)
+
+  # The picture of one of tonight's ingredients, as Hemma shows it.
+  defp picture(dish, name) do
+    key = Tore.Recipes.Ingredient.to_key(name)
+
+    ingredient =
+      Enum.find_value(dish.recipe_ingredients, &(&1.ingredient.key == key && &1.ingredient))
+
+    Icons.shown(ingredient && ingredient.icon, ingredient && ingredient.category)
+  end
+
+  # Fråga Tore opens the dish's conversation; with something missing, the question is typed.
+  defp ask_params(dish, home) do
+    [return_to: "/today", recipe: dish.id] ++
+      if home.missing != [], do: [q: ask_missing(home.missing)], else: []
+  end
 end
