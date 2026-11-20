@@ -72,7 +72,7 @@ config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
 
 config :tore,
        :openrouter_image_model,
-       System.get_env("OPENROUTER_IMAGE_MODEL", "black-forest-labs/flux.2-pro")
+       System.get_env("OPENROUTER_IMAGE_MODEL", "microsoft/mai-image-2.6")
 
 config :tore, :storage_client, Tore.Storage.S3
 config :tore, :env, :dev

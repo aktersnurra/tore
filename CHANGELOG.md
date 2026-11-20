@@ -18,6 +18,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - pi looks for two new dinners on the web every Thursday, before the coming week is planned.
 - Gone: "Surprise me" on a day (the sheet asks pi instead), recipe variants, and a duplicate receipt is now caught by its store, date and total rather than the photo.
 - The chat looks like Claude's: full screen on a laptop, your messages on the right, Tore's answers as text with its lists and bold shown as such, and a growing message box where Enter sends. Stop halts Tore mid-answer.
+- Recipe pictures are drawn by MAI-Image-2.6, which passes OpenRouter's zero-data-retention setting; FLUX.2 Pro doesn't.
 - What Tore did in the chat ("Saved Laxpasta.") is written in the household's language, and without an OpenRouter key a picture says so instead of failing the request.
 - Ask Tore on a recipe opens a conversation about that recipe, your own, which is still there when you come back to it.
 - OpenRouter only draws recipe pictures now. Turning AI on means setting `TORE_PI_COMMAND`.

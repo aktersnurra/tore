@@ -34,7 +34,7 @@ defmodule Tore.ImageGen.OpenRouterTest do
 
     stub(__MODULE__, fn conn ->
       assert %{
-               "model" => "black-forest-labs/flux.2-pro",
+               "model" => "microsoft/mai-image-2.6",
                "modalities" => ["image"],
                "messages" => [%{"role" => "user", "content" => "A plated meal"}]
              } = raw_body(conn) |> Jason.decode!()
