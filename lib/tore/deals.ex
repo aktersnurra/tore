@@ -372,6 +372,7 @@ defmodule Tore.Deals do
     with {:ok, parser} <- Parsers.for_url(url),
          {:ok, html} <- @http.fetch(url, parser.headers()),
          {:ok, deals} <- parser.parse(html) do
+      keep_logo(url, html)
       chain = parser.chain()
       deals = Enum.map(deals, &Map.merge(&1, %{store: store_name, chain: chain}))
 
@@ -389,6 +390,12 @@ defmodule Tore.Deals do
           upsert_deals(deals)
       end
     end
+  end
+
+  # The page a store's offers are on has its logo too.
+  defp keep_logo(url, html) do
+    with logo when is_binary(logo) <- Tore.Deals.Logo.find(html, url),
+         do: Repo.update_all(from(s in Store, where: s.url == ^url), set: [logo: logo])
   end
 
   defp scrape_store(store) do

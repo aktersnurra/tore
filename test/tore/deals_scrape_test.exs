@@ -27,6 +27,20 @@ defmodule Tore.DealsScrapeTest do
     assert deal.chain == "ica"
   end
 
+  test "the store's page gives its logo, which the store keeps" do
+    {:ok, _} = Deals.add_store(home_scope(), @store_url)
+
+    icon =
+      ~s(<link rel="apple-touch-icon" href="https://assets.icanet.se/touch-180.png" sizes="180x180">)
+
+    Tore.MockHTTP |> expect(:fetch, fn @store_url, _headers -> {:ok, icon <> @ica_html} end)
+
+    assert {:ok, 1} = Tore.Deals.scrape_url(@store_url, "Danvikstull")
+
+    assert Tore.Repo.get_by!(Deals.Store, url: @store_url).logo ==
+             "https://assets.icanet.se/touch-180.png"
+  end
+
   # ICA's firewall answers 403 to anything but curl's user agent, Req's and browsers' included.
   test "an ICA page is fetched as curl, the one client ICA lets through" do
     Tore.MockHTTP

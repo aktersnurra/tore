@@ -1396,11 +1396,14 @@ already knows (`Tore.Deals.page/3`), and one from Jev's guesses (2026-11-20, bel
   for them (cat food for a household without a cat). Offers Jev hasn't been asked about, or
   says no to unsurely, stay under Övriga. It guesses from the little it knows at first and gets
   better as receipts come in.
-- A deal: its name and size, the store's initial and name, "t.o.m. sön 22/11", the price
+- A deal: its name and size, the store's logo and name, "t.o.m. sön 22/11", the price
   ("89 kr", "2 för 20", "99 kr/kg") over the regular price struck through, and on a laptop
   what it saves. On a phone the store and end date sit under the name.
 - A + square puts it on this week's list, under its ingredient's name when it's matched to one;
   a deal already on the list shows "På listan" (a check on a phone, in the same square).
+- A store's logo is the one its own site gives phones (`Tore.Deals.Logo`), taken from the page
+  Tore reads offers from, so it costs no extra request and each morning keeps it current; the
+  store's first letter until its page has been read.
 - **Butiker** at the foot: each store with its offers this week, a switch, and × to remove.
   "Lägg till butik" opens the link field; it's open from the start when there are none. A link
   Tore has no parser for gets "Tore kan inte läsa den butiken än". A store just added is read at

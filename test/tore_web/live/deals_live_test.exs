@@ -154,6 +154,29 @@ defmodule ToreWeb.DealsLiveTest do
     assert html =~ "varje morgon"
   end
 
+  test "a store's logo marks it and its offers, its first letter until it has one", %{conn: conn} do
+    store = use_store("ICA Maxi")
+    offer("Chips", "20", "29")
+
+    {:ok, view, _} = live(conn, ~p"/deals")
+    assert view |> element("[data-role=store] .store-i") |> render() =~ "I"
+
+    Tore.Repo.update_all(Deals.Store, set: [logo: "https://assets.example/ica.png"])
+    {:ok, view, _} = live(conn, ~p"/deals")
+
+    assert has_element?(
+             view,
+             ~s([data-role=store] img.store-i[src="https://assets.example/ica.png"])
+           )
+
+    assert has_element?(
+             view,
+             ~s([data-role=group-others] img.store-i[src="https://assets.example/ica.png"])
+           )
+
+    assert store
+  end
+
   describe "stores" do
     test "another household's store can't be switched off or removed", %{conn: conn} do
       other = scope_fixture(household_fixture())

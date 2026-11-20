@@ -15,7 +15,9 @@ defmodule ToreWeb.DealsLive do
   defp load(socket) do
     today = Tore.Clock.today()
     week = Streams.monday(today)
-    assign(socket, week: week, page: Deals.page(socket.assigns.current_scope, week, today))
+    page = Deals.page(socket.assigns.current_scope, week, today)
+    logos = Map.new(page.stores, &{&1.store.store.name, &1.store.store.logo})
+    assign(socket, week: week, page: page, logos: logos)
   end
 
   # The name comes from the page, not the click, so only a deal shown can be added.
@@ -140,6 +142,7 @@ defmodule ToreWeb.DealsLive do
             label={gettext("For this week's meals")}
             tint="orange"
             entries={@page.meals}
+            logos={@logos}
             open
           />
           <.group
@@ -148,6 +151,7 @@ defmodule ToreWeb.DealsLive do
             label={gettext("Things you usually buy")}
             tint="green"
             entries={@page.usual}
+            logos={@logos}
             open
           />
           <.group
@@ -156,6 +160,7 @@ defmodule ToreWeb.DealsLive do
             label={gettext("Might be for you")}
             tint="blue"
             entries={@page.maybe}
+            logos={@logos}
             open
           />
           <.group
@@ -164,6 +169,7 @@ defmodule ToreWeb.DealsLive do
             label={gettext("Other offers")}
             tint="grey"
             entries={@page.others}
+            logos={@logos}
             open={false}
           />
           <.group
@@ -172,6 +178,7 @@ defmodule ToreWeb.DealsLive do
             label={gettext("Not for you")}
             tint="grey"
             entries={@page.not_for_us}
+            logos={@logos}
             open={false}
           />
         </div>
@@ -207,7 +214,7 @@ defmodule ToreWeb.DealsLive do
           class="flex min-h-11 items-center gap-2.5 border-b border-[color:var(--hairline)]"
           style="font-size: 14.5px;"
         >
-          <span class="store-i" aria-hidden="true">{initial(hs.store.name)}</span>
+          <.store_mark name={hs.store.name} logo={hs.store.logo} />
           <span class="min-w-0 flex-1 truncate">{hs.store.name}</span>
           <span
             :if={hs.scrape_enabled}
@@ -277,6 +284,7 @@ defmodule ToreWeb.DealsLive do
   attr :label, :string, required: true
   attr :tint, :string, required: true
   attr :entries, :list, required: true
+  attr :logos, :map, required: true, doc: "each store's logo, by its name"
   attr :open, :boolean, default: true
 
   defp group(assigns) do
@@ -288,13 +296,14 @@ defmodule ToreWeb.DealsLive do
         <span class="num text-[color:var(--muted)]">{length(@entries)}</span>
       </summary>
       <div>
-        <.deal :for={entry <- @entries} entry={entry} />
+        <.deal :for={entry <- @entries} entry={entry} logo={@logos[entry.deal.store]} />
       </div>
     </details>
     """
   end
 
   attr :entry, :map, required: true
+  attr :logo, :string, default: nil
 
   defp deal(assigns) do
     ~H"""
@@ -310,7 +319,7 @@ defmodule ToreWeb.DealsLive do
           class="flex min-w-0 items-center gap-1.5 truncate text-[color:var(--muted)] lg:hidden"
           style="font-size: 12.5px;"
         >
-          <span class="store-i" aria-hidden="true">{initial(@entry.deal.store)}</span>
+          <.store_mark name={@entry.deal.store} logo={@logo} />
           <span class="truncate">
             {Enum.join(
               Enum.reject(
@@ -330,7 +339,7 @@ defmodule ToreWeb.DealsLive do
         </p>
       </div>
       <span class="hidden min-w-0 items-center gap-1.5 lg:flex" style="font-size: 14px;">
-        <span class="store-i" aria-hidden="true">{initial(@entry.deal.store)}</span>
+        <.store_mark name={@entry.deal.store} logo={@logo} />
         <span class="truncate">{@entry.deal.store}</span>
       </span>
       <span
@@ -450,6 +459,17 @@ defmodule ToreWeb.DealsLive do
       n: Streams.week_number(week_start),
       range: ToreWeb.Dates.range(week_start, Date.add(week_start, 6))
     )
+  end
+
+  attr :name, :string, required: true
+  attr :logo, :string, default: nil
+
+  # A store's logo, from its own site; its first letter until Tore has read the page.
+  defp store_mark(assigns) do
+    ~H"""
+    <img :if={@logo} src={@logo} alt="" class="store-i" loading="lazy" referrerpolicy="no-referrer" />
+    <span :if={!@logo} class="store-i" aria-hidden="true">{initial(@name)}</span>
+    """
   end
 
   defp initial(nil), do: "?"

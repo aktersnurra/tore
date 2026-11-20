@@ -6,6 +6,8 @@ defmodule Tore.Deals.Store do
   schema "stores" do
     field :name, :string
     field :url, :string
+    # A link to its logo, from its page (`Tore.Deals.Logo`).
+    field :logo, :string
     timestamps()
   end
 
