@@ -38,11 +38,19 @@ defmodule ToreWeb.DealsLive do
     end
   end
 
+  # A store just added is read at once, in the background, and a toast says what came of it.
   def handle_event("add_store", %{"url" => url}, socket) do
-    case Deals.add_store(socket.assigns.current_scope, url) do
-      {:ok, _store} ->
+    scope = socket.assigns.current_scope
+
+    case Deals.add_store(scope, url) do
+      {:ok, household_store} ->
         {:noreply,
-         socket |> assign(store_url: "", store_error: nil, adding_store: false) |> load()}
+         socket
+         |> assign(store_url: "", store_error: nil, adding_store: false)
+         |> load()
+         |> start_async({:read_store, household_store.store.name}, fn ->
+           Deals.read_store_now(scope, household_store)
+         end)}
 
       {:error, :unsupported_store} ->
         {:noreply,
@@ -67,6 +75,42 @@ defmodule ToreWeb.DealsLive do
 
   def handle_event("remove_store", %{"id" => id}, socket) do
     _ = Deals.remove_store(socket.assigns.current_scope, String.to_integer(id))
+    {:noreply, load(socket)}
+  end
+
+  @impl true
+  def handle_async({:read_store, store}, result, socket) do
+    socket =
+      case result do
+        {:ok, {:ok, 0}} ->
+          put_flash(
+            socket,
+            :error,
+            gettext("Tore read %{store} but found no offers this week.", store: store)
+          )
+
+        {:ok, {:ok, count}} ->
+          put_flash(
+            socket,
+            :info,
+            ngettext(
+              "Found %{count} offer at %{store}.",
+              "Found %{count} offers at %{store}.",
+              count,
+              store: store
+            )
+          )
+
+        _failed ->
+          put_flash(
+            socket,
+            :error,
+            gettext("Tore couldn't read %{store} just now. It tries again every morning.",
+              store: store
+            )
+          )
+      end
+
     {:noreply, load(socket)}
   end
 

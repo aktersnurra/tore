@@ -267,6 +267,19 @@ defmodule Tore.Deals do
   end
 
   @doc """
+  Fetches one of the household's stores now, as when it has just been added, so they see at once
+  whether Tore can read it. Answers how many of its offers are current.
+  """
+  @spec read_store_now(Scope.t(), HouseholdStore.t()) ::
+          {:ok, non_neg_integer()} | {:error, term()}
+  def read_store_now(%Scope{} = scope, %HouseholdStore{store: %Store{} = store}) do
+    with {:ok, _added} <- scrape_url(store.url, store.name) do
+      match_products(scope)
+      {:ok, Enum.count(list_current(scope), &(&1.store == store.name))}
+    end
+  end
+
+  @doc """
   Whether every store the household has switched on has its offers for the week after `today`'s.
   True with no stores, as nothing is coming.
   """

@@ -1313,7 +1313,9 @@ comes from what Tore already knows (`Tore.Deals.page/3`).
   a deal already on the list shows "På listan" (a check on a phone, in the same square).
 - **Butiker** at the foot: each store with its offers this week, a switch, and × to remove.
   "Lägg till butik" opens the link field; it's open from the start when there are none. A link
-  Tore has no parser for gets "Tore kan inte läsa den butiken än".
+  Tore has no parser for gets "Tore kan inte läsa den butiken än". A store just added is read at
+  once, in the background, and a toast says how many offers Tore found, or that it couldn't
+  read the store now (it tries again every morning).
 - Without stores: "Erbjudanden från butikerna ni handlar i" and where to add one. With stores but
   nothing in yet: that Tore reads them every morning.
 

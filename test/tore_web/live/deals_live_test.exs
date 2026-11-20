@@ -11,6 +11,7 @@ defmodule ToreWeb.DealsLiveTest do
   end
 
   @store_url "https://www.ica.se/erbjudanden/ica-supermarket-danvikstull-1156002/"
+  @ica_html ~s({"weeklyOffers":[{"details":{"name":"Kycklingfilé","brand":"Kronfågel"},"parsedMechanics":{"value1":"1","value2":"59","value4":"/kg"},"stores":[{"storeMarketingName":"ICA Maxi","regularPrice":"89"}],"comparisonPrice":null,"validTo":null}],"compensationOffersStatus":"ok"})
 
   defp add_store(view, url) do
     if has_element?(view, "[data-role=add-store]"),
@@ -132,13 +133,42 @@ defmodule ToreWeb.DealsLiveTest do
       assert [%{scrape_enabled: true}] = Deals.list_stores(other)
     end
 
-    test "adds a store from just a link", %{conn: conn} do
+    test "adds a store from just a link, reads it at once, and a toast says what it found", %{
+      conn: conn
+    } do
+      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url -> {:ok, @ica_html} end)
       {:ok, view, _html} = live(conn, ~p"/deals")
 
       assert add_store(view, @store_url) =~ "ICA Supermarket Danvikstull"
 
       assert [%{store: %{url: @store_url}, scrape_enabled: true}] =
                Deals.list_stores(home_scope())
+
+      render_async(view)
+
+      assert has_element?(
+               view,
+               "#flash-info",
+               "Hittade 1 erbjudande hos ICA Supermarket Danvikstull."
+             )
+
+      assert render(view) =~ "Kycklingfilé"
+    end
+
+    test "a store that can't be read now stays added, and a toast says so", %{conn: conn} do
+      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url -> {:error, {:http_error, 403}} end)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      add_store(view, @store_url)
+      render_async(view)
+
+      assert has_element?(
+               view,
+               "#flash-error",
+               "Tore kunde inte läsa ICA Supermarket Danvikstull just nu."
+             )
+
+      assert [_] = Deals.list_stores(home_scope())
     end
 
     test "says so when it can't read a store", %{conn: conn} do
