@@ -14,6 +14,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - A recipe Tore reads shows in the chat as its card, and a recipe's own chat has the recipe on top, so it's clear what Tore is looking at.
 - Today's photo is a rounded card with a lighter shade behind the name, so light mode has no dark band against the white page.
 - On a laptop, Today's photo has no shade, since the name sits beside it. Pointing at a recipe in the gallery shows Cook now, Put on the week, Ask Tore and the star. Gallery, list and new are icons.
+- Things Tore has learned is one card per part, rows divided by hairlines, like the rest of Settings; an empty part isn't shown.
 - A field on its own is sent with Enter, and removing anything is a trash can. A recipe link, a question for Tore and Shop's add line look like the chat's box, sent with the return icon in the field or Enter; Shop's line shows the scanner while it's empty.
 - Every text field looks the same: blue while you type, green for a moment when saved, red with the reason under it when something's wrong. The household's name is sent with return, as in the chat.
 - What screens ask Tore (importing a link, swaps before cooking) no longer lands in your chats, so the Tore tab opens on what you said there. Switching chats no longer replays the tray's opening.

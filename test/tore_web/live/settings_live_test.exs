@@ -222,6 +222,9 @@ defmodule ToreWeb.SettingsLiveTest do
 
       refute html =~ "Friday pizza"
       assert Tore.Household.Memory.list(home_scope(), "notes") == []
+      # A part with nothing left in it isn't shown as an empty heading.
+      refute html =~ "Anteckningar"
+      assert html =~ "Hushållet"
     end
   end
 

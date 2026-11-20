@@ -462,36 +462,38 @@ defmodule ToreWeb.SettingsLive do
             </p>
           </div>
 
-          <div :if={@section == "memory"}>
-            <%= if Enum.all?(@memory, &(&1.entries == [])) do %>
-              <p class="text-sm text-[color:var(--muted)]">
-                {gettext("No memories yet. Tore learns as you cook.")}
-              </p>
-            <% else %>
-              <div :for={part <- @memory} class="mb-4 last:mb-0">
-                <div class="flex items-baseline justify-between mb-2">
-                  <h3 class="text-sm font-medium">{memory_part_label(part.store)}</h3>
-                  <span class="text-xs text-[color:var(--muted)]">
-                    {gettext("%{percent}% full", percent: part.percent)}
-                  </span>
-                </div>
-                <ul class="space-y-2">
-                  <li
-                    :for={entry <- part.entries}
-                    class="flex items-start justify-between gap-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] py-0.5 pl-3 pr-0.5"
-                  >
-                    <p class="flex-1 py-3 text-sm">{entry.text}</p>
-                    <.icon_button
-                      icon="ph-trash"
-                      label={gettext("Forget")}
-                      variant={:danger}
-                      phx-click="forget_memory"
-                      phx-value-id={entry.id}
-                    />
-                  </li>
-                </ul>
+          <%!-- Each part is one card of rows, as the other settings are; a part with nothing in
+             it isn't shown. --%>
+          <div :if={@section == "memory"} class="space-y-6">
+            <p
+              :if={Enum.all?(@memory, &(&1.entries == []))}
+              class="menu-lines py-4 text-[color:var(--muted)]"
+              style="font-size: var(--t-body);"
+            >
+              {gettext("No memories yet. Tore learns as you cook.")}
+            </p>
+            <section :for={part <- @memory} :if={part.entries != []}>
+              <div class="mb-2 flex items-baseline justify-between px-1">
+                <h3 class="section-label">{memory_part_label(part.store)}</h3>
+                <span class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
+                  {gettext("%{percent}% full", percent: part.percent)}
+                </span>
               </div>
-            <% end %>
+              <ul class="menu-lines">
+                <li :for={entry <- part.entries} class="flex items-start gap-2 py-1">
+                  <p class="flex-1 py-2.5 text-[color:var(--text)]" style="font-size: var(--t-body);">
+                    {entry.text}
+                  </p>
+                  <.icon_button
+                    icon="ph-trash"
+                    label={gettext("Forget")}
+                    variant={:danger}
+                    phx-click="forget_memory"
+                    phx-value-id={entry.id}
+                  />
+                </li>
+              </ul>
+            </section>
           </div>
 
           <div :if={@section == "ai"} class="menu-lines py-4">
