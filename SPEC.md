@@ -653,7 +653,8 @@ written.
 **Barcodes.** The scanner on Shop reads EAN-13, EAN-8 and UPC-A from the phone's camera (`barcode-detector` with
 ZXing's wasm, served by Tore). `Tore.Pantry.Scan`: a learned code lands on its ingredient with its pack size. A new
 code is looked up once in Open Food Facts (only the number leaves the server), its product name goes through
-`Learn` as above, and the code is learned with its pack. A code nobody knows asks for a name once. A pack still
+`Learn` as above, and the code is learned with its pack. No photo is fetched (pack photos were dropped
+2026-11-20; the old `image_path` column is left unread). A code nobody knows asks for a name once. A pack still
 unticked on the list is ticked instead.
 
 **One row per ingredient.** A unique index on `(household_id, ingredient_id)` holds it. Undoing a removal yields
@@ -686,6 +687,9 @@ household says so. Spent from the household's AI budget, with its sponsor; witho
 by itself. Slut (Gone) teaches it: how long the pack lasted since it was bought moves a basic's
 `interval_days` halfway there (so the list follows too), or else the ingredient's own `lasts_days`,
 which then comes between the rhythm and Jev's guess. What's only for cooking learns nothing.
+The same call picks each ingredient's emoji for its Hemma row (`ingredients.icon`), from the food
+emoji `Tore.Pantry.Icons` has pictures of, each with what it stands for; one Jev answers with that
+isn't there is not kept and is asked again. An ingredient is asked only for what it lacks.
 
 **Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
 `Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same

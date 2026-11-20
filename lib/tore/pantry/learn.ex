@@ -175,15 +175,6 @@ defmodule Tore.Pantry.Learn do
         opts
       )
 
-      # A scanned pack's photo goes with it, unless what it joins already has one.
-      if into.image_path == nil and from.image_path != nil do
-        Repo.update_all(
-          from(i in Ingredient, where: i.id == ^into.id),
-          [set: [image_path: from.image_path]],
-          opts
-        )
-      end
-
       Repo.delete!(from)
       :ok = Match.learn_alias(scope, {:name, from.name}, into.id)
     end)

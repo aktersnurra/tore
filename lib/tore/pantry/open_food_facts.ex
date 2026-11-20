@@ -2,18 +2,16 @@ defmodule Tore.Pantry.OpenFoodFacts do
   @moduledoc """
   What a barcode is, from Open Food Facts: the open product database, free and with no key. Only
   the number leaves the server. A product's Swedish name is preferred, and its pack (*"1 l"*,
-  *"6 x 33 cl"*) is read when it can be. The small photo of its front comes along, as a link to
-  Open Food Facts' own images and nowhere else, since the server fetches it.
+  *"6 x 33 cl"*) is read when it can be.
   """
 
   @http Application.compile_env(:tore, :http_client)
-  @fields "product_name,product_name_sv,quantity,image_front_small_url,selected_images"
+  @fields "product_name,product_name_sv,quantity"
 
   @type product :: %{
           name: String.t(),
           quantity: Decimal.t() | nil,
-          unit: String.t() | nil,
-          image_url: String.t() | nil
+          unit: String.t() | nil
         }
 
   @spec product(String.t()) :: {:ok, product()} | :unknown | {:error, term()}
@@ -42,9 +40,7 @@ defmodule Tore.Pantry.OpenFoodFacts do
         :unknown
 
       name ->
-        {:ok,
-         %{name: name, image_url: front_photo(product)}
-         |> Map.merge(pack(product["quantity"]))}
+        {:ok, Map.merge(%{name: name}, pack(product["quantity"]))}
     end
   end
 
@@ -55,16 +51,6 @@ defmodule Tore.Pantry.OpenFoodFacts do
     |> Enum.map(&(&1 && String.trim(&1)))
     |> Enum.find(&(&1 not in [nil, ""]))
   end
-
-  # The Swedish front, as with the name: the default follows the product's main entry, which can
-  # be anyone's photo (a Pepsi bottle on Arla's milk).
-  defp front_photo(product) do
-    image_url(get_in(product, ["selected_images", "front", "small", "sv"])) ||
-      image_url(product["image_front_small_url"])
-  end
-
-  defp image_url("https://images.openfoodfacts.org/" <> _ = url), do: url
-  defp image_url(_url), do: nil
 
   @unit ~S"(kg|g|l|dl|cl|ml|st)"
   @number ~S"(\d+(?:[.,]\d+)?)"

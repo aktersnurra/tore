@@ -98,49 +98,33 @@ defmodule ToreWeb.PantryLiveTest do
     assert view |> element("[data-item]") |> render() =~ "2 l"
   end
 
-  test "a scanned pack shows its photo, served by Tore", %{conn: conn} do
+  test "each row has its emoji: Jev's pick, or its category's until Jev has picked", %{
+    conn: conn
+  } do
     milk = kept("Mjölk", "dairy")
-    key = "households/#{milk.household_id}/products/#{milk.ingredient_id}/front.jpg"
-    {:ok, _} = Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, "jpeg")
+    butter = kept("Smör", "dairy")
 
-    {:ok, _} =
-      Tore.Repo.get!(
-        Tore.Recipes.Ingredient,
-        milk.ingredient_id,
-        Tore.Scope.repo_opts(home_scope())
-      )
-      |> Ecto.Changeset.change(image_path: key)
-      |> Tore.Repo.update()
+    Tore.Repo.get!(
+      Tore.Recipes.Ingredient,
+      butter.ingredient_id,
+      Tore.Scope.repo_opts(home_scope())
+    )
+    |> Ecto.Changeset.change(icon: "🧈")
+    |> Tore.Repo.update!()
 
     {:ok, view, _html} = live(conn, ~p"/pantry")
 
     assert has_element?(
              view,
-             ~s([data-item="#{milk.id}"] img[src="/images/ingredients/#{milk.ingredient_id}?v=front"])
+             ~s([data-item="#{milk.id}"] img[src="/images/emoji/emoji_u1f95b.svg"])
            )
-
-    assert conn |> get(~p"/images/ingredients/#{milk.ingredient_id}") |> response(200) == "jpeg"
-  end
-
-  test "tapping a row's picture takes a photo for it", %{conn: conn} do
-    milk = kept("Mjölk", "dairy")
-    row = ~s([data-item="#{milk.id}"])
-    {:ok, view, _html} = live(conn, ~p"/pantry")
-
-    view |> element(row <> ~s( [data-role="pick-photo"])) |> render_click()
-
-    view
-    |> file_input("#item-photo-form", :item_photo, [
-      %{name: "photo.jpg", content: "our photo", type: "image/jpeg"}
-    ])
-    |> render_upload("photo.jpg")
-
-    assert {:ok, "our photo"} = Pantry.picture(home_scope(), milk.ingredient_id)
 
     assert has_element?(
              view,
-             row <> ~s( img[src^="/images/ingredients/#{milk.ingredient_id}?v="])
+             ~s([data-item="#{butter.id}"] img[src="/images/emoji/emoji_u1f9c8.svg"])
            )
+
+    refute has_element?(view, "#photo-picker")
   end
 
   test "the menu has Hemma under the household, with how much is at home", %{conn: conn} do

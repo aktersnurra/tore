@@ -1,6 +1,5 @@
 defmodule Tore.Pantry do
   import Ecto.Query
-  require Logger
   alias Tore.{Repo, Scope}
   alias Tore.Pantry.{Expiry, PantryItem}
   alias Tore.Recipes.Ingredient
@@ -550,62 +549,6 @@ defmodule Tore.Pantry do
     case Repo.get(PantryItem, item_id, Scope.repo_opts(scope)) do
       nil -> {:error, :not_found}
       item -> {:ok, item}
-    end
-  end
-
-  @doc """
-  Keeps the photo of a scanned pack for its ingredient, unless it has one (the household's own
-  wins). The photo is a nicety: one that won't come is logged and the scan goes on without it.
-  """
-  @spec keep_picture(Scope.t(), Ingredient.t(), String.t()) :: :ok
-  def keep_picture(%Scope{} = scope, %Ingredient{image_path: nil} = ingredient, url) do
-    http = Application.fetch_env!(:tore, :http_client)
-
-    with {:ok, body} when is_binary(body) <- http.fetch(url),
-         :ok <- store_picture(scope, ingredient, body) do
-      :ok
-    else
-      failed ->
-        Logger.warning("Couldn't keep the photo for #{ingredient.name}: #{inspect(failed)}")
-        :ok
-    end
-  end
-
-  def keep_picture(%Scope{}, %Ingredient{}, _url), do: :ok
-
-  @doc """
-  The household's own photo of an ingredient (a JPEG the phone has already made small), in place
-  of whatever it had.
-  """
-  @spec put_picture(Scope.t(), integer(), binary()) :: :ok | {:error, term()}
-  def put_picture(%Scope{} = scope, ingredient_id, jpeg) when is_binary(jpeg) do
-    case Repo.get(Ingredient, ingredient_id, Scope.repo_opts(scope)) do
-      nil -> {:error, :not_found}
-      ingredient -> store_picture(scope, ingredient, jpeg)
-    end
-  end
-
-  defp store_picture(scope, ingredient, jpeg) do
-    storage = Tore.Storage.client()
-    bucket = Tore.Storage.Buckets.recipes()
-    key = "households/#{scope.household_id}/products/#{ingredient.id}/#{Ecto.UUID.generate()}.jpg"
-
-    with {:ok, _url} <- storage.put_object(bucket, key, jpeg, content_type: "image/jpeg") do
-      ingredient |> Ecto.Changeset.change(image_path: key) |> Repo.update!()
-      if ingredient.image_path, do: storage.delete_object(bucket, ingredient.image_path)
-      :ok
-    end
-  end
-
-  @doc "The photo kept for an ingredient, if there is one."
-  @spec picture(Scope.t(), integer()) :: {:ok, binary()} | :none
-  def picture(%Scope{} = scope, ingredient_id) do
-    with %Ingredient{image_path: key} when is_binary(key) <-
-           Repo.get(Ingredient, ingredient_id, Scope.repo_opts(scope)),
-         {:ok, body} <- Tore.Storage.client().get_object(Tore.Storage.Buckets.recipes(), key) do
-      {:ok, body}
-    else
-      _ -> :none
     end
   end
 

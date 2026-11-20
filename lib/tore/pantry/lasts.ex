@@ -6,7 +6,8 @@ defmodule Tore.Pantry.Lasts do
   coffee). What's eaten between meals gets a half-life from it (`half_life_days/1`), so Tore
   believes it's being eaten without being told; what's only for cooking changes only when a
   dinner or the household says so. The household's own rhythm, once Basics has learned it, beats
-  the guess (`Tore.Pantry.list_inventory/1`).
+  the guess (`Tore.Pantry.list_inventory/1`). In the same call Jev picks the emoji its pantry row
+  shows (`Tore.Pantry.Icons`).
 
   Spent from the household's AI budget, as pi is, and needs the same sponsor.
   """
@@ -14,7 +15,7 @@ defmodule Tore.Pantry.Lasts do
   import Ecto.Query
 
   alias Tore.{Basics, Costs, Household, Jev, Pi, Repo, Scope}
-  alias Tore.Pantry.PantryItem
+  alias Tore.Pantry.{Icons, PantryItem}
   alias Tore.Recipes.Ingredient
 
   @batch 25
@@ -51,8 +52,9 @@ defmodule Tore.Pantry.Lasts do
   end
 
   @doc """
-  Asks Jev how each ingredient in the pantry is used, for those not asked about yet, and keeps its
-  answers on the ingredients. Answers how many it kept. `opts` go to `Tore.Jev.decide/3`.
+  Asks Jev how each ingredient in the pantry is used and which emoji is its picture, whichever it
+  hasn't been asked yet, and keeps its answers on the ingredients. Answers how many ingredients it
+  kept something for. `opts` go to `Tore.Jev.decide/3`.
   """
   @spec sort(Scope.t(), keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def sort(%Scope{} = scope, opts \\ []) do
@@ -76,7 +78,7 @@ defmodule Tore.Pantry.Lasts do
     from(i in Ingredient,
       join: p in PantryItem,
       on: p.ingredient_id == i.id,
-      where: is_nil(i.lasts),
+      where: is_nil(i.lasts) or is_nil(i.icon),
       distinct: true,
       order_by: i.name
     )
@@ -89,12 +91,7 @@ defmodule Tore.Pantry.Lasts do
     ingredients
     |> Enum.chunk_every(@batch)
     |> Enum.reduce_while({:ok, 0}, fn batch, {:ok, kept} ->
-      questions =
-        Map.new(
-          batch,
-          &{key(&1),
-           %{"type" => "choice", "instructions" => question(&1), "criteria" => @criteria}}
-        )
+      questions = batch |> Enum.flat_map(&questions/1) |> Map.new()
 
       case Jev.decide(state, questions, opts) do
         {:ok, answers, cost} ->
@@ -107,25 +104,55 @@ defmodule Tore.Pantry.Lasts do
     end)
   end
 
-  defp keep(scope, batch, answers) do
-    kept =
-      for ingredient <- batch,
-          %{"choice" => lasts, "confidence" => confidence} <- [answers[key(ingredient)]],
-          Map.has_key?(@half_lives, lasts) and is_number(confidence) do
-        from(i in Ingredient, where: i.id == ^ingredient.id)
-        |> Repo.update_all(
-          [set: [lasts: lasts, lasts_confidence: confidence / 1]],
-          Scope.repo_opts(scope)
-        )
-      end
-
-    length(kept)
+  # Only what an ingredient lacks: one judged before a picture was asked for is asked for that.
+  defp questions(%Ingredient{id: id, name: name} = ingredient) do
+    [
+      ingredient.lasts == nil &&
+        {"lasts_#{id}",
+         choice(
+           "How does this household use #{name}, and how long does a pack of it last them?",
+           @criteria
+         )},
+      ingredient.icon == nil &&
+        {"icon_#{id}", choice("Which emoji best pictures #{name}?", Icons.criteria())}
+    ]
+    |> Enum.filter(& &1)
   end
 
-  defp key(%Ingredient{id: id}), do: "ingredient_#{id}"
+  defp choice(instructions, criteria),
+    do: %{"type" => "choice", "instructions" => instructions, "criteria" => criteria}
 
-  defp question(%Ingredient{name: name}),
-    do: "How does this household use #{name}, and how long does a pack of it last them?"
+  defp keep(scope, batch, answers) do
+    batch
+    |> Enum.map(fn %Ingredient{id: id} ->
+      [lasts(answers["lasts_#{id}"]), icon(answers["icon_#{id}"])]
+      |> List.flatten()
+      |> case do
+        [] ->
+          0
+
+        set ->
+          {1, _} =
+            Repo.update_all(
+              from(i in Ingredient, where: i.id == ^id),
+              [set: set],
+              Scope.repo_opts(scope)
+            )
+
+          1
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  defp lasts(%{"choice" => lasts, "confidence" => confidence})
+       when is_map_key(@half_lives, lasts) and is_number(confidence),
+       do: [lasts: lasts, lasts_confidence: confidence / 1]
+
+  defp lasts(_answer), do: []
+
+  defp icon(%{"choice" => icon}), do: if(Icons.known?(icon), do: [icon: icon], else: [])
+  defp icon(_answer), do: []
 
   # What Tore knows of the household that bears on it, a line each.
   defp state(scope) do

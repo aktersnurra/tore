@@ -30,6 +30,9 @@ defmodule Tore.Pantry.LastsTest do
 
           choice =
             cond do
+              key =~ "icon" and text =~ "mjölk" -> "🥛"
+              key =~ "icon" and text =~ "smör" -> "🧈"
+              key =~ "icon" -> "🍝"
               text =~ "mjölk" -> "days"
               text =~ "smör" -> "weeks"
               true -> "cooking"
@@ -42,6 +45,10 @@ defmodule Tore.Pantry.LastsTest do
     end)
   end
 
+  defp icons do
+    for item <- Pantry.list_kept(home_scope()), into: %{}, do: {item.name, item.ingredient.icon}
+  end
+
   defp half_lives,
     do: Map.new(Pantry.list_inventory(home_scope()), &{&1.name, &1.half_life_days})
 
@@ -51,13 +58,62 @@ defmodule Tore.Pantry.LastsTest do
     assert {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
     assert_received {:asked, questions}
 
-    assert Enum.all?(questions, fn {_key, q} ->
-             q["type"] == "choice" and
-               Map.keys(q["criteria"]) == ["cooking", "days", "week", "weeks"]
+    {lasts, icons} = Enum.split_with(questions, fn {key, _q} -> key =~ "lasts" end)
+
+    assert length(lasts) == 3 and length(icons) == 3
+    assert Enum.all?(questions, fn {_key, q} -> q["type"] == "choice" end)
+
+    assert Enum.all?(lasts, fn {_key, q} ->
+             Map.keys(q["criteria"]) == ["cooking", "days", "week", "weeks"]
            end)
+
+    assert Enum.all?(icons, fn {_key, q} -> q["criteria"] == Tore.Pantry.Icons.criteria() end)
 
     assert half_lives() == %{"mjölk" => 3, "smör" => 21, "spaghetti" => nil}
     assert Costs.last_llm_call(home_scope(), "pantry_lasts")
+  end
+
+  test "Jev picks each thing's picture from the emoji there are" do
+    jev()
+    {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
+
+    assert icons() == %{"mjölk" => "🥛", "smör" => "🧈", "spaghetti" => "🍝"}
+  end
+
+  test "a picture there's no emoji for isn't kept, so it's asked again" do
+    Req.Test.stub(__MODULE__, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      %{"questions" => questions} = Jason.decode!(body)
+
+      answers =
+        Map.new(questions, fn {key, _q} ->
+          choice = if key =~ "icon", do: "🛸", else: "cooking"
+          {key, %{"choice" => choice, "confidence" => 0.8}}
+        end)
+
+      Req.Test.json(conn, %{"answers" => answers, "usage" => %{"cost" => 0.0001}})
+    end)
+
+    {:ok, _} = Lasts.sort(home_scope(), req: req(), api_key: "k")
+
+    assert icons() == %{"mjölk" => nil, "smör" => nil, "spaghetti" => nil}
+  end
+
+  test "what's judged already is asked only for what it lacks" do
+    jev()
+    {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
+    assert_received {:asked, _}
+
+    Tore.Repo.update_all(
+      Tore.Recipes.Ingredient,
+      [set: [icon: nil]],
+      Tore.Scope.repo_opts(home_scope())
+    )
+
+    assert {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
+    assert_received {:asked, questions}
+    assert Enum.all?(Map.keys(questions), &(&1 =~ "icon"))
+    assert icons()["mjölk"] == "🥛"
   end
 
   test "each thing is asked about once" do

@@ -66,39 +66,6 @@ defmodule Tore.Pantry.ScanTest do
     {:ok, _} = Runs.revert(scope, run_id)
   end
 
-  @photo "https://images.openfoodfacts.org/images/products/731/086/500/4703/front_sv.3.200.jpg"
-
-  test "a new product's photo is kept, and stays when pi learns what it is" do
-    scope = home_scope()
-    milk = ingredient(scope, "Mjölk")
-    open_food_facts(%{"product_name_sv" => "Mellanmjölk", "image_front_small_url" => @photo})
-    expect(Tore.MockHTTP, :fetch, fn @photo -> {:ok, "jpeg bytes"} end)
-
-    assert {:ok, %{change: :added}} = Scan.scan(scope, list_id(), @milk, user_id: nil)
-    assert {:ok, product} = Match.ingredient(scope, {:barcode, @milk})
-    assert {:ok, "jpeg bytes"} = Pantry.picture(scope, product.id)
-
-    assert :merged =
-             Tore.Pantry.Learn.learn(scope, %{
-               name: "Mellanmjölk",
-               same_as: "Mjölk",
-               section: "dairy",
-               shelf_life_days: nil
-             })
-
-    assert {:ok, "jpeg bytes"} = Pantry.picture(scope, milk.id)
-  end
-
-  test "a photo that won't come doesn't stop the scan" do
-    scope = home_scope()
-    open_food_facts(%{"product_name_sv" => "Mellanmjölk", "image_front_small_url" => @photo})
-    expect(Tore.MockHTTP, :fetch, fn @photo -> {:error, {:http_error, 503}} end)
-
-    assert {:ok, %{change: :added}} = Scan.scan(scope, list_id(), @milk, user_id: nil)
-    assert {:ok, product} = Match.ingredient(scope, {:barcode, @milk})
-    assert Pantry.picture(scope, product.id) == :none
-  end
-
   test "without pi, the product's name is kept as written" do
     scope = scope_fixture(household_fixture())
     open_food_facts(%{"product_name" => "Mellanmjölk", "quantity" => "1 l"})

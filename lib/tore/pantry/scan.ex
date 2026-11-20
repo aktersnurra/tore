@@ -1,7 +1,7 @@
 defmodule Tore.Pantry.Scan do
   @moduledoc """
   A pack scanned while unpacking goes into the pantry. A barcode Tore has seen is instant; a new
-  one is looked up once in Open Food Facts and learned, with its pack and its photo. A pack that's still on the
+  one is looked up once in Open Food Facts and learned, with its pack. A pack that's still on the
   shopping list unticked was just bought, so it's ticked instead, which puts it in the pantry as
   a tick always does.
 
@@ -58,7 +58,6 @@ defmodule Tore.Pantry.Scan do
         ingredient = Learn.product(scope, product.name)
         pack = Map.take(product, [:quantity, :unit])
         :ok = Match.learn_alias(scope, {:barcode, code}, ingredient.id, pack)
-        if product.image_url, do: Tore.Pantry.keep_picture(scope, ingredient, product.image_url)
         {:ok, ingredient, pack}
 
       :unknown ->

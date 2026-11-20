@@ -235,8 +235,7 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **The dish's name is on its photograph** on Today (on a phone) and a gallery tile: the cover
   darkens at its foot (`.photo-shade`) and carries the name in white (`.on-photo-text`). A cover
   still waiting for its picture keeps its tint and the name in the page's own type colour, with
-  no shade (2026-11-19). Where the name sits beside the picture (Today on a laptop) the picture
-  has no shade (2026-11-20).
+  no shade (2026-11-19).
 - **A gallery tile's quick actions** (2026-11-20): on a laptop, the pointer on a tile shows Cook
   now, Put on the week and Ask Tore in its top corner, in the order of the recipe page's buttons,
   and the star in the other. Cook and the week open the recipe doing that (`?then=cook|week`), so
@@ -249,8 +248,9 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   bold labels, the description, Cook now and Put on the week) and the picture on the right,
   whole and rounded rather than cropped to a strip. On a phone the picture comes first. Back and
   ⋯ sit on the page above it; the other properties follow below.
-- **A laptop's width is used, not left as margin** (2026-11-20). Today has the recipe page's
-  split: the name, details and buttons on the left, the whole cover on the right. Shop's list
+- **A laptop's width is used, not left as margin** (2026-11-20), except on Today, which is a
+  status read at a glance and keeps the phone's one column (2026-11-20: side by side it looked
+  like the recipe page). Shop's list
   is one column and the month's spending another; on a wide screen the list's sections run down
   two columns in the store's order, each kept whole. Veckobudget is two columns on a laptop (the
   chart and where the money went beside the receipts); on a wide screen the chart takes the full
@@ -693,7 +693,8 @@ What matters for dinner today?
 
 ### Layout
 
-Today is tonight's recipe page (2026-11-18):
+Today answers one question at a glance: what's for dinner, and is anything needed before I can
+start? One column on every screen, the phone's, read top to bottom (2026-11-20):
 
 ```md
 Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
@@ -707,7 +708,7 @@ Can I start? — the first thing it answers (2026-11-20):
            Slut puts it with what's missing, "+2 more" opens Hemma
 Actions  — [Cook now] [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page)
 Note     — the home pick's one note, with its action, when there is one
-Ingredients, for tonight's servings
+Ingredients (14) — folded, for tonight's servings; the recipe page has them in full
 ⋯        — Open the recipe · Ask about tonight · No dinner tonight
 ```
 
@@ -1299,12 +1300,13 @@ page asks to be done.
 - One line to put something away, as on Shop: "1 l mjölk". It's sure from then on.
 - Groups, each a tag that folds like Shop's sections: Kyl (dairy, meat, fish, deli), Frukt
   & grönt, Frys, Skafferi (the rest), and Slut folded shut at the bottom.
-- A row: a small picture, the name, the amount or when it was bought, and at most one thing
-  said about it at the end. The picture is the pack's photo once one was scanned (from Open
-  Food Facts, kept by Tore and served from `/images/ingredients/:id`), otherwise the
-  category's icon on its group's tint. Tapping the picture takes or picks a photo of it; the
-  phone makes it 480 px before it's sent, and it replaces whatever the picture was. A later
-  scan never replaces the household's own.
+- A row: its emoji, the name, the amount or when it was bought, and at most one thing said
+  about it at the end. The emoji is a Noto Emoji picture (Apache 2.0, served from
+  `/images/emoji`, so every device shows the same one), 32 px, with no tile behind it. Jev
+  picks it per ingredient from the food emoji Tore has (`Tore.Pantry.Icons`); until then the
+  row has its category's (🥛 dairy, 🥩 meat, 🥕 produce, 🌾 dry goods…). Under Slut it's faded
+  and grey. There are no photos: pack photos and the household's own were dropped
+  (2026-11-20) for one consistent look.
 
 ### What a row says
 
