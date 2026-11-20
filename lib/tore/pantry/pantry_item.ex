@@ -36,67 +36,46 @@ defmodule Tore.Pantry.PantryItem do
   def derive_belief("belief"), do: "uncertain"
   def derive_belief(_), do: "confirmed"
 
-  # Belief decays with recency: the longer since we last observed the
-  # item, the less confident we are it's still there. An expiry date replaces
-  # the fixed schedule, so fresh fish and salt don't lose belief alike. Pure
-  # read-side projection — the stored row keeps the strongest observation; the
-  # UI asks for the *effective* belief at render time.
-  @confirmed_max_age_days 14
-  @probable_max_age_days 30
-
   @doc """
-  Decay the stored belief by `last_seen_at`, as of `now`, and judge its date against `today`,
-  the household's date (`Tore.Clock.today/0`). Returns the belief atom the
-  UI should render. Stored `:uncertain` / `:missing` are returned as-is;
-  rows with no `last_seen_at` (manual adds that bypassed the receipt
-  path) keep their stored belief.
+  How sure Tore is that the item is still there: the stored belief, as of `now`, with its date
+  judged against `today` (`Tore.Clock.today/0`). Pure: the stored row keeps the strongest
+  observation; this is read at render time.
+
+  What's only cooked with (pasta, spices, the salmon for Friday) changes when a dinner or the
+  household says so, never by itself. Something eaten between dinners (a basic: milk, bread) has
+  a half-life, its rhythm (`half_life_days`): the chance it's still there halves every rhythm
+  since it was last seen. At a half or less it's unsure, at a quarter or less it's gone. Past its
+  date anything is unsure. Stored `uncertain` and `missing` stay as they are.
   """
   @spec effective_belief(%__MODULE__{}, DateTime.t(), Date.t()) ::
           :confirmed | :probable | :uncertain | :missing
   def effective_belief(%__MODULE__{belief: "missing"}, _now, _today), do: :missing
   def effective_belief(%__MODULE__{belief: "uncertain"}, _now, _today), do: :uncertain
 
-  def effective_belief(
-        %__MODULE__{expires_at: %Date{}} = item,
-        %DateTime{} = now,
-        %Date{} = today
-      ) do
+  def effective_belief(%__MODULE__{belief: belief} = item, %DateTime{} = now, %Date{} = today) do
+    stored = String.to_existing_atom(belief || "uncertain")
+
     cond do
       past_date?(item, today) -> :uncertain
-      item.belief == "confirmed" and age_days(item, now) <= @confirmed_max_age_days -> :confirmed
-      true -> :probable
+      still_there(item, now) <= 0.25 -> :missing
+      still_there(item, now) <= 0.5 -> :uncertain
+      true -> stored
     end
   end
 
-  def effective_belief(%__MODULE__{belief: belief, last_seen_at: nil}, _now, _today),
-    do: String.to_existing_atom(belief || "uncertain")
+  @doc "The chance the item is still there, by its half-life; 1.0 for what doesn't have one."
+  @spec still_there(%__MODULE__{}, DateTime.t()) :: float()
+  def still_there(%__MODULE__{half_life_days: days, last_seen_at: %DateTime{} = seen}, now)
+      when is_integer(days) and days > 0,
+      do: :math.pow(0.5, DateTime.diff(now, seen, :second) / (days * 86_400))
 
-  def effective_belief(
-        %__MODULE__{belief: belief, last_seen_at: %DateTime{} = seen},
-        %DateTime{} = now,
-        _today
-      ) do
-    age_days = DateTime.diff(now, seen, :day)
-    decay(belief, age_days)
-  end
+  def still_there(%__MODULE__{}, _now), do: 1.0
 
   @spec past_date?(%__MODULE__{}, Date.t()) :: boolean()
   def past_date?(%__MODULE__{expires_at: %Date{} = expires_at}, %Date{} = today),
     do: Date.after?(today, expires_at)
 
   def past_date?(%__MODULE__{}, %Date{}), do: false
-
-  defp age_days(%__MODULE__{last_seen_at: nil}, _now), do: 0
-  defp age_days(%__MODULE__{last_seen_at: seen}, now), do: DateTime.diff(now, seen, :day)
-
-  defp decay("confirmed", age) when age > @probable_max_age_days, do: :uncertain
-  defp decay("confirmed", age) when age > @confirmed_max_age_days, do: :probable
-  defp decay("confirmed", _), do: :confirmed
-  defp decay("probable", age) when age > @probable_max_age_days, do: :uncertain
-  defp decay("probable", _), do: :probable
-  defp decay("uncertain", _), do: :uncertain
-  defp decay("missing", _), do: :missing
-  defp decay(_, _), do: :uncertain
 
   schema "pantry_items" do
     field :name, :string
@@ -110,6 +89,8 @@ defmodule Tore.Pantry.PantryItem do
     field :belief, :string, default: "confirmed"
     field :last_seen_at, :utc_datetime
     field :household_id, :integer
+    # Its basic's rhythm, when it's eaten between dinners; loaded with the row, never stored here.
+    field :half_life_days, :integer, virtual: true
     belongs_to :ingredient, Tore.Recipes.Ingredient
     timestamps()
   end

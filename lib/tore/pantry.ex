@@ -42,8 +42,16 @@ defmodule Tore.Pantry do
       end
     end)
     |> case do
-      {:ok, {item, change, before}} -> {:ok, item, change, before}
-      {:error, _} = err -> err
+      {:ok, {item, :added, before}} ->
+        # Something new in the pantry: Jev says how fast it goes, if nobody has asked yet.
+        :ok = Tore.Pantry.Lasts.later(scope)
+        {:ok, item, :added, before}
+
+      {:ok, {item, change, before}} ->
+        {:ok, item, change, before}
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -291,15 +299,17 @@ defmodule Tore.Pantry do
 
   @doc """
   What's in the pantry and still within its date, if it has one. A row believed missing (used up
-  in a dinner, `use_up/2`) isn't, until it's bought again.
+  in a dinner, `use_up/2`, or likely eaten by now) isn't, until it's bought or seen again.
   """
   @spec list_usable(Scope.t()) :: [PantryItem.t()]
   def list_usable(%Scope{} = scope) do
+    now = DateTime.utc_now()
     today = Tore.Clock.today()
 
     Enum.reject(
       list_inventory(scope),
-      &(&1.belief == "missing" or PantryItem.past_date?(&1, today))
+      &(PantryItem.past_date?(&1, today) or
+          PantryItem.effective_belief(&1, now, today) == :missing)
     )
   end
 
@@ -476,9 +486,25 @@ defmodule Tore.Pantry do
   @spec list_kept(Scope.t()) :: [PantryItem.t()]
   def list_kept(%Scope{} = scope), do: scope |> list_inventory() |> Repo.preload(:ingredient)
 
+  @doc """
+  Everything kept, each with its half-life when it's eaten between meals: the household's own
+  rhythm when Basics has learned one, otherwise Jev's guess (`Tore.Pantry.Lasts`).
+  """
   @spec list_inventory(Scope.t()) :: [PantryItem.t()]
   def list_inventory(%Scope{} = scope) do
-    Repo.all(from(p in PantryItem, order_by: p.name), Scope.repo_opts(scope))
+    from(p in PantryItem,
+      left_join: i in Ingredient,
+      on: i.id == p.ingredient_id,
+      left_join: b in Tore.Basics.Basic,
+      on:
+        b.ingredient_id == p.ingredient_id and b.household_id == p.household_id and not b.stopped,
+      order_by: p.name,
+      select: {p, b.interval_days, i.lasts}
+    )
+    |> Repo.all(Scope.repo_opts(scope))
+    |> Enum.map(fn {item, rhythm, lasts} ->
+      %{item | half_life_days: rhythm || Tore.Pantry.Lasts.half_life_days(lasts)}
+    end)
   end
 
   @doc """

@@ -7,6 +7,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### The pantry knows what's eaten (2026-11-20)
+
+- What's eaten between meals (milk, bread, yoghurt) is believed eaten over time, with no one telling Tore: Jev judges once per ingredient how fast it goes, and your own buying rhythm takes over once Tore knows it. Pasta, spices and what's only for cooking no longer go unsure with age.
+
 ### Settings, Ask Tore on Today, recipes in the chat (2026-11-20)
 
 - Settings is one grouped list (household, food, Tore, this device, account); each row shows what it's set to and opens its own page. Light, dark or the system's look is chosen there.

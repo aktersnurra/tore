@@ -674,6 +674,17 @@ The date affects three things:
 - **Planning:** past-date rows don't count as available, and `get_context` lists what to use soon first.
 - **The list:** past-date items stop showing as probably at home, so they're bought again.
 
+**How fast it goes** (2026-11-20). Nothing loses belief just by time passing, except what's eaten
+between meals. Each ingredient that comes into the pantry is asked about once, in the background, by
+Jev (`Tore.Pantry.Lasts`, a `choice`): only for cooking (pasta, salmon, cream), or eaten between meals
+and gone in days, about a week or weeks. These have a half-life of 3, 7 or 21 days, and the
+household's own rhythm from Basics (`interval_days`) replaces Jev's guess once there is one. The chance
+an item is still there halves every half-life since it was last seen: at a half or less it's
+`:uncertain`, at a quarter or less `:missing`, and no longer counts as at home. Buying it, seeing it
+or confirming it starts over. What's only for cooking changes only when a dinner uses it or the
+household says so. Spent from the household's AI budget, with its sponsor; without one nothing decays
+by itself.
+
 **Demotion:**
 
 - There is no pantry screen (2026-11-15). The chat shows and corrects it.

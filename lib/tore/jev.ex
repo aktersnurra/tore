@@ -3,8 +3,9 @@ defmodule Tore.Jev do
   Jev (`typesafe/jev-1.14`), a decision model on OpenRouter's Decisions API. Given a state, a few
   lines of what's known, it answers typed questions with no text: a `choice` among options, or a
   `noul`, the chance that something holds. Besides pictures it is the one model Tore calls itself
-  (2026-11-20), to guess which offers a household wants (`Tore.Deals.Picks`); everything else
-  goes through pi. It uses OpenRouter's key (`:jev_api_key`, from `OPENROUTER_API_KEY`).
+  (2026-11-20), to guess which offers a household wants (`Tore.Deals.Picks`) and how fast each
+  thing in the pantry goes (`Tore.Pantry.Lasts`); everything else goes through pi. It uses
+  OpenRouter's key (`:jev_api_key`, from `OPENROUTER_API_KEY`).
   """
 
   @url "https://openrouter.ai/api/alpha/decisions"
