@@ -1316,8 +1316,8 @@ the receipt, otherwise Övrigt.
 ### Job
 
 Answer: what's on offer this week that we'd buy anyway? Mockups: "Erbjudanden, its own page"
-and "Erbjudanden on a laptop" in the Tore kitchen pages artifact. No model is asked; everything
-comes from what Tore already knows (`Tore.Deals.page/3`).
+and "Erbjudanden on a laptop" in the Tore kitchen pages artifact. The groups come from what Tore
+already knows (`Tore.Deals.page/3`), and one from Jev's guesses (2026-11-20, below).
 
 ### Layout
 
@@ -1325,7 +1325,10 @@ comes from what Tore already knows (`Tore.Deals.page/3`).
   the best deal per ingredient over the first two groups.
 - **Till veckans middagar** (orange): deals on what a dinner from today on calls for, with the
   dinner's name. **Sånt ni brukar köpa** (green): deals on the household's basics. **Övriga
-  erbjudanden** (grey): the rest, folded, with its count.
+  erbjudanden** (grey): the rest, folded, with its count. Between them, open, **Tore tror att ni
+  vill ha** (blue): offers Jev (`Tore.Deals.Picks`) thinks the household is likely to want, from
+  their diet, memory, meals, basics, recent receipts and recipes, likeliest first. Jev guesses
+  from the little it knows at first and gets better as receipts come in.
 - A deal: its name and size, the store's initial and name, "t.o.m. sön 22/11", the price
   ("89 kr", "2 för 20", "99 kr/kg") over the regular price struck through, and on a laptop
   what it saves. On a phone the store and end date sit under the name.

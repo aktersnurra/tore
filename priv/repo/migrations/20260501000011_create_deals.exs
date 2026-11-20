@@ -29,5 +29,15 @@ defmodule Tore.Repo.Migrations.CreateDeals do
 
     create index(:deals, [:store, :valid_until])
     create unique_index(:deals, [:chain, :store, :product_name, :valid_until])
+
+    # Jev's guess at how likely a household is to want an offer (`Tore.Deals.Picks`).
+    create table(:deal_picks) do
+      add :household_id, references(:households, on_delete: :delete_all), null: false
+      add :deal_id, references(:deals, on_delete: :delete_all), null: false
+      add :chance, :float, null: false
+      timestamps(updated_at: false)
+    end
+
+    create unique_index(:deal_picks, [:household_id, :deal_id])
   end
 end

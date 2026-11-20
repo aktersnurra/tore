@@ -102,7 +102,8 @@ TORE_PI_LIGHT_MODEL=anthropic/claude-haiku-5-5  # the home pick and learning nam
 ```
 
 Recipe pictures are drawn by an image model through OpenRouter: set `OPENROUTER_API_KEY`, and
-optionally `OPENROUTER_IMAGE_MODEL` (default `microsoft/mai-image-2.6`).
+optionally `OPENROUTER_IMAGE_MODEL` (default `microsoft/mai-image-2.6`). The same key lets Jev
+(`typesafe/jev-1.14`) guess which of the week's offers a household wants.
 
 Dates and times such as "today" and "Saturday morning" use the server's local clock (`Tore.Clock`), so set `TZ` to the household's time zone.
 
@@ -144,7 +145,7 @@ bin/dev        # first run seeds .env and stops — fill it in, then re-run
 `bin/dev` brings up Garage (`docker compose up -d --wait`), provisions the
 `tore-recipes` bucket on first run, and starts Phoenix. Fill `.env` with:
 
-- `OPENROUTER_API_KEY` — your OpenRouter key, for recipe pictures.
+- `OPENROUTER_API_KEY` — your OpenRouter key, for recipe pictures and Jev's offer guesses.
 - `GARAGE_ACCESS_KEY_ID` / `GARAGE_SECRET_ACCESS_KEY` — credentials you choose
   (`GK`-prefixed id + 64-char hex secret; see the comments in `.env.example`).
   `bin/garage-bootstrap.sh` imports them into Garage.

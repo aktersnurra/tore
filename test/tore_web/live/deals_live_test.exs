@@ -86,6 +86,27 @@ defmodule ToreWeb.DealsLiveTest do
     assert has_element?(view, "[data-role=store]", "2 erbjudanden")
   end
 
+  test "offers Jev thinks they'll want stand out, open, before the rest", %{conn: conn} do
+    use_store("ICA Maxi")
+    offer("Laxfilé", "99", "129")
+    offer("Kattmat", "20", "29")
+
+    for deal <- Deals.list_current(home_scope()) do
+      Tore.Repo.insert!(%Tore.Deals.Pick{
+        household_id: home_scope().household_id,
+        deal_id: deal.id,
+        chance: if(deal.product_name == "Laxfilé", do: 0.8, else: 0.2)
+      })
+    end
+
+    {:ok, view, _} = live(conn, ~p"/deals")
+
+    assert has_element?(view, "[data-role=group-picked][open]", "Laxfilé")
+    assert has_element?(view, "[data-role=group-picked]", "Tore tror att ni vill ha")
+    assert has_element?(view, "[data-role=group-others]", "Kattmat")
+    refute has_element?(view, "[data-role=group-others]", "Laxfilé")
+  end
+
   test "+ puts the ingredient on this week's list, once", %{conn: conn} do
     use_store("ICA Maxi")
     offer("MELLANMJÖLK", "30", "18.90", %{quantity: 2})

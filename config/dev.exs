@@ -69,6 +69,7 @@ config :tore, :uploads_dir, Path.expand("../priv/static/uploads", __DIR__)
 config :tore, :http_client, Tore.Adapters.ReqHTTP
 config :tore, :image_gen_client, Tore.ImageGen.OpenRouter
 config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
+config :tore, :jev_api_key, System.get_env("OPENROUTER_API_KEY")
 
 config :tore,
        :openrouter_image_model,

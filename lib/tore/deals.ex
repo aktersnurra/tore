@@ -8,6 +8,9 @@ defmodule Tore.Deals do
 
   @http Application.compile_env(:tore, :http_client)
 
+  # How sure Jev must be that the household wants an offer for it to stand out.
+  @likely 0.5
+
   @doc """
   Stores offers, each week's as its own row. An offer without an end date is taken to run to
   Sunday, as ICA's do. The same offer seen again is left as it is.
@@ -93,14 +96,16 @@ defmodule Tore.Deals do
         }
 
   @doc """
-  The Erbjudanden page for the week starting `week_start`, as of `today`. Current deals in three
-  groups, with no model: those a meal from today on calls for, those on something the household
-  usually buys (`Tore.Basics`), and the rest. `saving` is what the first two save together, the
+  The Erbjudanden page for the week starting `week_start`, as of `today`. Current deals in four
+  groups: those a meal from today on calls for, those on something the household usually buys
+  (`Tore.Basics`), those Jev guessed they'd likely want (`Tore.Deals.Picks`, likeliest first), and
+  the rest. `saving` is what the first two save together, the
   best deal per ingredient; `stores` the household's stores with their deals counted.
   """
   @spec page(Scope.t(), Date.t(), Date.t()) :: %{
           meals: [entry()],
           usual: [entry()],
+          picked: [entry()],
           others: [entry()],
           saving: Decimal.t(),
           stores: [%{store: HouseholdStore.t(), deals: non_neg_integer()}]
@@ -137,14 +142,21 @@ defmodule Tore.Deals do
 
     {for_meals, rest} = Enum.split_with(entries, & &1.meal)
 
-    {usual, others} =
+    {usual, rest} =
       Enum.split_with(rest, &(&1.ingredient && MapSet.member?(basics, &1.ingredient.id)))
+
+    chances = Tore.Deals.Picks.chances(scope)
+    {picked, others} = Enum.split_with(rest, &((chances[&1.deal.id] || 0) >= @likely))
 
     counts = Enum.frequencies_by(deals, & &1.store)
 
     %{
       meals: sorted(for_meals),
       usual: sorted(usual),
+      picked:
+        picked
+        |> Enum.sort_by(&{-chances[&1.deal.id], &1.name})
+        |> Enum.map(&Map.delete(&1, :ingredient)),
       others: sorted(others),
       saving: best_per_ingredient(for_meals ++ usual),
       stores:
@@ -264,6 +276,7 @@ defmodule Tore.Deals do
     |> Enum.each(&scrape_store/1)
 
     Enum.each(scopes, &match_products/1)
+    Enum.each(scopes, &pick/1)
   end
 
   @doc """
@@ -275,6 +288,7 @@ defmodule Tore.Deals do
   def read_store_now(%Scope{} = scope, %HouseholdStore{store: %Store{} = store}) do
     with {:ok, _added} <- scrape_url(store.url, store.name) do
       match_products(scope)
+      pick(scope)
       {:ok, Enum.count(list_current(scope), &(&1.store == store.name))}
     end
   end
@@ -318,6 +332,23 @@ defmodule Tore.Deals do
     case list_current(scope) do
       [] -> :ok
       deals -> Products.later(scope, Enum.map(deals, & &1.product_name))
+    end
+  end
+
+  # Jev's guesses at the new offers. Without AI, a key or budget nothing is asked; a failed call is
+  # asked again with the next fetch.
+  defp pick(scope) do
+    case Tore.Deals.Picks.sort(scope) do
+      {:ok, _kept} ->
+        :ok
+
+      {:error, reason} when reason in [:ai_unavailable, :budget_exceeded, :no_key] ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "deal picks failed for household #{scope.household_id}: #{inspect(reason)}"
+        )
     end
   end
 
