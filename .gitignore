@@ -56,3 +56,6 @@ npm-debug.log
 
 # Working specs and plans, kept out of version control
 /.docs/
+
+# pi writes its own task files where it runs
+/.pi/
