@@ -100,6 +100,27 @@ defmodule Tore.BudgetTest do
     assert Decimal.eq?(over, 100)
   end
 
+  test "a week never lands below what's already been paid towards it" do
+    user = user_fixture()
+    # Nothing on the plan with a price, so the plan expects nothing.
+    :ok = Budget.set_week(home_scope(), @week, d("500"))
+
+    {:ok, _} =
+      Tore.Costs.log_receipt(home_scope(), %{
+        date: @week,
+        week_start: @week,
+        store_name: "ICA",
+        total_amount: d("619"),
+        user_id: user.id,
+        line_items: [%{product_name: "Lax", total_price: d("619"), category: "fish"}]
+      })
+
+    status = Budget.status(home_scope(), @week)
+    assert Decimal.eq?(status.expected, 619)
+    assert Decimal.eq?(status.over, 119)
+    assert Decimal.eq?(Budget.page(home_scope(), @week).left, 0)
+  end
+
   describe "an open day" do
     test "costs what a typical dinner costs; eating out and skipped days don't" do
       for {key, title, kr} <- [

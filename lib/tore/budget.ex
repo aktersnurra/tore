@@ -223,19 +223,24 @@ defmodule Tore.Budget do
   As `status/2`, for `plan`, predicted by the forecast rung `rung` (`Tore.Budget.Forecast`). By
   default that is the open-days rung (`Tore.Budget.Forecast.OpenDays`): once calibrated, the
   meals and open days plus what recent weeks paid beyond theirs, which already covers basics;
-  before that, the meals, the open days and the basics.
+  before that, the meals, the open days and the basics. Never below what has been paid towards
+  the week already: a big shop early in the week moves the week up, not the paid part down.
   """
   @spec status(Scope.t(), State.t(), Date.t(), module()) :: status()
   def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start, rung \\ OpenDays) do
     budget = amount(scope, week_start)
-    facts = Facts.build(scope, plan, week_start, NaiveDateTime.utc_now())
-    %{expected: expected, low: low, high: high} = prediction = rung.predict(facts)
+    {facts, prediction} = predict(scope, plan, week_start, rung)
+    paid = Map.get(Costs.spent_by_week(scope, week_start, week_start), week_start, Decimal.new(0))
+    at_least_paid = fn amount -> amount && Decimal.max(amount, paid) end
+    expected = at_least_paid.(prediction.expected)
+    {low, high} = {at_least_paid.(prediction.low), at_least_paid.(prediction.high)}
     over = if budget && Decimal.gt?(expected, budget), do: Decimal.sub(expected, budget)
 
     risk =
       with %Decimal{} <- budget, [_ | _] = draws <- prediction[:draws] do
         limit = Decimal.to_float(budget)
-        Enum.count(draws, &(&1 > limit)) / length(draws)
+        floor = Decimal.to_float(paid)
+        Enum.count(draws, &(max(&1, floor) > limit)) / length(draws)
       else
         _ -> nil
       end
@@ -252,6 +257,12 @@ defmodule Tore.Budget do
       risk: risk,
       over: over
     }
+  end
+
+  # What `rung` predicts the week costs from its plan alone, with the facts it was given.
+  defp predict(scope, plan, week_start, rung) do
+    facts = Facts.build(scope, plan, week_start, NaiveDateTime.utc_now())
+    {facts, rung.predict(facts)}
   end
 
   @doc """
@@ -415,14 +426,17 @@ defmodule Tore.Budget do
 
   @doc """
   How the week went, once it has ended and something was paid towards it: what was spent, the
-  budget, what was expected, and how far the spend was from that, in percent. Nil otherwise: no
+  budget, what the plan was expected to cost (before what was paid, unlike `status/4`), and how
+  far the spend was from that, in percent. Nil otherwise: no
   receipt and no typed total means no verdict.
   """
   @spec verdict(Scope.t(), Date.t(), Date.t()) :: verdict() | nil
   def verdict(%Scope{} = scope, %Date{} = week_start, %Date{} = today \\ Tore.Clock.today()) do
     with true <- Date.compare(Date.add(week_start, 6), today) == :lt,
          %Decimal{} = spent <- Tore.Costs.spent_in_week(scope, week_start) do
-      %{expected: expected, budget: budget} = status(scope, week_start)
+      {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week_start))
+      {_facts, %{expected: expected}} = predict(scope, plan, week_start, OpenDays)
+      budget = amount(scope, week_start)
 
       %{
         spent: spent,
