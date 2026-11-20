@@ -13,8 +13,8 @@ defmodule Tore.Harness.Artifact.RecipeProposalTest do
       prep_time_minutes: 10,
       cook_time_minutes: 20,
       ingredients: [
-        %{name: "miso paste", quantity: "2", unit: "msk"},
-        %{name: "ramen noodles", quantity: "4", unit: "portioner"}
+        %{name: "miso paste", quantity: "2", unit: "msk", notes: "white"},
+        %{name: "ramen noodles", quantity: "4", unit: "portioner", notes: nil}
       ],
       tags: ["japanese", "quick"],
       source: :generation,

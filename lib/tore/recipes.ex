@@ -1,9 +1,12 @@
 defmodule Tore.Recipes do
   import Ecto.Query
+
+  require Logger
   alias Tore.{Repo, Scope}
   alias Tore.Recipes.{Recipe, Ingredient, RecipeIngredient, RecipePart, Tag}
 
   @image_gen Application.compile_env(:tore, :image_gen_client)
+  @http Application.compile_env(:tore, :http_client)
 
   # An ingredient name will never contain this, so joined names split cleanly.
   @fp_sep "\x1f"
@@ -394,6 +397,50 @@ defmodule Tore.Recipes do
   end
 
   @doc """
+  A just-saved recipe's picture and steps: the photo on its page when pi passed one (`image_url`),
+  fetched for free, then `finish/3` for whatever is still missing, so pi draws a picture only
+  when there's no photo to use. In the background, like `finish/3`.
+  """
+  @spec finish_saved(Scope.t(), integer(), String.t() | nil) :: :ok
+  def finish_saved(%Scope{} = scope, recipe_id, image_url) when is_binary(image_url) do
+    work = fn ->
+      with {:error, reason} <- put_page_picture(scope, recipe_id, image_url) do
+        Logger.info("recipe #{recipe_id}: page photo not used (#{inspect(reason)})")
+      end
+
+      finish(scope, recipe_id)
+    end
+
+    if Application.get_env(:tore, :agent_in_background, true) do
+      {:ok, _pid} = Task.Supervisor.start_child(Tore.TaskSupervisor, work)
+      :ok
+    else
+      work.()
+    end
+  end
+
+  def finish_saved(%Scope{} = scope, recipe_id, _image_url), do: finish(scope, recipe_id)
+
+  defp put_page_picture(scope, recipe_id, url) do
+    key = "households/#{scope.household_id}/recipes/#{recipe_id}/#{Ecto.UUID.generate()}.jpg"
+
+    with {:ok, binary} <- @http.fetch(url),
+         {:ok, _url} <-
+           Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, binary,
+             content_type: "image/jpeg"
+           ) do
+      Repo.update_all(
+        from(r in Recipe, where: r.id == ^recipe_id),
+        [set: [image_path: key]],
+        Scope.repo_opts(scope)
+      )
+
+      Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), {:recipe_changed, recipe_id})
+      :ok
+    end
+  end
+
+  @doc """
   The recipe as it is now, as JSON, for undo to put back with `restore/3`: its fields, picture,
   tags and ingredients.
   """
@@ -495,7 +542,8 @@ defmodule Tore.Recipes do
       %{
         name: item["item"] || item["name"],
         quantity: parse_decimal(item["quantity"]),
-        unit: item["unit"]
+        unit: item["unit"],
+        notes: item["notes"]
       }
     end)
   end

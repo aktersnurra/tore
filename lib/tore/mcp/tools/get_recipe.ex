@@ -49,7 +49,7 @@ defmodule Tore.Mcp.Tools.GetRecipe do
       tags: Enum.map(recipe.tags, & &1.name),
       ingredients:
         for ri <- recipe.recipe_ingredients do
-          %{item: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit}
+          %{item: ri.ingredient.name, quantity: ri.quantity, unit: ri.unit, notes: ri.notes}
         end,
       steps: Recipes.cook_steps(recipe),
       instructions: recipe.instructions,

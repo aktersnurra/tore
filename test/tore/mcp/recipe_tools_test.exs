@@ -78,6 +78,37 @@ defmodule Tore.Mcp.RecipeToolsTest do
     assert [%{"action" => "Koka köttet."}] = Recipes.cook_steps(back)
   end
 
+  test "steps written for a hand-written recipe keep its own text, its tags and its notes" do
+    {:ok, stew} =
+      Recipes.create(home_scope(), %{
+        title: "Gräddstuvning",
+        recipe_type: :meal,
+        base_servings: 4,
+        instructions: "Fräs löken mjuk. Häll på grädden och låt sjuda.",
+        tags: ["vardag"],
+        ingredients: [%{name: "Lök", quantity: Decimal.new(1), unit: "st", notes: "finhackad"}]
+      })
+
+    steps = [
+      %{"phase" => "STEK", "order" => 1, "action" => "Fräs löken.", "ingredients" => ["Lök"]}
+    ]
+
+    ok("get_recipe", %{"recipe_id" => stew.id})
+    |> Map.take(~w(recipe_id title recipe_type base_servings ingredients))
+    |> Map.put("steps", steps)
+    |> then(&ok("update_recipe", &1))
+
+    stew =
+      home_scope()
+      |> Recipes.get(stew.id)
+      |> Repo.preload([:tags, recipe_ingredients: :ingredient])
+
+    assert stew.instructions == "Fräs löken mjuk. Häll på grädden och låt sjuda."
+    assert [%{"action" => "Fräs löken."}] = Recipes.cook_steps(stew)
+    assert Enum.map(stew.tags, & &1.name) == ["vardag"]
+    assert [%{notes: "finhackad"}] = stew.recipe_ingredients
+  end
+
   test "a change that makes it a copy of another recipe, or of none, is refused" do
     soup = soup()
 

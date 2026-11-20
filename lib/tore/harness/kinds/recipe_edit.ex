@@ -4,7 +4,9 @@ defmodule Tore.Harness.Kinds.RecipeEdit do
   (`draw_recipe_picture`). Submitted whole over MCP; `ctx` holds the `:edit`.
 
   The revised recipe passes `RecipeProposalVerifier` like a new one, compared with every recipe
-  but itself. It applies straight away, and undo puts the recipe back as it was, picture too
+  but itself. Tags pi leaves out stay as they are, and running text someone wrote by hand stays
+  when pi writes steps for it (a recipe without steps); a recipe that had steps has its text
+  written from the new ones. It applies straight away, and undo puts the recipe back as it was, picture too
   (`Tore.Recipes.snapshot/1`). Recipe screens hear `{:recipe_changed, id}` either way.
   """
 
@@ -56,13 +58,18 @@ defmodule Tore.Harness.Kinds.RecipeEdit do
     attrs =
       if(edit.recipe, do: Recipes.attrs_from_parsed(edit.recipe), else: %{})
       |> Map.delete(:image_url)
-      |> then(&if recipe.parts == [], do: &1, else: Map.delete(&1, :ingredients))
+      |> drop_unless(:ingredients, recipe.parts == [])
+      |> drop_unless(:tags, edit.recipe && Map.has_key?(edit.recipe, "tags"))
+      |> drop_unless(:instructions, recipe.steps not in [nil, ""] or recipe.instructions == nil)
       |> then(&if edit.image_path, do: Map.put(&1, :image_path, edit.image_path), else: &1)
 
     with {:ok, _recipe} <- Recipes.update(scope, recipe, attrs) do
       {:ok, {:steps, [{:restore_recipe, id, before}]}, [edit]}
     end
   end
+
+  defp drop_unless(attrs, _key, true), do: attrs
+  defp drop_unless(attrs, key, _keep), do: Map.delete(attrs, key)
 
   @impl true
   def after_commit(%{status: status, input: %{"recipe_id" => id}} = run)

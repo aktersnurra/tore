@@ -78,6 +78,33 @@ defmodule Tore.Mcp.SubmittedToolsTest do
              call(home_scope(), "save_recipe", %{@recipe | "ingredients" => []})
   end
 
+  test "save_recipe uses the page's own photo, and keeps an ingredient's notes" do
+    expect(Tore.MockHTTP, :fetch, fn "https://example.com/laxpasta.jpg" -> {:ok, "jpeg"} end)
+
+    lax = %{"item" => "Lax", "quantity" => 400, "unit" => "g", "notes" => "utan skinn"}
+
+    result =
+      ok(
+        home_scope(),
+        "save_recipe",
+        %{
+          @recipe
+          | "ingredients" => [lax | tl(@recipe["ingredients"])]
+        }
+        |> Map.put("image_url", "https://example.com/laxpasta.jpg")
+      )
+
+    recipe =
+      home_scope()
+      |> Recipes.get(result["recipe_id"])
+      |> Repo.preload(recipe_ingredients: :ingredient)
+
+    assert recipe.image_path =~ "recipes/#{recipe.id}/"
+
+    assert Enum.find(recipe.recipe_ingredients, &(&1.ingredient.name == "Lax")).notes ==
+             "utan skinn"
+  end
+
   test "log_receipt logs what Claude read, as an MCP run, and undo deletes it" do
     # Over MCP the scope always names the person, who the receipt is logged for.
     scope = %{home_scope() | user_id: user_fixture().id}

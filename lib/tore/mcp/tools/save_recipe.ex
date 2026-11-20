@@ -56,7 +56,11 @@ defmodule Tore.Mcp.Tools.SaveRecipe do
             "properties" => %{
               "item" => %{"type" => "string"},
               "quantity" => %{"type" => ["number", "null"]},
-              "unit" => %{"type" => ["string", "null"]}
+              "unit" => %{"type" => ["string", "null"]},
+              "notes" => %{
+                "type" => ["string", "null"],
+                "description" => "How it's prepared or which kind: \"finely chopped\"."
+              }
             }
           }
         },

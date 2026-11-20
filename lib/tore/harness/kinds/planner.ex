@@ -67,13 +67,15 @@ defmodule Tore.Harness.Kinds.Planner do
   def after_commit(%{status: :applied} = run) do
     scope = Scope.for_household(run.household_id)
 
-    # A saved recipe gets its picture, drawn in Tore's house style so the library looks like one
-    # cookbook, and its cook steps if it came without: pi does both once the recipe is committed.
-    # A screen waiting for it opens it (`{:recipe_saved, id}`).
+    # A saved recipe gets its page's own photo when it has one, otherwise a picture pi draws, and
+    # its cook steps if it came without, once the recipe is committed. A screen waiting for it
+    # opens it (`{:recipe_saved, id}`). A run saves one recipe, from its one proposal.
     with {:steps, steps} <- run.undo do
+      image_url = Enum.find_value(run.artifacts, &(match?(%RecipeProposal{}, &1) && &1.image_url))
+
       for {:delete_recipe, id} <- steps do
         Phoenix.PubSub.broadcast(Tore.PubSub, Recipes.topic(scope), {:recipe_saved, id})
-        Recipes.finish(scope, id)
+        Recipes.finish_saved(scope, id, image_url)
       end
     end
 
@@ -117,5 +119,10 @@ defmodule Tore.Harness.Kinds.Planner do
   end
 
   defp ingredient_attrs(ing),
-    do: %{name: ing[:name], quantity: Tore.Types.decimal(ing[:quantity]), unit: ing[:unit]}
+    do: %{
+      name: ing[:name],
+      quantity: Tore.Types.decimal(ing[:quantity]),
+      unit: ing[:unit],
+      notes: ing[:notes]
+    }
 end

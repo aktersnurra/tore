@@ -40,7 +40,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
   @type ingredient :: %{
           name: String.t(),
           quantity: String.t() | nil,
-          unit: String.t() | nil
+          unit: String.t() | nil,
+          notes: String.t() | nil
         }
 
   @type source :: :web_import | :generation | :photo
@@ -91,7 +92,8 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     %{
       name: ing[:name] || ing["name"],
       quantity: quantity_to_string(ing[:quantity] || ing["quantity"]),
-      unit: ing[:unit] || ing["unit"]
+      unit: ing[:unit] || ing["unit"],
+      notes: ing[:notes] || ing["notes"]
     }
   end
 
@@ -149,12 +151,13 @@ defmodule Tore.Harness.Artifact.RecipeProposal do
     %{
       "name" => ing[:name],
       "quantity" => quantity_to_string(ing[:quantity]),
-      "unit" => ing[:unit]
+      "unit" => ing[:unit],
+      "notes" => ing[:notes]
     }
   end
 
   defp ingredient_from_json(json) do
-    %{name: json["name"], quantity: json["quantity"], unit: json["unit"]}
+    %{name: json["name"], quantity: json["quantity"], unit: json["unit"], notes: json["notes"]}
   end
 
   defp quantity_to_string(nil), do: nil
