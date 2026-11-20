@@ -1737,7 +1737,7 @@ defmodule ToreWeb.RecipeLive do
     )
   end
 
-  # pi reads the page and saves it in the person's own chat, so they can ask for changes there.
+  # pi reads the page and saves it; changes to it are asked in the recipe's own chat (Ask Tore).
   # The sheet closes once pi has the link; the outcome comes as a toast. If pi can't take it, the
   # sheet stays, with why in a toast.
   defp start_import(socket, url) do

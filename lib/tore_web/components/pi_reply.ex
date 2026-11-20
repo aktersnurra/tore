@@ -1,9 +1,9 @@
 defmodule ToreWeb.PiReply do
   @moduledoc """
   A screen asking pi something and showing what it says: a working line while pi works, then its
-  words in a note that can be closed. What is asked goes in the person's current chat
-  (`Tore.Chats.asking_session/1`), so the chat shows it too, and pi's changes reach the screen
-  the way any change does.
+  words in a note that can be closed. What is asked goes in the person's screens session
+  (`Tore.Pi.screen_session/1`), not one of their chats, and pi's changes reach the screen the way
+  any change does.
 
   The screen calls `init/1` in mount, `ask/3` to ask, hands `{:pi, _, event}` messages to
   `event/2` and its `"dismiss_pi_reply"` event to `dismiss/1`, and renders `pi_reply/1` with
@@ -11,15 +11,12 @@ defmodule ToreWeb.PiReply do
   """
   use ToreWeb, :html
 
-  alias Tore.{Chats, Pi}
+  alias Tore.Pi
 
-  @doc "Starts the screen with nothing asked, listening to the person's current chat once connected."
+  @doc "Starts the screen with nothing asked, listening to the person's screens session once connected."
   def init(socket) do
     scope = socket.assigns.current_scope
-
-    with true <- Phoenix.LiveView.connected?(socket),
-         %Chats.Chat{} = chat <- Chats.current(scope),
-         do: listen(scope, Chats.session(chat))
+    if Phoenix.LiveView.connected?(socket), do: listen(scope, Pi.screen_session(scope))
 
     Phoenix.Component.assign(socket, pi_reply: nil, pi_working: nil)
   end
@@ -46,7 +43,7 @@ defmodule ToreWeb.PiReply do
   """
   def ask(socket, message, working, opts \\ []) do
     scope = socket.assigns.current_scope
-    session = Chats.asking_session(scope)
+    session = Pi.screen_session(scope)
     :ok = listen(scope, session)
 
     case Pi.ask(scope, session, message, opts) do

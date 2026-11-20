@@ -192,7 +192,7 @@ defmodule ToreWeb.ShopLiveTest do
       assert eventually(fn -> has_element?(view, ~s([data-role="pi-reply"]), "Bytte") end)
 
       [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
-      assert header["session"] == Tore.Chats.session(Tore.Chats.current(scope_fixture(user)))
+      assert header["session"] == Tore.Pi.screen_session(scope_fixture(user))
       assert message =~ ~s(From the Shop screen, about "feta")
       assert message =~ "byt till Apetina 200 g"
     end

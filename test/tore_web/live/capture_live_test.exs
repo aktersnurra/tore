@@ -132,18 +132,12 @@ defmodule ToreWeb.CaptureLiveTest do
       assert has_element?(lv, ~s([data-role="chat-list"]), "Lax")
       assert has_element?(lv, ~s([data-role="chat-list"]), "Helgen")
 
-      assert {:error, {:live_redirect, %{to: to}}} =
-               lv |> element(~s([data-role="chat-list"] button), "Lax") |> render_click()
+      lv |> element(~s([data-role="chat-list"] button), "Lax") |> render_click()
+      assert_patch(lv, "/capture?chat=#{lax.id}&return_to=%2Fplan")
 
-      assert to == "/capture?chat=#{lax.id}&return_to=%2Fplan"
-
-      {:ok, lv, _html} = live(conn, "/capture?return_to=/plan")
       lv |> element(~s(button[data-role="chats"])) |> render_click()
-
-      assert {:error, {:live_redirect, %{to: "/capture?new=true&return_to=%2Fplan"}}} =
-               lv |> element(~s([data-role="new-chat"])) |> render_click()
-
-      {:ok, lv, _html} = live(conn, "/capture?new=true")
+      lv |> element(~s([data-role="new-chat"])) |> render_click()
+      assert_patch(lv, "/capture?new=true&return_to=%2Fplan")
       refute has_element?(lv, ~s(input[name="title"][value]))
     end
 
@@ -170,7 +164,29 @@ defmodule ToreWeb.CaptureLiveTest do
 
       :ok = Tore.Chats.open(scope_fixture(user), Tore.Chats.session(lookup), earlier.id)
 
-      assert_redirect(lv, "/capture?chat=#{earlier.id}&return_to=%2Fplan")
+      assert_patch(lv, "/capture?chat=#{earlier.id}&return_to=%2Fplan")
+      assert has_element?(lv, ~s([data-role="chat-title"] input[value="Lax"]))
+    end
+
+    test "a new chat or another one opens in place, not as a new page", %{conn: conn, user: user} do
+      chat = chat_for(user, "Lax")
+
+      {:ok, lv, _html} =
+        live(conn, "/capture?#{URI.encode_query(chat: chat.id, return_to: "/plan")}")
+
+      lv |> element(~s(button[data-role="chats"])) |> render_click()
+      lv |> element(~s([data-role="new-chat"])) |> render_click()
+      assert_patch(lv, "/capture?new=true&return_to=%2Fplan")
+      refute has_element?(lv, ~s([data-role="chat-title"] input[value="Lax"]))
+
+      lv |> element(~s(button[data-role="chats"])) |> render_click()
+
+      lv
+      |> element(~s([data-role="chat-list"] button[phx-value-id="#{chat.id}"]))
+      |> render_click()
+
+      assert_patch(lv, "/capture?chat=#{chat.id}&return_to=%2Fplan")
+      assert has_element?(lv, ~s([data-role="chat-title"] input[value="Lax"]))
     end
 
     test "pi's suggestions for what to say next show after its answer, and send when tapped", %{

@@ -254,7 +254,7 @@ defmodule ToreWeb.HomeLiveTest do
 
       assert Enum.any?(
                records,
-               &(&1["session"] == Tore.Chats.session(Tore.Chats.current(scope_fixture(user))))
+               &(&1["session"] == Tore.Pi.screen_session(scope_fixture(user)))
              )
 
       %{"message" => message} =
@@ -266,7 +266,7 @@ defmodule ToreWeb.HomeLiveTest do
 
       # The chat used elsewhere afterwards doesn't write into the note.
       assert eventually(fn -> not has_element?(view, ~s([data-role="pi-working"])) end)
-      session = Tore.Chats.session(Tore.Chats.current(scope_fixture(user)))
+      session = Tore.Pi.screen_session(scope_fixture(user))
 
       send(
         view.pid,

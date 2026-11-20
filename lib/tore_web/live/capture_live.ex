@@ -25,8 +25,19 @@ defmodule ToreWeb.CaptureLive do
   @history_bubbles 60
 
   @impl true
-  def mount(params, _session, socket) do
-    return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
+  def mount(_params, _session, socket) do
+    if connected?(socket), do: :ok = Chats.subscribe(socket.assigns.current_scope)
+
+    {:ok,
+     socket
+     |> assign(session: nil)
+     |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)}
+  end
+
+  # The chat shown is the page's params, so a new chat or another one is a patch: the tray stays
+  # where it is and only the conversation in it changes.
+  @impl true
+  def handle_params(params, _uri, socket) do
     scope = socket.assigns.current_scope
     recipe = recipe(scope, params["recipe"])
     chat = if recipe, do: nil, else: chat(scope, params)
@@ -38,9 +49,13 @@ defmodule ToreWeb.CaptureLive do
         true -> nil
       end
 
+    previous = socket.assigns.session
+
+    if (connected?(socket) and previous) && previous != session,
+      do: Phoenix.PubSub.unsubscribe(Tore.PubSub, Pi.topic(scope, previous))
+
     socket =
-      socket
-      |> assign(
+      assign(socket,
         session: session,
         recipe: recipe,
         chat: chat,
@@ -51,26 +66,19 @@ defmodule ToreWeb.CaptureLive do
         input: params["q"] || "",
         loading: false,
         working: nil,
-        return_to: return_to
+        return_to: ToreWeb.SafeReturn.path(params["return_to"], ~p"/"),
+        swaps: if(recipe, do: [], else: Home.current(scope).swaps)
       )
-      |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)
 
     socket =
-      cond do
-        not connected?(socket) ->
-          socket
-
-        session ->
-          if !recipe, do: :ok = Chats.subscribe(scope)
-          Pi.subscribe(scope, session)
-          start_async(socket, :history, fn -> history(scope, session) end)
-
-        true ->
-          :ok = Chats.subscribe(scope)
-          socket
+      if connected?(socket) and session do
+        if session != previous, do: Pi.subscribe(scope, session)
+        start_async(socket, :history, fn -> history(scope, session) end)
+      else
+        socket
       end
 
-    {:ok, assign(socket, swaps: if(recipe, do: [], else: Home.current(scope).swaps))}
+    {:noreply, socket}
   end
 
   defp recipe(scope, id) when is_binary(id) do
@@ -142,12 +150,12 @@ defmodule ToreWeb.CaptureLive do
 
   def handle_event("open_chat", %{"id" => id}, socket) do
     to = ~p"/capture?#{[chat: id, return_to: socket.assigns.return_to]}"
-    {:noreply, push_navigate(socket, to: to)}
+    {:noreply, push_patch(socket, to: to)}
   end
 
   def handle_event("new_chat", _params, socket) do
     to = ~p"/capture?#{[new: true, return_to: socket.assigns.return_to]}"
-    {:noreply, push_navigate(socket, to: to)}
+    {:noreply, push_patch(socket, to: to)}
   end
 
   # The title submitted, or left by moving away from it.
@@ -243,7 +251,7 @@ defmodule ToreWeb.CaptureLive do
   # pi found the earlier chat they asked for, from the one shown here.
   def handle_info({:open_chat, session, id}, %{assigns: %{session: session}} = socket) do
     to = ~p"/capture?#{[chat: id, return_to: socket.assigns.return_to]}"
-    {:noreply, push_navigate(socket, to: to)}
+    {:noreply, push_patch(socket, to: to)}
   end
 
   def handle_info({:open_chat, _session, _id}, socket), do: {:noreply, socket}
@@ -625,14 +633,15 @@ defmodule ToreWeb.CaptureLive do
 
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
-      <%!-- On a wide screen the chat is a page beside the menu; on a phone it's a sheet over it. --%>
+      <%!-- On a wide screen the chat is a page beside the menu; on a phone it's a sheet over it,
+           rising when the tray opens and not when it changes chats. --%>
       <div
         id="command-tray"
         data-role="command-tray"
         phx-mounted={
           JS.transition(
-            {"motion-safe:transition-transform motion-safe:duration-200 ease-out", "translate-y-full",
-             "translate-y-0"}
+            {"motion-safe:transition-transform motion-safe:duration-200 ease-out",
+             "max-lg:translate-y-full", "translate-y-0"}
           )
         }
         class="fixed inset-x-0 bottom-0 top-8 z-50 flex flex-col rounded-t-[28px] bg-[var(--bg)] shadow-[var(--shadow-pop)] lg:inset-y-0 lg:right-0 lg:left-[248px] lg:z-30 lg:rounded-none lg:shadow-none"

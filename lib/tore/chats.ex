@@ -40,26 +40,6 @@ defmodule Tore.Chats do
       when is_integer(user_id),
       do: Repo.insert(%Chat{household_id: household_id, user_id: user_id})
 
-  @doc """
-  The session a screen's question goes to: the person's current chat, started when they have none,
-  and marked used.
-  """
-  @spec asking_session(Scope.t()) :: String.t()
-  def asking_session(%Scope{} = scope) do
-    chat =
-      case current(scope) do
-        nil ->
-          {:ok, chat} = create(scope)
-          chat
-
-        chat ->
-          :ok = touch(scope, chat)
-          chat
-      end
-
-    session(chat)
-  end
-
   @doc "Marks the chat just used, so it's the person's current one."
   @spec touch(Scope.t(), Chat.t()) :: :ok
   def touch(%Scope{} = scope, %Chat{id: id}) do

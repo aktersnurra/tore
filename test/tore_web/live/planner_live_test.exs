@@ -312,7 +312,7 @@ defmodule ToreWeb.PlannerLiveTest do
       assert eventually(fn -> not (render(view) =~ "Planerar de lediga dagarna…") end)
 
       [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
-      assert header["session"] == Tore.Chats.session(Tore.Chats.current(scope_fixture(user)))
+      assert header["session"] == Tore.Pi.screen_session(scope_fixture(user))
       assert message =~ "open days from #{Date.to_iso8601(today)}"
     end
 
@@ -412,7 +412,7 @@ defmodule ToreWeb.PlannerLiveTest do
 
       monday = Tore.Streams.monday(Tore.Clock.today())
       [header, %{"type" => "prompt", "message" => message}] = pi_records(log)
-      assert header["session"] == Tore.Chats.session(Tore.Chats.current(scope_fixture(user)))
+      assert header["session"] == Tore.Pi.screen_session(scope_fixture(user))
       assert message =~ "From the Plan screen"
       assert message =~ "Monday #{Date.to_iso8601(monday)}"
       assert message =~ "make it vegetarian"

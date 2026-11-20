@@ -625,7 +625,9 @@ defmodule ToreWeb.RecipeLiveTest do
       assert Tore.Pantry.at_home(home_scope(), ["gräddfil"]).missing == ["gräddfil"]
 
       [header | commands] = pi_records(log)
-      assert header["session"] == Tore.Chats.session(Tore.Chats.current(scope_fixture(user)))
+      assert header["session"] == Tore.Pi.screen_session(scope_fixture(user))
+      # A screen's request isn't one of their chats.
+      assert Tore.Chats.list(scope_fixture(user)) == []
       %{"message" => message} = Enum.find(commands, &(&1["type"] == "prompt"))
       assert message =~ "recipe #{stew.id}"
       assert message =~ "crème fraîche"

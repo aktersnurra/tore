@@ -88,7 +88,7 @@ defmodule ToreWeb.BeforeCooking do
             "Give a swap for each with suggest_swaps, then say it in a sentence."
 
         # The screen hears the answer and hands it on (`forward/1`).
-        session = Tore.Chats.asking_session(scope)
+        session = Pi.screen_session(scope)
         :ok = ToreWeb.PiReply.listen(scope, session)
 
         case Pi.ask(scope, session, message) do

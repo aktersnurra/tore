@@ -71,6 +71,15 @@ defmodule Tore.Pi do
       when is_integer(user_id) and is_integer(recipe_id),
       do: "chat-#{user_id}-recipe-#{recipe_id}"
 
+  @doc """
+  The signed-in person's session for what screens ask pi: importing a link, swaps before cooking,
+  a button's question. It is none of their chats, so it never shows in the chat list, and the
+  chat they open from Tore is only what they said there. Its cost counts as their chat's.
+  """
+  @spec screen_session(Scope.t()) :: session()
+  def screen_session(%Scope{user_id: user_id}) when is_integer(user_id),
+    do: "chat-#{user_id}-screens"
+
   @spec topic(Scope.t(), session()) :: String.t()
   def topic(%Scope{household_id: id}, session), do: "pi:#{id}:#{session}"
 
