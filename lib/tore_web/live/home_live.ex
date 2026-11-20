@@ -189,7 +189,7 @@ defmodule ToreWeb.HomeLive do
                 </div>
               </dl>
 
-              <div class="reveal mt-5 flex gap-2" style="--i: 3">
+              <div class="reveal mt-5 flex flex-wrap gap-2" style="--i: 3">
                 <.link
                   :if={@day == :tomorrow}
                   navigate={~p"/recipes?#{[id: @dish.id]}"}
@@ -218,6 +218,13 @@ defmodule ToreWeb.HomeLive do
                 <button type="button" phx-click="something_else" class="pill press">
                   <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
                 </button>
+                <.link
+                  navigate={~p"/capture?#{[return_to: "/today", recipe: @dish.id]}"}
+                  data-role="ask-tore"
+                  class="pill press"
+                >
+                  <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
+                </.link>
               </div>
 
               <.note :if={@note} note={@note} added={@note_added} class="mt-5" />

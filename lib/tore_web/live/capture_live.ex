@@ -73,7 +73,7 @@ defmodule ToreWeb.CaptureLive do
     socket =
       if connected?(socket) and session do
         if session != previous, do: Pi.subscribe(scope, session)
-        start_async(socket, :history, fn -> history(scope, session) end)
+        start_async(socket, :history, fn -> history(scope, session, recipe) end)
       else
         socket
       end
@@ -283,6 +283,17 @@ defmodule ToreWeb.CaptureLive do
   defp pi_event(%{"type" => "tool_execution_start", "toolName" => name}, socket),
     do: assign(socket, working: step_label(tool(name)) || socket.assigns.working)
 
+  defp pi_event(
+         %{"type" => "tool_execution_end", "isError" => false, "toolName" => name} = event,
+         socket
+       )
+       when name == "mcp__tore__get_recipe" do
+    case read_card(event["result"]) do
+      nil -> socket
+      card -> update(socket, :messages, &cards_once(&1 ++ [card], socket.assigns.recipe))
+    end
+  end
+
   defp pi_event(%{"type" => "tool_execution_end", "isError" => false} = event, socket) do
     case {tool(event["toolName"]), receipt(event["result"])} do
       # Undone by asking: the change's own receipt says so.
@@ -314,9 +325,14 @@ defmodule ToreWeb.CaptureLive do
 
   # ----- the conversation as pi keeps it ----------------------------------------------------
 
-  defp history(scope, session) do
+  defp history(scope, session, recipe) do
     with {:ok, messages} <- Pi.messages(scope, session) do
-      bubbles = messages |> Enum.flat_map(&bubbles/1) |> Enum.take(-@history_bubbles)
+      bubbles =
+        messages
+        |> Enum.flat_map(&bubbles/1)
+        |> cards_once(recipe)
+        |> Enum.take(-@history_bubbles)
+
       ids = for %{run_stream_id: id} <- bubbles, do: id
       statuses = Runs.statuses(scope, ids)
 
@@ -330,7 +346,7 @@ defmodule ToreWeb.CaptureLive do
 
   defp bubbles(%{"role" => "user", "content" => content}) do
     {texts, photos} = user_content(content)
-    [user_bubble_for(Enum.join(texts, "\n"), photos)]
+    [user_bubble_for(texts |> Enum.join("\n") |> unabout(), photos)]
   end
 
   defp bubbles(%{"role" => "assistant"} = message) do
@@ -339,6 +355,11 @@ defmodule ToreWeb.CaptureLive do
       text -> [%{role: :assistant, text: text}]
     end
   end
+
+  defp bubbles(
+         %{"role" => "toolResult", "isError" => false, "toolName" => "mcp__tore__get_recipe"} = m
+       ),
+       do: List.wrap(read_card(m))
 
   defp bubbles(%{"role" => "toolResult", "isError" => false} = message) do
     case {tool(message["toolName"]), receipt(message)} do
@@ -369,6 +390,56 @@ defmodule ToreWeb.CaptureLive do
   end
 
   defp receipt(_result), do: nil
+
+  # A recipe pi read (`get_recipe`) shows as its card, so they see what Tore is looking at.
+  defp read_card(%{"content" => [%{"type" => "text", "text" => text} | _]}) do
+    case Jason.decode(text) do
+      {:ok, %{"recipe_id" => id, "title" => title} = r}
+      when is_integer(id) and is_binary(title) ->
+        %{
+          role: :recipe,
+          id: id,
+          title: title,
+          minutes: (r["prep_time_minutes"] || 0) + (r["cook_time_minutes"] || 0),
+          picture?: r["has_picture"] == true
+        }
+
+      _ ->
+        nil
+    end
+  end
+
+  defp read_card(_result), do: nil
+
+  defp card_for(%Tore.Recipes.Recipe{} = recipe) do
+    %{
+      role: :recipe,
+      id: recipe.id,
+      title: recipe.title,
+      minutes: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0),
+      picture?: recipe.image_path != nil
+    }
+  end
+
+  # Each recipe's card once, where it was first read; a recipe's own chat has its card on top.
+  defp cards_once(bubbles, recipe) do
+    shown = if recipe, do: MapSet.new([recipe.id]), else: MapSet.new()
+
+    {bubbles, _shown} =
+      Enum.flat_map_reduce(bubbles, shown, fn
+        %{role: :recipe, id: id} = card, shown ->
+          if MapSet.member?(shown, id), do: {[], shown}, else: {[card], MapSet.put(shown, id)}
+
+        bubble, shown ->
+          {[bubble], shown}
+      end)
+
+    bubbles
+  end
+
+  # What a recipe's chat told pi it's about (`about/3`) isn't what they said.
+  defp unabout(text),
+    do: String.replace(text, ~r/\AFrom the recipe page, about .*? \(recipe \d+\): /s, "")
 
   # pi names Tore's tools `mcp__tore__<tool>`.
   defp tool(name) when is_binary(name), do: String.replace_prefix(name, "mcp__tore__", "")
@@ -454,6 +525,12 @@ defmodule ToreWeb.CaptureLive do
   attr :msg, :map, required: true
   attr :head, :boolean, default: true
 
+  defp turn(%{msg: %{role: :recipe}} = assigns) do
+    ~H"""
+    <div class="rise-in pl-10"><.recipe_card card={@msg} /></div>
+    """
+  end
+
   defp turn(%{msg: %{quiet: true}} = assigns) do
     ~H"""
     <div data-role="bubble-assistant" class="rise-in flex items-start gap-2 pl-10 text-[15px]">
@@ -487,6 +564,44 @@ defmodule ToreWeb.CaptureLive do
         <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
         <div class="chat-md text-[color:var(--text)]">{markdown(@msg.text)}</div>
       </div>
+    </div>
+    """
+  end
+
+  # A recipe Tore has in front of it: its picture, name and time, opening the recipe.
+  attr :card, :map, required: true
+
+  defp recipe_card(assigns) do
+    ~H"""
+    <div data-role="recipe-card" class="max-w-sm">
+      <.link
+        navigate={~p"/recipes?#{[id: @card.id]}"}
+        class="press row-hover flex items-center gap-3 rounded-[var(--r-lg)] border border-[color:var(--hairline)] bg-[var(--surface)] p-2 pr-4"
+      >
+        <span class="relative size-14 shrink-0 overflow-hidden rounded-[var(--r-md)] bg-[var(--sunken)]">
+          <img
+            :if={@card.picture?}
+            src={~p"/images/recipes/#{@card.id}"}
+            alt=""
+            class="absolute inset-0 size-full object-cover"
+          />
+          <span :if={!@card.picture?} class="flex size-full items-center justify-center">
+            <.icon name="ph-cooking-pot" class="size-6 text-[color:var(--muted)]" />
+          </span>
+        </span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-[15px] font-semibold text-[color:var(--text)]">
+            {@card.title}
+          </span>
+          <span class="mt-0.5 flex items-center gap-1 text-[13px] text-[color:var(--muted)]">
+            <.icon name="ph-eye" class="size-3.5" /> {gettext("Tore can see the recipe")}
+            <span :if={@card.minutes > 0} class="num">
+              · {gettext("%{minutes} min", minutes: @card.minutes)}
+            </span>
+          </span>
+        </span>
+        <.icon name="ph-caret-right" class="size-4 shrink-0 text-[color:var(--muted)]" />
+      </.link>
     </div>
     """
   end
@@ -711,6 +826,10 @@ defmodule ToreWeb.CaptureLive do
                       "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
                     )}
               </p>
+            </div>
+
+            <div :if={@recipe} data-role="about-recipe" class="mb-6">
+              <.recipe_card card={card_for(@recipe)} />
             </div>
 
             <div class="space-y-6">

@@ -159,6 +159,16 @@ defmodule ToreWeb.HomeLiveTest do
       recipe
     end
 
+    test "Ask Tore opens the conversation about the dish, as on its recipe page", %{conn: conn} do
+      stew = dish("Kycklinggryta")
+      plan_on(Tore.Clock.today(), stew)
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+
+      assert view |> element(~s(a[data-role="ask-tore"])) |> render() =~
+               ~s(href="/capture?recipe=#{stew.id}&amp;return_to=%2Ftoday")
+    end
+
     test "tonight cooked, Today is tomorrow's dinner", %{conn: conn} do
       today = Tore.Clock.today()
       stew = dish("Kycklinggryta")

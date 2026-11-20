@@ -215,6 +215,96 @@ defmodule ToreWeb.CaptureLiveTest do
     end
   end
 
+  describe "recipes in the chat" do
+    defp pizza do
+      Tore.Repo.insert!(%Tore.Recipes.Recipe{
+        household_id: home_scope().household_id,
+        title: "Pizza",
+        recipe_type: :meal,
+        cook_time_minutes: 25
+      })
+    end
+
+    # What pi's get_recipe call reads, as Tore's MCP answers it.
+    defp read(recipe) do
+      {:reply, %{"result" => %{"content" => [%{"text" => text}]}}} =
+        Tore.Mcp.handle(home_scope(), %{
+          "jsonrpc" => "2.0",
+          "id" => 1,
+          "method" => "tools/call",
+          "params" => %{"name" => "get_recipe", "arguments" => %{"recipe_id" => recipe.id}}
+        })
+
+      text
+    end
+
+    defp card(recipe), do: ~s([data-role="recipe-card"] a[href="/recipes?id=#{recipe.id}"])
+
+    test "a recipe Tore reads shows as its card", %{conn: conn} do
+      recipe = pizza()
+      text = read(recipe)
+
+      System.put_env(
+        "FAKE_PI_TOOL",
+        Jason.encode!(%{
+          name: "mcp__tore__get_recipe",
+          args: %{recipe_id: recipe.id},
+          result: text
+        })
+      )
+
+      {:ok, lv, _html} = live(conn, "/capture")
+      lv |> form("#chat-form", %{message: "hur länge tar pizzan?"}) |> render_submit()
+
+      assert eventually(fn -> has_element?(lv, card(recipe)) end)
+      assert lv |> element(card(recipe)) |> render() =~ "Pizza"
+    end
+
+    test "a card read before shows when the chat opens again, once however often it was read", %{
+      conn: conn,
+      user: user
+    } do
+      chat_for(user)
+      recipe = pizza()
+
+      read_it = %{
+        "role" => "toolResult",
+        "toolName" => "mcp__tore__get_recipe",
+        "isError" => false,
+        "content" => [%{"type" => "text", "text" => read(recipe)}]
+      }
+
+      System.put_env("FAKE_PI_HISTORY", Jason.encode!([read_it, read_it]))
+
+      {:ok, lv, _html} = live(conn, "/capture")
+      html = render_async(lv)
+      assert [_one] = html |> Floki.parse_document!() |> Floki.find(card(recipe))
+    end
+
+    test "a recipe's own chat has the recipe on top, and their words as they said them", %{
+      conn: conn
+    } do
+      recipe = pizza()
+
+      System.put_env(
+        "FAKE_PI_HISTORY",
+        Jason.encode!([
+          %{
+            "role" => "user",
+            "content" => "From the recipe page, about Pizza (recipe #{recipe.id}): till sex?"
+          }
+        ])
+      )
+
+      {:ok, lv, _html} = live(conn, "/capture?recipe=#{recipe.id}")
+      html = render_async(lv)
+
+      assert has_element?(lv, card(recipe))
+      assert lv |> element(~s([data-role="bubble-user"])) |> render() =~ "till sex?"
+      refute html =~ "From the recipe page"
+    end
+  end
+
   test "a change pi makes shows its receipt, and Undo takes it back", %{conn: conn} do
     dinner = set_dinner()
 
