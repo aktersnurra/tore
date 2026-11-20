@@ -17,6 +17,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - The prep guide, learning new names and matching products to ingredients, guessing prices, and where the app opens with Today's note are background jobs for pi, each saved through a tool Tore checks.
 - pi looks for two new dinners on the web every Thursday, before the coming week is planned.
 - Gone: "Surprise me" on a day (the sheet asks pi instead), recipe variants, and a duplicate receipt is now caught by its store, date and total rather than the photo.
+- The chat looks like a chat app: full screen on a laptop, messages as rows with a name instead of bubbles, pi's lists and bold text shown as such, and a growing message box where Enter sends.
 - Ask Tore on a recipe opens a conversation about that recipe, your own, which is still there when you come back to it.
 - OpenRouter only draws recipe pictures now. Turning AI on means setting `TORE_PI_COMMAND`.
 

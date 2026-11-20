@@ -191,7 +191,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* Fields sharing one rounded box: the box draws the ring, not each field inside it. */
 .field-group { outline-offset: 0; }
 .field-group:focus-within { outline: 2px solid var(--accent); }
-.field-group input:focus-visible { outline: none; }
+.field-group input:focus-visible, .field-group textarea:focus-visible { outline: none; }
 
 /* The rim line: thick over thin, like the painted band on the edge of a plate.
    Once per screen, under the title. Nowhere else. */
@@ -344,6 +344,30 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   font-size: 15px; transition: background-color var(--dur-base) var(--ease-out);
 }
 .timer-chip.is-done { background: var(--accent); color: var(--on-accent); }
+
+/* ── Chat: pi's answers are markdown, set as reading text rather than bubbles. ── */
+.chat-md { font-size: var(--t-body); line-height: 1.6; overflow-wrap: anywhere; }
+.chat-md > * + * { margin-top: 0.75em; }
+.chat-md ul { list-style: disc; padding-left: 1.25em; }
+.chat-md ol { list-style: decimal; padding-left: 1.4em; }
+.chat-md li + li { margin-top: 0.25em; }
+.chat-md li > ul, .chat-md li > ol { margin-top: 0.25em; }
+.chat-md strong { font-weight: 600; }
+.chat-md h1, .chat-md h2, .chat-md h3, .chat-md h4 { font-size: 1em; font-weight: 600; }
+.chat-md a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--subtle); }
+.chat-md a:hover { text-decoration-color: currentColor; }
+.chat-md code { font-size: 0.9em; background: var(--sunken); border-radius: var(--r-sm); padding: 0.1em 0.35em; }
+.chat-md pre { background: var(--sunken); border-radius: var(--r-md); padding: 12px; overflow-x: auto; }
+.chat-md pre code { background: none; padding: 0; }
+.chat-md blockquote { border-left: 2px solid var(--border); padding-left: 12px; color: var(--muted); }
+/* While pi writes: a caret at the end of what has come so far. */
+.chat-md.is-streaming > :last-child::after {
+  content: ""; display: inline-block; width: 0.5em; height: 1em; margin-left: 2px;
+  vertical-align: -2px; background: currentColor; border-radius: 1px;
+  animation: caret 1s steps(2, start) infinite;
+}
+@keyframes caret { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .chat-md.is-streaming > :last-child::after { animation: none; } }
 
 /* ── Shimmer: where content is coming, a slow sweep instead of a blank. ── */
 .shimmer {

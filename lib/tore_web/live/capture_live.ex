@@ -286,6 +286,77 @@ defmodule ToreWeb.CaptureLive do
 
   defp step_label(_name), do: nil
 
+  # ----- the page ---------------------------------------------------------------------------
+
+  # pi writes markdown: lists, bold, links. Raw HTML in it is dropped (MDEx's default).
+  defp markdown(text),
+    do: raw(MDEx.to_html!(text, extension: [autolink: true, strikethrough: true]))
+
+  defp initial(%{name: name}) when is_binary(name) and name != "",
+    do: name |> String.first() |> String.upcase()
+
+  defp initial(_user), do: "?"
+
+  attr :role, :atom, required: true
+  attr :initial, :string, default: nil
+
+  defp avatar(%{role: :user} = assigns) do
+    ~H"""
+    <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[13px] font-semibold text-[color:var(--text)]">
+      {@initial}
+    </span>
+    """
+  end
+
+  defp avatar(assigns) do
+    ~H"""
+    <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)]">
+      <.icon name="ph-cooking-pot-duotone" class="size-4" />
+    </span>
+    """
+  end
+
+  # One message: who said it, then what. A change pi made is a quiet line with its Undo.
+  attr :msg, :map, required: true
+  attr :initial, :string, required: true
+
+  defp turn(%{msg: %{quiet: true}} = assigns) do
+    ~H"""
+    <div data-role="bubble-assistant" class="rise-in flex items-start gap-2 pl-10 text-[15px]">
+      <.icon
+        name={if Map.get(@msg, :reverted), do: "ph-arrow-u-up-left", else: "ph-check-circle-fill"}
+        class="mt-0.5 size-[18px] shrink-0 text-[color:var(--muted)]"
+      />
+      <div class="min-w-0 flex-1 text-[color:var(--muted)]">
+        <span>{@msg.text}</span>
+        <.undo msg={@msg} />
+      </div>
+    </div>
+    """
+  end
+
+  defp turn(assigns) do
+    ~H"""
+    <div data-role={"bubble-#{@msg.role}"} class="rise-in flex items-start gap-3">
+      <.avatar role={@msg.role} initial={@initial} />
+      <div class="min-w-0 flex-1 pt-0.5">
+        <div class="text-[14px] font-semibold text-[color:var(--text)]">
+          {if @msg.role == :user, do: gettext("You"), else: "Tore"}
+        </div>
+        <div
+          :if={@msg.role == :user}
+          class="mt-1 text-[16px] leading-relaxed text-[color:var(--text)]"
+        >
+          <span class="whitespace-pre-line">{@msg.text}</span>
+        </div>
+        <div :if={@msg.role == :assistant} class="chat-md mt-1 text-[color:var(--text)]">
+          {markdown(@msg.text)}
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   # Undo on a receipt whose change can be undone, and "Reverted" once it has been.
   attr :msg, :map, required: true
 
@@ -296,18 +367,20 @@ defmodule ToreWeb.CaptureLive do
       type="button"
       phx-click="undo_run"
       phx-value-sid={@msg.run_stream_id}
-      class="self-start block text-[13px] font-semibold underline underline-offset-4 decoration-[color:var(--subtle)] mt-1"
+      class="press ml-1 text-[14px] font-semibold text-[color:var(--text)] underline underline-offset-4 decoration-[color:var(--subtle)] hover:decoration-[color:var(--text)]"
     >
       {gettext("Undo")}
     </button>
-    <span :if={Map.get(@msg, :reverted)} class="block text-xs text-[color:var(--muted)] mt-1">
-      {gettext("Reverted")}
+    <span :if={Map.get(@msg, :reverted)} class="ml-1 text-[13px]">
+      · {gettext("Reverted")}
     </span>
     """
   end
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, :initial, initial(assigns.current_user))
+
     ~H"""
     <div
       id="command-tray"
@@ -318,18 +391,18 @@ defmodule ToreWeb.CaptureLive do
            "translate-y-0"}
         )
       }
-      class="fixed inset-x-0 bottom-0 top-8 z-50 mx-auto flex max-w-2xl flex-col rounded-t-[28px] bg-[var(--surface)] shadow-[var(--shadow-pop)]"
+      class="fixed inset-x-0 bottom-0 top-8 z-50 flex flex-col rounded-t-[28px] bg-[var(--bg)] shadow-[var(--shadow-pop)] lg:inset-0 lg:rounded-none lg:shadow-none"
       phx-window-keydown="close_tray"
       phx-key="Escape"
     >
-      <div class="flex justify-center py-2">
+      <div class="flex justify-center py-2 lg:hidden">
         <.link navigate={@return_to} aria-label={gettext("Close")} data-role="tray-close">
-          <span class="w-10 h-1.5 rounded-full bg-[color:var(--border)] block"></span>
+          <span class="block h-1.5 w-10 rounded-full bg-[color:var(--border)]"></span>
         </.link>
       </div>
 
-      <div class="flex items-center justify-between gap-3 px-4 pb-1">
-        <span class="t-eyebrow pl-1 truncate">
+      <header class="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-4 lg:h-14">
+        <span class="truncate text-[15px] font-semibold text-[color:var(--text)]">
           {if @recipe,
             do: gettext("About %{dish}", dish: @recipe.title),
             else: gettext("Ask Tore")}
@@ -337,11 +410,11 @@ defmodule ToreWeb.CaptureLive do
         <.link
           navigate={@return_to}
           aria-label={gettext("Close")}
-          class="press flex size-10 items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+          class="press flex size-9 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
         >
           <.icon name="ph-x" class="size-5" />
         </.link>
-      </div>
+      </header>
 
       <script :type={Phoenix.LiveView.ColocatedHook} name=".ScrollBottom">
         // The latest of the conversation is in view: when it opens, and as the answer comes in,
@@ -354,77 +427,77 @@ defmodule ToreWeb.CaptureLive do
           updated() { if (this.atEnd) this.el.scrollTop = this.el.scrollHeight },
         }
       </script>
-      <div
-        id="chat-messages"
-        phx-hook=".ScrollBottom"
-        class="flex-1 overflow-y-auto px-4 py-4 space-y-3"
-      >
-        <div
-          :if={@messages == [] and not @loading}
-          class="flex h-full flex-col items-start justify-end pb-4"
-        >
-          <p class="reveal t-display" style="--i: 0">{gettext("What do you need?")}</p>
-          <p
-            class="reveal mt-3 max-w-[32ch] text-[color:var(--muted)]"
-            style="--i: 1; font-size: 15px; line-height: 1.5;"
-          >
-            {if @recipe,
-              do:
-                gettext(
-                  "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
-                ),
-              else:
-                gettext(
-                  "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
-                )}
-          </p>
-        </div>
-        <div
-          :for={msg <- @messages}
-          data-role={"bubble-#{msg.role}"}
-          class={[
-            "flex",
-            msg.role == :user && "justify-end",
-            msg.role == :assistant && "justify-start"
-          ]}
-        >
-          <div class={[
-            "rise-in max-w-[85%] rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed flex flex-col gap-1 whitespace-pre-line",
-            msg.role == :user && "rounded-br-md bg-[var(--text)] text-[color:var(--bg)]",
-            msg.role == :assistant && "rounded-bl-md bg-[var(--sunken)]",
-            msg.role == :assistant && !Map.get(msg, :quiet) && "text-[color:var(--text)]",
-            Map.get(msg, :quiet) && "text-[color:var(--muted)]"
-          ]}>
-            <span>{msg.text}</span>
-            <.undo msg={msg} />
-          </div>
-        </div>
-        <div :if={@draft} data-role="draft" class="flex justify-start">
-          <div class="max-w-[85%] rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-line text-[color:var(--text)]">
-            {@draft}
-          </div>
-        </div>
-        <div :if={@loading and is_nil(@draft)} class="flex justify-start">
+      <div id="chat-messages" phx-hook=".ScrollBottom" class="flex-1 overflow-y-auto">
+        <div class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6">
           <div
-            role="status"
-            class="rise-in flex items-center gap-2 rounded-[20px] rounded-bl-md bg-[var(--sunken)] px-4 py-2.5"
+            :if={@messages == [] and not @loading}
+            class="my-auto flex flex-col items-center py-10 text-center"
           >
-            <.icon
-              name="ph-arrows-clockwise"
-              class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
-            />
             <span
-              id={"working-#{:erlang.phash2(@working)}"}
-              data-role="working"
-              class="settle text-[15px] text-[color:var(--muted)]"
+              class="reveal flex size-12 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)]"
+              style="--i: 0"
             >
-              {@working}
+              <.icon name="ph-cooking-pot-duotone" class="size-6" />
             </span>
+            <p
+              class="reveal mt-4 text-[26px] font-semibold tracking-[-0.02em] text-[color:var(--text)]"
+              style="--i: 1"
+            >
+              {gettext("What do you need?")}
+            </p>
+            <p
+              class="reveal mt-2 max-w-[38ch] text-[color:var(--muted)]"
+              style="--i: 2; font-size: 15px; line-height: 1.5;"
+            >
+              {if @recipe,
+                do:
+                  gettext(
+                    "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
+                  ),
+                else:
+                  gettext(
+                    "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
+                  )}
+            </p>
+          </div>
+
+          <div class="space-y-6">
+            <.turn :for={msg <- @messages} msg={msg} initial={@initial} />
+
+            <div :if={@draft} data-role="draft" class="flex items-start gap-3">
+              <.avatar role={:assistant} />
+              <div class="min-w-0 flex-1 pt-0.5">
+                <div class="text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
+                <div class="chat-md is-streaming mt-1 text-[color:var(--text)]">
+                  {markdown(@draft)}
+                </div>
+              </div>
+            </div>
+
+            <div :if={@loading and is_nil(@draft)} class="rise-in flex items-start gap-3">
+              <.avatar role={:assistant} />
+              <div class="min-w-0 flex-1 pt-0.5">
+                <div class="text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
+                <div role="status" class="mt-1 flex items-center gap-2">
+                  <.icon
+                    name="ph-arrows-clockwise"
+                    class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
+                  />
+                  <span
+                    id={"working-#{:erlang.phash2(@working)}"}
+                    data-role="working"
+                    class="settle text-[15px] text-[color:var(--muted)]"
+                  >
+                    {@working}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+      <div class="mx-auto w-full max-w-3xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:pb-6">
         <div
           :if={@swaps != [] and not @loading}
           data-role="swaps"
@@ -441,35 +514,37 @@ defmodule ToreWeb.CaptureLive do
             {swap.label}
           </button>
         </div>
-        <form phx-submit="send_message" phx-change="validate" class="flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <label
-              for={@uploads.chat_photos.ref}
-              aria-label={gettext("Attach photo")}
-              title={gettext("Attach photo")}
-              class="press flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
-            >
-              <.icon name="ph-camera" class="size-5" />
-            </label>
-            <input
-              type="text"
-              name="message"
-              value={@input}
-              placeholder={gettext("Ask anything about meals, groceries…")}
-              autocomplete="off"
-              class="h-12 min-w-0 flex-1 rounded-full bg-[var(--sunken)] px-5 text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-              style="font-size: 16px;"
-            />
-            <button
-              type="submit"
-              disabled={@loading}
-              aria-label={gettext("Send")}
-              class="press flex size-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)] disabled:opacity-40"
-            >
-              <.icon name="ph-arrow-up" class="size-5" />
-            </button>
-          </div>
-          <div :if={@uploads.chat_photos.entries != []} class="flex flex-wrap items-center gap-2">
+
+        <script :type={Phoenix.LiveView.ColocatedHook} name=".Composer">
+          // The box grows with what's written, up to a point. Enter sends and Shift+Enter starts a
+          // new line; once sent, the box empties for the next message.
+          export default {
+            mounted() {
+              this.grow = () => {
+                this.el.style.height = "auto"
+                this.el.style.height = Math.min(this.el.scrollHeight, 192) + "px"
+              }
+              this.el.addEventListener("input", this.grow)
+              this.el.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+                  e.preventDefault()
+                  this.el.form.requestSubmit()
+                }
+              })
+              // After LiveView has read the form.
+              this.el.form.addEventListener("submit", () =>
+                setTimeout(() => { this.el.value = ""; this.grow() }, 0))
+              this.grow()
+            },
+            updated() { this.grow() },
+          }
+        </script>
+        <form
+          phx-submit="send_message"
+          phx-change="validate"
+          class="field-group rounded-[24px] border border-[color:var(--border)] bg-[var(--surface)] px-3 pt-3 pb-2"
+        >
+          <div :if={@uploads.chat_photos.entries != []} class="mb-2 flex flex-wrap items-center gap-2">
             <span
               :for={entry <- @uploads.chat_photos.entries}
               class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
@@ -477,6 +552,35 @@ defmodule ToreWeb.CaptureLive do
               <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
               {entry.client_name} · {entry.progress}%
             </span>
+          </div>
+          <textarea
+            id="chat-input"
+            name="message"
+            rows="1"
+            phx-hook=".Composer"
+            placeholder={gettext("Message Tore…")}
+            aria-label={gettext("Message Tore…")}
+            autocomplete="off"
+            class="block max-h-48 w-full resize-none bg-transparent px-2 py-1 leading-relaxed text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+            style="font-size: 16px;"
+          >{@input}</textarea>
+          <div class="mt-1 flex items-center justify-between">
+            <label
+              for={@uploads.chat_photos.ref}
+              aria-label={gettext("Attach photo")}
+              title={gettext("Attach photo")}
+              class="press flex size-9 cursor-pointer items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
+            >
+              <.icon name="ph-camera" class="size-5" />
+            </label>
+            <button
+              type="submit"
+              disabled={@loading}
+              aria-label={gettext("Send")}
+              class="press flex size-9 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--accent)] disabled:opacity-40"
+            >
+              <.icon name="ph-arrow-up" class="size-5" />
+            </button>
           </div>
           <.live_file_input upload={@uploads.chat_photos} class="hidden" />
         </form>

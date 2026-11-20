@@ -177,6 +177,28 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
+  test "pi's answer is set as markdown, without any HTML it wrote", %{conn: conn} do
+    System.put_env(
+      "FAKE_PI_HISTORY",
+      Jason.encode!([
+        %{"role" => "user", "content" => "Vad behöver jag?"},
+        %{
+          "role" => "assistant",
+          "content" => [
+            %{"type" => "text", "text" => "**Lax** och:\n\n- dill\n- <script>alert(1)</script>"}
+          ]
+        }
+      ])
+    )
+
+    {:ok, lv, _html} = live(conn, "/capture")
+    html = render_async(lv)
+
+    assert html =~ "<strong>Lax</strong>"
+    assert html =~ "<li>dill</li>"
+    refute html =~ "<script>alert"
+  end
+
   test "a photo goes to pi with what was written", %{conn: conn, pi_log: log} do
     {:ok, lv, _html} = live(conn, "/capture")
 

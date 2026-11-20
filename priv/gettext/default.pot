@@ -106,8 +106,8 @@ msgstr ""
 #: lib/tore_web/components/step_cards.ex:193
 #: lib/tore_web/components/step_cards.ex:259
 #: lib/tore_web/live/budget_live.ex:338
-#: lib/tore_web/live/capture_live.ex:326
-#: lib/tore_web/live/capture_live.ex:339
+#: lib/tore_web/live/capture_live.ex:399
+#: lib/tore_web/live/capture_live.ex:412
 #: lib/tore_web/live/recipe_live.ex:1381
 #: lib/tore_web/live/recipe_live.ex:1464
 #: lib/tore_web/live/shop_live.ex:384
@@ -761,7 +761,7 @@ msgstr ""
 msgid "Adjusted servings on %{day}"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:335
+#: lib/tore_web/live/capture_live.ex:408
 #: lib/tore_web/live/home_live.ex:286
 #: lib/tore_web/live/home_live.ex:338
 #: lib/tore_web/live/recipe_live.ex:901
@@ -771,13 +771,8 @@ msgstr ""
 msgid "Ask Tore"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:458
-#, elixir-autogen, elixir-format
-msgid "Ask anything about meals, groceries…"
-msgstr ""
-
-#: lib/tore_web/live/capture_live.ex:448
-#: lib/tore_web/live/capture_live.ex:449
+#: lib/tore_web/live/capture_live.ex:570
+#: lib/tore_web/live/capture_live.ex:571
 #, elixir-autogen, elixir-format
 msgid "Attach photo"
 msgstr ""
@@ -846,7 +841,7 @@ msgid "Proposing"
 msgstr ""
 
 #: lib/tore_web/components/receipt_live.ex:55
-#: lib/tore_web/live/capture_live.ex:304
+#: lib/tore_web/live/capture_live.ex:375
 #, elixir-autogen, elixir-format
 msgid "Reverted"
 msgstr ""
@@ -1021,7 +1016,7 @@ msgid "Plan"
 msgstr ""
 
 #: lib/tore_web/components/step_cards.ex:185
-#: lib/tore_web/live/capture_live.ex:301
+#: lib/tore_web/live/capture_live.ex:372
 #: lib/tore_web/live/home_live.ex:227
 #: lib/tore_web/live/home_live.ex:273
 #: lib/tore_web/live/recipe_live.ex:1176
@@ -1584,7 +1579,7 @@ msgstr ""
 msgid "All"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:377
+#: lib/tore_web/live/capture_live.ex:458
 #, elixir-autogen, elixir-format
 msgid "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
 msgstr ""
@@ -1596,7 +1591,7 @@ msgstr ""
 msgid "Assemblies"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:366
+#: lib/tore_web/live/capture_live.ex:446
 #, elixir-autogen, elixir-format
 msgid "What do you need?"
 msgstr ""
@@ -1878,7 +1873,7 @@ msgstr ""
 msgid "In the basket"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:466
+#: lib/tore_web/live/capture_live.ex:579
 #, elixir-autogen, elixir-format
 msgid "Send"
 msgstr ""
@@ -3175,12 +3170,12 @@ msgstr ""
 msgid "Recipe steps and pictures"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:334
+#: lib/tore_web/live/capture_live.ex:407
 #, elixir-autogen, elixir-format
 msgid "About %{dish}"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:373
+#: lib/tore_web/live/capture_live.ex:454
 #, elixir-autogen, elixir-format
 msgid "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
 msgstr ""
@@ -3188,4 +3183,15 @@ msgstr ""
 #: lib/tore_web/live/settings_live.ex:158
 #, elixir-autogen, elixir-format
 msgid "Drawing recipe pictures"
+msgstr ""
+
+#: lib/tore_web/live/capture_live.ex:561
+#: lib/tore_web/live/capture_live.ex:562
+#, elixir-autogen, elixir-format
+msgid "Message Tore…"
+msgstr ""
+
+#: lib/tore_web/live/capture_live.ex:344
+#, elixir-autogen, elixir-format
+msgid "You"
 msgstr ""
