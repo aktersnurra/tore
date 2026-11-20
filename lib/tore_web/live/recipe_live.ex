@@ -43,8 +43,8 @@ defmodule ToreWeb.RecipeLive do
   end
 
   # A recipe opens at its own address, so Back closes it and a link can open one.
-  def handle_params(%{"id" => id}, _uri, socket) do
-    {:noreply, select(socket, String.to_integer(id))}
+  def handle_params(%{"id" => id} = params, _uri, socket) do
+    {:noreply, socket |> select(String.to_integer(id)) |> then_do(params["then"])}
   end
 
   # A link shared to Tore, from the phone's share sheet or a Shortcut, is read in straight away.
@@ -362,6 +362,13 @@ defmodule ToreWeb.RecipeLive do
     {:noreply, assign(socket, show_recipe_menu: !socket.assigns.show_recipe_menu)}
   end
 
+  # The star on a gallery tile.
+  def handle_event("toggle_favorite", %{"id" => id}, socket) do
+    recipe = Enum.find(socket.assigns.recipes, &(&1.id == String.to_integer(id)))
+    :ok = Recipes.set_favorite(socket.assigns.current_scope, recipe.id, !recipe.favorite)
+    {:noreply, put_favorite(socket, recipe.id, !recipe.favorite)}
+  end
+
   def handle_event("toggle_favorite", _, socket) do
     recipe = socket.assigns.selected
     :ok = Recipes.set_favorite(socket.assigns.current_scope, recipe.id, !recipe.favorite)
@@ -536,16 +543,16 @@ defmodule ToreWeb.RecipeLive do
                 phx-value-view={view}
                 role="tab"
                 aria-selected={to_string(@view == view)}
+                aria-label={label}
+                title={label}
                 data-view={view}
                 class={[
-                  "view-tab press inline-flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-2",
+                  "view-tab press grid size-8 place-items-center rounded-[var(--r-sm)]",
                   @view == view && "is-open",
                   @view != view && "text-[color:var(--muted)]"
                 ]}
-                style="font-size: 14px; font-weight: 600;"
               >
-                <.icon name={icon} class="size-4" />
-                {label}
+                <.icon name={icon} class="size-5" />
               </button>
             </div>
             <span class="flex-1"></span>
@@ -574,10 +581,11 @@ defmodule ToreWeb.RecipeLive do
               type="button"
               phx-click="new_recipe"
               aria-label={gettext("New recipe")}
+              title={gettext("New recipe")}
               data-role="new-recipe"
-              class="pill pill-lamp press ml-1 h-8 px-3"
+              class="press ml-1 grid size-8 place-items-center rounded-[var(--r-md)] bg-[var(--accent)] text-[color:var(--on-accent)] hover:bg-[var(--accent-hover)]"
             >
-              {gettext("New")}
+              <.icon name="ph-plus" class="size-5" />
             </button>
           </div>
 
@@ -681,28 +689,31 @@ defmodule ToreWeb.RecipeLive do
             <span class="num text-[13px] text-[color:var(--muted)]">{length(recipes)}</span>
           </div>
 
-          <%!-- Gallery: two to a row, 4:5 pictures, the name on the picture --%>
+          <%!-- Gallery: two to a row, 4:5 pictures, the name on the picture. On a laptop the
+             pointer on a tile shows its quick actions, in the order of its page's buttons. --%>
           <ul
             :if={@view == :gallery}
             class="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
           >
             <li
               :for={{recipe, i} <- Enum.with_index(recipes)}
-              class="reveal"
+              class="reveal relative"
               style={"--i: #{min(i, 8)}"}
             >
               <.link
                 patch={~p"/recipes?#{[id: recipe.id]}"}
                 data-dish={recipe.id}
-                class="press-soft group relative block aspect-[4/5] w-full overflow-hidden rounded-[var(--r-lg)] text-left"
+                class="press-soft group relative block aspect-[4/5] w-full overflow-hidden rounded-[var(--r-lg)] text-left [clip-path:inset(0_round_var(--r-lg))]"
               >
+                <%!-- clip-path, not only overflow: the browser leaves the picture's corners
+                   square while its zoom animates, and rounds them only once it stops. --%>
                 <.blank_cover :if={!recipe.image_path} dish={recipe} />
                 <img
                   :if={recipe.image_path}
                   src={~p"/images/recipes/#{recipe.id}"}
                   alt=""
                   loading="lazy"
-                  class="absolute inset-0 size-full object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.03]"
+                  class="absolute inset-0 size-full rounded-[inherit] object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.03]"
                   style={
                     if @selected == nil and @opened == recipe.id,
                       do: "view-transition-name: dish-#{recipe.id}"
@@ -747,6 +758,55 @@ defmodule ToreWeb.RecipeLive do
                   </span>
                 </span>
               </.link>
+              <div
+                data-role="tile-actions"
+                data-for={recipe.id}
+                class="tile-actions absolute inset-x-2 top-2 flex gap-1.5"
+              >
+                <.link
+                  patch={~p"/recipes?#{[id: recipe.id, then: "cook"]}"}
+                  data-action="cook"
+                  aria-label={cook_label(recipe)}
+                  title={cook_label(recipe)}
+                  class="on-photo press"
+                >
+                  <.icon name="ph-fire" class="size-4" />
+                </.link>
+                <.link
+                  :if={recipe.recipe_type == :meal}
+                  patch={~p"/recipes?#{[id: recipe.id, then: "week"]}"}
+                  data-action="week"
+                  aria-label={gettext("Put on the week")}
+                  title={gettext("Put on the week")}
+                  class="on-photo press"
+                >
+                  <.icon name="ph-calendar-blank" class="size-4" />
+                </.link>
+                <.link
+                  navigate={~p"/capture?#{[return_to: "/recipes", recipe: recipe.id]}"}
+                  data-action="ask"
+                  aria-label={gettext("Ask Tore")}
+                  title={gettext("Ask Tore")}
+                  class="on-photo press"
+                >
+                  <.icon name="ph-chat-circle" class="size-4" />
+                </.link>
+                <button
+                  type="button"
+                  phx-click="toggle_favorite"
+                  phx-value-id={recipe.id}
+                  data-action="favorite"
+                  aria-pressed={to_string(recipe.favorite)}
+                  aria-label={gettext("Favourite")}
+                  title={gettext("Favourite")}
+                  class="on-photo press ml-auto"
+                >
+                  <.icon
+                    name={if recipe.favorite, do: "ph-star-fill", else: "ph-star"}
+                    class="size-4"
+                  />
+                </button>
+              </div>
             </li>
           </ul>
 
@@ -928,7 +988,7 @@ defmodule ToreWeb.RecipeLive do
             :if={@selected.image_path}
             src={~p"/images/recipes/#{@selected.id}"}
             alt=""
-            class="absolute inset-0 size-full object-cover"
+            class="absolute inset-0 size-full rounded-[inherit] object-cover"
             style={"view-transition-name: dish-#{@selected.id}"}
           />
         </div>
@@ -1713,6 +1773,25 @@ defmodule ToreWeb.RecipeLive do
   end
 
   defp reload_recipes(socket), do: assign(socket, recipes: reload(socket))
+
+  # A gallery tile's quick action, done as its page opens: Cook now (through the sheet before
+  # cooking when something's missing, as the page's button does) or the week to put it on.
+  defp then_do(%{assigns: %{selected: %{} = recipe}} = socket, "cook") do
+    if socket.assigns.home.missing == [],
+      do:
+        push_navigate(socket,
+          to: ~p"/recipes/#{recipe.id}/cook?#{[servings: socket.assigns.servings]}"
+        ),
+      else: assign(socket, before_cooking: true)
+  end
+
+  defp then_do(%{assigns: %{selected: %{recipe_type: :meal}}} = socket, "week"),
+    do: assign(socket, week: week_days(socket.assigns.current_scope), put: nil)
+
+  defp then_do(socket, _), do: socket
+
+  defp cook_label(%{recipe_type: :baking}), do: gettext("Bake now")
+  defp cook_label(_recipe), do: gettext("Cook now")
 
   defp put_favorite(socket, id, favorite?) do
     star = fn r -> if r.id == id, do: %{r | favorite: favorite?}, else: r end

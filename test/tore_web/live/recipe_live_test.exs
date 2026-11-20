@@ -333,6 +333,69 @@ defmodule ToreWeb.RecipeLiveTest do
       assert render(lv) =~ "Kanelbullar"
     end
 
+    test "a gallery tile has the name on its picture, and quick actions in the order of its page",
+         %{conn: conn, user: user} do
+      {:ok, dish} =
+        Recipes.create(home_scope(), %{
+          title: "Spaghetti all'assassina",
+          recipe_type: :meal,
+          image_path: "recipes/1.png"
+        })
+
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      tile = ~s([data-dish="#{dish.id}"])
+
+      assert has_element?(lv, tile <> " .photo-shade")
+      assert has_element?(lv, tile <> " .on-photo-text", "Spaghetti all'assassina")
+
+      actions =
+        lv
+        |> element(~s([data-role="tile-actions"][data-for="#{dish.id}"]))
+        |> render()
+        |> Floki.parse_fragment!()
+        |> Floki.find("[data-action]")
+        |> Enum.map(&(&1 |> Floki.attribute("data-action") |> hd()))
+
+      assert actions == ["cook", "week", "ask", "favorite"]
+    end
+
+    test "a tile's actions: the star stars it, cook and the week open its page doing that", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+      actions = ~s([data-role="tile-actions"][data-for="#{recipe.id}"])
+
+      lv |> element(actions <> ~s( [data-action="favorite"])) |> render_click()
+      assert Recipes.get!(home_scope(), recipe.id).favorite
+      assert has_element?(lv, actions <> ~s( [data-action="favorite"][aria-pressed="true"]))
+
+      lv |> element(actions <> ~s( [data-action="week"])) |> render_click()
+      assert has_element?(lv, ~s([data-role="put-on-week"][aria-expanded="true"]))
+
+      # Nothing is missing at home, so it goes straight to cooking.
+      assert {:error, {:live_redirect, %{to: to}}} =
+               live(authed(conn, user), "/recipes?id=#{recipe.id}&then=cook")
+
+      assert to =~ "/recipes/#{recipe.id}/cook"
+    end
+
+    test "gallery, list and new are icons, named for a screen reader", %{conn: conn, user: user} do
+      {:ok, lv, _html} = live(authed(conn, user), "/recipes")
+
+      for selector <- [
+            ~s([data-view="gallery"]),
+            ~s([data-view="list"]),
+            ~s([data-role="new-recipe"])
+          ] do
+        assert has_element?(lv, selector <> ~s([aria-label] [class*="ph-"]))
+
+        refute lv |> element(selector) |> render() |> Floki.parse_fragment!() |> Floki.text() =~
+                 ~r/\S/
+      end
+    end
+
     test "search opens from the toolbar", %{conn: conn, user: user} do
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
       refute has_element?(lv, ~s(form[phx-change="search"]))

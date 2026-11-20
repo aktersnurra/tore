@@ -499,6 +499,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
 }
 
+/* A gallery tile's quick actions show while the pointer is on the tile, or focus is in it. A
+   phone has no pointer: a tap opens the recipe, whose page has the same buttons. */
+.tile-actions { opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+.tile-actions .on-photo { width: 32px; height: 32px; }
+.tile-actions .on-photo:hover { background: var(--bg); }
+@media (hover: hover) {
+  li:hover > .tile-actions, li:focus-within > .tile-actions { opacity: 1; pointer-events: auto; }
+}
+@media (hover: none) { .tile-actions { display: none; } }
+
 /* Facts in a row: the label quiet, the value read at a glance */
 .facts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; }
 .facts dt { font-size: 12px; font-weight: 500; color: var(--muted); }
@@ -566,6 +576,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 ::view-transition-group(*) { animation-duration: var(--dur-slow); animation-timing-function: var(--ease-out); }
 ::view-transition-image-pair(*) { isolation: auto; }
+/* A travelling photograph is drawn outside its frame's clip, so each one rounds its own corners
+   (`rounded-[inherit]`); otherwise they're square until it lands. */
 #tab-bar { view-transition-name: tab-bar; }
 
 /* ── Slot modal panels ──────────────────────────────────────────────────── */

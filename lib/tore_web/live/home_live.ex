@@ -84,18 +84,23 @@ defmodule ToreWeb.HomeLive do
             <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
                the dish's name in white on its darkened foot. A rounded card, set in from the
                edges, so the dark foot never meets the page (in light mode it looked cut off). On a laptop it's the whole picture
-               on the right, as on a recipe page, and the name moves to the left. --%>
+               on the right, as on a recipe page, and the name moves to the left: no words on
+               the picture, so no shade either. --%>
             <div class="lg:sticky lg:top-6 lg:order-2">
               <div class="relative h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden rounded-[var(--r-xl)] lg:aspect-[5/4] lg:h-auto lg:max-h-none">
                 <img
                   :if={photo?(@dish)}
                   src={~p"/images/recipes/#{@dish.id}"}
                   alt=""
-                  class="absolute inset-0 size-full object-cover"
+                  class="absolute inset-0 size-full rounded-[inherit] object-cover"
                   style={"view-transition-name: dish-#{@dish.id}"}
                 />
                 <.blank_cover :if={!photo?(@dish)} dish={@dish} icon_class="size-20" />
-                <div :if={photo?(@dish)} class="photo-shade absolute inset-0" aria-hidden="true">
+                <div
+                  :if={photo?(@dish)}
+                  class="photo-shade absolute inset-0 lg:hidden"
+                  aria-hidden="true"
+                >
                 </div>
                 <h1
                   class={[

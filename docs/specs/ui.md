@@ -232,10 +232,18 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
 - **Removing is one step away.** A shopping item is removed from its long-press sheet.
 - **Soft, not editorial.** Headlines are 26–30px bold, never poster-sized or tightly tracked.
   Lists sit on one rounded surface (`.menu-lines`), not as ruled lines on the page.
-- **The dish's name is on its photograph** on Today and a gallery tile: the cover darkens at its
-  foot (`.photo-shade`) and carries the name in white (`.on-photo-text`). A cover still waiting
-  for its picture keeps its tint and the name in the page's own type colour, with no shade
-  (2026-11-19).
+- **The dish's name is on its photograph** on Today (on a phone) and a gallery tile: the cover
+  darkens at its foot (`.photo-shade`) and carries the name in white (`.on-photo-text`). A cover
+  still waiting for its picture keeps its tint and the name in the page's own type colour, with
+  no shade (2026-11-19). Where the name sits beside the picture (Today on a laptop) the picture
+  has no shade (2026-11-20).
+- **A gallery tile's quick actions** (2026-11-20): on a laptop, the pointer on a tile shows Cook
+  now, Put on the week and Ask Tore in its top corner, in the order of the recipe page's buttons,
+  and the star in the other. Cook and the week open the recipe doing that (`?then=cook|week`), so
+  Cook now still goes through the sheet before cooking when something's missing. A phone has no
+  hover: a tap opens the recipe.
+- **A toolbar control that an icon says is an icon only**: Recipes' gallery, list and new are
+  icons, named for a screen reader and in a tooltip (2026-11-20).
 - **A recipe page has a split hero, like Andy Cooks'** (2026-11-20): the words on the left (the
   collection as a breadcrumb, the name in capitals (`.t-hero`), prep, cook and total time with
   bold labels, the description, Cook now and Put on the week) and the picture on the right,
