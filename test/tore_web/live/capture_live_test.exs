@@ -177,6 +177,28 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
+  test "while pi works, send becomes stop, which aborts it and leaves its late answer out", %{
+    conn: conn,
+    pi_log: log
+  } do
+    hold(log)
+    {:ok, lv, _html} = live(conn, "/capture")
+    refute has_element?(lv, ~s([data-role="stop"]))
+
+    lv |> form("form", %{message: "Planera veckan"}) |> render_submit()
+    assert has_element?(lv, ~s([data-role="stop"]))
+    refute has_element?(lv, ~s(button[type="submit"]))
+
+    lv |> element(~s([data-role="stop"])) |> render_click()
+    refute has_element?(lv, ~s([data-role="stop"]))
+    assert has_element?(lv, ~s(button[type="submit"]))
+
+    release(log)
+    assert eventually(fn -> Enum.any?(pi_records(log), &(&1["type"] == "abort")) end)
+    Process.sleep(100)
+    refute render(lv) =~ "echo: Planera veckan"
+  end
+
   test "pi's answer is set as markdown, without any HTML it wrote", %{conn: conn} do
     System.put_env(
       "FAKE_PI_HISTORY",

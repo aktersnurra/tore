@@ -610,13 +610,14 @@ Shelf or fridge → Into the pantry, a line with Undo per item
 Unknown → Ask what to do
 ```
 
-The tray looks like a chat client such as LibreChat: full screen on a laptop, a sheet on a
-phone, one column about 48rem wide. Each message is a row with a small round avatar and a bold
-name (Du, Tore) above the text, with no bubbles; pi's answers are set as markdown (`.chat-md`),
-with a caret while they stream in. A change pi made is a quiet line with a check and Undo. The
-composer is one rounded box: the text grows with what's written (Enter sends, Shift+Enter is a
-new line), the camera at its bottom left and send at its bottom right. With nothing said yet,
-Tore's mark and "What do you need?" sit in the middle.
+The tray looks like Claude's chat: full screen on a laptop, a sheet on a phone, one column about
+48rem wide. What the person wrote sits on the right in a soft bubble, with no avatar. Tore's
+answers are reading text under its mark and name, shown once per run of its messages, set as
+markdown (`.chat-md`) with a caret while they stream in. A change pi made is a quiet line with a
+check and Undo. The composer is one rounded box: the text grows with what's written, Enter sends
+and Shift+Enter is a new line, with ↵ on its right; while pi works, ↵ becomes Stop, which aborts
+it and keeps what it had written. The camera sits under the box. With nothing said yet, Tore's
+mark and "What do you need?" sit in the middle.
 
 
 ---

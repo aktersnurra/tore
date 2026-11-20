@@ -82,6 +82,18 @@ defmodule ToreWeb.CaptureLive do
     end
   end
 
+  # Stops what pi is doing. What it had written so far stays, and the rest of that run is let go:
+  # its events arrive while the tray isn't waiting, so they're ignored.
+  def handle_event("stop", _params, socket) do
+    %{current_scope: scope, session: session, draft: draft} = socket.assigns
+    :ok = Pi.abort(scope, session)
+
+    socket =
+      if draft, do: append(socket, %{role: :assistant, text: draft}), else: socket
+
+    {:noreply, assign(socket, loading: false, working: nil, draft: nil)}
+  end
+
   def handle_event("send_message", %{"message" => text}, socket) do
     text = String.trim(text)
 
@@ -292,22 +304,6 @@ defmodule ToreWeb.CaptureLive do
   defp markdown(text),
     do: raw(MDEx.to_html!(text, extension: [autolink: true, strikethrough: true]))
 
-  defp initial(%{name: name}) when is_binary(name) and name != "",
-    do: name |> String.first() |> String.upcase()
-
-  defp initial(_user), do: "?"
-
-  attr :role, :atom, required: true
-  attr :initial, :string, default: nil
-
-  defp avatar(%{role: :user} = assigns) do
-    ~H"""
-    <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--sunken)] text-[13px] font-semibold text-[color:var(--text)]">
-      {@initial}
-    </span>
-    """
-  end
-
   defp avatar(assigns) do
     ~H"""
     <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)]">
@@ -316,9 +312,23 @@ defmodule ToreWeb.CaptureLive do
     """
   end
 
-  # One message: who said it, then what. A change pi made is a quiet line with its Undo.
+  # Whether each message starts a run of Tore's: only the first gets Tore's mark and name.
+  defp with_heads(messages) do
+    {turns, _previous} =
+      Enum.map_reduce(messages, nil, fn msg, previous ->
+        {{msg, not tore?(previous)}, msg}
+      end)
+
+    turns
+  end
+
+  defp tore?(%{role: :assistant}), do: true
+  defp tore?(_msg), do: false
+
+  # One message. Theirs sits on the right in a soft bubble; Tore's is reading text, under its name
+  # when it starts a run. A change pi made is a quiet line with its Undo.
   attr :msg, :map, required: true
-  attr :initial, :string, required: true
+  attr :head, :boolean, default: true
 
   defp turn(%{msg: %{quiet: true}} = assigns) do
     ~H"""
@@ -335,23 +345,23 @@ defmodule ToreWeb.CaptureLive do
     """
   end
 
+  defp turn(%{msg: %{role: :user}} = assigns) do
+    ~H"""
+    <div data-role="bubble-user" class="rise-in flex justify-end pl-10">
+      <div class="max-w-[85%] rounded-[18px] bg-[var(--sunken)] px-4 py-2.5 text-[16px] leading-relaxed text-[color:var(--text)]">
+        <span class="whitespace-pre-line">{@msg.text}</span>
+      </div>
+    </div>
+    """
+  end
+
   defp turn(assigns) do
     ~H"""
-    <div data-role={"bubble-#{@msg.role}"} class="rise-in flex items-start gap-3">
-      <.avatar role={@msg.role} initial={@initial} />
+    <div data-role="bubble-assistant" class={["rise-in flex items-start gap-3", !@head && "pl-10"]}>
+      <.avatar :if={@head} />
       <div class="min-w-0 flex-1 pt-0.5">
-        <div class="text-[14px] font-semibold text-[color:var(--text)]">
-          {if @msg.role == :user, do: gettext("You"), else: "Tore"}
-        </div>
-        <div
-          :if={@msg.role == :user}
-          class="mt-1 text-[16px] leading-relaxed text-[color:var(--text)]"
-        >
-          <span class="whitespace-pre-line">{@msg.text}</span>
-        </div>
-        <div :if={@msg.role == :assistant} class="chat-md mt-1 text-[color:var(--text)]">
-          {markdown(@msg.text)}
-        </div>
+        <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
+        <div class="chat-md text-[color:var(--text)]">{markdown(@msg.text)}</div>
       </div>
     </div>
     """
@@ -379,7 +389,8 @@ defmodule ToreWeb.CaptureLive do
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, :initial, initial(assigns.current_user))
+    # What pi is writing now starts a run of Tore's only after someone else's message.
+    assigns = assign(assigns, :head, not tore?(List.last(assigns.messages)))
 
     ~H"""
     <div
@@ -462,23 +473,34 @@ defmodule ToreWeb.CaptureLive do
           </div>
 
           <div class="space-y-6">
-            <.turn :for={msg <- @messages} msg={msg} initial={@initial} />
+            <.turn :for={{msg, head} <- with_heads(@messages)} msg={msg} head={head} />
 
-            <div :if={@draft} data-role="draft" class="flex items-start gap-3">
-              <.avatar role={:assistant} />
+            <div
+              :if={@draft}
+              data-role="draft"
+              class={["flex items-start gap-3", !@head && "pl-10"]}
+            >
+              <.avatar :if={@head} />
               <div class="min-w-0 flex-1 pt-0.5">
-                <div class="text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
-                <div class="chat-md is-streaming mt-1 text-[color:var(--text)]">
+                <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
+                  Tore
+                </div>
+                <div class="chat-md is-streaming text-[color:var(--text)]">
                   {markdown(@draft)}
                 </div>
               </div>
             </div>
 
-            <div :if={@loading and is_nil(@draft)} class="rise-in flex items-start gap-3">
-              <.avatar role={:assistant} />
+            <div
+              :if={@loading and is_nil(@draft)}
+              class={["rise-in flex items-start gap-3", !@head && "pl-10"]}
+            >
+              <.avatar :if={@head} />
               <div class="min-w-0 flex-1 pt-0.5">
-                <div class="text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
-                <div role="status" class="mt-1 flex items-center gap-2">
+                <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
+                  Tore
+                </div>
+                <div role="status" class="flex items-center gap-2">
                   <.icon
                     name="ph-arrows-clockwise"
                     class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
@@ -528,7 +550,8 @@ defmodule ToreWeb.CaptureLive do
               this.el.addEventListener("keydown", (e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
                   e.preventDefault()
-                  this.el.form.requestSubmit()
+                  // While pi works, Enter waits: Stop is where send was.
+                  if (!this.el.form.querySelector('[data-role="stop"]')) this.el.form.requestSubmit()
                 }
               })
               // After LiveView has read the form.
@@ -539,32 +562,41 @@ defmodule ToreWeb.CaptureLive do
             updated() { this.grow() },
           }
         </script>
-        <form
-          phx-submit="send_message"
-          phx-change="validate"
-          class="field-group rounded-[24px] border border-[color:var(--border)] bg-[var(--surface)] px-3 pt-3 pb-2"
-        >
-          <div :if={@uploads.chat_photos.entries != []} class="mb-2 flex flex-wrap items-center gap-2">
-            <span
-              :for={entry <- @uploads.chat_photos.entries}
-              class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
+        <form phx-submit="send_message" phx-change="validate">
+          <div class="field-group flex items-end gap-2 rounded-[20px] border border-[color:var(--border)] bg-[var(--surface)] py-2 pr-2 pl-4">
+            <textarea
+              id="chat-input"
+              name="message"
+              rows="1"
+              phx-hook=".Composer"
+              placeholder={gettext("Message Tore…")}
+              aria-label={gettext("Message Tore…")}
+              autocomplete="off"
+              class="block max-h-48 min-w-0 flex-1 resize-none self-center bg-transparent py-1.5 leading-relaxed text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
+              style="font-size: 16px;"
+            >{@input}</textarea>
+            <button
+              :if={not @loading}
+              type="submit"
+              aria-label={gettext("Send")}
+              title={gettext("Send")}
+              class="press flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
             >
-              <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
-              {entry.client_name} · {entry.progress}%
-            </span>
+              <.icon name="ph-arrow-elbow-down-left" class="size-5" />
+            </button>
+            <button
+              :if={@loading}
+              type="button"
+              phx-click="stop"
+              data-role="stop"
+              aria-label={gettext("Stop")}
+              title={gettext("Stop")}
+              class="press flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)]"
+            >
+              <.icon name="ph-stop-fill" class="size-4" />
+            </button>
           </div>
-          <textarea
-            id="chat-input"
-            name="message"
-            rows="1"
-            phx-hook=".Composer"
-            placeholder={gettext("Message Tore…")}
-            aria-label={gettext("Message Tore…")}
-            autocomplete="off"
-            class="block max-h-48 w-full resize-none bg-transparent px-2 py-1 leading-relaxed text-[color:var(--text)] placeholder:text-[color:var(--muted)] focus:outline-none"
-            style="font-size: 16px;"
-          >{@input}</textarea>
-          <div class="mt-1 flex items-center justify-between">
+          <div class="mt-1.5 flex flex-wrap items-center gap-2 px-1">
             <label
               for={@uploads.chat_photos.ref}
               aria-label={gettext("Attach photo")}
@@ -573,14 +605,13 @@ defmodule ToreWeb.CaptureLive do
             >
               <.icon name="ph-camera" class="size-5" />
             </label>
-            <button
-              type="submit"
-              disabled={@loading}
-              aria-label={gettext("Send")}
-              class="press flex size-9 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)] hover:bg-[color:var(--accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--accent)] disabled:opacity-40"
+            <span
+              :for={entry <- @uploads.chat_photos.entries}
+              class="num inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sunken)] px-3 text-[13px] text-[color:var(--text)]"
             >
-              <.icon name="ph-arrow-up" class="size-5" />
-            </button>
+              <.icon name="ph-image" class="size-4 text-[color:var(--muted)]" />
+              {entry.client_name} · {entry.progress}%
+            </span>
           </div>
           <.live_file_input upload={@uploads.chat_photos} class="hidden" />
         </form>
