@@ -100,4 +100,69 @@ defmodule Tore.Mcp.BudgetToolsTest do
     assert by_product["Kycklingfilé Kronfågel"] == {"Kycklingfilé", true}
     assert by_product["Pizza Grandiosa"] == {nil, true}
   end
+
+  describe "what_if" do
+    setup do
+      stew = Tore.BudgetFixtures.priced_recipe(home_scope(), "Gryta", "100")
+      feast = Tore.BudgetFixtures.priced_recipe(home_scope(), "Fest", "300")
+      Tore.BudgetFixtures.one_dinner(home_scope(), monday(), stew)
+
+      {:ok, _} =
+        Tore.Planning.assign_recipe(
+          home_scope(),
+          Streams.plan(home_scope(), monday()),
+          "tue_dinner",
+          stew.id,
+          4
+        )
+
+      :ok = Budget.set_week(home_scope(), monday(), Decimal.new(250))
+      %{stew: stew, feast: feast}
+    end
+
+    test "says what the week would cost with a changed plan, and changes nothing", %{
+      feast: feast
+    } do
+      friday = monday() |> Date.add(4) |> Date.to_iso8601()
+
+      assert %{"budget" => "250", "now" => now, "then" => then, "difference" => difference} =
+               ok("what_if", %{
+                 "changes" => [%{"date" => friday, "recipe_id" => feast.id, "servings" => 4}]
+               })
+
+      # Friday was eaten out; with the feast the week costs 300 kr more.
+      assert {now["expected"], then["expected"], difference} == {"200.00", "500.00", "300.00"}
+      assert then["over_budget"] == "250.00"
+
+      {:ok, plan} = Tore.Planning.load_plan(home_scope(), Streams.plan(home_scope(), monday()))
+      assert plan.slots["fri_dinner"][:reason] == "eating_out"
+    end
+
+    test "can clear a day, which then counts as an open day" do
+      tuesday = monday() |> Date.add(1) |> Date.to_iso8601()
+
+      %{"now" => now, "then" => then} =
+        ok("what_if", %{"changes" => [%{"date" => tuesday, "recipe_id" => nil}]})
+
+      # Tuesday open costs a typical dinner, the stew's 100 kr, so the week costs the same.
+      assert {now["open_days"], then["open_days"]} == {0, 1}
+      assert then["expected"] == now["expected"]
+    end
+
+    test "refuses a recipe the household doesn't have, or changes in two weeks" do
+      today = Date.to_iso8601(monday())
+      later = monday() |> Date.add(7) |> Date.to_iso8601()
+
+      assert %{"isError" => true} =
+               call("what_if", %{"changes" => [%{"date" => today, "recipe_id" => 999_999}]})
+
+      assert %{"isError" => true} =
+               call("what_if", %{
+                 "changes" => [
+                   %{"date" => today, "recipe_id" => nil},
+                   %{"date" => later, "recipe_id" => nil}
+                 ]
+               })
+    end
+  end
 end

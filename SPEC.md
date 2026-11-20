@@ -1223,7 +1223,8 @@ model, so a household nobody sponsors gets the whole loop. Setup: `docs/guides/m
   scope, in its language.
 - **Tools.** Reads: `get_context` (language, today, diet, memory, both weeks' plan and their budget against
   the estimate, the basics, the list, the pantry, what's due), `search_recipes`, `get_recipe`, `list_receipts`,
-  `list_deals` (with the ingredient each offer matched). Writes call the same `Capture.Dispatch` functions
+  `list_deals` (with the ingredient each offer matched), `what_if` (the week's forecast with its plan changed in
+  memory, next to now, by the rung the budget page goes by; nothing is saved). Writes call the same `Capture.Dispatch` functions
   Capture's tools do, with `actor: :mcp`: `set_dinner` and `change_day` (both take `meal: "lunch"`),
   `set_days_off`, `add_to_list`, `check_off`,
   `remove_from_list`, `make_list`, `add_to_pantry`, `remove_from_pantry`, `update_memory`, `mark_cooked`,

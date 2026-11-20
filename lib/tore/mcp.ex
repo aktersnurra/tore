@@ -29,6 +29,7 @@ defmodule Tore.Mcp do
     Tools.RemoveFromPantry,
     Tools.UpdateMemory,
     Tools.SetBudget,
+    Tools.WhatIf,
     Tools.SetBasics,
     Tools.MatchDeals,
     Tools.MarkCooked,
