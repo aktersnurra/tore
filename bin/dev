@@ -13,6 +13,22 @@ set -a
 . ./.env
 set +a
 
+# pi runs every AI task (import, chat, pictures), so it's on unless TORE_PI_COMMAND says otherwise.
+: "${TORE_PI_COMMAND:=harness/pi-session}"
+export TORE_PI_COMMAND
+
+# Model keys .env leaves out come from pass, when there is one: the entries are
+# TORE_PASS_ANTHROPIC and TORE_PASS_OPENROUTER, or these defaults.
+if command -v pass >/dev/null 2>&1; then
+  if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    ANTHROPIC_API_KEY=$(pass show "${TORE_PASS_ANTHROPIC:-claude/api-key-tore}" 2>/dev/null | head -n 1 || true)
+  fi
+  if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    OPENROUTER_API_KEY=$(pass show "${TORE_PASS_OPENROUTER:-openrouter_api_key}" 2>/dev/null | head -n 1 || true)
+  fi
+  export ANTHROPIC_API_KEY OPENROUTER_API_KEY
+fi
+
 # Bring up Garage and BLOCK until its healthcheck passes (no sleep, no poll loop).
 docker compose up -d --wait
 
