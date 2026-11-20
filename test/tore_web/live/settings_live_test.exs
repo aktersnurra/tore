@@ -203,6 +203,16 @@ defmodule ToreWeb.SettingsLiveTest do
     test "shows both parts and how full each is, with no confidence labels", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/settings/memory")
 
+      # How full each part is, as a small blue bar beside the number, filled as far as that.
+      for part <- ["profile", "notes"] do
+        [meter] =
+          html |> Floki.parse_document!() |> Floki.find(~s([data-part="#{part}"] [role="meter"]))
+
+        [percent] = Floki.attribute(meter, "aria-valuenow")
+        assert [_] = Floki.find(meter, ~s(.meter-fill[style="width: #{percent}%"]))
+        assert html =~ "#{percent} % fullt"
+      end
+
       assert html =~ "Anna dislikes mushrooms"
       assert html =~ "Friday pizza"
       assert html =~ "Hushållet"

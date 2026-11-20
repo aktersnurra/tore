@@ -1254,15 +1254,16 @@ It can't be changed later. New members, and anyone moved into it, start in it.
 ```md
 Things Tore has learned
 
-Your household                         40% full
+Your household                 ▰▰▱▱▱▱  40% full
 Two adults and a six-year-old who dislikes mushrooms.   [Forget]
 
-Notes                                  25% full
+Notes                          ▰▱▱▱▱▱  25% full
 Thursdays are fragile: leftovers or low-effort meals work best.   [Forget]
 Fish rarely sticks on weekdays.                         [Forget]
 ```
 
 Entries come from the weekly review and from what people tell Capture. Forgetting one is direct.
+How full each part is shows as a small bar filled in blue (`.meter`), with the number beside it.
 
 Rules:
 

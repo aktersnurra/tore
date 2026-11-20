@@ -472,11 +472,28 @@ defmodule ToreWeb.SettingsLive do
             >
               {gettext("No memories yet. Tore learns as you cook.")}
             </p>
-            <section :for={part <- @memory} :if={part.entries != []}>
-              <div class="mb-2 flex items-baseline justify-between px-1">
+            <section :for={part <- @memory} :if={part.entries != []} data-part={part.store}>
+              <div class="mb-2 flex items-center justify-between gap-3 px-1">
                 <h3 class="section-label">{memory_part_label(part.store)}</h3>
-                <span class="num text-[color:var(--muted)]" style="font-size: var(--t-meta);">
-                  {gettext("%{percent}% full", percent: part.percent)}
+                <%!-- How full the part is: a small blue bar, and the number beside it. --%>
+                <span class="flex items-center gap-2">
+                  <span
+                    role="meter"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={part.percent}
+                    aria-label={gettext("%{percent}% full", percent: part.percent)}
+                    class="meter"
+                  >
+                    <span class="meter-fill" style={"width: #{part.percent}%"}></span>
+                  </span>
+                  <span
+                    class="num text-[color:var(--muted)]"
+                    style="font-size: var(--t-meta);"
+                    aria-hidden="true"
+                  >
+                    {gettext("%{percent}% full", percent: part.percent)}
+                  </span>
                 </span>
               </div>
               <ul class="menu-lines">

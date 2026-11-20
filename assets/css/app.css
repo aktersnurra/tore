@@ -649,6 +649,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .rk .arrow { transition: transform var(--dur-fast) var(--ease-out); }
 details[open] > .rk .arrow { transform: rotate(90deg); }
 .rk .tr { display: block; height: 8px; border-radius: 4px; min-width: 3px; }
+/* A small bar for how full something is (memory's parts): a sunken track, filled in blue. */
+.meter { display: block; width: 72px; height: 6px; border-radius: 3px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hairline); overflow: hidden; }
+.meter-fill { display: block; height: 100%; min-width: 3px; border-radius: 3px; background: var(--tag-blue-ink); transition: width var(--dur-fast, 160ms) ease-out; }
+@media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
 .rk:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
 /* Erbjudanden: one deal per row. On a phone the store and end date sit under the name; on a
    laptop they get columns of their own, with what the deal saves. */
