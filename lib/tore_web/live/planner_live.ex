@@ -1076,10 +1076,10 @@ defmodule ToreWeb.PlannerLive do
                 phx-click="remove_meal"
                 phx-value-slot_key={@slot_action.slot_key}
                 data-role="remove-lunch"
-                class="inline-flex items-center gap-2 rounded-[var(--r-pill)] px-3 h-8 text-[color:var(--muted)] transition-colors hover:text-[var(--text)] hover:bg-[color:var(--hairline)]"
-                style="font-size: var(--t-meta);"
+                aria-label={gettext("Remove lunch")}
+                class="inline-grid size-8 place-items-center rounded-[var(--r-pill)] text-[color:var(--muted)] transition-colors hover:text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
               >
-                <.icon name="ph-x-circle" class="size-4" /> {gettext("Remove lunch")}
+                <.icon name="ph-trash" class="size-4" />
               </button>
 
               <button

@@ -231,9 +231,9 @@ defmodule ToreWeb.DealsLive do
             phx-click="remove_store"
             phx-value-id={hs.id}
             aria-label={gettext("Remove %{store}", store: hs.store.name)}
-            class="row-hover press grid size-8 shrink-0 place-items-center rounded-[var(--r-sm)] text-[color:var(--muted)]"
+            class="press grid size-11 -my-1.5 -mr-2 shrink-0 place-items-center rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--danger-soft)] hover:text-[color:var(--danger)]"
           >
-            <.icon name="ph-x" class="size-3.5" />
+            <.icon name="ph-trash" class="size-4" />
           </button>
         </div>
         <button
@@ -250,7 +250,7 @@ defmodule ToreWeb.DealsLive do
           :if={@stores == [] or @adding or @error}
           id="store-form"
           phx-submit="add_store"
-          class="settle mt-2 flex items-start gap-2"
+          class="settle mt-2"
         >
           <.field
             id="store-url"
@@ -264,11 +264,9 @@ defmodule ToreWeb.DealsLive do
             phx-keydown={@stores != [] && "close_store_form"}
             phx-key="Escape"
             required
-            class="min-w-0 flex-1"
+            enterkeyhint="done"
           />
-          <.button type="submit" variant={:secondary} phx-disable-with={gettext("Adding…")}>
-            {gettext("Add")}
-          </.button>
+          <button type="submit" class="sr-only">{gettext("Add")}</button>
         </form>
       </div>
     </section>

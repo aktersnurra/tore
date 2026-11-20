@@ -597,6 +597,10 @@ Error         red border, and the reason in red under the field
 Icons and buttons (search, +, scan, return) sit inside the box. Text is 16px, so a phone
 doesn't zoom in on it.
 
+A field on its own is sent with Enter, with no button beside it (the phone's key says Done or
+Send). Removing something is a trash can, with no word; menus and forms of several fields keep
+their words, and so does Undo.
+
 ### Asking about something on a screen
 
 There is no command bar. The chat (Tore, the centre tab) is where you type. A screen's object

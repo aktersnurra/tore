@@ -504,10 +504,10 @@ defmodule ToreWeb.ShopLive do
             type="button"
             phx-click="remove_item"
             phx-value-item_id={@item_sheet.id}
-            class="press mt-4 flex h-11 items-center gap-2 text-[15px] font-semibold text-[color:var(--danger)]"
+            aria-label={gettext("Remove from the list")}
+            class="press mt-3 -ml-2.5 grid size-11 place-items-center rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--danger-soft)] hover:text-[color:var(--danger)]"
           >
-            <.icon name="ph-trash" class="size-4" />
-            {gettext("Remove from the list")}
+            <.icon name="ph-trash" class="size-5" />
           </button>
         </div>
       </.bottom_sheet>
@@ -585,16 +585,16 @@ defmodule ToreWeb.ShopLive do
         <label for="scanner-name-input" class="block text-[15px] font-semibold">
           {gettext("Tore doesn't know this code. What is it?")}
         </label>
-        <div class="mt-2 flex items-start gap-2">
+        <div class="mt-2">
           <.field
             id="scanner-name-input"
             name="name"
             autocomplete="off"
             required
             placeholder={gettext("Name")}
-            class="min-w-0 flex-1"
+            enterkeyhint="done"
           />
-          <button type="submit" class="pill pill-lamp press">{gettext("Save")}</button>
+          <button type="submit" class="sr-only">{gettext("Save")}</button>
         </div>
       </form>
 

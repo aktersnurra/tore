@@ -743,8 +743,8 @@ defmodule ToreWeb.CoreComponents do
     do: "bg-transparent text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
 
   @doc ~S"""
-  Square 44px icon button. Variant: :ghost (default), or :filled for a header action that
-  stands on its own.
+  Square 44px icon button. Variant: :ghost (default), :filled for a header action that
+  stands on its own, or :danger for removing something (quiet until hovered).
 
       <.icon_button icon="ph-x" label="Close" phx-click="close" />
       <.icon_button icon="ph-file-text" label="Show as text" variant={:filled} />
@@ -752,7 +752,7 @@ defmodule ToreWeb.CoreComponents do
   """
   attr :icon, :string, required: true
   attr :label, :string, required: true
-  attr :variant, :atom, values: [:ghost, :filled], default: :ghost
+  attr :variant, :atom, values: [:ghost, :filled, :danger], default: :ghost
   attr :type, :string, values: ~w(button submit), default: "button"
   attr :rest, :global, include: ~w(phx-click phx-value-id href)
 
@@ -763,7 +763,9 @@ defmodule ToreWeb.CoreComponents do
       class={[
         "press inline-flex items-center justify-center size-11 shrink-0 rounded-[var(--r-pill)] hover:text-[var(--text)]",
         @variant == :ghost && "text-[color:var(--muted)] hover:bg-[var(--sunken)]",
-        @variant == :filled && "bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]"
+        @variant == :filled && "bg-[var(--sunken)] text-[color:var(--text)] hover:bg-[var(--border)]",
+        @variant == :danger &&
+          "text-[color:var(--muted)] hover:!text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
       ]}
       {@rest}
     >

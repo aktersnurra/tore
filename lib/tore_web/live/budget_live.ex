@@ -170,14 +170,9 @@ defmodule ToreWeb.BudgetLive do
                 phx-mounted={JS.focus()}
                 class="w-32 min-w-0"
                 input_class="num font-semibold"
+                enterkeyhint="done"
               />
-              <button
-                type="submit"
-                phx-disable-with="…"
-                class="press h-11 text-[13px] font-semibold"
-              >
-                {gettext("Save")}
-              </button>
+              <button type="submit" class="sr-only">{gettext("Save")}</button>
             </form>
             <button
               :if={!@editing}

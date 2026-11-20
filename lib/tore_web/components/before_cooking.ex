@@ -259,21 +259,17 @@ defmodule ToreWeb.BeforeCooking do
             <label for={"#{@id}-offered"} class="t-eyebrow">
               {gettext("Have something instead?")}
             </label>
-            <div class="mt-2 flex items-start gap-2">
+            <div class="mt-2">
               <.field
                 id={"#{@id}-offered"}
                 name="offered"
                 value={@offered}
                 placeholder={gettext("e.g. red onion, sour cream")}
                 autocomplete="off"
-                class="min-w-0 flex-1"
+                enterkeyhint="send"
+                readonly={@checking}
               />
-              <button
-                type="submit"
-                class="pill pill-lg press"
-                disabled={@checking}
-                data-role="check-swaps"
-              >
+              <button type="submit" class="sr-only" disabled={@checking} data-role="check-swaps">
                 {gettext("Check")}
               </button>
             </div>

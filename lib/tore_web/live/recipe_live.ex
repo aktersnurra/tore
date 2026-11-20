@@ -1660,9 +1660,10 @@ defmodule ToreWeb.RecipeLive do
                 type="button"
                 phx-click="remove_ingredient_row"
                 phx-value-index={idx}
-                class="size-11 shrink-0 inline-flex items-center justify-center rounded-[var(--r-md)] text-[color:var(--subtle)] hover:text-[color:var(--danger)] hover:bg-[color:var(--hairline)]"
+                aria-label={gettext("Remove ingredient")}
+                class="size-11 shrink-0 inline-flex items-center justify-center rounded-[var(--r-pill)] text-[color:var(--muted)] hover:text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
               >
-                <.icon name="ph-x" class="size-4" />
+                <.icon name="ph-trash" class="size-4" />
               </button>
             </div>
           </div>

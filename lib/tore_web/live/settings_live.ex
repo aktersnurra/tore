@@ -386,16 +386,18 @@ defmodule ToreWeb.SettingsLive do
                     {user.username}
                   </p>
                 </div>
-                <button
+                <.icon_button
                   :if={length(@users) > 1}
-                  type="button"
+                  icon={if user.id == @current_user.id, do: "ph-sign-out", else: "ph-trash"}
+                  label={
+                    if user.id == @current_user.id,
+                      do: gettext("Leave"),
+                      else: gettext("Remove %{name}", name: user.name)
+                  }
+                  variant={:danger}
                   phx-click="remove_member"
                   phx-value-id={user.id}
-                  class="text-[color:var(--danger)] hover:underline"
-                  style="font-size: var(--t-meta);"
-                >
-                  {if user.id == @current_user.id, do: gettext("Leave"), else: gettext("Remove")}
-                </button>
+                />
               </div>
               <div :for={pending <- @pending} class="flex items-center gap-3">
                 <div class="flex-1 min-w-0">
@@ -406,19 +408,17 @@ defmodule ToreWeb.SettingsLive do
                     {gettext("Joins at their first sign-in")}
                   </p>
                 </div>
-                <button
-                  type="button"
+                <.icon_button
+                  icon="ph-trash"
+                  label={gettext("Remove %{name}", name: pending.username)}
+                  variant={:danger}
                   phx-click="cancel_pending"
                   phx-value-id={pending.id}
-                  class="text-[color:var(--danger)] hover:underline"
-                  style="font-size: var(--t-meta);"
-                >
-                  {gettext("Remove")}
-                </button>
+                />
               </div>
             </div>
 
-            <form phx-submit="add_member" class="mt-4 flex items-start gap-2">
+            <form phx-submit="add_member" class="mt-4">
               <.field
                 id="member-username"
                 name="username"
@@ -430,9 +430,9 @@ defmodule ToreWeb.SettingsLive do
                 required
                 saved={@member_notice != nil}
                 errors={List.wrap(@member_error)}
-                class="min-w-0 flex-1"
+                enterkeyhint="done"
               />
-              <.button type="submit" variant={:secondary}>{gettext("Add")}</.button>
+              <button type="submit" class="sr-only">{gettext("Add")}</button>
             </form>
             <p
               :if={@member_notice}
@@ -476,16 +476,16 @@ defmodule ToreWeb.SettingsLive do
                 <ul class="space-y-2">
                   <li
                     :for={entry <- part.entries}
-                    class="flex items-start justify-between gap-3 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] p-3"
+                    class="flex items-start justify-between gap-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--surface)] py-0.5 pl-3 pr-0.5"
                   >
-                    <p class="flex-1 text-sm">{entry.text}</p>
-                    <button
+                    <p class="flex-1 py-3 text-sm">{entry.text}</p>
+                    <.icon_button
+                      icon="ph-trash"
+                      label={gettext("Forget")}
+                      variant={:danger}
                       phx-click="forget_memory"
                       phx-value-id={entry.id}
-                      class="shrink-0 text-[13px] font-medium text-[color:var(--muted)] hover:text-[color:var(--danger)] hover:underline"
-                    >
-                      {gettext("Forget")}
-                    </button>
+                    />
                   </li>
                 </ul>
               </div>
