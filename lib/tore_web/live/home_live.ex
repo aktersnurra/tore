@@ -37,41 +37,17 @@ defmodule ToreWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
-      <.page max_width={:xl}>
-        <%!-- One column on every screen, read top to bottom like a status: the dish, when, and
-           whether anything needs doing. Side by side it looked like the recipe page. --%>
-        <div class="mx-auto w-full max-w-md">
+      <%!-- Plan's width, as Hemma and a recipe page have, so the day-to-day screens feel one. --%>
+      <.page max_width={:lg}>
+        <%!-- One column, read top to bottom like a status: the dish, when, and whether anything
+           needs doing. Side by side it looked like the recipe page. --%>
+        <div class="w-full">
           <div class="relative z-10 h-0">
-            <%!-- Over the photo, its buttons sit inside the card's corners. --%>
+            <%!-- Over the photo, its button sits inside the card's corner. --%>
             <.top_bar
               on_photo={@dish != nil}
               class={["absolute inset-x-0 -top-2", @dish && "inset-x-2 top-0"]}
-            >
-              <:actions :if={@dish}>
-                <.page_menu id="today-menu" on_photo>
-                  <.menu_item
-                    menu="today-menu"
-                    icon="ph-book-open"
-                    navigate={~p"/recipes?#{[id: @dish.id]}"}
-                  >
-                    {gettext("Open the recipe")}
-                  </.menu_item>
-                  <.menu_item
-                    :if={@day == :tonight}
-                    menu="today-menu"
-                    icon="ph-chat-circle"
-                    event="open_tonight_sheet"
-                  >
-                    {gettext("Ask about tonight")}
-                  </.menu_item>
-                  <.menu_item menu="today-menu" icon="ph-x-circle" event="skip_tonight">
-                    {if @day == :tonight,
-                      do: gettext("No dinner tonight"),
-                      else: gettext("No dinner tomorrow")}
-                  </.menu_item>
-                </.page_menu>
-              </:actions>
-            </.top_bar>
+            />
           </div>
 
           <%!-- Tonight: the dish is the screen --%>
@@ -83,8 +59,14 @@ defmodule ToreWeb.HomeLive do
           >
             <%!-- The cover: tonight's photo, or the dish's tinted icon while one is drawn, with
                the dish's name in white on its darkened foot. A rounded card, set in from the
-               edges, so the dark foot never meets the page (in light mode it looked cut off). --%>
-            <div>
+               edges, so the dark foot never meets the page (in light mode it looked cut off).
+               Tapping it opens the recipe. --%>
+            <.link
+              navigate={~p"/recipes?#{[id: @dish.id]}"}
+              data-role="cover"
+              aria-label={gettext("Open the recipe")}
+              class="press press-soft block"
+            >
               <div class="relative h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden rounded-[var(--r-xl)]">
                 <img
                   :if={photo?(@dish)}
@@ -110,7 +92,7 @@ defmodule ToreWeb.HomeLive do
                   {@dish.title}
                 </h1>
               </div>
-            </div>
+            </.link>
 
             <div class="min-w-0">
               <.cooked :if={@cooked} title={@cooked} class="mt-4" />
@@ -153,10 +135,24 @@ defmodule ToreWeb.HomeLive do
                 </.link>
               </p>
 
-              <%!-- Can I start? What Today answers first: everything's here, or what to buy
-                 first, and what Tore isn't sure is still here, asked right there. --%>
+              <%!-- Can I start? Tonight with everything at home the answer is Cook now, first
+                 and always in the same place. Otherwise what's missing, with what to do about it
+                 (use something else, or ask), and what Tore isn't sure is still here. --%>
+              <.link
+                :if={@day == :tonight and @home.missing == []}
+                navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
+                class="pill pill-lamp press reveal mt-5 w-full md:w-auto"
+                style="--i: 2"
+                data-role="start-cooking"
+              >
+                <.icon name="ph-fire-fill" /> {gettext("Cook now")}
+              </.link>
+
               <div
-                :if={@dish.recipe_ingredients != []}
+                :if={
+                  @dish.recipe_ingredients != [] and
+                    (@home.missing != [] or @home.unsure != [] or @day == :tomorrow)
+                }
                 class="menu-lines reveal mt-5"
                 style="--i: 2"
               >
@@ -176,7 +172,7 @@ defmodule ToreWeb.HomeLive do
                   <div class="flex items-center gap-3">
                     <.icon name="ph-shopping-cart" class="size-5 text-[color:var(--danger)]" />
                     <span class="flex-1 font-semibold" style="font-size: 16px;">
-                      {gettext("Shop first")}
+                      {gettext("Missing")}
                     </span>
                     <.pantry_link />
                   </div>
@@ -187,23 +183,24 @@ defmodule ToreWeb.HomeLive do
                     <span :for={thing <- @home.missing} class="tag tag-red" aria-hidden="true">
                       {thing}
                     </span>
+                  </div>
+                  <div class="mt-3 flex gap-2 pl-8">
                     <button
-                      :if={!@home_added}
                       type="button"
-                      phx-click="add_missing"
-                      class="press ml-1 text-[color:var(--muted)] underline decoration-[color:var(--subtle)] underline-offset-4 hover:text-[color:var(--text)]"
-                      style="font-size: 14px;"
+                      phx-click="before_cooking"
+                      data-role="swap-missing"
+                      class="pill press h-9"
                     >
-                      {gettext("Put on the list")}
+                      <.icon name="ph-arrows-left-right" /> {gettext("Swap")}
                     </button>
                     <.link
-                      :if={@home_added}
-                      id="home-added"
-                      navigate={~p"/shop"}
-                      class="settle ml-1 inline-flex items-center gap-1 font-semibold text-[color:var(--done)]"
-                      style="font-size: 14px;"
+                      navigate={
+                        ~p"/capture?#{[return_to: "/today", recipe: @dish.id, q: ask_missing(@home.missing)]}"
+                      }
+                      data-role="ask-missing"
+                      class="pill press h-9"
                     >
-                      <.icon name="ph-check" class="size-4" /> {gettext("On the list")}
+                      <.icon name="ph-chat-circle" /> {gettext("Ask")}
                     </.link>
                   </div>
                 </div>
@@ -261,36 +258,7 @@ defmodule ToreWeb.HomeLive do
                 </div>
               </div>
 
-              <%!-- On a phone the main action is the width of the page, the others a row under it. --%>
-              <div
-                class="reveal mt-5 grid grid-cols-2 gap-2 [&>:first-child]:col-span-2 [&>:nth-child(2):last-child]:col-span-2"
-                style="--i: 3"
-              >
-                <.link
-                  :if={@day == :tomorrow}
-                  navigate={~p"/recipes?#{[id: @dish.id]}"}
-                  class="pill press"
-                  data-role="open-recipe"
-                >
-                  <.icon name="ph-book-open" /> {gettext("Open the recipe")}
-                </.link>
-                <.link
-                  :if={@day == :tonight and @home.missing == []}
-                  navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
-                  class="pill pill-lamp press"
-                  data-role="start-cooking"
-                >
-                  <.icon name="ph-fire-fill" /> {gettext("Cook now")}
-                </.link>
-                <button
-                  :if={@day == :tonight and @home.missing != []}
-                  type="button"
-                  phx-click="before_cooking"
-                  class="pill pill-lamp press"
-                  data-role="start-cooking"
-                >
-                  <.icon name="ph-fire-fill" /> {gettext("Cook now")}
-                </button>
+              <div class="reveal mt-5 grid grid-cols-2 gap-2 md:flex md:flex-wrap" style="--i: 3">
                 <button type="button" phx-click="something_else" class="pill press">
                   <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
                 </button>
@@ -435,7 +403,9 @@ defmodule ToreWeb.HomeLive do
             class="press py-2 text-[color:var(--muted)] hover:text-[color:var(--text)]"
             style="font-size: 15px;"
           >
-            {gettext("No dinner tonight")}
+            {if @day == :tonight,
+              do: gettext("No dinner tonight"),
+              else: gettext("No dinner tomorrow")}
           </button>
           <.link
             navigate={~p"/capture?#{[return_to: "/today"]}"}
@@ -514,6 +484,14 @@ defmodule ToreWeb.HomeLive do
       do: scope |> Recipes.get_many([slot.recipe_id]) |> List.first()
   end
 
+  # What Fråga asks Tore, in the dish's conversation, about what isn't at home.
+  defp ask_missing(missing),
+    do:
+      gettext(
+        "We don't have %{things} at home. What can I use instead, or should I cook something else?",
+        things: Enum.join(missing, ", ")
+      )
+
   defp reload_tonight(socket) do
     %{current_scope: scope, plan_id: plan_id, day_key: key} = socket.assigns
     {:ok, state} = Planning.load_plan(scope, plan_id)
@@ -529,16 +507,12 @@ defmodule ToreWeb.HomeLive do
       tonight &&
         Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name))
 
-    list_id = Tore.Streams.shop_list(scope, socket.assigns.week_start)
-
     assign(socket,
       dish: tonight,
       lunch: lunch_id && scope |> Recipes.get_many([lunch_id]) |> List.first(),
       servings: slot && slot[:servings],
       eating_out: Tore.Planning.State.eating_out?(slot),
-      home: home,
-      # Already on the list when there's nothing left to put there.
-      home_added: home != nil and Tore.Shop.not_on_list(scope, list_id, home.missing) == []
+      home: home
     )
   end
 
@@ -550,16 +524,6 @@ defmodule ToreWeb.HomeLive do
     for name <- things, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
     {:noreply, assign(socket, note_added: true)}
   end
-
-  # What tonight needs and the house doesn't have goes on this week's list.
-  def handle_event("add_missing", _params, %{assigns: %{home_added: false, home: %{}}} = socket) do
-    %{current_scope: scope, current_user: user, home: home, week_start: monday} = socket.assigns
-    list_id = Tore.Streams.shop_list(scope, monday)
-    for name <- home.missing, do: Tore.Shop.add_item(scope, list_id, name, nil, nil, user.id)
-    {:noreply, assign(socket, home_added: true)}
-  end
-
-  def handle_event("add_missing", _params, socket), do: {:noreply, socket}
 
   # A few other dishes for tonight, ranked from the library (no model is asked).
   def handle_event("something_else", _params, socket) do

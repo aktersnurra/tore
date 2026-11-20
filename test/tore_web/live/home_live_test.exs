@@ -94,7 +94,7 @@ defmodule ToreWeb.HomeLiveTest do
       refute has_element?(view, "[data-role=lunch]")
     end
 
-    test "shows the dish's properties and ingredients, and puts what's missing on the list", %{
+    test "shows the dish and its ingredients, and what's missing can be swapped or asked about", %{
       conn: conn
     } do
       Mox.set_mox_global()
@@ -122,22 +122,22 @@ defmodule ToreWeb.HomeLiveTest do
 
       assert view |> element(~s(details[data-role="ingredients"] summary)) |> render() =~ "2"
       assert view |> element(~s([data-role="at-home"])) |> render() =~ "Saknas: kanel"
+      assert has_element?(view, ~s([data-role="to-pantry"][href="/pantry"]))
 
-      view |> element(~s([data-role="at-home"] button)) |> render_click()
-      assert has_element?(view, "#home-added")
+      # The photo opens the recipe; there's no menu, and no Cook now while something's missing.
+      assert has_element?(view, ~s(a[data-role="cover"][href="/recipes?id=#{buns.id}"]))
+      refute has_element?(view, "#today-menu")
+      refute has_element?(view, ~s([data-role="start-cooking"]))
 
-      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
-      {:ok, state} = Tore.Shop.load_list(home_scope(), list_id)
-      assert state.items |> Map.values() |> Enum.map(& &1.name) == ["kanel"]
+      # Fråga asks Tore about what's missing, in the dish's conversation.
+      ask = view |> element(~s([data-role="at-home"] a[data-role="ask-missing"])) |> render()
+      assert ask =~ "recipe=#{buns.id}" and ask =~ "kanel"
 
-      # Opened again, it says so straight away: there's nothing left to put on the list.
-      {:ok, again, _} = live(conn, ~p"/today")
-      assert has_element?(again, "#home-added")
-      assert has_element?(again, ~s([data-role="to-pantry"][href="/pantry"]))
-      refute has_element?(again, ~s([data-role="at-home"] button))
+      # Byt ut says what to use instead, and can still cook anyway, back here after.
+      view
+      |> element(~s([data-role="at-home"] button[data-role="swap-missing"]))
+      |> render_click()
 
-      # Cook now asks about what's missing first, and comes back here from cook mode.
-      view |> element(~s(button[data-role="start-cooking"])) |> render_click()
       assert view |> element(~s([data-missing="kanel"])) |> render() =~ "kanel"
       assert has_element?(view, ~s(a[data-role="cook-anyway"][href*="from=%2Ftoday"]))
     end
@@ -172,7 +172,9 @@ defmodule ToreWeb.HomeLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/today")
 
-      assert view |> element(~s([data-role="ready"])) |> render() =~ "Allt finns hemma"
+      # Tonight, Cook now is the answer: nothing to say about what's at home.
+      assert view |> element(~s(a[data-role="start-cooking"])) |> render() =~ "/cook"
+      refute has_element?(view, ~s([data-role="ready"]))
       refute has_element?(view, ~s([data-role="unsure"]))
       refute has_element?(view, "dl.props")
     end
@@ -196,7 +198,7 @@ defmodule ToreWeb.HomeLiveTest do
       {:ok, view, _html} = live(conn, ~p"/today")
       view |> element(row <> ~s( [data-role="still-there"])) |> render_click()
       refute has_element?(view, ~s([data-role="unsure"]))
-      assert view |> element(~s([data-role="ready"])) |> render() =~ "Allt finns hemma"
+      assert has_element?(view, ~s(a[data-role="start-cooking"]))
     end
 
     test "it asks about three at most, and says how many more there are", %{conn: conn} do
@@ -269,9 +271,11 @@ defmodule ToreWeb.HomeLiveTest do
                "Kycklinggryta, lagad ikväll"
 
       assert html =~ "Imorgon"
-      assert has_element?(view, ~s([data-role="open-recipe"]))
+      assert has_element?(view, ~s(a[data-role="cover"][href="/recipes?id=#{salmon.id}"]))
       refute has_element?(view, ~s([data-role="start-cooking"]))
-      assert view |> element("#today-menu") |> render() =~ "Ingen middag imorgon"
+      view |> element("button", "Något annat") |> render_click()
+      assert has_element?(view, "#choices-sheet button", "Ingen middag imorgon")
+      eventually(fn -> !has_element?(view, ~s(#choices-sheet [role="status"])) end)
     end
 
     test "the home pick's note shows with its way on, unless the page already says it", %{
@@ -476,12 +480,6 @@ defmodule ToreWeb.HomeLiveTest do
       view |> element("button", "Något annat") |> render_click()
 
       html = view |> element("#choices-sheet button", "Ingen middag ikväll") |> render_click()
-      assert html =~ "Ikväll är öppen"
-
-      html = view |> element("button", "Ångra") |> render_click()
-      assert html =~ "Oxfilé"
-
-      html = view |> element("#today-menu button", "Ingen middag ikväll") |> render_click()
       assert html =~ "Ikväll är öppen"
 
       html = view |> element("button", "Ångra") |> render_click()

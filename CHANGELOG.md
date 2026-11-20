@@ -15,6 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Slut teaches how fast it goes: milk gone three days after it was bought moves a weekly rhythm to five days, so it's believed eaten sooner and comes on the list sooner. Other things eaten between meals learn their own days the same way.
 - Hemma shows an emoji per thing (Noto Emoji, the same on every device), picked by Jev in the same call that judges how fast it goes; until then a row has its category's. Pack photos from Open Food Facts and taking your own photo of a row are gone. Barcodes still name what's scanned.
 - Today is one column on a laptop too, read top to bottom: the dish, when, whether anything's needed first, the buttons, the note. The ingredients are folded under "Ingredienser (14)", since the recipe page has them.
+- Today, Plan, Hemma and a recipe page are the same width on a laptop. On Today the photo opens the recipe (the ⋯ menu is gone), Cook now replaces "Everything's at home", and what's missing has Byt ut (what to use instead, or cook anyway) and Fråga (asks Tore, the question already typed) in place of Put on the list.
 
 ### Settings, Ask Tore on Today, recipes in the chat (2026-11-20)
 

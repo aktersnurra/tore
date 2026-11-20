@@ -248,9 +248,11 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   bold labels, the description, Cook now and Put on the week) and the picture on the right,
   whole and rounded rather than cropped to a strip. On a phone the picture comes first. Back and
   ⋯ sit on the page above it; the other properties follow below.
-- **A laptop's width is used, not left as margin** (2026-11-20), except on Today, which is a
-  status read at a glance and keeps the phone's one column (2026-11-20: side by side it looked
-  like the recipe page). Shop's list
+- **The day-to-day screens share one width** (2026-11-20): Today, Plan, Hemma and a recipe
+  page are 56rem of content (`<.page max_width={:lg}>`; a recipe page's own parts are 59rem
+  with their padding), so moving between them feels like one place. Today is one column at
+  that width; side by side it looked like the recipe page.
+- **Lists and dashboards use a laptop's width** (2026-11-20). Shop's list
   is one column and the month's spending another; on a wide screen the list's sections run down
   two columns in the store's order, each kept whole. Veckobudget is two columns on a laptop (the
   chart and where the money went beside the receipts); on a wide screen the chart takes the full
@@ -483,10 +485,10 @@ Menu:
 ### Desktop shell
 
 The sidebar (§3.3), then the page beside it. Recipes widens to five pictures a row. A recipe
-is a full page beside the sidebar instead of a window over the list: the cover runs the width
-with the name on it, and the ingredients sit in a column to the left of the method. Plan, Shop,
-Hemma and Today stay readable and centered for now; Plan with the month beside the week, and
-Tore as a column on the right, are next.
+is a full page beside the sidebar instead of a window over the list, at Plan's width (§ the
+day-to-day screens share one width): the name and buttons beside the cover, and the
+ingredients in a column to the left of the method. Plan, Hemma and Today are centered at the
+same width; Plan with the month beside the week, and Tore as a column on the right, are next.
 
 ## 5.2 Card types
 
@@ -698,18 +700,21 @@ start? One column on every screen, the phone's, read top to bottom (2026-11-20):
 
 ```md
 Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
-           dish's name on it
+           dish's name on it; tapping it opens the recipe. No ⋯ menu (2026-11-20)
 When     — one line: Tonight · 20 min · ready by 20:58; Lunch under it when one is planned
 Can I start? — the first thing it answers (2026-11-20):
-           ✓ Everything's at home                                   At home ›
-           or 🛒 Shop first, the missing things as red tags · Put on the list
-           and ⓘ Still there? — up to three things Tore is unsure of (eaten over
-           time, or past their date), each with when it was seen and [Finns] [Slut];
-           Slut puts it with what's missing, "+2 more" opens Hemma
-Actions  — [Cook now] [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page)
+           tonight, nothing missing: [🔥 Cook now] is the answer, first, in a fixed place
+           🛒 Missing, the missing things as red tags · At home ›
+              [Byt ut] opens Before you start (say what to use instead, or cook anyway)
+              [Fråga] opens the dish's conversation with the question already typed
+           ⓘ Still there? — up to three things Tore is unsure of (eaten over time, or past
+           their date), each with when it was seen and [Finns] [Slut]; Slut puts it with
+           what's missing, "+2 more" opens Hemma
+           tomorrow, nothing missing or unsure: ✓ Everything's at home · At home ›
+Actions  — [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page);
+           No dinner tonight is in Something else's sheet
 Note     — the home pick's one note, with its action, when there is one
 Ingredients (14) — folded, for tonight's servings; the recipe page has them in full
-⋯        — Open the recipe · Ask about tonight · No dinner tonight
 ```
 
 ### After dinner (2026-11-19)
@@ -721,8 +726,9 @@ what can still be sorted out this evening:
 ✓ Kycklinggryta, lagad ikväll
 [cover] Laxpasta
 Tomorrow · 35 min
-🛒 Shop first   [lax] [dill]   Put on the list
-[Open the recipe] [Something else]
+🛒 Missing   [lax] [dill]
+   [Byt ut] [Fråga]
+[Something else] [Ask Tore]
 ```
 
 No Cook now and no ready-by time for tomorrow. An open tomorrow reads "Tomorrow is open".
