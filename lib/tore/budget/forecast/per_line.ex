@@ -29,26 +29,13 @@ defmodule Tore.Budget.Forecast.PerLine do
   @impl true
   def predict(%{week: week, history: history}) do
     chance = chances(history)
-    list = fn w -> Enum.sum(for {id, kr} <- w.lines, do: chance.(id) * to_float(kr)) end
-
-    extras =
-      history
-      |> Enum.reject(&Decimal.eq?(&1.meals.amount, 0))
-      |> Enum.take(@extras_weeks)
-      |> Enum.map(&(to_float(&1.paid) - list.(&1) - to_float(&1.open_cost)))
-
-    n = length(extras)
-    extra = if n >= @extras_min, do: Enum.sum(extras) / n, else: 0.0
-    expected = max(list.(week) + extra + to_float(week.open_cost), 0.0)
-
-    guess = max(@noise_share * expected, @noise_floor)
-    spread = if n >= @extras_min, do: Enum.sum(for e <- extras, do: (e - extra) ** 2), else: 0.0
-    extras_var = (@prior_weeks * guess ** 2 + spread) / (@prior_weeks + max(n - 1, 0))
+    {extra, extras_var} = extras(week, history, chance)
+    expected = max(list(week, chance) + extra + to_float(week.open_cost), 0.0)
 
     lines_var =
       Enum.sum(for {id, kr} <- week.lines, p = chance.(id), do: p * (1 - p) * to_float(kr) ** 2)
 
-    half = @z80 * :math.sqrt(lines_var + extras_var * (1 + 1 / max(n, 1)))
+    half = @z80 * :math.sqrt(lines_var + extras_var)
 
     %{
       expected: to_decimal(expected),
@@ -57,8 +44,34 @@ defmodule Tore.Budget.Forecast.PerLine do
     }
   end
 
-  # The chance an ingredient on the list is bought.
-  defp chances(history) do
+  @doc "What `week`'s list is expected to cost, each ingredient at its `chance` of being bought."
+  @spec list(map(), (integer() -> float())) :: float()
+  def list(week, chance), do: Enum.sum(for {id, kr} <- week.lines, do: chance.(id) * to_float(kr))
+
+  @doc """
+  The extras for `week`: their mean over recent weeks (0 until there are enough), and the variance
+  of what a week's extras will be, a guess until the weeks say otherwise.
+  """
+  @spec extras(map(), [map()], (integer() -> float())) :: {float(), float()}
+  def extras(week, history, chance) do
+    extras =
+      history
+      |> Enum.reject(&Decimal.eq?(&1.meals.amount, 0))
+      |> Enum.take(@extras_weeks)
+      |> Enum.map(&(to_float(&1.paid) - list(&1, chance) - to_float(&1.open_cost)))
+
+    n = length(extras)
+    extra = if n >= @extras_min, do: Enum.sum(extras) / n, else: 0.0
+    expected = list(week, chance) + extra + to_float(week.open_cost)
+    guess = max(@noise_share * expected, @noise_floor)
+    spread = if n >= @extras_min, do: Enum.sum(for e <- extras, do: (e - extra) ** 2), else: 0.0
+    var = (@prior_weeks * guess ** 2 + spread) / (@prior_weeks + max(n - 1, 0))
+    {extra, var * (1 + 1 / max(n, 1))}
+  end
+
+  @doc "The chance each ingredient on the list is bought, learned from `history`."
+  @spec chances([map()]) :: (integer() -> float())
+  def chances(history) do
     counts =
       for %{bought: %MapSet{} = bought, lines: lines} <- history,
           {id, _} <- lines,

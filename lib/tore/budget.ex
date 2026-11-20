@@ -20,7 +20,8 @@ defmodule Tore.Budget do
   days with nothing planned, which together cost `open_cost`, a typical dinner each;
   `adjustment` is what recent weeks paid beyond their estimates (nil until two such weeks exist);
   `expected` is where the forecast rung says the week lands, which is what the budget is held
-  against, and `low` and `high` its 80 % range, nil for a rung without one.
+  against, and `low` and `high` its 80 % range, nil for a rung without one; `risk` is the share of
+  a simulating rung's runs that went over the budget, nil without a budget or such a rung.
   """
   @type status :: %{
           budget: Decimal.t() | nil,
@@ -31,19 +32,22 @@ defmodule Tore.Budget do
           expected: Decimal.t(),
           low: Decimal.t() | nil,
           high: Decimal.t() | nil,
+          risk: float() | nil,
           over: Decimal.t() | nil
         }
 
   @typedoc """
   A week's plan priced as Tore knew it at a moment: its meals and the basics due, what each
-  ingredient on that list costs, how many dinners are open, a typical dinner (the median of this
-  week's and recent weeks' priced dinners, nil while none has a price), and the open days at it.
+  ingredient on that list costs, how many dinners are open, what this week's and recent weeks'
+  priced dinners cost, a typical dinner (their median, nil while none has a price), and the open
+  days at it.
   """
   @type costs :: %{
           meals: Prices.cost(),
           basics: Prices.cost(),
           lines: %{integer() => Decimal.t()},
           open_days: 0..7,
+          dinner_costs: [Decimal.t()],
           typical: Decimal.t() | nil,
           open_cost: Decimal.t()
         }
@@ -184,8 +188,16 @@ defmodule Tore.Budget do
   def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start, rung \\ OpenDays) do
     budget = amount(scope, week_start)
     facts = Facts.build(scope, plan, week_start, NaiveDateTime.utc_now())
-    %{expected: expected, low: low, high: high} = rung.predict(facts)
+    %{expected: expected, low: low, high: high} = prediction = rung.predict(facts)
     over = if budget && Decimal.gt?(expected, budget), do: Decimal.sub(expected, budget)
+
+    risk =
+      with %Decimal{} <- budget, [_ | _] = draws <- prediction[:draws] do
+        limit = Decimal.to_float(budget)
+        Enum.count(draws, &(&1 > limit)) / length(draws)
+      else
+        _ -> nil
+      end
 
     %{
       budget: budget,
@@ -196,6 +208,7 @@ defmodule Tore.Budget do
       expected: expected,
       low: low,
       high: high,
+      risk: risk,
       over: over
     }
   end
@@ -290,9 +303,11 @@ defmodule Tore.Budget do
     end
 
     open_days = open_days(plan, week_start)
-    typical = priced.(dinners(plan)) ++ priced.(past)
 
-    typical = median(for c <- typical, Decimal.gt?(c.amount, 0), do: c.amount)
+    dinner_costs =
+      for c <- priced.(dinners(plan)) ++ priced.(past), Decimal.gt?(c.amount, 0), do: c.amount
+
+    typical = median(dinner_costs)
 
     lines =
       for {recipe, servings} <- pairs.(meals), line <- Prices.lines(recipe, servings) do
@@ -304,6 +319,7 @@ defmodule Tore.Budget do
       basics: Prices.cost(basics, prices),
       lines: line_costs(lines ++ basics, prices),
       open_days: open_days,
+      dinner_costs: dinner_costs,
       typical: typical,
       open_cost:
         if(typical,

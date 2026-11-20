@@ -4,12 +4,18 @@ defmodule Tore.Budget.Forecast.Rung do
   The rungs form a ladder (`.docs/specs/budget-forecast.md`): a rung drives the page only once
   the backtest (`Tore.Budget.Forecast.backtest/2`) shows it beats the one below.
 
-  `low` and `high` bound an 80 % range, or are nil for a rung that gives none.
+  `low` and `high` bound an 80 % range, or are nil for a rung that gives none. A rung that runs
+  the week many times also gives its runs, sorted (`draws`).
   """
 
   alias Tore.Budget.Forecast.Facts
 
-  @type prediction :: %{expected: Decimal.t(), low: Decimal.t() | nil, high: Decimal.t() | nil}
+  @type prediction :: %{
+          required(:expected) => Decimal.t(),
+          required(:low) => Decimal.t() | nil,
+          required(:high) => Decimal.t() | nil,
+          optional(:draws) => [float()]
+        }
 
   @callback predict(Facts.t()) :: prediction()
 

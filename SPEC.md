@@ -915,7 +915,10 @@ stood. Basics, the model's price estimates and product matches keep no history a
 `OpenDays`, and gives an 80 % range; `Drift` walks the weeks oldest first with a Kalman filter on (a, b), so recent
 weeks count most, its range from the filter's variance; `PerLine` counts each list ingredient at its price times the
 chance it is bought (learned from receipt lines' matches, pulled toward the household's rate, 1 until there is
-evidence) plus recent weeks' extras. `backtest/2` predicts each finished week from its Monday and reports each rung's
+evidence) plus recent weeks' extras; `Simulation` runs the week 2000 times (lines bought at those chances, open days
+as recent dinners picked at random, extras around their mean), seeded from the facts, its spread calibrated split-
+conformally against the finished weeks, and gives the share of runs over the budget (`status.risk`, "12 % risk att gå
+över budget" beside the budget tag). Plain Elixir, no Nx. `backtest/2` predicts each finished week from its Monday and reports each rung's
 mean absolute error, and how often its range held. `live/2` climbs from `OpenDays` while each next rung beats the one
 below over the latest 12 finished weeks (`beats?/2`: at least 8 weeks, a smaller error, a range that held 70–90 % of
 the time). Only the Veckobudget page asks, in the background as it opens, since the backtest takes about half a

@@ -3094,7 +3094,7 @@ msgstr "%{amount} kr över budget"
 msgid "%{amount} kr under budget"
 msgstr "%{amount} kr under budget"
 
-#: lib/tore_web/live/budget_live.ex:738
+#: lib/tore_web/live/budget_live.ex:750
 #, elixir-autogen, elixir-format
 msgid "%{count} open day counted"
 msgid_plural "%{count} open days counted"
@@ -3108,7 +3108,7 @@ msgid_plural "%{count} receipts"
 msgstr[0] "%{count} kvitto"
 msgstr[1] "%{count} kvitton"
 
-#: lib/tore_web/live/budget_live.ex:543
+#: lib/tore_web/live/budget_live.ex:555
 #, elixir-autogen, elixir-format
 msgid "%{count} time"
 msgid_plural "%{count} times"
@@ -3120,7 +3120,7 @@ msgstr[1] "%{count} gånger"
 msgid "Average a week"
 msgstr "Snitt per vecka"
 
-#: lib/tore_web/live/budget_live.ex:647
+#: lib/tore_web/live/budget_live.ex:659
 #, elixir-autogen, elixir-format
 msgid "Budget %{amount}"
 msgstr "Budget %{amount}"
@@ -3173,38 +3173,38 @@ msgstr "Kvitto"
 msgid "Receipts"
 msgstr "Kvitton"
 
-#: lib/tore_web/live/budget_live.ex:720
+#: lib/tore_web/live/budget_live.ex:732
 #, elixir-autogen, elixir-format
 msgid "The week lands around %{amount} kr"
 msgstr "Veckan landar runt %{amount} kr"
 
-#: lib/tore_web/live/budget_live.ex:726
+#: lib/tore_web/live/budget_live.ex:738
 #: lib/tore_web/live/deals_live.ex:399
 #, elixir-autogen, elixir-format
 msgid "Week %{n} · %{range}"
 msgstr "Vecka %{n} · %{range}"
 
-#: lib/tore_web/live/budget_live.ex:694
+#: lib/tore_web/live/budget_live.ex:706
 #, elixir-autogen, elixir-format
 msgid "Week %{n}: %{paid} kr"
 msgstr "Vecka %{n}: %{paid} kr"
 
-#: lib/tore_web/live/budget_live.ex:683
+#: lib/tore_web/live/budget_live.ex:695
 #, elixir-autogen, elixir-format
 msgid "Week %{n}: %{paid} kr paid, expected to land around %{expected} kr"
 msgstr "Vecka %{n}: %{paid} kr betalt, väntas landa runt %{expected} kr"
 
-#: lib/tore_web/live/budget_live.ex:690
+#: lib/tore_web/live/budget_live.ex:702
 #, elixir-autogen, elixir-format
 msgid "Week %{n}: nothing paid"
 msgstr "Vecka %{n}: inget betalt"
 
-#: lib/tore_web/live/budget_live.ex:755
+#: lib/tore_web/live/budget_live.ex:767
 #, elixir-autogen, elixir-format
 msgid "Weeks %{first}–%{last} · %{amount} kr"
 msgstr "Vecka %{first}–%{last} · %{amount} kr"
 
-#: lib/tore_web/live/budget_live.ex:705
+#: lib/tore_web/live/budget_live.ex:717
 #, elixir-autogen, elixir-format
 msgid "What weeks %{first} to %{last} cost"
 msgstr "Vad vecka %{first} till %{last} kostade"
@@ -3219,27 +3219,27 @@ msgstr "Var pengarna gick"
 msgid "a week"
 msgstr "i veckan"
 
-#: lib/tore_web/live/budget_live.ex:735
+#: lib/tore_web/live/budget_live.ex:747
 #, elixir-autogen, elixir-format
 msgid "every dinner planned"
 msgstr "alla middagar planerade"
 
-#: lib/tore_web/live/budget_live.ex:740
+#: lib/tore_web/live/budget_live.ex:752
 #, elixir-autogen, elixir-format
 msgid "no weeks yet"
 msgstr "inga veckor än"
 
-#: lib/tore_web/live/budget_live.ex:699
+#: lib/tore_web/live/budget_live.ex:711
 #, elixir-autogen, elixir-format
 msgid "over budget"
 msgstr "över budget"
 
-#: lib/tore_web/live/budget_live.ex:748
+#: lib/tore_web/live/budget_live.ex:760
 #, elixir-autogen, elixir-format
 msgid "weeks %{first}–%{last}"
 msgstr "vecka %{first}–%{last}"
 
-#: lib/tore_web/live/budget_live.ex:747
+#: lib/tore_web/live/budget_live.ex:759
 #, elixir-autogen, elixir-format
 msgid "week %{n}"
 msgstr "vecka %{n}"
@@ -3280,7 +3280,7 @@ msgid "This receipt has no lines."
 msgstr "Kvittot har inga rader."
 
 #: lib/tore_web/live/budget_live.ex:372
-#: lib/tore_web/live/budget_live.ex:655
+#: lib/tore_web/live/budget_live.ex:667
 #, elixir-autogen, elixir-format
 msgid "Week %{n}"
 msgstr "Vecka %{n}"
@@ -3414,7 +3414,12 @@ msgstr "Lediga dagar: %{days}."
 msgid "No longer days off: %{days}."
 msgstr "Inte längre lediga: %{days}."
 
-#: lib/tore_web/live/budget_live.ex:714
+#: lib/tore_web/live/budget_live.ex:726
 #, elixir-autogen, elixir-format
 msgid "The week lands at %{low}–%{high} kr"
 msgstr "Veckan landar på %{low}–%{high} kr"
+
+#: lib/tore_web/live/budget_live.ex:500
+#, elixir-autogen, elixir-format
+msgid "%{percent} % risk of going over budget"
+msgstr "%{percent} % risk att gå över budget"

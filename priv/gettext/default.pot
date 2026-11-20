@@ -3094,7 +3094,7 @@ msgstr ""
 msgid "%{amount} kr under budget"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:738
+#: lib/tore_web/live/budget_live.ex:750
 #, elixir-autogen, elixir-format
 msgid "%{count} open day counted"
 msgid_plural "%{count} open days counted"
@@ -3108,7 +3108,7 @@ msgid_plural "%{count} receipts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/tore_web/live/budget_live.ex:543
+#: lib/tore_web/live/budget_live.ex:555
 #, elixir-autogen, elixir-format
 msgid "%{count} time"
 msgid_plural "%{count} times"
@@ -3120,7 +3120,7 @@ msgstr[1] ""
 msgid "Average a week"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:647
+#: lib/tore_web/live/budget_live.ex:659
 #, elixir-autogen, elixir-format
 msgid "Budget %{amount}"
 msgstr ""
@@ -3173,38 +3173,38 @@ msgstr ""
 msgid "Receipts"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:720
+#: lib/tore_web/live/budget_live.ex:732
 #, elixir-autogen, elixir-format
 msgid "The week lands around %{amount} kr"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:726
+#: lib/tore_web/live/budget_live.ex:738
 #: lib/tore_web/live/deals_live.ex:399
 #, elixir-autogen, elixir-format
 msgid "Week %{n} · %{range}"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:694
+#: lib/tore_web/live/budget_live.ex:706
 #, elixir-autogen, elixir-format
 msgid "Week %{n}: %{paid} kr"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:683
+#: lib/tore_web/live/budget_live.ex:695
 #, elixir-autogen, elixir-format
 msgid "Week %{n}: %{paid} kr paid, expected to land around %{expected} kr"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:690
+#: lib/tore_web/live/budget_live.ex:702
 #, elixir-autogen, elixir-format
 msgid "Week %{n}: nothing paid"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:755
+#: lib/tore_web/live/budget_live.ex:767
 #, elixir-autogen, elixir-format
 msgid "Weeks %{first}–%{last} · %{amount} kr"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:705
+#: lib/tore_web/live/budget_live.ex:717
 #, elixir-autogen, elixir-format
 msgid "What weeks %{first} to %{last} cost"
 msgstr ""
@@ -3219,27 +3219,27 @@ msgstr ""
 msgid "a week"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:735
+#: lib/tore_web/live/budget_live.ex:747
 #, elixir-autogen, elixir-format
 msgid "every dinner planned"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:740
+#: lib/tore_web/live/budget_live.ex:752
 #, elixir-autogen, elixir-format
 msgid "no weeks yet"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:699
+#: lib/tore_web/live/budget_live.ex:711
 #, elixir-autogen, elixir-format
 msgid "over budget"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:748
+#: lib/tore_web/live/budget_live.ex:760
 #, elixir-autogen, elixir-format
 msgid "weeks %{first}–%{last}"
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:747
+#: lib/tore_web/live/budget_live.ex:759
 #, elixir-autogen, elixir-format
 msgid "week %{n}"
 msgstr ""
@@ -3280,7 +3280,7 @@ msgid "This receipt has no lines."
 msgstr ""
 
 #: lib/tore_web/live/budget_live.ex:372
-#: lib/tore_web/live/budget_live.ex:655
+#: lib/tore_web/live/budget_live.ex:667
 #, elixir-autogen, elixir-format
 msgid "Week %{n}"
 msgstr ""
@@ -3414,7 +3414,12 @@ msgstr ""
 msgid "No longer days off: %{days}."
 msgstr ""
 
-#: lib/tore_web/live/budget_live.ex:714
+#: lib/tore_web/live/budget_live.ex:726
 #, elixir-autogen, elixir-format
 msgid "The week lands at %{low}–%{high} kr"
+msgstr ""
+
+#: lib/tore_web/live/budget_live.ex:500
+#, elixir-autogen, elixir-format
+msgid "%{percent} % risk of going over budget"
 msgstr ""

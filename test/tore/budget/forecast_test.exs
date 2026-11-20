@@ -5,7 +5,7 @@ defmodule Tore.Budget.ForecastTest do
 
   alias Tore.{Budget, Planning, Recipes, Streams}
   alias Tore.Budget.Forecast
-  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, PerLine, ScaleOffset}
+  alias Tore.Budget.Forecast.{Baseline, Drift, Facts, OpenDays, PerLine, ScaleOffset, Simulation}
 
   import Tore.BudgetFixtures, only: [one_dinner: 3, scaled_weeks: 3]
   alias Tore.EventStore.Event
@@ -373,6 +373,53 @@ defmodule Tore.Budget.ForecastTest do
 
       assert Decimal.eq?(OpenDays.predict(facts).expected, 200)
       assert Decimal.lt?(off.(PerLine.predict(facts)), off.(OpenDays.predict(facts)))
+    end
+  end
+
+  describe "simulation" do
+    setup do
+      stew = recipe("Gryta", "100")
+
+      {:ok, _} =
+        Planning.assign_recipe(
+          home_scope(),
+          Streams.plan(home_scope(), @week),
+          "mon_dinner",
+          stew.id,
+          4
+        )
+
+      %{facts: Facts.load(home_scope(), @week, NaiveDateTime.utc_now())}
+    end
+
+    test "the same facts give the same runs, whenever they are read", %{facts: facts} do
+      assert Simulation.predict(facts) == Simulation.predict(facts)
+
+      assert Simulation.predict(facts) ==
+               Simulation.predict(%{facts | as_of: NaiveDateTime.add(facts.as_of, 60)})
+    end
+
+    test "with nothing to learn from, lands about where open days does", %{facts: facts} do
+      %{expected: expected, low: low, high: high, draws: draws} = Simulation.predict(facts)
+
+      # The stew, and six open days at the one dinner known, 100 kr each; extras average nothing.
+      assert Decimal.lt?(Decimal.abs(Decimal.sub(expected, 700)), 15)
+      assert Decimal.lt?(low, expected) and Decimal.gt?(high, expected)
+      assert length(draws) == 2000
+    end
+
+    test "says how likely the week is to go over its budget" do
+      plan = Planning.load_plan(home_scope(), Streams.plan(home_scope(), @week)) |> elem(1)
+
+      risk = fn kr ->
+        :ok = Budget.set_week(home_scope(), @week, Decimal.new(kr))
+        Budget.status(home_scope(), plan, @week, Simulation).risk
+      end
+
+      assert risk.(10_000) == 0.0
+      assert risk.(1) == 1.0
+      assert risk.(700) > 0.3 and risk.(700) < 0.7
+      assert Budget.status(home_scope(), plan, @week).risk == nil
     end
   end
 

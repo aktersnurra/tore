@@ -490,9 +490,21 @@ defmodule ToreWeb.BudgetLive do
           do: gettext("%{amount} kr over budget", amount: Money.format(Decimal.abs(@under))),
           else: gettext("%{amount} kr under budget", amount: Money.format(@under))}
       </span>
+      <span
+        :if={@status.risk}
+        id={"risk-#{risk_percent(@status.risk)}"}
+        data-role="risk"
+        class="settle ml-2 text-[color:var(--muted)]"
+        style="font-size: 13px;"
+      >
+        {gettext("%{percent} % risk of going over budget", percent: risk_percent(@status.risk))}
+      </span>
     </p>
     """
   end
+
+  # Whole percents; the runs can't tell a sure thing from a near one, so neither does the page.
+  defp risk_percent(risk), do: risk |> Kernel.*(100) |> round() |> max(1) |> min(99)
 
   attr :role, :string, required: true
   attr :label, :string, required: true
