@@ -60,4 +60,9 @@ defmodule Tore.ImageGen.OpenRouterTest do
     assert {:ok, %{image: ^image_bytes, cost_usd: 0.03}} =
              OpenRouter.generate_food_image("A plated meal", req: req)
   end
+
+  test "without an OpenRouter key, it says so instead of calling" do
+    Application.delete_env(:tore, :openrouter_api_key)
+    assert {:error, :no_image_key} = OpenRouter.generate_food_image("A plated meal")
+  end
 end

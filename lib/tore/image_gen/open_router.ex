@@ -18,8 +18,9 @@ defmodule Tore.ImageGen.OpenRouter do
       messages: [%{role: "user", content: prompt}]
     }
 
-    with {:ok, %OpenRouter.Response{body: response_body}} <-
-           OpenRouter.chat_completions(client(), body, opts) do
+    with {:ok, client} <- client(),
+         {:ok, %OpenRouter.Response{body: response_body}} <-
+           OpenRouter.chat_completions(client, body, opts) do
       with {:ok, image} <- decode_image(response_body),
            do:
              {:ok, %{image: image, cost_usd: (get_in(response_body, ["usage", "cost"]) || 0) / 1}}
@@ -48,15 +49,19 @@ defmodule Tore.ImageGen.OpenRouter do
     end
   end
 
+  # The key is optional (`OPENROUTER_API_KEY`): without it there are no pictures.
   defp client do
-    {:ok, client} =
-      Client.new(
-        api_key: Application.fetch_env!(:tore, :openrouter_api_key),
-        site_url: Application.fetch_env!(:tore, :openrouter_site_url),
-        app_name: Application.fetch_env!(:tore, :openrouter_app_name)
-      )
+    case Application.get_env(:tore, :openrouter_api_key) do
+      key when key in [nil, ""] ->
+        {:error, :no_image_key}
 
-    client
+      key ->
+        Client.new(
+          api_key: key,
+          site_url: Application.fetch_env!(:tore, :openrouter_site_url),
+          app_name: Application.fetch_env!(:tore, :openrouter_app_name)
+        )
+    end
   end
 
   defp image_model,
