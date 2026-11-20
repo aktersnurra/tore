@@ -110,14 +110,29 @@ defmodule ToreWeb.SettingsLiveTest do
       assert html =~ "AI är avstängt för det här hushållet."
     end
 
-    test "renames the household", %{conn: conn} do
+    test "the saved name has a check, a new one is sent with return, and saving flashes green", %{
+      conn: conn
+    } do
       {:ok, view, _html} = live(conn, ~p"/settings/name")
+      field = ~s(form[phx-submit="rename_household"])
+      state = fn state -> has_element?(view, field <> ~s( [data-state="#{state}"])) end
+      save = field <> ~s( button[type="submit"])
 
-      view
-      |> form(~s(form[phx-submit="rename_household"]), %{name: "Rydholms"})
-      |> render_submit()
+      assert state.("saved")
+      assert has_element?(view, save <> "[disabled] .ph-check")
 
+      view |> form(field, %{name: "Rydholms"}) |> render_change()
+      assert state.("changed")
+      assert has_element?(view, save <> ":not([disabled]) .ph-arrow-elbow-down-left")
+
+      view |> form(field, %{name: "  "}) |> render_change()
+      assert state.("empty")
+      assert has_element?(view, save <> "[disabled] .ph-arrow-elbow-down-left")
+
+      view |> form(field, %{name: "Rydholms"}) |> render_submit()
       assert home_household().name == "Rydholms"
+      assert state.("just_saved")
+      assert has_element?(view, save <> "[disabled] .ph-check")
     end
   end
 

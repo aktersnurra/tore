@@ -26,6 +26,7 @@ defmodule ToreWeb.SettingsLive do
      |> assign_ai_sponsor()
      |> assign(
        member_username: "",
+       name_state: :saved,
        member_notice: nil,
        member_error: nil,
        households: Members.list_households(socket.assigns.current_user),
@@ -124,10 +125,24 @@ defmodule ToreWeb.SettingsLive do
     {:noreply, assign_ai_sponsor(socket)}
   end
 
+  def handle_event("edit_name", %{"name" => name}, socket) do
+    state =
+      case String.trim(name) do
+        "" -> :empty
+        same when same == socket.assigns.household.name -> :saved
+        _new -> :changed
+      end
+
+    {:noreply, assign(socket, name_state: state)}
+  end
+
   def handle_event("rename_household", %{"name" => name}, socket) do
     case Household.rename(socket.assigns.current_scope, name) do
-      {:ok, household} -> {:noreply, assign(socket, household: household)}
-      {:error, _changeset} -> {:noreply, socket}
+      {:ok, household} ->
+        {:noreply, assign(socket, household: household, name_state: :just_saved)}
+
+      {:error, _changeset} ->
+        {:noreply, socket}
     end
   end
 
@@ -158,6 +173,8 @@ defmodule ToreWeb.SettingsLive do
 
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
+
+  defp saved?(state), do: state in [:saved, :just_saved]
 
   defp section_title("name"), do: gettext("Name")
   defp section_title("members"), do: gettext("Members")
@@ -337,8 +354,16 @@ defmodule ToreWeb.SettingsLive do
           </header>
           <h1 class="t-display mt-3 mb-6">{section_title(@section)}</h1>
 
-          <div :if={@section == "name"} class="menu-lines py-4">
-            <form phx-submit="rename_household" class="flex items-center gap-2">
+          <%!-- One field. The saved name has a grey check, and saving flashes it green; a new name
+               is sent with return, as in the chat; an empty one can't be. --%>
+          <form :if={@section == "name"} phx-submit="rename_household" phx-change="edit_name">
+            <div
+              data-state={@name_state}
+              class={[
+                "flex items-center gap-2 rounded-[var(--r-lg)] border border-[color:var(--border)] bg-[var(--surface)] py-1.5 pr-1.5 pl-4",
+                @name_state == :just_saved && "saved-flash"
+              ]}
+            >
               <input
                 type="text"
                 name="name"
@@ -346,11 +371,27 @@ defmodule ToreWeb.SettingsLive do
                 aria-label={gettext("Household name")}
                 required
                 maxlength="100"
-                class="min-w-0 flex-1 rounded-[var(--r-md)] border border-[color:var(--border)] bg-[var(--bg)] px-3 py-2.5 text-[16px]"
+                autocomplete="off"
+                class="min-w-0 flex-1 bg-transparent py-1.5 text-[17px] font-medium text-[color:var(--text)]"
+                style="outline: none;"
               />
-              <.button type="submit" variant={:secondary}>{gettext("Rename")}</.button>
-            </form>
-          </div>
+              <button
+                type="submit"
+                disabled={@name_state != :changed}
+                aria-label={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
+                title={if saved?(@name_state), do: gettext("Saved"), else: gettext("Rename")}
+                class={[
+                  "press flex size-9 shrink-0 items-center justify-center rounded-[var(--r-md)] transition-colors duration-150",
+                  saved?(@name_state) && "text-[color:var(--subtle)]",
+                  @name_state == :changed && "text-[color:var(--text)] hover:bg-[var(--sunken)]",
+                  @name_state == :empty && "text-[color:var(--subtle)]"
+                ]}
+              >
+                <.icon :if={saved?(@name_state)} name="ph-check" class="size-[18px]" />
+                <.icon :if={!saved?(@name_state)} name="ph-arrow-elbow-down-left" class="size-5" />
+              </button>
+            </div>
+          </form>
 
           <div :if={@section == "members"} class="menu-lines py-4">
             <div class="flex flex-col gap-3">

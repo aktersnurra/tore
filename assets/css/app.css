@@ -211,6 +211,21 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   html.kb-open #command-tray .composer-foot { padding-bottom: 0.5rem; }
 }
 
+/* Just saved: the field's border and its check light green, then settle back. */
+@keyframes saved-flash {
+  0%, 35% { border-color: var(--done); }
+  100% { border-color: var(--border); }
+}
+@keyframes saved-flash-icon {
+  0%, 35% { color: var(--done); }
+  100% { color: var(--subtle); }
+}
+.saved-flash { animation: saved-flash 1.6s var(--ease-out) both; }
+.saved-flash [class*="ph-check"] { animation: saved-flash-icon 1.6s var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) {
+  .saved-flash, .saved-flash [class*="ph-check"] { animation-duration: 1ms; }
+}
+
 /* A list: rows gathered on one soft, rounded surface */
 .menu-lines {
   background: var(--surface);
