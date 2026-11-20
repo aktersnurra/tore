@@ -127,6 +127,24 @@ defmodule ToreWeb.PantryLiveTest do
     refute has_element?(view, "#photo-picker")
   end
 
+  test "a row moves where it belongs once Tore learns its section, without a reload", %{
+    conn: conn
+  } do
+    cheddar = kept("Cheddar", nil)
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+    assert has_element?(view, ~s([data-group="cupboard"] [data-item="#{cheddar.id}"]))
+
+    :filled =
+      Tore.Pantry.Learn.learn(home_scope(), %{
+        name: "Cheddar",
+        same_as: nil,
+        section: "dairy",
+        shelf_life_days: nil
+      })
+
+    assert has_element?(view, ~s([data-group="fridge"] [data-item="#{cheddar.id}"]))
+  end
+
   test "the menu has Hemma under the household, with how much is at home", %{conn: conn} do
     kept("Mjölk", "dairy")
     {:ok, view, _html} = live(conn, ~p"/plan")

@@ -73,6 +73,14 @@ defmodule Tore.Pantry.LastsTest do
     assert Costs.last_llm_call(home_scope(), "pantry_lasts")
   end
 
+  test "what Jev says reaches the pantry's screens" do
+    Phoenix.PubSub.subscribe(Tore.PubSub, Pantry.topic(home_scope()))
+    jev()
+    {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
+
+    assert_received :pantry_changed
+  end
+
   test "Jev picks each thing's picture from the ones there are" do
     jev()
     {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")

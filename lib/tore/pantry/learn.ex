@@ -63,24 +63,31 @@ defmodule Tore.Pantry.Learn do
   """
   @spec learn(Scope.t(), item()) :: :merged | :filled | {:error, :unknown_name | :unknown_same_as}
   def learn(%Scope{} = scope, %{name: name} = item) do
-    with {:ok, ingredient} <- found(scope, name, :unknown_name) do
-      case item.same_as && found(scope, item.same_as, :unknown_same_as) do
-        nil ->
-          fill(ingredient, item)
-          :filled
+    with {:ok, ingredient} <- found(scope, name, :unknown_name),
+         learned when learned in [:merged, :filled] <- learn(scope, ingredient, item) do
+      # Hemma moves the row where it now belongs.
+      :ok = Tore.Pantry.changed(scope)
+      learned
+    end
+  end
 
-        {:ok, %Ingredient{id: id}} when id == ingredient.id ->
-          fill(ingredient, item)
-          :filled
+  defp learn(scope, ingredient, item) do
+    case item.same_as && found(scope, item.same_as, :unknown_same_as) do
+      nil ->
+        fill(ingredient, item)
+        :filled
 
-        {:ok, into} ->
-          {:ok, :ok} = merge(scope, ingredient, into)
-          if into.category == nil, do: fill(into, item)
-          :merged
+      {:ok, %Ingredient{id: id}} when id == ingredient.id ->
+        fill(ingredient, item)
+        :filled
 
-        {:error, _} = error ->
-          error
-      end
+      {:ok, into} ->
+        {:ok, :ok} = merge(scope, ingredient, into)
+        if into.category == nil, do: fill(into, item)
+        :merged
+
+      {:error, _} = error ->
+        error
     end
   end
 

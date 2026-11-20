@@ -431,7 +431,8 @@ defmodule Tore.Pantry do
   @doc """
   Something put away by hand on Hemma, as written ("2 l mjölk" read by `Tore.Shop.parse_line/1`):
   sure now, added to its ingredient's row if there is one (a row used up comes back). A name
-  Tore hasn't learned yet is learned in the background, so it finds its group.
+  Tore hasn't learned yet, new or known without a section (one a recipe brought), is learned in
+  the background, so it finds its group.
   """
   @spec put_away(Scope.t(), String.t(), Decimal.t() | nil, String.t() | nil) ::
           {:ok, PantryItem.t()} | {:error, term()}
@@ -452,7 +453,8 @@ defmodule Tore.Pantry do
     }
 
     with {:ok, item, _change, _before} <- upsert_belief(scope, attrs) do
-      if matched_key == nil, do: Tore.Pantry.Learn.later(scope, [name])
+      # Learning skips what has its section already, so a learned name costs nothing.
+      :ok = Tore.Pantry.Learn.later(scope, [name])
       {:ok, item}
     end
   end
@@ -551,6 +553,18 @@ defmodule Tore.Pantry do
       item -> {:ok, item}
     end
   end
+
+  @doc "Where Hemma hears that what's kept changed in the background (`changed/1`)."
+  @spec topic(Scope.t()) :: String.t()
+  def topic(%Scope{household_id: id}), do: "pantry:household:#{id}"
+
+  @doc """
+  Says what's kept changed in the background: a section learned, or Jev's answers kept. Hemma
+  loads again.
+  """
+  @spec changed(Scope.t()) :: :ok
+  def changed(%Scope{} = scope),
+    do: Phoenix.PubSub.broadcast(Tore.PubSub, topic(scope), :pantry_changed)
 
   @doc "Everything kept, with its ingredient, which says where it belongs once learned."
   @spec list_kept(Scope.t()) :: [PantryItem.t()]

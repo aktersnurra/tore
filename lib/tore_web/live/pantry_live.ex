@@ -16,6 +16,10 @@ defmodule ToreWeb.PantryLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    # What's learned in the background (a section, Jev's picture) moves and redraws the rows.
+    if connected?(socket),
+      do: Phoenix.PubSub.subscribe(Tore.PubSub, Pantry.topic(socket.assigns.current_scope))
+
     {:ok,
      socket
      |> assign(asking: nil, editing_left: nil)
@@ -62,6 +66,9 @@ defmodule ToreWeb.PantryLive do
     {:ok, _item} = Pantry.mark_gone(socket.assigns.current_scope, String.to_integer(id))
     {:noreply, socket |> assign(asking: nil) |> load()}
   end
+
+  @impl true
+  def handle_info(:pantry_changed, socket), do: {:noreply, load(socket)}
 
   defp load(socket) do
     today = Tore.Clock.today()

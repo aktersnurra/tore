@@ -61,7 +61,7 @@ defmodule Tore.Pantry.Lasts do
     with :ok <- check(scope) do
       case unasked(scope) do
         [] -> {:ok, 0}
-        ingredients -> ask(scope, ingredients, opts)
+        ingredients -> scope |> ask(ingredients, opts) |> tell(scope)
       end
     end
   end
@@ -121,6 +121,14 @@ defmodule Tore.Pantry.Lasts do
 
   defp choice(instructions, criteria),
     do: %{"type" => "choice", "instructions" => instructions, "criteria" => criteria}
+
+  # Hemma shows the half-lives and pictures it's just been given.
+  defp tell({:ok, kept} = sorted, scope) when kept > 0 do
+    :ok = Tore.Pantry.changed(scope)
+    sorted
+  end
+
+  defp tell(sorted, _scope), do: sorted
 
   defp keep(scope, batch, answers) do
     batch
