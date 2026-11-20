@@ -156,6 +156,17 @@ defmodule ToreWeb.TabBarLiveTest do
       :ok
     end
 
+    test "a new name for the household shows in the sidebar at once", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings/name")
+      render_hook(bar(view), "here", %{"path" => "/settings/name", "wide" => true})
+
+      view
+      |> form(~s(form[phx-submit="rename_household"]), %{name: "Rydholms"})
+      |> render_submit()
+
+      assert bar(view) |> element(~s([data-role="sidebar"])) |> render() =~ "Rydholms"
+    end
+
     test "holds the tabs with Tore among them, and marks where you are", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/today")
       render_hook(bar(view), "here", %{"path" => "/recipes", "wide" => true})

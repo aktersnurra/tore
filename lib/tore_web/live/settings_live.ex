@@ -41,7 +41,15 @@ defmodule ToreWeb.SettingsLive do
 
   def handle_params(params, _uri, socket) do
     section = if params["section"] in @sections, do: params["section"]
-    {:noreply, assign(socket, section: section)}
+
+    # A page opened again starts as it is, not with the last save's flash or note.
+    {:noreply,
+     assign(socket,
+       section: section,
+       name_saved?: false,
+       member_notice: nil,
+       member_error: nil
+     )}
   end
 
   @dietary_restrictions ~w(vegetarian vegan gluten_free lactose_free low_carb high_protein nut_free)

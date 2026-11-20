@@ -19,9 +19,23 @@ defmodule Tore.Household do
   def locale(%Scope{} = scope), do: get!(scope).locale
 
   @spec rename(Scope.t(), String.t()) :: {:ok, HouseholdSchema.t()} | {:error, Ecto.Changeset.t()}
-  def rename(%Scope{} = scope, name) do
-    scope |> get!() |> HouseholdSchema.changeset(%{name: String.trim(name)}) |> Repo.update()
+  def rename(%Scope{household_id: id} = scope, name) do
+    with {:ok, household} <-
+           scope
+           |> get!()
+           |> HouseholdSchema.changeset(%{name: String.trim(name)})
+           |> Repo.update() do
+      Phoenix.PubSub.broadcast(Tore.PubSub, name_topic(id), {:household_renamed, household.name})
+      {:ok, household}
+    end
   end
+
+  @doc "Hears the household's new name, `{:household_renamed, name}`, wherever it was changed."
+  @spec subscribe(Scope.t()) :: :ok | {:error, term()}
+  def subscribe(%Scope{household_id: id}),
+    do: Phoenix.PubSub.subscribe(Tore.PubSub, name_topic(id))
+
+  defp name_topic(id), do: "household_name:#{id}"
 
   @doc """
   The member whose AI credits the household spends, or nil. Only someone still in the household and still

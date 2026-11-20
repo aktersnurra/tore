@@ -121,6 +121,14 @@ defmodule ToreWeb.SettingsLiveTest do
       assert home_household().name == "Rydholms"
       assert has_element?(view, form <> " .field.saved-flash")
 
+      # Coming back to the page later, it's the field again, not a second flash.
+      view |> element(~s(a[data-role="settings-back"])) |> render_click()
+      view |> element(~s(a[href="/settings/name"])) |> render_click()
+      refute has_element?(view, form <> " .saved-flash")
+
+      view |> form(form, %{name: "Rydholms"}) |> render_submit()
+      assert has_element?(view, form <> " .field.saved-flash")
+
       # Typing again lets the next save flash anew.
       view |> form(form, %{name: "Rydholm"}) |> render_change()
       refute has_element?(view, form <> " .saved-flash")

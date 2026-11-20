@@ -31,8 +31,19 @@ defmodule ToreWeb.TabBarLive do
           nil
       end
 
+    if scope && connected?(socket), do: :ok = Tore.Household.subscribe(scope)
+
     {:ok, assign(socket, path: "/", return_to: "/", scope: scope, menu: nil, side: nil),
      layout: false}
+  end
+
+  # The household renamed, here or by another member: the sidebar and menu say so at once.
+  @impl true
+  def handle_info({:household_renamed, name}, socket) do
+    {:noreply,
+     socket
+     |> update(:side, &(&1 && %{&1 | household: name}))
+     |> update(:menu, &(&1 && %{&1 | household: name}))}
   end
 
   # Every navigation reports where it landed, and closes the menu if it led there. On a wide
