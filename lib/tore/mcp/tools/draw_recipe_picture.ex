@@ -6,6 +6,8 @@ defmodule Tore.Mcp.Tools.DrawRecipePicture do
   """
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.{Pi, Recipes}
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.RecipeEdit
@@ -46,7 +48,7 @@ defmodule Tore.Mcp.Tools.DrawRecipePicture do
 
       case Runs.submit(scope, Kinds.RecipeEdit, edit, %{edit: edit, actor: :mcp}) do
         {:ok, %KitchenRun{status: :applied, id: run_id}} ->
-          {:ok, %{done: "Drew a new picture.", run_id: run_id}}
+          {:ok, %{done: gettext("Drew a new picture."), run_id: run_id}}
 
         {:ok, %KitchenRun{failure_code: code}} ->
           {:error, "Not drawn: #{code}."}

@@ -5,6 +5,8 @@ defmodule Tore.Mcp.Tools.SetHomePick do
   """
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Home
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.HomePick
@@ -48,7 +50,7 @@ defmodule Tore.Mcp.Tools.SetHomePick do
       pick = %HomePick{screen: screen, source: :model, swaps: swaps, note: note}
 
       case Runs.submit(scope, Kinds.HomePick, pick, %{actor: :mcp}) do
-        {:ok, %KitchenRun{status: :applied}} -> {:ok, %{done: "Set."}}
+        {:ok, %KitchenRun{status: :applied}} -> {:ok, %{done: gettext("Set.")}}
         {:ok, %KitchenRun{failure_code: code}} -> {:error, "Not set: #{code}."}
         {:error, reason} -> {:error, "Not set: #{inspect(reason)}."}
       end

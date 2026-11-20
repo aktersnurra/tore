@@ -6,6 +6,8 @@ defmodule Tore.Mcp.Tools.SaveRecipe do
   """
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Recipes
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.RecipeProposal
@@ -92,7 +94,7 @@ defmodule Tore.Mcp.Tools.SaveRecipe do
     case Runs.submit(scope, RecipeIngestion, proposal, %{proposal: proposal, actor: :mcp}) do
       {:ok, %KitchenRun{status: :applied, id: id, undo: {:steps, steps}}} ->
         [recipe_id] = for {:delete_recipe, recipe_id} <- steps, do: recipe_id
-        {:ok, %{done: "Saved #{title}.", run_id: id, recipe_id: recipe_id}}
+        {:ok, %{done: gettext("Saved %{title}.", title: title), run_id: id, recipe_id: recipe_id}}
 
       {:ok, %KitchenRun{failure_code: code}} ->
         {:error, "Not saved: #{code}."}

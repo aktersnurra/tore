@@ -2,6 +2,8 @@ defmodule Tore.Mcp.Tools.PutTogether do
   @moduledoc "Puts a dinner together from recipes the household has (`Tore.Recipes.put_together/3`)."
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Recipes
 
   @impl true
@@ -38,7 +40,7 @@ defmodule Tore.Mcp.Tools.PutTogether do
     case Recipes.put_together(scope, attrs) do
       {:ok, meal} ->
         Recipes.finish(scope, meal.id)
-        {:ok, %{done: "Put together #{meal.title}.", recipe_id: meal.id}}
+        {:ok, %{done: gettext("Put together %{dish}.", dish: meal.title), recipe_id: meal.id}}
 
       {:error, :too_few_parts} ->
         {:error, "A meal needs at least two parts."}

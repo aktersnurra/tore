@@ -106,8 +106,8 @@ msgstr ""
 #: lib/tore_web/components/step_cards.ex:193
 #: lib/tore_web/components/step_cards.ex:259
 #: lib/tore_web/live/budget_live.ex:338
-#: lib/tore_web/live/capture_live.ex:393
-#: lib/tore_web/live/capture_live.ex:406
+#: lib/tore_web/live/capture_live.ex:410
+#: lib/tore_web/live/capture_live.ex:423
 #: lib/tore_web/live/recipe_live.ex:1381
 #: lib/tore_web/live/recipe_live.ex:1464
 #: lib/tore_web/live/shop_live.ex:384
@@ -761,7 +761,7 @@ msgstr ""
 msgid "Adjusted servings on %{day}"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:402
+#: lib/tore_web/live/capture_live.ex:419
 #: lib/tore_web/live/home_live.ex:286
 #: lib/tore_web/live/home_live.ex:338
 #: lib/tore_web/live/recipe_live.ex:901
@@ -771,8 +771,8 @@ msgstr ""
 msgid "Ask Tore"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:574
-#: lib/tore_web/live/capture_live.ex:575
+#: lib/tore_web/live/capture_live.ex:602
+#: lib/tore_web/live/capture_live.ex:603
 #, elixir-autogen, elixir-format
 msgid "Attach photo"
 msgstr ""
@@ -841,7 +841,7 @@ msgid "Proposing"
 msgstr ""
 
 #: lib/tore_web/components/receipt_live.ex:55
-#: lib/tore_web/live/capture_live.ex:371
+#: lib/tore_web/live/capture_live.ex:385
 #, elixir-autogen, elixir-format
 msgid "Reverted"
 msgstr ""
@@ -1016,7 +1016,7 @@ msgid "Plan"
 msgstr ""
 
 #: lib/tore_web/components/step_cards.ex:185
-#: lib/tore_web/live/capture_live.ex:368
+#: lib/tore_web/live/capture_live.ex:382
 #: lib/tore_web/live/home_live.ex:227
 #: lib/tore_web/live/home_live.ex:273
 #: lib/tore_web/live/recipe_live.ex:1176
@@ -1025,6 +1025,7 @@ msgstr ""
 msgid "Undo"
 msgstr ""
 
+#: lib/tore/mcp/tools/undo.ex:29
 #: lib/tore_web/live/planner_live.ex:310
 #: lib/tore_web/live/shop_live.ex:235
 #: lib/tore_web/live/shop_live.ex:608
@@ -1579,7 +1580,7 @@ msgstr ""
 msgid "All"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:452
+#: lib/tore_web/live/capture_live.ex:469
 #, elixir-autogen, elixir-format
 msgid "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
 msgstr ""
@@ -1591,7 +1592,7 @@ msgstr ""
 msgid "Assemblies"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:440
+#: lib/tore_web/live/capture_live.ex:457
 #, elixir-autogen, elixir-format
 msgid "What do you need?"
 msgstr ""
@@ -1873,8 +1874,8 @@ msgstr ""
 msgid "In the basket"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:553
-#: lib/tore_web/live/capture_live.ex:554
+#: lib/tore_web/live/capture_live.ex:581
+#: lib/tore_web/live/capture_live.ex:582
 #, elixir-autogen, elixir-format
 msgid "Send"
 msgstr ""
@@ -3171,12 +3172,12 @@ msgstr ""
 msgid "Recipe steps and pictures"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:401
+#: lib/tore_web/live/capture_live.ex:418
 #, elixir-autogen, elixir-format
 msgid "About %{dish}"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:448
+#: lib/tore_web/live/capture_live.ex:465
 #, elixir-autogen, elixir-format
 msgid "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
 msgstr ""
@@ -3186,14 +3187,54 @@ msgstr ""
 msgid "Drawing recipe pictures"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:544
-#: lib/tore_web/live/capture_live.ex:545
+#: lib/tore_web/live/capture_live.ex:572
+#: lib/tore_web/live/capture_live.ex:573
 #, elixir-autogen, elixir-format
 msgid "Message Tore…"
 msgstr ""
 
-#: lib/tore_web/live/capture_live.ex:564
-#: lib/tore_web/live/capture_live.ex:565
+#: lib/tore_web/live/capture_live.ex:592
+#: lib/tore_web/live/capture_live.ex:593
 #, elixir-autogen, elixir-format
 msgid "Stop"
+msgstr ""
+
+#: lib/tore/mcp/tools/draw_recipe_picture.ex:51
+#, elixir-autogen, elixir-format
+msgid "Drew a new picture."
+msgstr ""
+
+#: lib/tore/mcp/tools/log_receipt.ex:76
+#, elixir-autogen, elixir-format
+msgid "Logged %{store}, %{total} kr."
+msgstr ""
+
+#: lib/tore/mcp/tools/put_together.ex:43
+#, elixir-autogen, elixir-format
+msgid "Put together %{dish}."
+msgstr ""
+
+#: lib/tore/mcp/tools/save_recipe.ex:97
+#, elixir-autogen, elixir-format
+msgid "Saved %{title}."
+msgstr ""
+
+#: lib/tore/mcp/tools/save_prep_guide.ex:81
+#, elixir-autogen, elixir-format
+msgid "Saved the prep guide."
+msgstr ""
+
+#: lib/tore/mcp/tools/set_home_pick.ex:53
+#, elixir-autogen, elixir-format
+msgid "Set."
+msgstr ""
+
+#: lib/tore/mcp/tools/suggest_swaps.ex:62
+#, elixir-autogen, elixir-format
+msgid "Swaps for %{dish}. Nothing is saved."
+msgstr ""
+
+#: lib/tore/mcp/tools/update_recipe.ex:45
+#, elixir-autogen, elixir-format
+msgid "Updated %{title}."
 msgstr ""

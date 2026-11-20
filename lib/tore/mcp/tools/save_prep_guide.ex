@@ -2,6 +2,8 @@ defmodule Tore.Mcp.Tools.SavePrepGuide do
   @moduledoc "The week's prep guide pi wrote, replacing the one the Prep screen shows for that week."
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Mcp.Tool
   alias Tore.Prep
 
@@ -76,7 +78,7 @@ defmodule Tore.Mcp.Tools.SavePrepGuide do
         |> Map.put("week_start", Tore.Streams.monday(day))
 
       case Prep.save_guide(scope, attrs) do
-        {:ok, _guide} -> {:ok, %{done: "Saved the prep guide."}}
+        {:ok, _guide} -> {:ok, %{done: gettext("Saved the prep guide.")}}
         {:error, changeset} -> {:error, "Not saved: #{inspect(changeset.errors)}."}
       end
     end

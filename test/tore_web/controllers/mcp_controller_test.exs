@@ -107,6 +107,33 @@ defmodule ToreWeb.McpControllerTest do
     end
   end
 
+  test "a change's receipt is in the household's language", %{conn: conn, user: user} do
+    save = fn conn, title ->
+      conn
+      |> as(user)
+      |> rpc("tools/call", %{
+        "name" => "save_recipe",
+        "arguments" => %{
+          "title" => title,
+          "ingredients" => [%{"item" => "lax"}],
+          "steps" => [%{"order" => 1, "action" => "Koka pastan."}]
+        }
+      })
+      |> json_response(200)
+      |> get_in(["result", "structuredContent", "done"])
+    end
+
+    assert save.(conn, "Laxpasta") == "Sparade Laxpasta."
+
+    Tore.Repo.update!(
+      Ecto.Changeset.change(Tore.Household.get!(home_scope()), locale: "en"),
+      Tore.Scope.repo_opts(home_scope())
+    )
+
+    conn = put_req_header(build_conn(), "content-type", "application/json")
+    assert save.(conn, "Salmon pasta") == "Saved Salmon pasta."
+  end
+
   test "a call runs as the active household of the token's person", %{user: user} do
     conn = ToreWeb.McpAuth.call(build_conn() |> as(user), [])
 

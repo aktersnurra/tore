@@ -5,6 +5,8 @@ defmodule Tore.Mcp.Tools.SuggestSwaps do
   """
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Recipes
   alias Tore.Recipes.Swaps
 
@@ -56,7 +58,10 @@ defmodule Tore.Mcp.Tools.SuggestSwaps do
 
       recipe ->
         {:ok,
-         %{done: "Swaps for #{recipe.title}. Nothing is saved.", swaps: Swaps.read(scope, swaps)}}
+         %{
+           done: gettext("Swaps for %{dish}. Nothing is saved.", dish: recipe.title),
+           swaps: Swaps.read(scope, swaps)
+         }}
     end
   end
 

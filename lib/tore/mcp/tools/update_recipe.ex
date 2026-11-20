@@ -6,6 +6,8 @@ defmodule Tore.Mcp.Tools.UpdateRecipe do
   """
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.RecipeEdit
   alias Tore.Harness.Kinds
@@ -40,7 +42,7 @@ defmodule Tore.Mcp.Tools.UpdateRecipe do
 
     case Runs.submit(scope, Kinds.RecipeEdit, edit, %{edit: edit, actor: :mcp}) do
       {:ok, %KitchenRun{status: :applied, id: run_id}} ->
-        {:ok, %{done: "Updated #{title}.", run_id: run_id}}
+        {:ok, %{done: gettext("Updated %{title}.", title: title), run_id: run_id}}
 
       {:ok, %KitchenRun{failure_code: code}} ->
         {:error, "Not updated: #{code}."}

@@ -7,6 +7,8 @@ defmodule Tore.Mcp.Tools.LogReceipt do
   """
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Harness.{KitchenRun, Runs}
   alias Tore.Harness.Artifact.CostEntry
   alias Tore.Harness.Kinds.Receipt
@@ -68,7 +70,15 @@ defmodule Tore.Mcp.Tools.LogReceipt do
 
       case Runs.submit(scope, Receipt, cost, ctx) do
         {:ok, %KitchenRun{status: :applied, id: id}} ->
-          {:ok, %{done: "Logged #{cost.store_name}, #{args["total"]} kr.", run_id: id}}
+          {:ok,
+           %{
+             done:
+               gettext("Logged %{store}, %{total} kr.",
+                 store: cost.store_name,
+                 total: args["total"]
+               ),
+             run_id: id
+           }}
 
         {:ok, %KitchenRun{failure_code: code}} ->
           {:error, "Not logged: #{code}."}

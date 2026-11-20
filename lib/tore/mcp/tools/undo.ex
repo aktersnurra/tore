@@ -2,6 +2,8 @@ defmodule Tore.Mcp.Tools.Undo do
   @moduledoc "Undoes a change by its run id, as Undo in the app does."
   @behaviour Tore.Mcp.Tool
 
+  use Gettext, backend: ToreWeb.Gettext
+
   alias Tore.Harness.Runs
 
   @impl true
@@ -24,7 +26,7 @@ defmodule Tore.Mcp.Tools.Undo do
   @impl true
   def call(scope, %{"run_id" => id}) when is_binary(id) do
     case Runs.revert(scope, id) do
-      {:ok, _run} -> {:ok, %{done: "Undone.", run_id: id}}
+      {:ok, _run} -> {:ok, %{done: gettext("Undone."), run_id: id}}
       {:error, :not_found} -> {:error, "No change #{id} in this household."}
       {:error, reason} -> {:error, "That change can't be undone: #{inspect(reason)}."}
     end
