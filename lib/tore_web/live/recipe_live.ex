@@ -891,7 +891,7 @@ defmodule ToreWeb.RecipeLive do
             >
               <.link
                 navigate={
-                  ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", q: gettext("About %{dish}: ", dish: @selected.title)]}"
+                  ~p"/capture?#{[return_to: "/recipes?id=#{@selected.id}", recipe: @selected.id]}"
                 }
                 data-role="ask-tore"
                 class="flex w-full items-center gap-3 px-4 py-3 text-left text-[color:var(--text)] hover:bg-[var(--border)]"

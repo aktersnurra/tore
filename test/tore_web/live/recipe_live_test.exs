@@ -504,7 +504,7 @@ defmodule ToreWeb.RecipeLiveTest do
       refute has_element?(view, ~s([data-role="ask-tore"]))
       refute render(view) =~ "Saknas något?"
       view |> element(~s(#recipe-actions button[aria-label="Mer"])) |> render_click()
-      assert view |> element(~s([data-role="ask-tore"])) |> render() =~ "q=Om+Kanelbullar"
+      assert view |> element(~s([data-role="ask-tore"])) |> render() =~ "recipe=#{buns.id}"
 
       view |> element(~s([data-role="at-home"] button)) |> render_click()
       assert has_element?(view, "#home-added")

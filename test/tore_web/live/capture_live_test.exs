@@ -207,6 +207,70 @@ defmodule ToreWeb.CaptureLiveTest do
     assert html =~ "Tore kunde inte slutföra det."
   end
 
+  describe "a recipe's own conversation" do
+    defp recipe(scope, title) do
+      {:ok, recipe} =
+        Tore.Repo.insert(%Tore.Recipes.Recipe{
+          household_id: scope.household_id,
+          title: title,
+          recipe_type: :meal
+        })
+
+      recipe
+    end
+
+    test "Ask Tore on a recipe talks in that recipe's session, and says once what it's about", %{
+      conn: conn,
+      user: user,
+      pi_log: log
+    } do
+      salmon = recipe(home_scope(), "Laxpasta")
+      {:ok, lv, html} = live(conn, ~p"/capture?#{[recipe: salmon.id]}")
+      assert html =~ "Om Laxpasta"
+
+      lv |> form("form", %{message: "Gör den vegetarisk"}) |> render_submit()
+      assert eventually(fn -> render(lv) =~ "echo: " end)
+
+      [header | _] = pi_records(log)
+      assert header["session"] == "chat-#{user.id}-recipe-#{salmon.id}"
+      [%{"message" => first}] = prompts(log)
+      assert first =~ "Laxpasta (recipe #{salmon.id})"
+      assert first =~ "Gör den vegetarisk"
+
+      lv |> form("form", %{message: "Och för sex"}) |> render_submit()
+      assert eventually(fn -> length(prompts(log)) == 2 end)
+      assert List.last(prompts(log))["message"] == "Och för sex"
+    end
+
+    test "the quick swaps stay with the kitchen's chat", %{conn: conn} do
+      {:ok, _} =
+        Tore.Harness.Runs.submit(
+          home_scope(),
+          Tore.Harness.Kinds.HomePick,
+          %Tore.Harness.Artifact.HomePick{screen: :today, source: :model, swaps: [:open_shop]},
+          %{}
+        )
+
+      {:ok, lv, _html} = live(conn, ~p"/capture?#{[recipe: recipe(home_scope(), "Laxpasta").id]}")
+      refute has_element?(lv, ~s([data-role="swap"]))
+    end
+
+    test "a recipe that isn't the household's opens their own chat", %{
+      conn: conn,
+      user: user,
+      pi_log: log
+    } do
+      theirs = recipe(scope_fixture(household_fixture()), "Hemlig gryta")
+      {:ok, lv, html} = live(conn, ~p"/capture?#{[recipe: theirs.id]}")
+      refute html =~ "Hemlig gryta"
+
+      lv |> form("form", %{message: "hej"}) |> render_submit()
+      assert eventually(fn -> prompts(log) != [] end)
+      assert hd(pi_records(log))["session"] == "chat-#{user.id}"
+      assert [%{"message" => "hej"}] = prompts(log)
+    end
+  end
+
   describe "suggestions" do
     alias Tore.Harness.Artifact.HomePick
 

@@ -6,7 +6,8 @@ defmodule Tore.Pi do
 
   A household has named sessions, each its own pi process (`Tore.Pi.Session`) and pi's own
   session of that id, kept across processes: a chat per person (`chat_session/1`), which they talk
-  to and watch, and one per background job, so a job never lands in someone's conversation. A
+  to and watch, a chat per person about one recipe (`recipe_chat_session/2`), which opening that
+  recipe's chat again goes back to, and one per background job, so a job never lands in someone's conversation. A
   name is `<kind>-<id>`; the kind is what its cost is counted as. Everything pi writes is
   broadcast on `topic/2` as `{:pi, session, event}`, with pi's own event shapes
   (`message_update`, `tool_execution_start`, `agent_settled`, …).
@@ -67,6 +68,11 @@ defmodule Tore.Pi do
   @doc "The signed-in person's chat with pi."
   @spec chat_session(Scope.t()) :: session()
   def chat_session(%Scope{user_id: user_id}) when is_integer(user_id), do: "chat-#{user_id}"
+
+  @doc "The signed-in person's chat with pi about one recipe. Its cost counts as their chat's."
+  @spec recipe_chat_session(Scope.t(), pos_integer()) :: session()
+  def recipe_chat_session(%Scope{} = scope, recipe_id) when is_integer(recipe_id),
+    do: "#{chat_session(scope)}-recipe-#{recipe_id}"
 
   @spec topic(Scope.t(), session()) :: String.t()
   def topic(%Scope{household_id: id}, session), do: "pi:#{id}:#{session}"

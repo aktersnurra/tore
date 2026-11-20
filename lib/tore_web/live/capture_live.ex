@@ -4,6 +4,10 @@ defmodule ToreWeb.CaptureLive do
   goes to pi, photos with it; pi's answer streams in, and each change it makes in Tore shows as a
   receipt with Undo, read from the tool's result. The conversation is pi's, so opening the tray
   shows it from where it was.
+
+  Opened from a recipe (`?recipe=<id>`), the tray is the person's conversation about that recipe
+  (`Tore.Pi.recipe_chat_session/2`), so coming back to the recipe comes back to it. Its first
+  message says which recipe it's about, and the kitchen's quick swaps stay with the main chat.
   """
   use ToreWeb, :live_view
 
@@ -17,12 +21,16 @@ defmodule ToreWeb.CaptureLive do
   def mount(params, _session, socket) do
     return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
     scope = socket.assigns.current_scope
-    session = Pi.chat_session(scope)
+    recipe = recipe(scope, params["recipe"])
+
+    session =
+      if recipe, do: Pi.recipe_chat_session(scope, recipe.id), else: Pi.chat_session(scope)
 
     socket =
       socket
       |> assign(
         session: session,
+        recipe: recipe,
         messages: [],
         draft: nil,
         input: params["q"] || "",
@@ -40,8 +48,17 @@ defmodule ToreWeb.CaptureLive do
         socket
       end
 
-    {:ok, assign(socket, swaps: Home.current(scope).swaps)}
+    {:ok, assign(socket, swaps: if(recipe, do: [], else: Home.current(scope).swaps))}
   end
+
+  defp recipe(scope, id) when is_binary(id) do
+    case Integer.parse(id) do
+      {id, ""} -> Tore.Recipes.get(scope, id)
+      _ -> nil
+    end
+  end
+
+  defp recipe(_scope, _id), do: nil
 
   @impl true
   def handle_event("validate", _params, socket), do: {:noreply, socket}
@@ -76,12 +93,13 @@ defmodule ToreWeb.CaptureLive do
     if text == "" and images == [] do
       {:noreply, socket}
     else
-      %{current_scope: scope, session: session} = socket.assigns
+      %{current_scope: scope, session: session, recipe: recipe, messages: before} = socket.assigns
       bubble = user_bubble_for(text, length(images))
+      message = about(recipe, before, if(text == "", do: bubble.text, else: text))
 
       socket = socket |> assign(input: "") |> update(:messages, &(&1 ++ [bubble]))
 
-      case Pi.ask(scope, session, if(text == "", do: bubble.text, else: text), images: images) do
+      case Pi.ask(scope, session, message, images: images) do
         :ok ->
           {:noreply, assign(socket, loading: true, working: first_step(text, images))}
 
@@ -90,6 +108,14 @@ defmodule ToreWeb.CaptureLive do
       end
     end
   end
+
+  # A recipe's conversation says what it's about as it starts.
+  defp about(nil, _before, message), do: message
+
+  defp about(recipe, [], message),
+    do: "From the recipe page, about #{recipe.title} (recipe #{recipe.id}): #{message}"
+
+  defp about(_recipe, _before, message), do: message
 
   @impl true
   def handle_async(:history, {:ok, {:ok, bubbles}}, socket),
@@ -303,7 +329,11 @@ defmodule ToreWeb.CaptureLive do
       </div>
 
       <div class="flex items-center justify-between gap-3 px-4 pb-1">
-        <span class="t-eyebrow pl-1">{gettext("Ask Tore")}</span>
+        <span class="t-eyebrow pl-1 truncate">
+          {if @recipe,
+            do: gettext("About %{dish}", dish: @recipe.title),
+            else: gettext("Ask Tore")}
+        </span>
         <.link
           navigate={@return_to}
           aria-label={gettext("Close")}
@@ -338,9 +368,15 @@ defmodule ToreWeb.CaptureLive do
             class="reveal mt-3 max-w-[32ch] text-[color:var(--muted)]"
             style="--i: 1; font-size: 15px; line-height: 1.5;"
           >
-            {gettext(
-              "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
-            )}
+            {if @recipe,
+              do:
+                gettext(
+                  "Make it simpler, for six, or without something. This conversation is here when you come back to the recipe."
+                ),
+              else:
+                gettext(
+                  "Ask about dinner, add to the list, or send a photo of a receipt, a recipe or the fridge."
+                )}
           </p>
         </div>
         <div
