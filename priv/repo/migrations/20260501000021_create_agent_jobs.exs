@@ -6,6 +6,7 @@ defmodule Tore.Repo.Migrations.CreateAgentJobs do
       add :household_id, references(:households, on_delete: :delete_all), null: false
       add :task, :string, null: false
       add :week, :date
+      add :details, :text
       add :status, :string, null: false
       add :summary, :text
       add :cost_usd, :float, default: 0.0, null: false

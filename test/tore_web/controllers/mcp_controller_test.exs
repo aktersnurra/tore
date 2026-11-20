@@ -142,7 +142,7 @@ defmodule ToreWeb.McpControllerTest do
 
     test "signs in as its household, with no person" do
       household_id = home_scope().household_id
-      token = SessionToken.mint(household_id, "job-1", 60)
+      token = SessionToken.mint(Tore.Scope.for_household(household_id), "job-1", 60)
 
       conn = ToreWeb.McpAuth.call(build_conn() |> session(token), [])
 
@@ -151,14 +151,14 @@ defmodule ToreWeb.McpControllerTest do
 
     test "works with Pocket ID's MCP off", %{conn: conn} do
       Application.put_env(:tore, :mcp, [])
-      token = SessionToken.mint(home_scope().household_id, "job-1", 60)
+      token = SessionToken.mint(home_scope(), "job-1", 60)
 
       assert conn |> session(token) |> rpc("ping") |> json_response(200)
     end
 
     test "is refused once expired or altered", %{conn: conn} do
-      expired = SessionToken.mint(home_scope().household_id, "job-1", -1)
-      altered = SessionToken.mint(home_scope().household_id, "job-1", 60) <> "x"
+      expired = SessionToken.mint(home_scope(), "job-1", -1)
+      altered = SessionToken.mint(home_scope(), "job-1", 60) <> "x"
 
       for token <- [expired, altered] do
         assert conn |> session(token) |> rpc("ping") |> response(401)

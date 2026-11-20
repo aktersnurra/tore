@@ -101,7 +101,7 @@ defmodule Tore.Pi do
   """
   @spec messages(Scope.t(), session()) :: {:ok, [map()]} | {:error, term()}
   def messages(%Scope{} = scope, session) do
-    with :ok <- check(scope),
+    with true <- configured?() || {:error, :pi_off},
          {:ok, pid} <- ensure_started(scope, session),
          {:ok, %{"messages" => messages}} <- command(pid, %{type: "get_messages"}) do
       {:ok, messages}

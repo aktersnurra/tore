@@ -259,6 +259,27 @@ defmodule ToreWeb.HomeLiveTest do
       assert message =~ "From the Today screen, about tonight's dinner"
       assert message =~ Date.to_iso8601(Tore.Clock.today())
       assert message =~ "make it vegetarian"
+
+      # The chat used elsewhere afterwards doesn't write into the note.
+      assert eventually(fn -> not has_element?(view, ~s([data-role="pi-working"])) end)
+      session = "chat-#{user.id}"
+
+      send(
+        view.pid,
+        {:pi, session, %{"type" => "message_start", "message" => %{"role" => "assistant"}}}
+      )
+
+      send(
+        view.pid,
+        {:pi, session,
+         %{
+           "type" => "message_update",
+           "assistantMessageEvent" => %{"type" => "text_delta", "delta" => "Ett annat svar"}
+         }}
+      )
+
+      assert has_element?(view, ~s([data-role="pi-reply"]), "Klart.")
+      refute render(view) =~ "Ett annat svar"
     end
 
     test "escape closes the tonight sheet without dispatching", %{conn: conn} do

@@ -73,4 +73,31 @@ defmodule Tore.AgentTest do
     assert [%Job{task: "weekly_reflection", status: :succeeded}] = jobs.(home_scope())
     assert jobs.(unsponsored) == [] and jobs.(over_limit) == []
   end
+
+  describe "start/3" do
+    test "the same job isn't started again while it runs", %{pi_log: log} do
+      hold(log)
+
+      task = Task.async(fn -> Agent.start(home_scope(), "finish_recipe", "Recipe 1.") end)
+      wait_for(fn -> Repo.exists?(Job, household_id: 1) end)
+
+      assert :ok = Agent.start(home_scope(), "finish_recipe", "Recipe 1.")
+      release(log)
+      Task.await(task, 10_000)
+
+      assert [%Job{status: :succeeded, details: "Recipe 1."}] = Repo.all(Job, household_id: 1)
+    end
+  end
+
+  test "jobs left running when the app stopped are failed at boot, and can run again" do
+    week = ~D[2026-11-16]
+
+    Repo.insert!(%Job{household_id: 1, task: "plan_week", week: week, status: :running})
+    assert Agent.ran?(home_scope(), "plan_week", week)
+
+    assert :ok = Agent.fail_interrupted()
+
+    assert [%Job{status: :failed, summary: "interrupted"}] = Repo.all(Job, household_id: 1)
+    refute Agent.ran?(home_scope(), "plan_week", week)
+  end
 end

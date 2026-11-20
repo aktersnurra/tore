@@ -1,7 +1,7 @@
 defmodule Tore.Agent.Job do
   @moduledoc """
-  One harness job for a household: the task it ran, the week it was for when it has one, and
-  what came back. The job's writes are runs of their own; this row is the job's summary and cost.
+  One harness job for a household: the task it ran, the week it was for when it has one, what it
+  was told besides the task (`details`), and what came back. The job's writes are runs of their own; this row is the job's summary and cost.
   """
   use Ecto.Schema
 
@@ -9,6 +9,7 @@ defmodule Tore.Agent.Job do
     field :household_id, :integer
     field :task, :string
     field :week, :date
+    field :details, :string
     field :status, Ecto.Enum, values: [:running, :succeeded, :failed, :timed_out]
     field :summary, :string
     field :cost_usd, :float, default: 0.0

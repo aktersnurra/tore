@@ -194,7 +194,11 @@ defmodule Tore.Harness.Runs do
   @doc false
   # A supervisor child that sweeps once, after migrations and before anything can open a run.
   def start_sweep do
-    if Application.get_env(:tore, :fail_interrupted_runs_at_boot, true), do: fail_interrupted()
+    if Application.get_env(:tore, :fail_interrupted_runs_at_boot, true) do
+      fail_interrupted()
+      Tore.Agent.fail_interrupted()
+    end
+
     :ignore
   end
 

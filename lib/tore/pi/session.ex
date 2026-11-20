@@ -5,9 +5,10 @@ defmodule Tore.Pi.Session do
   the header with a fresh session token, then pi's RPC commands, and broadcasts every record pi
   writes to `Tore.Pi.topic/2` as `{:pi, session, event}`.
 
-  When a run settles, what its assistant messages cost goes into `llm_usage` as `pi_<kind>`, the
-  session name up to its first `-` (`chat-7` is `pi_chat`), so the household's monthly limit
-  sees it. An idle session stops after a while, and a session whose token is getting old is
+  When a run settles, or the session stops before it does (a timeout, pi exiting), what its
+  assistant messages cost goes into `llm_usage` as `pi_<kind>`, the session name up to its first
+  `-` (`chat-7` is `pi_chat`), so the household's monthly limit sees it. A small job's kind
+  (`@light_kinds`) runs on the light model. An idle session stops after a while, and a session whose token is getting old is
   started afresh before its next prompt.
 
   A command with an answer (`get_messages`) goes with an id; pi's response with that id is the
@@ -26,6 +27,8 @@ defmodule Tore.Pi.Session do
   # mid-run.
   @renew_s 90 * 60
   @max_line 4 * 1024 * 1024
+  # Small, frequent jobs: a three-way choice, or naming what a product is.
+  @light_kinds ~w(home_pick learn)
 
   def start_link({%Scope{} = scope, name}),
     do: GenServer.start_link(__MODULE__, {scope, name}, name: via(scope, name))
@@ -34,6 +37,9 @@ defmodule Tore.Pi.Session do
 
   @impl true
   def init({scope, name}) do
+    # So a supervisor's shutdown runs terminate/2, which counts what the run has spent.
+    Process.flag(:trap_exit, true)
+
     state = %{
       scope: scope,
       name: name,
@@ -98,7 +104,8 @@ defmodule Tore.Pi.Session do
   def handle_info(_message, state), do: {:noreply, state}
 
   @impl true
-  def terminate(_reason, %{port: port}) do
+  def terminate(_reason, %{port: port} = state) do
+    record_cost(state)
     if Port.info(port), do: Port.close(port)
     :ok
   end
@@ -136,12 +143,14 @@ defmodule Tore.Pi.Session do
   defp record_cost(state) do
     {:ok, _} =
       Costs.log_llm_usage(state.scope, %{
-        feature: "pi_" <> (state.name |> String.split("-") |> hd()),
+        feature: "pi_" <> kind(state),
         cost_usd: state.cost / 1
       })
 
     :ok
   end
+
+  defp kind(state), do: state.name |> String.split("-") |> hd()
 
   defp open(state) do
     config = Tore.Pi.config()
@@ -159,8 +168,12 @@ defmodule Tore.Pi.Session do
       household: state.scope.household_id,
       session: state.name,
       mcp_url: config[:mcp_url] || ToreWeb.Endpoint.url() <> "/mcp",
-      token: SessionToken.mint(state.scope.household_id, "pi-#{state.name}", @token_s),
-      model: config[:model]
+      token: SessionToken.mint(state.scope, "pi-#{state.name}", @token_s),
+      model:
+        if(kind(state) in @light_kinds,
+          do: config[:light_model] || config[:model],
+          else: config[:model]
+        )
     }
 
     state = Map.merge(state, %{port: port, opened_at: System.monotonic_time(:second)})

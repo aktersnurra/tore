@@ -70,7 +70,7 @@ defmodule ToreWeb.CaptureLive do
 
     images =
       consume_uploaded_entries(socket, :chat_photos, fn %{path: path}, entry ->
-        {:ok, {entry.client_type, File.read!(path)}}
+        {:ok, {MIME.from_path(entry.client_name), File.read!(path)}}
       end)
 
     if text == "" and images == [] do

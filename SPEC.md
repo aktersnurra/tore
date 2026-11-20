@@ -451,13 +451,19 @@ with its own description of the dish. There are two ways in, both an agent sessi
 | **The chat** | What the person types, and the screens that ask it: a day's sheet and "Plan the open days" on Plan, Today, Shop's sheets and its receipt photo, a link on Recipes (`ToreWeb.PiReply`), and Check in the sheet before cooking (`ToreWeb.BeforeCooking`). A screen's request starts "From the … screen" and says what was asked. | `chat-<user_id>` |
 | **Background jobs** | `harness/tasks/*.md`, run by `Tore.Agent`: `plan_week`, `weekly_reflection` and `find_recipes` on a schedule; `finish_recipe`, `prep_guide`, `learn` and `home_pick` when something needs them. | `<task>-<job id>` |
 
-The model is `TORE_PI_MODEL` (default `anthropic/claude-sonnet-5-5`) for both.
+The model is `TORE_PI_MODEL` (default `anthropic/claude-sonnet-5-5`), except for the small, frequent
+jobs, `home_pick` and `learn`, which run on `TORE_PI_LIGHT_MODEL` (default
+`anthropic/claude-haiku-5-5`). A job already running with the same task and details isn't started
+again, and jobs left running when the app stopped are failed at boot, so a schedule can run them
+again.
 
 **Hard rules.**
 
-- No call site picks a model. The model is set in runtime config.
+- No call site picks a model. The model is set in runtime config, per kind of session.
 - Usage is counted in `llm_usage` only, as `pi_<session kind>` (`pi_chat`, `pi_plan_week`), when a
-  session's run settles. A run holds none.
+  session's run settles or the session stops first. A run holds none.
+- A person's chat signs in to `/mcp` as that person, so what it changes is theirs; a background
+  job signs in as the household.
 - The household's monthly limit (`Tore.Pi.monthly_limit_usd/0`) gates every session
   (`Tore.Pi.check/1`) and is the runaway-cost guard.
 - Whatever pi writes goes through a tool, so a verifier checks it (§A.5). A tool's refusal is an
@@ -507,7 +513,7 @@ Status of everything Tore does, or is meant to do. Each built feature is describ
 | §10 Weekly budget | Built (2026-11-16), not yet tried on live ICA offers or receipts |
 | Recipe import from a link | Built: the Recipes screen sends the link to the chat; pi reads the page and saves it with `save_recipe`, with undo |
 | Recipes from the web or a photo | Built: pi reads the page or photos and saves with `save_recipe`. `find_recipes` runs every Thursday |
-| Changing a recipe | Built (2026-11-19): pi changes it with `update_recipe`, with undo; a `finish_recipe` job writes its steps and draws its picture |
+| Changing a recipe | Built (2026-11-19): pi changes it with `update_recipe`, with undo; tags it leaves out and running text someone wrote stay. A saved recipe takes its page's own photo when pi passes `image_url`; otherwise a `finish_recipe` job draws one, and writes its steps when it has none |
 | The app opens where the household needs it (`:home_pick_run`, §Interfaces) | Built (2026-11-11) |
 | Tore from someone's own Claude, over MCP (§Interfaces) | Built (2026-11-16), not yet tried against a deployed server |
 

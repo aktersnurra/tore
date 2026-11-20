@@ -5,7 +5,8 @@
 # with what it cost ($FAKE_PI_COST), settled. The reply is $FAKE_PI_REPLY, or "echo: <the
 # prompt>". get_messages answers the conversation so far, which starts as $FAKE_PI_HISTORY. With
 # $FAKE_PI_WAIT set, a prompt is answered only once that file exists, so a test can act while pi
-# works.
+# works. $FAKE_PI_WAIT_SETTLE holds it the same way after the assistant message, before settling, so
+# a test can stop a session that has spent something.
 set -eu
 IFS= read -r header
 printf '%s\n' "$header" >>"$FAKE_PI_LOG"
@@ -53,6 +54,12 @@ while IFS= read -r line; do
     jq -cn --arg t "$reply" --argjson c "${FAKE_PI_COST:-0.01}" \
       '{type: "message_end", message: {role: "assistant", content: [{type: "text", text: $t}], usage: {cost: {total: $c}}}}'
     remember "$(jq -cn --arg t "$reply" '{role: "assistant", content: [{type: "text", text: $t}]}')"
+
+    if [ -n "${FAKE_PI_WAIT_SETTLE:-}" ]; then
+      n=0
+      while [ ! -e "$FAKE_PI_WAIT_SETTLE" ] && [ "$n" -lt 500 ]; do sleep 0.02; n=$((n + 1)); done
+    fi
+
     jq -cn '{type: "agent_settled", aborted: false}'
     ;;
   esac

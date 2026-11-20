@@ -43,10 +43,11 @@ defmodule ToreWeb.PiReply do
   def dismiss(socket), do: Phoenix.Component.assign(socket, pi_reply: nil)
 
   @doc """
-  One of pi's events. Heard only while it answers something asked from this screen; what it says
-  now shows, and at the end its last words.
+  One of pi's events. Heard only while it answers something asked from this screen, so the chat
+  used elsewhere afterwards doesn't write into the note; what it says now shows, and at the end
+  its last words.
   """
-  def event(%{assigns: %{pi_reply: nil}} = socket, _event), do: socket
+  def event(%{assigns: %{pi_working: nil}} = socket, _event), do: socket
 
   def event(
         socket,

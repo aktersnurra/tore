@@ -28,12 +28,14 @@ config :tore, :ai_claim, System.get_env("AI_CLAIM", "tore_ai")
 # pi, the harness every AI request goes through (Tore.Pi): off unless TORE_PI_COMMAND names the
 # session launcher, such as "harness/pi-session" on this machine or
 # "ssh -i /var/db/tore/harness_key harness@172.16.0.11" for the harness machine.
-# TORE_PI_MCP_URL is /mcp as pi reaches it (default: the endpoint's).
+# TORE_PI_MCP_URL is /mcp as pi reaches it (default: the endpoint's). TORE_PI_LIGHT_MODEL runs the
+# small, frequent jobs: the home pick and learning names.
 if command = System.get_env("TORE_PI_COMMAND") do
   config :tore, :pi,
     command: OptionParser.split(command),
     mcp_url: System.get_env("TORE_PI_MCP_URL"),
-    model: System.get_env("TORE_PI_MODEL", "anthropic/claude-sonnet-5-5")
+    model: System.get_env("TORE_PI_MODEL", "anthropic/claude-sonnet-5-5"),
+    light_model: System.get_env("TORE_PI_LIGHT_MODEL", "anthropic/claude-haiku-5-5")
 end
 
 if config_env() == :prod do

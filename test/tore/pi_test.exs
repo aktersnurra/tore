@@ -129,4 +129,46 @@ defmodule Tore.PiTest do
     assert Pi.refusal_text(:pi_off) == nil
     assert Pi.refusal_text(:timeout) == nil
   end
+
+  test "a chat's token is its person's; a job's is the household's", %{pi_log: log} do
+    user = user_fixture()
+    person = %{home_scope() | user_id: user.id}
+
+    :ok = Pi.ask(person, Pi.chat_session(person), "hej")
+    :ok = Pi.ask(home_scope(), "plan_week-1", "plan")
+
+    wait_for(fn -> length(Enum.filter(pi_records(log), &Map.has_key?(&1, "token"))) == 2 end)
+    tokens = for %{"token" => t, "session" => s} <- pi_records(log), into: %{}, do: {s, t}
+
+    assert {:ok, %Tore.Scope{user_id: user_id}} = SessionToken.verify(tokens["chat-#{user.id}"])
+    assert user_id == user.id
+    assert {:ok, %Tore.Scope{user_id: nil}} = SessionToken.verify(tokens["plan_week-1"])
+  end
+
+  test "small jobs run on the light model", %{pi_log: log} do
+    :ok = Pi.ask(home_scope(), "home_pick-1", "pick")
+    :ok = Pi.ask(home_scope(), "plan_week-1", "plan")
+
+    wait_for(fn -> length(Enum.filter(pi_records(log), &Map.has_key?(&1, "model"))) == 2 end)
+    models = for %{"model" => m, "session" => s} <- pi_records(log), into: %{}, do: {s, m}
+
+    assert models == %{
+             "home_pick-1" => "anthropic/claude-haiku-5-5",
+             "plan_week-1" => "anthropic/claude-sonnet-5-5"
+           }
+  end
+
+  test "what a run spent is counted when it stops before settling", %{pi_log: log} do
+    hold_settle(log)
+
+    assert {:error, :timeout} = Pi.run(home_scope(), "plan_week-1", "plan", timeout: 300)
+    assert [{"pi_plan_week", 1, 0.01}] = Costs.llm_calls_this_month_by_feature(home_scope())
+  end
+
+  test "the chat's history shows when the household is over its budget" do
+    {:ok, _} =
+      Costs.log_llm_usage(home_scope(), %{feature: "seed", cost_usd: Pi.monthly_limit_usd()})
+
+    assert {:ok, _messages} = Pi.messages(home_scope(), "chat")
+  end
 end

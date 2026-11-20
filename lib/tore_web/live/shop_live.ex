@@ -36,7 +36,8 @@ defmodule ToreWeb.ShopLive do
      |> ToreWeb.PiReply.init()
      |> assign_dinners()
      |> allow_upload(:receipt_photo,
-       accept: ~w(.jpg .jpeg .png .webp .heic),
+       # What the model reads; an iPhone's camera sends JPEG to a web page, not HEIC.
+       accept: ~w(.jpg .jpeg .png .webp),
        max_entries: 1,
        max_file_size: 10_000_000,
        auto_upload: true,
@@ -49,7 +50,8 @@ defmodule ToreWeb.ShopLive do
   def handle_progress(:receipt_photo, %{done?: true} = entry, socket) do
     image =
       consume_uploaded_entry(socket, entry, fn %{path: path} ->
-        {:ok, {entry.client_type, File.read!(path)}}
+        # Some browsers leave the type empty; the name the upload accepted says it.
+        {:ok, {MIME.from_path(entry.client_name), File.read!(path)}}
       end)
 
     socket =

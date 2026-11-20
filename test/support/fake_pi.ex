@@ -25,7 +25,8 @@ defmodule Tore.FakePi do
     Application.put_env(:tore, :pi,
       command: [@command],
       mcp_url: "http://tore.test/mcp",
-      model: "anthropic/claude-sonnet-5-5"
+      model: "anthropic/claude-sonnet-5-5",
+      light_model: "anthropic/claude-haiku-5-5"
     )
 
     System.put_env("FAKE_PI_LOG", log)
@@ -42,7 +43,7 @@ defmodule Tore.FakePi do
           do: DynamicSupervisor.terminate_child(Tore.Pi.Sessions, pid)
 
       for var <-
-            ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST FAKE_PI_TOOL FAKE_PI_HISTORY FAKE_PI_WAIT),
+            ~w(FAKE_PI_LOG FAKE_PI_REPLY FAKE_PI_COST FAKE_PI_TOOL FAKE_PI_HISTORY FAKE_PI_WAIT FAKE_PI_WAIT_SETTLE),
           do: System.delete_env(var)
 
       File.rm(log)
@@ -53,8 +54,20 @@ defmodule Tore.FakePi do
     %{pi_log: log}
   end
 
+  @doc "Waits up to four seconds for `check` to hold, since the fake works in its own process."
+  def wait_for(check, tries \\ 200) do
+    cond do
+      check.() -> :ok
+      tries == 0 -> ExUnit.Assertions.flunk("still not true after waiting")
+      true -> Process.sleep(20) && wait_for(check, tries - 1)
+    end
+  end
+
   @doc "Makes the fake hold its answers until `release/1`."
   def hold(log), do: System.put_env("FAKE_PI_WAIT", log <> ".release")
+
+  @doc "Makes the fake hold before settling, after it has said what it cost, until `release/1`."
+  def hold_settle(log), do: System.put_env("FAKE_PI_WAIT_SETTLE", log <> ".release")
 
   @doc "Lets a held fake answer."
   def release(log), do: File.touch!(log <> ".release")

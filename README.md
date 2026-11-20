@@ -98,6 +98,7 @@ production, with every AI feature off.
 TORE_PI_COMMAND=harness/pi-session           # or an ssh command to the harness machine
 TORE_PI_MCP_URL=http://localhost:4000/mcp    # /mcp as pi reaches it (default: the endpoint's)
 TORE_PI_MODEL=anthropic/claude-sonnet-5-5    # the chat and background jobs
+TORE_PI_LIGHT_MODEL=anthropic/claude-haiku-5-5  # the home pick and learning names
 ```
 
 Recipe pictures are drawn by an image model through OpenRouter: set `OPENROUTER_API_KEY`, and

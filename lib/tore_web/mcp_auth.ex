@@ -5,8 +5,8 @@ defmodule ToreWeb.McpAuth do
   at the protected-resource metadata, so Claude can find Pocket ID and sign in. Accounts are made
   by signing in to the app, never here. The token is never logged.
 
-  A harness job's session token (`Tore.Mcp.SessionToken`) is tried first and signs in as its
-  household with no person. It works with Pocket ID's MCP off, since Tore issued it itself.
+  A pi session's token (`Tore.Mcp.SessionToken`) is tried first and signs in as its household,
+  and as the person whose chat it is (no person for a background job). It works with Pocket ID's MCP off, since Tore issued it itself.
   """
 
   import Plug.Conn
