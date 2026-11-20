@@ -61,6 +61,10 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Request parameters whose names hold these never reach a log: CSRF and session tokens,
+# secrets and keys, as well as passwords.
+config :phoenix, :filter_parameters, ["password", "secret", "token", "api_key"]
+
 # Port injection: the HTTP transport, injected per environment.
 config :tore, :http_client, Tore.Adapters.ReqHTTP
 

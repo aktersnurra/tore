@@ -20,9 +20,11 @@ if ! $GARAGE layout show 2>/dev/null | grep -qE "layout version: [1-9]"; then
   $GARAGE layout apply --version 1
 fi
 
-# 2. Access key — import the chosen .env creds only if our named key is absent.
+# 2. Access key — import the chosen .env creds only if our named key is absent. Its output shows
+# the key it imported, so it goes nowhere: a secret never reaches a terminal or a log.
 if ! $GARAGE key list 2>/dev/null | grep -q "$KEY_NAME"; then
-  $GARAGE key import --yes -n "$KEY_NAME" "$GARAGE_ACCESS_KEY_ID" "$GARAGE_SECRET_ACCESS_KEY"
+  $GARAGE key import --yes -n "$KEY_NAME" "$GARAGE_ACCESS_KEY_ID" "$GARAGE_SECRET_ACCESS_KEY" >/dev/null
+  echo "Garage key $KEY_NAME imported."
 fi
 
 # 3. Buckets — create + grant (guarded; create is a no-op if it already exists).
