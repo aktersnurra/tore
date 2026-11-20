@@ -984,7 +984,12 @@ defmodule ToreWeb.RecipeLive do
           </p>
 
           <%!-- What you can do with it --%>
-          <div data-role="actions" class="reveal mt-6 flex flex-wrap gap-2" style="--i: 4">
+          <%!-- On a phone the main action is the width of the page, the others a row under it. --%>
+          <div
+            data-role="actions"
+            class="reveal mt-6 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap [&>:first-child]:col-span-2 [&>:nth-child(2):last-child]:col-span-2"
+            style="--i: 4"
+          >
             <.link
               :if={@home.missing == []}
               navigate={~p"/recipes/#{@selected.id}/cook?#{[servings: @servings]}"}

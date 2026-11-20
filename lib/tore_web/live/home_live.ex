@@ -189,7 +189,11 @@ defmodule ToreWeb.HomeLive do
                 </div>
               </dl>
 
-              <div class="reveal mt-5 flex flex-wrap gap-2" style="--i: 3">
+              <%!-- On a phone the main action is the width of the page, the others a row under it. --%>
+              <div
+                class="reveal mt-5 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap [&>:first-child]:col-span-2 [&>:nth-child(2):last-child]:col-span-2"
+                style="--i: 3"
+              >
                 <.link
                   :if={@day == :tomorrow}
                   navigate={~p"/recipes?#{[id: @dish.id]}"}

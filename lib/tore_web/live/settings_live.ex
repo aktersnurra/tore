@@ -187,6 +187,7 @@ defmodule ToreWeb.SettingsLive do
   defp memory_part_label("profile"), do: gettext("Your household")
   defp memory_part_label("notes"), do: gettext("Notes")
 
+  defp feature_label("deal_picks"), do: gettext("Sorting offers")
   defp feature_label("pi_learn"), do: gettext("Pantry item matching")
   defp feature_label("pi_prep_guide"), do: gettext("Prep guide")
   defp feature_label("pi_home_pick"), do: gettext("Home screen pick")
@@ -489,19 +490,10 @@ defmodule ToreWeb.SettingsLive do
                 type="button"
                 role="switch"
                 aria-checked={to_string(@sponsoring)}
+                aria-label={gettext("Use my credits for this household")}
                 phx-click="toggle_ai_sponsor"
-                class={[
-                  "font-medium hover:underline",
-                  if(@sponsoring,
-                    do: "text-[color:var(--accent)]",
-                    else: "text-[color:var(--muted)]"
-                  )
-                ]}
-                style="font-size: var(--t-meta);"
+                class="switch shrink-0"
               >
-                {if @sponsoring,
-                  do: gettext("On"),
-                  else: gettext("Off")}
               </button>
             </div>
             <p
