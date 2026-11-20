@@ -1282,6 +1282,12 @@ Tore kitchen pages artifact.
 - The top bar names the page; there's no title repeating it. Then "Vecka 47 · 16–22
   november", the one sentence "Veckan landar runt 972 kr", and a tag: "72 kr över budget"
   (red) or "226 kr under budget" (green). No budget, no tag.
+- Once a forecast with a range has earned the page (SPEC.md, "Forecast": it beat the one below
+  over the last weeks and its range held about 80 % of the time), the sentence is the range,
+  to the ten kronor, wide side out: "Veckan landar på 940–1 010 kr". Once the simulation has
+  earned it, a muted "12 % risk att gå över budget" sits beside the tag (1–99 %, never a sure
+  thing). Which forecast has earned it is worked out after the page opens, so until then, and
+  until there is history, the page reads as above.
 - Four numbers, two by two on a phone, in a row on a laptop: **Budget** (tap the number or
   its pencil to change it in place; it becomes the household's budget and a week's own gives
   way to it; blank means none), **Betalt hittills** (receipts towards this week), **Kvar

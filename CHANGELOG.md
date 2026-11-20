@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Budget forecast (2026-11-20)
+
+- What a week will cost is now a ladder of forecasts, each worked out from what Tore knew at a moment, so any past week can be predicted as it stood on its Monday and every forecast scored against what was really paid.
+- Above the open-days estimate: one that learns how the household's spend scales with its plan, one that follows a shop growing dearer week by week, one that learns which listed things actually get bought, and one that runs the week 2000 times.
+- A forecast drives Veckobudget only once it beats the one below it over the last weeks and its range held about 80 % of the time. Then the page says "Veckan landar på 940–1 010 kr", and from the simulation "12 % risk att gå över budget". Everywhere else still uses the open-days estimate.
+- Tore can ask over MCP what the week would cost with its plan changed (`what_if`); nothing is saved.
+- No real history yet, so the page reads as before until about eight weeks of receipts exist.
+
 ### Optional lunches (2026-11-20)
 
 - Any day can have a lunch, never by default: weekends, Swedish public holidays and days off offer a faint "+ Lunch" above the dinner on Plan, and any day's sheet adds one. A planned lunch is one quiet line.
