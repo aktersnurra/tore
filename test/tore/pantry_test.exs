@@ -520,7 +520,7 @@ defmodule Tore.PantryTest do
       buy.("Vetemjöl", "dry_goods")
       buy.("Grädde", "dairy")
 
-      used = Pantry.use_up(home_scope(), ["lax", "vetemjöl", "dill"])
+      used = Pantry.use_up(home_scope(), uses(["lax", "vetemjöl", "dill"]))
 
       assert Enum.map(used, & &1.name) == ["lax"]
       assert Pantry.at_home(home_scope(), ["lax", "vetemjöl", "grädde"]).missing == ["lax"]
@@ -528,10 +528,52 @@ defmodule Tore.PantryTest do
       :ok = Pantry.put_back(home_scope(), used)
       assert Pantry.at_home(home_scope(), ["lax"]).missing == []
 
-      Pantry.use_up(home_scope(), ["lax"])
+      Pantry.use_up(home_scope(), uses(["lax"]))
       buy.("Lax", "meat")
       assert Pantry.at_home(home_scope(), ["lax"]).missing == []
     end
+
+    test "a dinner takes its amounts off what's at home, in any unit of the same kind" do
+      have = fn name, category, quantity, unit ->
+        {:ok, _, _, _} =
+          Pantry.upsert_belief(home_scope(), %{
+            catalogue_name: name,
+            category: category,
+            quantity: Decimal.new(quantity),
+            unit: unit,
+            provenance: "manual"
+          })
+      end
+
+      have.("Spaghetti", "dry_goods", "1", "kg")
+      have.("Mjölk", "dairy", "1", "l")
+      have.("Ägg", "dairy", "6", "st")
+
+      used =
+        Pantry.use_up(home_scope(), [
+          %{name: "spaghetti", quantity: Decimal.new(500), unit: "g"},
+          %{name: "mjölk", quantity: Decimal.new(1), unit: "dl"},
+          # A count and a weight don't compare: what's fresh is taken as used up.
+          %{name: "ägg", quantity: Decimal.new(100), unit: "g"}
+        ])
+
+      left = fn -> Map.new(Pantry.list_inventory(home_scope()), &{&1.name, &1}) end
+
+      assert %{quantity: half, unit: "kg", belief: "confirmed"} = left.()["spaghetti"]
+      assert Decimal.equal?(half, "0.5")
+      assert Decimal.equal?(left.()["mjölk"].quantity, "0.9")
+      assert left.()["ägg"].belief == "missing"
+
+      :ok = Pantry.put_back(home_scope(), used)
+      assert Decimal.equal?(left.()["spaghetti"].quantity, 1)
+      assert left.()["ägg"].belief == "confirmed"
+
+      # More than there is: it's gone.
+      Pantry.use_up(home_scope(), [%{name: "spaghetti", quantity: Decimal.new(1200), unit: "g"}])
+      assert Pantry.at_home(home_scope(), ["spaghetti"]).missing == ["spaghetti"]
+    end
+
+    defp uses(names), do: Enum.map(names, &%{name: &1, quantity: nil, unit: nil})
   end
 
   describe "Hemma: putting away, still there, gone" do

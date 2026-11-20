@@ -242,6 +242,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .field > input::placeholder, .field > textarea::placeholder { color: var(--muted); }
 .field > input:focus-visible, .field > textarea:focus-visible { outline: none; }
 .field-area { align-items: flex-start; }
+/* A field inside a row (what's left, on Hemma): only open while typing, so always the blue. */
+.inline-field {
+  height: 32px; padding-inline: 8px;
+  border: 1px solid var(--tag-blue-ink); border-radius: var(--r-sm);
+  background: transparent; color: var(--text);
+  font-size: 16px; /* or iOS zooms in on it */
+}
+.inline-field:focus-visible { outline: none; }
 
 /* A field that sends, like the chat's box: a fill and no border while typing. Red still shows. */
 .field.field-send, .field.field-send:focus-within { border-color: transparent; border-radius: 20px; }

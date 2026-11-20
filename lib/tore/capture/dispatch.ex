@@ -379,9 +379,12 @@ defmodule Tore.Capture.Dispatch do
 
   # ── plan-slot adjustments ──────────────────────────────────────────────
 
+  # Cooked without cook mode: what the dish takes, as written, comes off the pantry as Done does.
   @spec mark_recipe_cooked(integer(), ctx()) :: bubble()
   def mark_recipe_cooked(recipe_id, ctx) when is_integer(recipe_id) do
+    recipe = Recipes.get!(ctx.scope, recipe_id)
     :ok = Recipes.record_used(ctx.scope, recipe_id)
+    _used = Tore.Pantry.use_up(ctx.scope, Recipes.uses(recipe, recipe.base_servings))
 
     %{
       role: :assistant,

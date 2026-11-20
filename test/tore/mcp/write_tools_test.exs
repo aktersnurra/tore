@@ -287,6 +287,18 @@ defmodule Tore.Mcp.WriteToolsTest do
     assert %{"done" => _} = ok(scope, "mark_cooked", %{"recipe_id" => pasta.id})
     assert Recipes.get(scope, pasta.id).last_used_at
 
+    # Cooked without Tore: what the dish used is taken from the pantry, as Done does.
+    {:ok, lax} =
+      Recipes.create(scope, %{
+        title: "Lax",
+        recipe_type: :meal,
+        ingredients: [%{name: "Lax", quantity: "500", unit: "g"}]
+      })
+
+    {:ok, _} = Pantry.add_item(scope, %{name: "lax"})
+    assert %{"done" => _} = ok(scope, "mark_cooked", %{"recipe_id" => lax.id})
+    assert Pantry.at_home(scope, ["lax"]).missing == ["lax"]
+
     assert %{"done" => _} = ok(scope, "delete_recipe", %{"recipe_id" => pasta.id})
     assert Recipes.get(scope, pasta.id) == nil
 

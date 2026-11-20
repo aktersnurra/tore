@@ -685,6 +685,14 @@ or confirming it starts over. What's only for cooking changes only when a dinner
 household says so. Spent from the household's AI budget, with its sponsor; without one nothing decays
 by itself.
 
+**Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
+`Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same
+kind (`Tore.Prices.Units`: weights, volumes, counts), the recipe's is taken off and what runs out is
+`missing`; otherwise the old rule holds (gone, except dry goods, spices and condiments). Done in cook
+mode does this with Undo, and so does `mark_cooked` from the chat. Used without cooking through Tore:
+on Hemma a tap on the amount says what's left (`Tore.Pantry.set_left/4`; nothing left is gone), and
+in the chat pi calls `add_to_pantry` with `seen` and what's left.
+
 **Demotion:**
 
 - There is no pantry screen (2026-11-15). The chat shows and corrects it.

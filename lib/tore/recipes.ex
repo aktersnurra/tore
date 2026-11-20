@@ -263,6 +263,20 @@ defmodule Tore.Recipes do
   defp split_names(joined), do: String.split(joined, @fp_sep)
 
   @doc """
+  What cooking `recipe` (its ingredients loaded) for `servings` takes from the pantry, for
+  `Tore.Pantry.use_up/2`: each ingredient with its amount scaled.
+  """
+  @spec uses(Recipe.t(), pos_integer()) :: [Tore.Pantry.use()]
+  def uses(%Recipe{} = recipe, servings) do
+    for ri <- recipe.recipe_ingredients,
+        do: %{
+          name: ri.ingredient.name,
+          quantity: scale_quantity(ri.quantity, recipe.base_servings, servings),
+          unit: ri.unit
+        }
+  end
+
+  @doc """
   An ingredient amount for `servings` when the recipe is written for `base`: whole numbers from
   10 up, one decimal below, so 200 g for 4 is 300 g for 6 and 1 egg for 4 is 1.5 for 6.
   """

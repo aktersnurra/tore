@@ -70,6 +70,25 @@ defmodule ToreWeb.PantryLiveTest do
     refute has_element?(view, row <> ~s( [data-role="ask"]))
   end
 
+  test "tapping a thing's amount says what's left of it; nothing left is gone", %{conn: conn} do
+    pasta = kept("Spaghetti", "dry_goods", %{quantity: Decimal.new(1), unit: "kg"})
+    row = ~s([data-item="#{pasta.id}"])
+
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+    assert view |> element(row <> ~s( [data-role="left"])) |> render() =~ "1 kg"
+
+    view |> element(row <> ~s( [data-role="left"])) |> render_click()
+    view |> form("#left-#{pasta.id}", %{left: "400 g"}) |> render_submit()
+
+    assert view |> element(row <> ~s( [data-role="left"])) |> render() =~ "400 g"
+    [left] = Pantry.list_inventory(home_scope())
+    assert {Decimal.to_string(left.quantity, :normal), left.unit} == {"400", "g"}
+
+    view |> element(row <> ~s( [data-role="left"])) |> render_click()
+    view |> form("#left-#{pasta.id}", %{left: "0"}) |> render_submit()
+    assert has_element?(view, ~s([data-group="gone"] ) <> row)
+  end
+
   test "a line typed in is put away, with its amount", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/pantry")
 

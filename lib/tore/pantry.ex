@@ -316,45 +316,95 @@ defmodule Tore.Pantry do
   # What outlasts one dinner: the flour, the spices, the soy sauce.
   @lasts ~w(dry_goods herbs_spices condiments)
 
-  @typedoc "What `use_up/2` changed, so `put_back/2` can undo it."
-  @type used :: %{id: integer(), name: String.t(), belief: String.t(), last_seen_at: DateTime.t()}
+  @typedoc "An ingredient a dinner took, with how much when the recipe says."
+  @type use :: %{name: String.t(), quantity: Decimal.t() | nil, unit: String.t() | nil}
+
+  @typedoc "What `use_up/2` changed, so `put_back/2` can undo it; `gone` when it ran out."
+  @type used :: %{
+          id: integer(),
+          name: String.t(),
+          belief: String.t(),
+          last_seen_at: DateTime.t(),
+          quantity: Decimal.t() | nil,
+          gone: boolean()
+        }
 
   @doc """
-  A dinner was cooked with `names`: what the pantry held of them is believed missing now, except
+  A dinner was cooked with `uses`. Where the pantry's amount and the dinner's are in units of the
+  same kind (`Tore.Prices.Units`: weights, volumes or counts), the dinner's is taken off, and what
+  it ran out of is believed missing. Otherwise what the pantry held is believed missing, except
   what outlasts a dinner (dry goods, spices, condiments). Buying it again brings it back, as any
   stronger belief does. Returns what changed, for `put_back/2`.
   """
-  @spec use_up(Scope.t(), [String.t()]) :: [used()]
-  def use_up(%Scope{} = scope, names) do
-    keys = MapSet.new(names, &Ingredient.to_key/1)
+  @spec use_up(Scope.t(), [use()]) :: [used()]
+  def use_up(%Scope{} = scope, uses) do
+    wanted = Map.new(uses, &{Ingredient.to_key(&1.name), &1})
+    now = now()
 
-    items =
-      scope
-      |> list_usable()
-      |> Repo.preload(:ingredient)
-      |> Enum.filter(&(Ingredient.to_key(&1.name) in keys and not lasts?(&1)))
+    scope
+    |> list_usable()
+    |> Repo.preload(:ingredient)
+    |> Enum.flat_map(fn item ->
+      case Map.fetch(wanted, Ingredient.to_key(item.name)) do
+        {:ok, use} -> take(scope, item, left(item, use), now)
+        :error -> []
+      end
+    end)
+  end
 
-    ids = Enum.map(items, & &1.id)
+  defp take(_scope, _item, :lasts, _now), do: []
+
+  defp take(scope, item, left, now) do
+    set =
+      case left do
+        {:left, quantity} -> [quantity: quantity, last_seen_at: now]
+        :gone -> [belief: "missing", last_seen_at: now]
+      end
 
     Repo.update_all(
-      from(p in PantryItem, where: p.id in ^ids),
-      [set: [belief: "missing", last_seen_at: now()]],
+      from(p in PantryItem, where: p.id == ^item.id),
+      [set: set],
       Scope.repo_opts(scope)
     )
 
-    Enum.map(items, &Map.take(&1, [:id, :name, :belief, :last_seen_at]))
+    [
+      item
+      |> Map.take([:id, :name, :belief, :last_seen_at, :quantity])
+      |> Map.put(:gone, left == :gone)
+    ]
   end
+
+  # What's left of `item` once `use` is taken, in the item's own unit.
+  defp left(%PantryItem{quantity: %Decimal{} = have} = item, %{quantity: %Decimal{} = need} = use) do
+    with {have, base} <- Tore.Prices.Units.to_base(have, item.unit),
+         {need, ^base} <- Tore.Prices.Units.to_base(need, use.unit) do
+      remaining = Decimal.sub(have, need)
+
+      if Decimal.compare(remaining, 0) == :gt do
+        {per_unit, _base} = Tore.Prices.Units.to_base(Decimal.new(1), item.unit)
+        {:left, remaining |> Decimal.div(per_unit) |> Decimal.round(3) |> Decimal.normalize()}
+      else
+        :gone
+      end
+    else
+      _not_comparable -> whole(item)
+    end
+  end
+
+  defp left(item, _use), do: whole(item)
+
+  defp whole(item), do: if(lasts?(item), do: :lasts, else: :gone)
 
   defp lasts?(%PantryItem{ingredient: %Ingredient{category: category}}), do: category in @lasts
   defp lasts?(_item), do: false
 
-  @doc "Undoes `use_up/2`: each row's belief as it was."
+  @doc "Undoes `use_up/2`: each row's belief and amount as they were."
   @spec put_back(Scope.t(), [used()]) :: :ok
   def put_back(%Scope{} = scope, used) do
-    for %{id: id, belief: belief, last_seen_at: seen} <- used do
+    for %{id: id, belief: belief, last_seen_at: seen} = row <- used do
       Repo.update_all(
         from(p in PantryItem, where: p.id == ^id),
-        [set: [belief: belief, last_seen_at: seen]],
+        [set: [belief: belief, last_seen_at: seen, quantity: row[:quantity]]],
         Scope.repo_opts(scope)
       )
     end
@@ -416,6 +466,29 @@ defmodule Tore.Pantry do
   def mark_gone(%Scope{} = scope, item_id) do
     with {:ok, item} <- fetch_item(scope, item_id) do
       item |> Ecto.Changeset.change(belief: "missing", last_seen_at: now()) |> Repo.update()
+    end
+  end
+
+  @doc """
+  What's left of it, said by the household (some used without cooking through Tore): sure now,
+  in the unit given, or its own when none is. Nothing left is gone.
+  """
+  @spec set_left(Scope.t(), integer(), Decimal.t(), String.t() | nil) ::
+          {:ok, PantryItem.t()} | {:error, :not_found}
+  def set_left(%Scope{} = scope, item_id, %Decimal{} = quantity, unit) do
+    if Decimal.compare(quantity, 0) == :gt do
+      with {:ok, item} <- fetch_item(scope, item_id) do
+        item
+        |> Ecto.Changeset.change(
+          quantity: quantity,
+          unit: unit || item.unit,
+          belief: "confirmed",
+          last_seen_at: now()
+        )
+        |> Repo.update()
+      end
+    else
+      mark_gone(scope, item_id)
     end
   end
 

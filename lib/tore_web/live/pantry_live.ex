@@ -19,7 +19,7 @@ defmodule ToreWeb.PantryLive do
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(asking: nil, photo_for: nil)
+     |> assign(asking: nil, photo_for: nil, editing_left: nil)
      |> allow_upload(:item_photo,
        accept: ~w(.jpg .jpeg),
        max_entries: 1,
@@ -61,6 +61,22 @@ defmodule ToreWeb.PantryLive do
      socket
      |> assign(photo_for: nil)
      |> put_flash(:error, gettext("Couldn't read that photo. Try another."))}
+  end
+
+  def handle_event("edit_left", %{"id" => id}, socket),
+    do: {:noreply, assign(socket, editing_left: String.to_integer(id))}
+
+  def handle_event("cancel_left", _params, socket),
+    do: {:noreply, assign(socket, editing_left: nil)}
+
+  # What's left, as "400 g" or "2"; something that isn't an amount leaves it as it was.
+  def handle_event("set_left", %{"id" => id, "left" => text}, socket) do
+    with {:ok, quantity, unit} <- Tore.Shop.parse_amount(text) do
+      {:ok, _item} =
+        Pantry.set_left(socket.assigns.current_scope, String.to_integer(id), quantity, unit)
+    end
+
+    {:noreply, socket |> assign(editing_left: nil) |> load()}
   end
 
   def handle_event("ask", %{"id" => id}, socket),
@@ -175,16 +191,21 @@ defmodule ToreWeb.PantryLive do
       count_line(kept, 0) <>
         " · " <> ngettext("%{count} going off soon", "%{count} going off soon", soon)
 
-  defp sub_line(%PantryItem{quantity: %Decimal{} = quantity, unit: unit}) do
-    [quantity |> Decimal.normalize() |> Decimal.to_string(:normal), unit]
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.join(" ")
-  end
+  defp sub_line(%PantryItem{quantity: %Decimal{}} = item), do: amount(item)
 
   defp sub_line(%PantryItem{added_at: %Date{} = added}),
     do: gettext("bought %{day}", day: ToreWeb.Dates.day(added))
 
   defp sub_line(_item), do: nil
+
+  # "400 g", as the field takes it back.
+  defp amount(%PantryItem{quantity: %Decimal{} = quantity, unit: unit}) do
+    [quantity |> Decimal.normalize() |> Decimal.to_string(:normal), unit]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" ")
+  end
+
+  defp amount(_item), do: ""
 
   @impl true
   def render(assigns) do
@@ -332,12 +353,40 @@ defmodule ToreWeb.PantryLive do
                 ]}>
                   {row.item.name}
                 </span>
-                <span
-                  :if={sub_line(row.item)}
-                  class="num block truncate text-[12.5px] text-[color:var(--muted)]"
+                <%!-- The amount: tap it to say what's left --%>
+                <form
+                  :if={@editing_left == row.item.id}
+                  id={"left-#{row.item.id}"}
+                  phx-submit="set_left"
+                  phx-window-keydown="cancel_left"
+                  phx-key="Escape"
+                  class="settle"
                 >
-                  {sub_line(row.item)}
-                </span>
+                  <input type="hidden" name="id" value={row.item.id} />
+                  <input
+                    type="text"
+                    name="left"
+                    value={amount(row.item)}
+                    placeholder={gettext("How much is left?")}
+                    aria-label={gettext("How much is left?")}
+                    enterkeyhint="done"
+                    autocomplete="off"
+                    phx-mounted={JS.focus()}
+                    class="inline-field num mt-0.5 w-40"
+                  />
+                  <button type="submit" class="sr-only">{gettext("Save")}</button>
+                </form>
+                <button
+                  :if={@editing_left != row.item.id}
+                  type="button"
+                  phx-click="edit_left"
+                  phx-value-id={row.item.id}
+                  data-role="left"
+                  aria-label={gettext("How much is left of %{name}?", name: row.item.name)}
+                  class="num press block max-w-full truncate text-left text-[12.5px] text-[color:var(--muted)] hover:text-[color:var(--text)]"
+                >
+                  {sub_line(row.item) || gettext("How much is left?")}
+                </button>
               </span>
               <.status row={row} asking={@asking == row.item.id} />
             </li>

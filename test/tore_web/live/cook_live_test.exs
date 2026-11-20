@@ -143,6 +143,52 @@ defmodule ToreWeb.CookLiveTest do
     refute Recipes.get!(home_scope(), recipe.id).last_used_at
   end
 
+  test "Done takes the amounts cooked off what's at home; only what ran out is said to be out", %{
+    conn: conn
+  } do
+    {:ok, dish} =
+      Recipes.create(home_scope(), %{
+        title: "Spaghetti",
+        recipe_type: :meal,
+        base_servings: 4,
+        steps:
+          Jason.encode!([
+            %{
+              "phase" => "TILLAGNING",
+              "order" => 1,
+              "action" => "Koka spaghettin med vitlöken",
+              "ingredients" => ["spaghetti", "vitlök"],
+              "duration_minutes" => nil
+            }
+          ]),
+        ingredients: [
+          %{name: "Spaghetti", quantity: "400", unit: "g"},
+          %{name: "Vitlök", quantity: "2", unit: "klyftor"}
+        ]
+      })
+
+    {:ok, _, _, _} =
+      Tore.Pantry.upsert_belief(home_scope(), %{
+        catalogue_name: "Spaghetti",
+        quantity: Decimal.new(1),
+        unit: "kg",
+        provenance: "manual"
+      })
+
+    {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vitlök"})
+
+    # Cooked for two: half the recipe.
+    {:ok, view, _html} = live(conn, ~p"/recipes/#{dish.id}/cook?step=2&servings=2")
+    assert eventually(view, "Koka spaghettin med vitlöken")
+    html = view |> element(~s([data-role="done"])) |> render_click()
+
+    assert html =~ "Slut hemma nu: vitlök."
+    refute html =~ "spaghetti."
+
+    [spaghetti] = Enum.filter(Tore.Pantry.list_inventory(home_scope()), &(&1.name == "spaghetti"))
+    assert Decimal.equal?(spaghetti.quantity, "0.8")
+  end
+
   test "a reload lands on the same card", %{conn: conn, recipe: recipe} do
     {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
 

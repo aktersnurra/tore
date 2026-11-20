@@ -187,6 +187,14 @@ defmodule Tore.ShopTest do
     assert annotated.pantry_belief == nil
   end
 
+  test "parse_amount/1 reads an amount on its own, with or without its unit" do
+    assert Shop.parse_amount("400 g") == {:ok, Decimal.new("400"), "g"}
+    assert Shop.parse_amount(" 1,5 KG ") == {:ok, Decimal.new("1.5"), "kg"}
+    assert Shop.parse_amount("2") == {:ok, Decimal.new("2"), nil}
+    assert Shop.parse_amount("halv") == :error
+    assert Shop.parse_amount("2 l mjölk") == :error
+  end
+
   describe "parse_line/1" do
     test "reads an amount, a unit and the name, as people type them" do
       assert Shop.parse_line("2 l mjölk") == {"mjölk", Decimal.new("2"), "l"}

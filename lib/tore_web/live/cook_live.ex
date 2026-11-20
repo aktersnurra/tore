@@ -114,21 +114,22 @@ defmodule ToreWeb.CookLive do
     {:noreply, update(socket, :timers, &(&1 ++ [timer]))}
   end
 
-  # Done: the dish was cooked tonight, and what it used is gone from the pantry, the swaps'
-  # in place of what they stood for. Undo puts both back.
+  # Done: the dish was cooked tonight, and what it used, for the servings cooked, is taken from
+  # the pantry, the swaps' in place of what they stood for (their amounts are words, so a swap
+  # counts as used up). Undo puts both back.
   def handle_event("done", _params, %{assigns: %{done: nil}} = socket) do
-    %{current_scope: scope, recipe: recipe, swaps: swaps} = socket.assigns
+    %{current_scope: scope, recipe: recipe, servings: servings, swaps: swaps} = socket.assigns
 
-    names =
-      Enum.map(recipe.recipe_ingredients, fn ri ->
-        case Enum.find(swaps, &same_name?(&1.for, ri.ingredient.name)) do
-          nil -> ri.ingredient.name
-          swap -> swap.use
+    uses =
+      for use <- Recipes.uses(recipe, servings) do
+        case Enum.find(swaps, &same_name?(&1.for, use.name)) do
+          nil -> use
+          swap -> %{name: swap.use, quantity: nil, unit: nil}
         end
-      end)
+      end
 
     :ok = Recipes.record_used(scope, recipe.id)
-    used = Tore.Pantry.use_up(scope, names)
+    used = Tore.Pantry.use_up(scope, uses)
     # Tomorrow is what's next now, so Today's note is worth picking again.
     Tore.Home.refresh(scope)
     {:noreply, assign(socket, done: %{used: used, was: recipe.last_used_at})}
@@ -150,14 +151,17 @@ defmodule ToreWeb.CookLive do
 
   defp done_card(nil), do: nil
 
+  # Says what ran out; what's only less now goes unsaid.
   defp done_card(%{used: used}) do
+    gone = Enum.filter(used, & &1.gone)
+
     %{
       text: gettext("Cooked"),
       needs:
-        if(used == [],
+        if(gone == [],
           do: [],
           else: [
-            gettext("Used up at home: %{things}.", things: Enum.map_join(used, ", ", & &1.name))
+            gettext("Used up at home: %{things}.", things: Enum.map_join(gone, ", ", & &1.name))
           ]
         ),
       undo: "undo_done"

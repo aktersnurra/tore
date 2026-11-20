@@ -10,6 +10,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ### The pantry knows what's eaten (2026-11-20)
 
 - What's eaten between meals (milk, bread, yoghurt) is believed eaten over time, with no one telling Tore: Jev judges once per ingredient how fast it goes, and your own buying rhythm takes over once Tore knows it. Pasta, spices and what's only for cooking no longer go unsure with age.
+- Cooking takes its amounts off what's at home: 400 g of spaghetti from a 1 kg bag leaves 600 g (for the servings cooked; grams and kilos, decilitres and litres, pieces). Only what ran out is said to be out. Telling Tore you cooked something does the same, and on Hemma a tap on an amount says what's left.
 
 ### Settings, Ask Tore on Today, recipes in the chat (2026-11-20)
 

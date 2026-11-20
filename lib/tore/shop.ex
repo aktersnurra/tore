@@ -36,6 +36,20 @@ defmodule Tore.Shop do
     end
   end
 
+  @amount ~r/^(\d+(?:[.,]\d+)?)\s*(?:(#{Enum.join(@units, "|")})\.?)?$/iu
+
+  @doc "An amount on its own, as \"400 g\" or \"2\": `{:ok, quantity, unit}` (unit lower-cased)."
+  @spec parse_amount(String.t()) :: {:ok, Decimal.t(), String.t() | nil} | :error
+  def parse_amount(text) do
+    case Regex.run(@amount, String.trim(text)) do
+      [_, amount] -> {:ok, decimal(amount), nil}
+      [_, amount, unit] -> {:ok, decimal(amount), String.downcase(unit)}
+      nil -> :error
+    end
+  end
+
+  defp decimal(amount), do: amount |> String.replace(",", ".") |> Decimal.new()
+
   @doc """
   For each ingredient key (`Ingredient.to_key/1`), the first meal on the week's plan from `today`
   on that needs it, a lunch before that day's dinner: `%{date:, title:}`. Derived from the plan,
