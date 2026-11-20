@@ -242,9 +242,11 @@ The week of dinners is a *matsedel*, the typed weekly menu, and the screens are 
   ⋯ sit on the page above it; the other properties follow below.
 - **A laptop's width is used, not left as margin** (2026-11-20). Today has the recipe page's
   split: the name, details and buttons on the left, the whole cover on the right. Shop's list
-  is one column and the month's spending another. Veckobudget is two columns on a laptop (the
-  chart and where the money went beside the receipts) and three on a wide screen, so the chart
-  stays near a phone's scale. Veckobudget, Erbjudanden and Shop are as wide as Recipes; Plan and
+  is one column and the month's spending another; on a wide screen the list's sections run down
+  two columns in the store's order, each kept whole. Veckobudget is two columns on a laptop (the
+  chart and where the money went beside the receipts); on a wide screen the chart takes the full
+  width, drawn wide so its text stays a phone's size, with where the money went and the receipts
+  as two equal columns under it. Veckobudget, Erbjudanden and Shop are as wide as Recipes; Plan and
   Hemma a step wider than before. Settings and the forms stay a reading column. A phone sees
   no change.
 - **One palette, two lights.** Papper: ink on white, graphite when the phone is dark

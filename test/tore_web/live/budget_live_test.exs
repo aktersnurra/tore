@@ -91,9 +91,13 @@ defmodule ToreWeb.BudgetLiveTest do
       assert view |> element(~s([data-role="kpi-average"])) |> render() =~ "950 kr"
 
       # Eight weeks, last week over its budget in red, this week's paid with what's expected.
-      assert length(Regex.scan(~r/data-role="chart-week"/, html)) == 8
-      assert view |> element(~s([data-role="chart"] .lab.over)) |> render() =~ "950"
-      assert view |> element(~s([data-role="chart"] .lab.now)) |> render() =~ "≈700"
+      # A wide screen draws the same weeks wider.
+      for chart <- ["chart", "chart-wide"] do
+        weeks = view |> element(~s([data-role="#{chart}"])) |> render()
+        assert length(Regex.scan(~r/data-role="chart-week"/, weeks)) == 8
+        assert view |> element(~s([data-role="#{chart}"] .lab.over)) |> render() =~ "950"
+        assert view |> element(~s([data-role="#{chart}"] .lab.now)) |> render() =~ "≈700"
+      end
 
       # Where the money went, biggest first, opening to what was bought.
       names =

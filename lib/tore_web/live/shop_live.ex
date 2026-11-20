@@ -427,22 +427,28 @@ defmodule ToreWeb.ShopLive do
               </button>
             </div>
 
-            <%!-- The store's sections, each a tinted tag that folds its rows away --%>
-            <section :for={{section, section_items} <- @groups} class="mt-4">
-              <.group_head
-                id={"items-#{section}"}
-                label={ToreWeb.Look.section_label(section)}
-                tint={ToreWeb.Look.section_tint(section)}
-                count={length(section_items)}
-              />
-              <ul id={"items-#{section}"} class="pl-6" phx-hook=".Tick">
-                <.item_row
-                  :for={item <- section_items}
-                  item={item}
-                  dinner={dinner_line(@dinners, item)}
+            <%!-- The store's sections, each a tinted tag that folds its rows away. On a wide screen they
+                 run down two columns in the store's order, each section kept whole. --%>
+            <div class="xl:columns-2 xl:gap-x-10">
+              <section
+                :for={{section, section_items} <- @groups}
+                class="break-inside-avoid pt-4"
+              >
+                <.group_head
+                  id={"items-#{section}"}
+                  label={ToreWeb.Look.section_label(section)}
+                  tint={ToreWeb.Look.section_tint(section)}
+                  count={length(section_items)}
                 />
-              </ul>
-            </section>
+                <ul id={"items-#{section}"} class="pl-6" phx-hook=".Tick">
+                  <.item_row
+                    :for={item <- section_items}
+                    item={item}
+                    dinner={dinner_line(@dinners, item)}
+                  />
+                </ul>
+              </section>
+            </div>
 
             <%!-- The basket, folded shut at the bottom --%>
             <section :if={@checked != []} class="mt-4">

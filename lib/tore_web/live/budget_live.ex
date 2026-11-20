@@ -236,11 +236,12 @@ defmodule ToreWeb.BudgetLive do
           </.kpi>
         </div>
 
-        <%!-- On a laptop the chart and where the money went share a column beside the receipts;
-             on a wide screen each has its own, so the chart stays near a phone's scale. --%>
-        <div class="mt-9 grid gap-9 lg:grid-cols-2 lg:items-start lg:gap-x-14 xl:grid-cols-3 xl:gap-x-12">
+        <%!-- On a laptop the chart and where the money went share a column beside the receipts. On
+             a wide screen the chart takes the full width, drawn wide so its text stays a phone's
+             size, and where the money went and the receipts are two equal columns under it. --%>
+        <div class="mt-9 grid gap-9 lg:grid-cols-2 lg:items-start lg:gap-x-14">
           <div class="grid gap-9 xl:contents">
-            <section>
+            <section class="xl:col-span-2">
               <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="t-head">{gettext("Eight weeks")}</h2>
                 <div class="key" aria-hidden="true">
@@ -249,7 +250,14 @@ defmodule ToreWeb.BudgetLive do
                   <span><i class="exp"></i>{gettext("Expected")}</span>
                 </div>
               </div>
-              <.chart page={@page} />
+              <.chart page={@page} class="xl:hidden" />
+              <.chart
+                page={@page}
+                role="chart-wide"
+                width={1000}
+                height={176}
+                class="hidden xl:block"
+              />
             </section>
 
             <section class="sections">
@@ -566,16 +574,25 @@ defmodule ToreWeb.BudgetLive do
     """
   end
 
-  attr :page, :map, required: true
-
   # Eight weeks of what was paid, in one sage hue. This week is the strong bar, with what the plan
   # still expects paler above it; a week over its budget shows only as its red number. The budget
   # is each week's own, a dashed line that steps where it changed, named where it starts and at
   # each step.
+  attr :page, :map, required: true
+  attr :role, :string, default: "chart"
+  attr :class, :any, default: nil
+  # The drawing's size; text is drawn at a fixed size in it, so a wider drawing for a wider column
+  # keeps the text near a phone's.
+  attr :width, :integer, default: 324
+  attr :height, :integer, default: 152
+
   defp chart(assigns) do
-    %{page: page} = assigns
+    %{page: page, width: w, height: h} = assigns
     expected = page.status.expected
     budget = page.status.budget
+    base = h - 24
+    slot = (w - 46) / length(page.weeks)
+    g = %{w: w, h: h, base: base, slot: slot, half: min(slot * 0.2575, 22)}
 
     top =
       [expected, budget | Enum.flat_map(page.weeks, &[&1.paid, &1.budget])]
@@ -583,18 +600,18 @@ defmodule ToreWeb.BudgetLive do
       |> Enum.max(Decimal, fn -> Decimal.new(0) end)
       |> ceiling()
 
-    y = fn amount -> 128 - 110 * Decimal.to_float(amount) / top end
+    y = fn amount -> base - (h - 42) * Decimal.to_float(amount) / top end
     last = length(page.weeks) - 1
 
     bars =
       for {week, i} <- Enum.with_index(page.weeks) do
-        x = 42 + i * 34.75
+        x = 42 + i * slot
         now? = i == last
 
         %{
           i: i,
           x: x,
-          mid: x + 17.4,
+          mid: x + slot / 2,
           week: week,
           now?: now?,
           paid_y: week.paid && y.(week.paid),
@@ -603,10 +620,11 @@ defmodule ToreWeb.BudgetLive do
         }
       end
 
-    steps = budget_steps(page.weeks, y)
+    steps = budget_steps(page.weeks, y, slot)
 
     assigns =
       assign(assigns,
+        g: g,
         bars: bars,
         ticks: for(n <- 0..2, do: {top * n / 2, y.(Decimal.from_float(top * n / 2))}),
         steps: steps,
@@ -615,30 +633,30 @@ defmodule ToreWeb.BudgetLive do
       )
 
     ~H"""
-    <div class="chart mt-3" data-role="chart">
-      <svg viewBox="0 0 324 152" class="w-full" role="img" aria-label={chart_label(@page)}>
+    <div class={["chart mt-3", @class]} data-role={@role}>
+      <svg viewBox={"0 0 #{@g.w} #{@g.h}"} class="w-full" role="img" aria-label={chart_label(@page)}>
         <g :for={{value, ty} <- @ticks}>
-          <line class="grid" x1="42" x2="320" y1={ty} y2={ty} />
+          <line class="grid" x1="42" x2={@g.w - 4} y1={ty} y2={ty} />
           <text class="ax num" x="36" y={ty + 3.5} text-anchor="end">
             {Money.format(Decimal.from_float(value))}
           </text>
         </g>
         <g :for={bar <- @bars} data-role="chart-week" style={"--i: #{bar.i}"}>
           <title>{bar.title}</title>
-          <rect class="hit" x={bar.x} y="18" width="34.75" height="110" />
+          <rect class="hit" x={bar.x} y="18" width={@g.slot} height={@g.base - 18} />
           <rect
             :if={bar.exp_y}
             class="fc"
-            x={bar.mid - 8.2}
+            x={bar.mid - @g.half * 0.916}
             y={bar.exp_y}
-            width="16.4"
-            height={128 - bar.exp_y}
+            width={@g.half * 1.832}
+            height={@g.base - bar.exp_y}
             rx="4"
           />
           <path
             :if={bar.paid_y}
             class={["b", bar.now? && "now", bar.week.over? && "over"]}
-            d={bar_path(bar.mid, bar.paid_y)}
+            d={bar_path(bar.mid, bar.paid_y, @g)}
           />
           <text
             :if={bar.week.over? and !bar.now?}
@@ -653,12 +671,12 @@ defmodule ToreWeb.BudgetLive do
             :if={bar.now?}
             class="lab now num"
             x={bar.mid}
-            y={(bar.exp_y || bar.paid_y || 128) - 5}
+            y={(bar.exp_y || bar.paid_y || @g.base) - 5}
             text-anchor="middle"
           >
             ≈{Money.format(@expected)}
           </text>
-          <text class={["ax", bar.now? && "now"]} x={bar.mid} y="146" text-anchor="middle">
+          <text class={["ax", bar.now? && "now"]} x={bar.mid} y={@g.h - 6} text-anchor="middle">
             v{Streams.week_number(bar.week.week_start)}
           </text>
         </g>
@@ -691,7 +709,7 @@ defmodule ToreWeb.BudgetLive do
 
   # The runs of weeks with the same budget, each a level stretch across its weeks' slots. Weeks
   # with no budget leave a gap.
-  defp budget_steps(weeks, y) do
+  defp budget_steps(weeks, y, slot) do
     weeks
     |> Enum.with_index()
     |> Enum.chunk_by(fn {week, _i} -> week.budget && Decimal.to_float(week.budget) end)
@@ -700,7 +718,7 @@ defmodule ToreWeb.BudgetLive do
 
       if amount,
         do: [
-          %{amount: amount, x1: 42 + first * 34.75, x2: 42 + (last + 1) * 34.75, y: y.(amount)}
+          %{amount: amount, x1: 42 + first * slot, x2: 42 + (last + 1) * slot, y: y.(amount)}
         ],
         else: []
     end)
@@ -728,13 +746,13 @@ defmodule ToreWeb.BudgetLive do
     if max == 0, do: 1000.0, else: Float.ceil(max / step) * step * 1.0
   end
 
-  # A bar 17.9 wide, its top corners rounded, standing on the baseline.
-  defp bar_path(mid, top) do
-    l = mid - 8.95
-    r = mid + 8.95
-    top = min(top, 124)
+  # A bar, its top corners rounded, standing on the baseline.
+  defp bar_path(mid, top, %{half: half, base: base}) do
+    l = mid - half
+    r = mid + half
+    top = min(top, base - 4)
 
-    "M#{f(l)},128 V#{f(top + 4)} Q#{f(l)},#{f(top)} #{f(l + 4)},#{f(top)} H#{f(r - 4)} Q#{f(r)},#{f(top)} #{f(r)},#{f(top + 4)} V128 Z"
+    "M#{f(l)},#{base} V#{f(top + 4)} Q#{f(l)},#{f(top)} #{f(l + 4)},#{f(top)} H#{f(r - 4)} Q#{f(r)},#{f(top)} #{f(r)},#{f(top + 4)} V#{base} Z"
   end
 
   defp f(n), do: :erlang.float_to_binary(n * 1.0, decimals: 1)
