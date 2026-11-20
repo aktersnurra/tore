@@ -19,7 +19,8 @@ defmodule Tore.Budget do
   `estimate` is the plan's meals (dinners and any lunches) and due basics at stored prices; `open_days` are the week's
   days with nothing planned, which together cost `open_cost`, a typical dinner each;
   `adjustment` is what recent weeks paid beyond their estimates (nil until two such weeks exist);
-  `expected` is all of them together, which is what the budget is held against.
+  `expected` is where the forecast rung says the week lands, which is what the budget is held
+  against, and `low` and `high` its 80 % range, nil for a rung without one.
   """
   @type status :: %{
           budget: Decimal.t() | nil,
@@ -28,6 +29,8 @@ defmodule Tore.Budget do
           open_cost: Decimal.t(),
           adjustment: Decimal.t() | nil,
           expected: Decimal.t(),
+          low: Decimal.t() | nil,
+          high: Decimal.t() | nil,
           over: Decimal.t() | nil
         }
 
@@ -171,16 +174,16 @@ defmodule Tore.Budget do
   end
 
   @doc """
-  As `status/2`, for `plan`. What's expected is the open-days forecast
-  (`Tore.Budget.Forecast.OpenDays`): once calibrated, the meals and open days plus what recent
-  weeks paid beyond theirs, which already covers basics; before that, the meals, the open days and
-  the basics.
+  As `status/2`, for `plan`, predicted by the forecast rung `rung` (`Tore.Budget.Forecast`). By
+  default that is the open-days rung (`Tore.Budget.Forecast.OpenDays`): once calibrated, the
+  meals and open days plus what recent weeks paid beyond theirs, which already covers basics;
+  before that, the meals, the open days and the basics.
   """
-  @spec status(Scope.t(), State.t(), Date.t()) :: status()
-  def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start) do
+  @spec status(Scope.t(), State.t(), Date.t(), module()) :: status()
+  def status(%Scope{} = scope, %State{} = plan, %Date{} = week_start, rung \\ OpenDays) do
     budget = amount(scope, week_start)
     facts = Facts.build(scope, plan, week_start, NaiveDateTime.utc_now())
-    %{expected: expected} = OpenDays.predict(facts)
+    %{expected: expected, low: low, high: high} = rung.predict(facts)
     over = if budget && Decimal.gt?(expected, budget), do: Decimal.sub(expected, budget)
 
     %{
@@ -190,14 +193,20 @@ defmodule Tore.Budget do
       open_cost: facts.week.open_cost,
       adjustment: OpenDays.adjustment(facts),
       expected: expected,
+      low: low,
+      high: high,
       over: over
     }
   end
 
-  @doc "What the budget page shows for the week starting `week_start` (`t:page/0`)."
-  @spec page(Scope.t(), Date.t()) :: page()
-  def page(%Scope{} = scope, %Date{} = week_start) do
-    status = status(scope, week_start)
+  @doc """
+  What the budget page shows for the week starting `week_start` (`t:page/0`), its status
+  predicted by `rung` (`status/4`).
+  """
+  @spec page(Scope.t(), Date.t(), module()) :: page()
+  def page(%Scope{} = scope, %Date{} = week_start, rung \\ OpenDays) do
+    {:ok, plan} = Planning.load_plan(scope, Streams.plan(scope, week_start))
+    status = status(scope, plan, week_start, rung)
     first = Date.add(week_start, -7 * (@page_weeks - 1))
     spent = Costs.spent_by_week(scope, first, week_start)
     paid = Map.get(spent, week_start, Decimal.new(0))

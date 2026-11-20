@@ -304,4 +304,46 @@ defmodule ToreWeb.BudgetLiveTest do
                Date.add(week_start(), 7)
     end
   end
+
+  describe "the forecast" do
+    setup do
+      Tore.BudgetFixtures.one_dinner(
+        home_scope(),
+        week_start(),
+        Tore.BudgetFixtures.priced_recipe(home_scope(), "Fest", "300")
+      )
+    end
+
+    test "until a rung with a range has earned it, the week lands around a number", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/budget")
+      render_async(view, 5_000)
+
+      assert view |> element(~s([data-role="lands"])) |> render() =~ "Veckan landar runt"
+    end
+
+    test "once scale and offset has earned it, the week lands in a range", %{conn: conn} do
+      Tore.BudgetFixtures.scaled_weeks(
+        home_scope(),
+        week_start(),
+        Tore.BudgetFixtures.noisy_weeks()
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/budget")
+      render_async(view, 5_000)
+
+      %{low: low, high: high} =
+        Tore.Budget.Forecast.predict(
+          home_scope(),
+          week_start(),
+          NaiveDateTime.utc_now(),
+          Tore.Budget.Forecast.ScaleOffset
+        )
+
+      floor = low |> Decimal.div(10) |> Decimal.round(0, :floor) |> Decimal.mult(10)
+      ceiling = high |> Decimal.div(10) |> Decimal.round(0, :ceiling) |> Decimal.mult(10)
+
+      assert view |> element(~s([data-role="lands"])) |> render() =~
+               "Veckan landar på #{Tore.Money.format(floor)}–#{Tore.Money.format(ceiling)} kr"
+    end
+  end
 end

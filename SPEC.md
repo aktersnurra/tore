@@ -909,10 +909,14 @@ It absorbs basics, pack sizes and what's already at home.
 **Forecast** (`Tore.Budget.Forecast`, 2026-11-20): what a week is expected to cost is a rung of a ladder
 (`.docs/specs/budget-forecast.md`), each rung a pure function of `Forecast.Facts`, what Tore knew at a moment
 (`as_of`): plan events, receipts and offers count from when they were stored, so a past week can be predicted as it
-stood. Basics, the model's price estimates and product matches keep no history and are read as they stand. The live
-rung is `OpenDays` (the calibration above); `Baseline` counts no open days. `backtest/2` predicts each finished week
-from its Monday and reports each rung's mean absolute error, and its range coverage once a rung gives a range. A rung
-drives the page only once it beats the one below.
+stood. Basics, the model's price estimates and product matches keep no history and are read as they stand.
+`Baseline` counts no open days; `OpenDays` (the calibration above) is what `Budget.status` goes by everywhere;
+`ScaleOffset` fits paid ≈ a·meals + b + c·open days' cost over the last eight finished weeks, shrunk toward
+`OpenDays`, and gives an 80 % range. `backtest/2` predicts each finished week from its Monday and reports each rung's
+mean absolute error, and how often its range held. `live/2` climbs from `OpenDays` while each next rung beats the one
+below over the latest 12 finished weeks (`beats?/2`: at least 8 weeks, a smaller error, a range that held 70–90 % of
+the time). Only the Veckobudget page asks, in the background as it opens, since the backtest takes about half a
+second; with a range it says "Veckan landar på 640–720 kr".
 
 **Basics** (`Tore.Basics`) are what the household buys regularly beyond its dinners, so the list and the estimate
 cover the whole shop. One is learned when an ingredient was ticked off the list in three or more of the last twelve

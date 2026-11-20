@@ -6,14 +6,40 @@ defmodule ToreWeb.BudgetLive do
   """
   use ToreWeb, :live_view
 
-  alias Tore.{Budget, Costs, Money, Streams}
+  require Logger
 
+  alias Tore.{Budget, Costs, Money, Streams}
+  alias Tore.Budget.Forecast
+
+  # Which forecast rung has earned the page takes a backtest, so the page goes by the open-days
+  # rung until that answer comes.
   @impl true
   def mount(_params, _session, socket) do
+    scope = socket.assigns.current_scope
+
+    socket =
+      socket
+      |> assign(editing: false, budget_error: nil, budget_text: "", receipt: nil, picking: nil)
+      |> assign(rung: Forecast.OpenDays)
+      |> load()
+
     {:ok,
-     socket
-     |> assign(editing: false, budget_error: nil, budget_text: "", receipt: nil, picking: nil)
-     |> load()}
+     if(connected?(socket),
+       do: start_async(socket, :rung, fn -> Forecast.live(scope) end),
+       else: socket
+     )}
+  end
+
+  @impl true
+  def handle_async(:rung, {:ok, rung}, socket) do
+    if rung == socket.assigns.rung,
+      do: {:noreply, socket},
+      else: {:noreply, socket |> assign(rung: rung) |> load()}
+  end
+
+  def handle_async(:rung, {:exit, reason}, socket) do
+    Logger.error("the budget forecast's backtest failed: #{inspect(reason)}")
+    {:noreply, socket}
   end
 
   # A receipt opens over the page: beside it on a laptop, over all of it on a phone.
@@ -30,7 +56,7 @@ defmodule ToreWeb.BudgetLive do
 
   defp load(socket) do
     week = Streams.monday(Tore.Clock.today())
-    assign(socket, page: Budget.page(socket.assigns.current_scope, week))
+    assign(socket, page: Budget.page(socket.assigns.current_scope, week, socket.assigns.rung))
   end
 
   @impl true
@@ -111,13 +137,11 @@ defmodule ToreWeb.BudgetLive do
         <header class="pt-2">
           <p class="t-eyebrow">{week_line(@page.week_start)}</p>
           <h1
-            id={"lands-#{@page.status.expected}"}
+            id={"lands-#{@page.status.expected}-#{@page.status.low}"}
             data-role="lands"
             class="t-title settle mt-1"
           >
-            {gettext("The week lands around %{amount} kr",
-              amount: Money.format(@page.status.expected)
-            )}
+            {lands(@page.status)}
           </h1>
           <.budget_tag status={@page.status} />
         </header>
@@ -683,6 +707,20 @@ defmodule ToreWeb.BudgetLive do
       last: Streams.week_number(page.week_start)
     )
   end
+
+  # A range is shown to the ten kronor, wide side out.
+  defp lands(%{low: %Decimal{} = low, high: %Decimal{} = high}),
+    do:
+      gettext("The week lands at %{low}–%{high} kr",
+        low: Money.format(to_ten(low, :floor)),
+        high: Money.format(to_ten(high, :ceiling))
+      )
+
+  defp lands(status),
+    do: gettext("The week lands around %{amount} kr", amount: Money.format(status.expected))
+
+  defp to_ten(amount, rounding),
+    do: amount |> Decimal.div(10) |> Decimal.round(0, rounding) |> Decimal.mult(10)
 
   defp week_line(week_start) do
     gettext("Week %{n} · %{range}",

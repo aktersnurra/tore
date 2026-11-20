@@ -5,7 +5,9 @@ defmodule Tore.Budget.ForecastTest do
 
   alias Tore.{Budget, Planning, Recipes, Streams}
   alias Tore.Budget.Forecast
-  alias Tore.Budget.Forecast.{Baseline, Facts, OpenDays}
+  alias Tore.Budget.Forecast.{Baseline, Facts, OpenDays, ScaleOffset}
+
+  import Tore.BudgetFixtures, only: [one_dinner: 3, scaled_weeks: 3]
   alias Tore.EventStore.Event
   alias Tore.Costs.Receipt
   alias Tore.Recipes.Ingredient
@@ -255,6 +257,80 @@ defmodule Tore.Budget.ForecastTest do
     assert %{weeks: 4, mae: open_mae, coverage: nil} = scores[OpenDays]
     assert Decimal.eq?(base_mae, 300)
     assert Decimal.eq?(open_mae, 0)
+    # Every week paid what open days said, so scale and offset says it too, inside its range.
+    assert %{weeks: 4, mae: scaled_mae, coverage: 1.0} = scores[ScaleOffset]
+    assert Decimal.eq?(scaled_mae, 0)
+  end
+
+  describe "scale and offset" do
+    test "with nothing to learn from, says what open days say, with a range around it" do
+      stew = recipe("Gryta", "100")
+
+      {:ok, _} =
+        Planning.assign_recipe(
+          home_scope(),
+          Streams.plan(home_scope(), @week),
+          "mon_dinner",
+          stew.id,
+          4
+        )
+
+      facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+      %{expected: expected, low: low, high: high} = ScaleOffset.predict(facts)
+
+      assert Decimal.eq?(expected, OpenDays.predict(facts).expected)
+      assert Decimal.lt?(low, expected) and Decimal.gt?(high, expected)
+    end
+
+    test "learns that the household pays more than its dinners in proportion" do
+      scaled_weeks(
+        home_scope(),
+        @week,
+        for(kr <- [450, 250, 350, 150, 400, 200, 300, 100], do: {kr, 0})
+      )
+
+      one_dinner(home_scope(), @week, recipe("Fest", "600"))
+
+      facts = Facts.load(home_scope(), @week, NaiveDateTime.utc_now())
+      # Paid as the weeks before it, 600 kr of dinner costs 1000 kr; open days says 850.
+      truth = Decimal.new(1000)
+      off = fn %{expected: e} -> e |> Decimal.sub(truth) |> Decimal.abs() end
+      scaled = ScaleOffset.predict(facts)
+
+      assert Decimal.lt?(off.(scaled), off.(OpenDays.predict(facts)))
+      assert Decimal.lt?(scaled.low, truth) and Decimal.gt?(scaled.high, truth)
+    end
+  end
+
+  describe "the gate" do
+    test "a rung goes live when it beats the one below and its range holds about 80 %" do
+      below = %{weeks: 10, mae: Decimal.new(60), coverage: nil}
+
+      assert Forecast.beats?(%{weeks: 10, mae: Decimal.new(50), coverage: 0.8}, below)
+      assert Forecast.beats?(%{weeks: 10, mae: Decimal.new(50), coverage: 0.7}, below)
+      # Worse, or no better.
+      refute Forecast.beats?(%{weeks: 10, mae: Decimal.new(60), coverage: 0.8}, below)
+      # A range that always holds is too wide to say anything; one that rarely does, too narrow.
+      refute Forecast.beats?(%{weeks: 10, mae: Decimal.new(50), coverage: 1.0}, below)
+      refute Forecast.beats?(%{weeks: 10, mae: Decimal.new(50), coverage: 0.6}, below)
+      # Too few weeks to tell.
+      refute Forecast.beats?(%{weeks: 7, mae: Decimal.new(50), coverage: 0.8}, below)
+    end
+
+    test "with little history the open-days rung stays live" do
+      stew_weeks(recipe("Gryta", "100"), for(n <- 4..1//-1, do: Date.add(@week, -7 * n)))
+      assert Forecast.live(home_scope(), today: @today) == OpenDays
+    end
+
+    test "scale and offset goes live once it has beaten open days for long enough" do
+      scaled_weeks(home_scope(), @week, Tore.BudgetFixtures.noisy_weeks())
+      scores = Forecast.backtest(home_scope(), today: @today, weeks: 12)
+
+      assert %{weeks: 12, coverage: coverage} = scores[ScaleOffset]
+      assert Decimal.lt?(scores[ScaleOffset].mae, scores[OpenDays].mae)
+      assert coverage >= 0.7 and coverage <= 0.9
+      assert Forecast.live(home_scope(), today: @today) == ScaleOffset
+    end
   end
 
   test "a week still being shopped for isn't scored" do
