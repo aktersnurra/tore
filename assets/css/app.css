@@ -200,6 +200,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--border);
 }
 
+/* The phone's keyboard is up (CaptureLive's KeyboardInset): the chat fills what's above it, its
+   box resting on the keyboard, and the home-bar gap goes since the keyboard covers it. */
+@media (max-width: 63.99rem) {
+  html.kb-open #command-tray {
+    top: calc(var(--kb-top) + 8px);
+    bottom: auto;
+    height: calc(var(--kb-height) - 8px);
+  }
+  html.kb-open #command-tray .composer-foot { padding-bottom: 0.5rem; }
+}
+
 /* A list: rows gathered on one soft, rounded surface */
 .menu-lines {
   background: var(--surface);

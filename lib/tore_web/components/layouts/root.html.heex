@@ -2,7 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <%!-- cover: the pages pad for the notch and home bar themselves. resizes-content: Android
+         shrinks the page above its keyboard, so the chat's box sits on it (iOS: KeyboardInset). --%>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <%!-- Added to the home screen, Tore opens full screen like an app. --%>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Tore" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#191919" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title default="Tore">
       {assigns[:page_title]}

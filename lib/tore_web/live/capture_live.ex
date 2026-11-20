@@ -750,9 +750,44 @@ defmodule ToreWeb.CaptureLive do
     <Layouts.app flash={@flash} socket={@socket} current_user={@current_user}>
       <%!-- On a wide screen the chat is a page beside the menu; on a phone it's a sheet over it,
            rising when the tray opens and not when it changes chats. --%>
+      <%!-- iOS keeps the page its full height under the keyboard, so on a phone the tray follows
+           the part of the screen the keyboard leaves (the visual viewport) while it's up. The
+           sizes go on <html>, which LiveView doesn't patch. Android resizes the page itself. --%>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".KeyboardInset">
+        export default {
+          mounted() {
+            const vv = window.visualViewport
+            if (!vv) return
+            const root = document.documentElement
+            const wide = window.matchMedia("(min-width: 64rem)")
+            this.fit = () => {
+              const covered = window.innerHeight - vv.height
+              if (wide.matches || covered < 80) return root.classList.remove("kb-open")
+              root.style.setProperty("--kb-top", `${vv.offsetTop}px`)
+              root.style.setProperty("--kb-height", `${vv.height}px`)
+              if (!root.classList.contains("kb-open")) {
+                root.classList.add("kb-open")
+                const list = document.getElementById("chat-messages")
+                if (list) list.scrollTop = list.scrollHeight
+              }
+            }
+            vv.addEventListener("resize", this.fit)
+            vv.addEventListener("scroll", this.fit)
+            this.fit()
+          },
+          destroyed() {
+            const vv = window.visualViewport
+            if (!vv || !this.fit) return
+            vv.removeEventListener("resize", this.fit)
+            vv.removeEventListener("scroll", this.fit)
+            document.documentElement.classList.remove("kb-open")
+          },
+        }
+      </script>
       <div
         id="command-tray"
         data-role="command-tray"
+        phx-hook=".KeyboardInset"
         phx-mounted={
           JS.transition(
             {"motion-safe:transition-transform motion-safe:duration-200 ease-out",
@@ -879,7 +914,7 @@ defmodule ToreWeb.CaptureLive do
           </div>
         </div>
 
-        <div class="mx-auto w-full max-w-3xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:pb-6">
+        <div class="composer-foot mx-auto w-full max-w-3xl px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] lg:pb-6">
           <%!-- After an answer, what pi suggests saying next; in an empty chat, the kitchen's swaps. --%>
           <div
             :if={@replies != [] and not @loading}
