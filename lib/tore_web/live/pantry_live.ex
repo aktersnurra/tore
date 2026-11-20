@@ -24,6 +24,8 @@ defmodule ToreWeb.PantryLive do
       # Anything Jev hasn't been asked about yet (kept from before it was asked, or left by a
       # failed call) is asked now; with nothing waiting there's no call.
       :ok = Pantry.Lasts.later(scope)
+      # And what has no section yet is learned, so it moves out of the cupboard.
+      with [_ | _] = names <- Pantry.unsorted(scope), do: :ok = Pantry.Learn.later(scope, names)
     end
 
     {:ok,
@@ -282,7 +284,7 @@ defmodule ToreWeb.PantryLive do
                     enterkeyhint="done"
                     autocomplete="off"
                     phx-mounted={JS.focus()}
-                    class="inline-field num mt-0.5 w-40"
+                    class="inline-field num mt-0.5 w-full max-w-60"
                   />
                   <button type="submit" class="sr-only">{gettext("Save")}</button>
                 </form>

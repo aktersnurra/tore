@@ -571,6 +571,17 @@ defmodule Tore.Pantry do
   def list_kept(%Scope{} = scope), do: scope |> list_inventory() |> Repo.preload(:ingredient)
 
   @doc """
+  The names of what's kept that has no section yet (a name a recipe brought, never learned), so
+  it sits in the cupboard until it's learned (`Tore.Pantry.Learn`).
+  """
+  @spec unsorted(Scope.t()) :: [String.t()]
+  def unsorted(%Scope{} = scope) do
+    for item <- list_kept(scope),
+        item.ingredient == nil or item.ingredient.category == nil,
+        do: item.name
+  end
+
+  @doc """
   Everything kept, each with its half-life when it's eaten between meals: the household's own
   rhythm when Basics has learned one, then the days it's been seen to last (`mark_gone/2`),
   otherwise Jev's guess (`Tore.Pantry.Lasts`).

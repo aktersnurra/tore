@@ -691,7 +691,8 @@ The same call picks each ingredient's picture for its Hemma row (`ingredients.ic
 the food icons `Tore.Pantry.Icons` has (Iconito Food, MIT, and eight drawn to match), each with what
 it stands for; one Jev answers with that isn't there is not kept and is asked again, and a row whose
 pick is no longer there shows its category's. Jev is asked when something new comes into the pantry
-and when Hemma opens, so nothing kept waits for an add; with nothing unasked there's no call. An ingredient is asked only for what it lacks.
+and when Hemma opens, so nothing kept waits for an add; with nothing unasked there's no call. Opening
+Hemma also has whatever is kept without a section learned (`Tore.Pantry.unsorted/1`, a `learn` job). An ingredient is asked only for what it lacks.
 
 **Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
 `Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same

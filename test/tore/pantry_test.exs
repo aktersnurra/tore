@@ -664,6 +664,15 @@ defmodule Tore.PantryTest do
       assert [_one] = Pantry.list_inventory(home_scope())
     end
 
+    test "unsorted/1 names what's kept that has no section yet, for Hemma to have it learned" do
+      for {name, category} <- [{"Mjölk", "dairy"}, {"Cheddar", nil}, {"Gräddost", nil}] do
+        {:ok, _, :added, nil} =
+          Pantry.upsert_belief(home_scope(), %{catalogue_name: name, category: category})
+      end
+
+      assert Enum.sort(Pantry.unsorted(home_scope())) == ["cheddar", "gräddost"]
+    end
+
     test "confirm_item/2 makes an unsure row sure again, and drops a date it outlived" do
       {:ok, item} =
         Pantry.add_item(home_scope(), %{
