@@ -48,7 +48,7 @@ defmodule Tore.WeekAheadTest do
 
   # The morning's fetch, which runs before WeekAhead (`Tore.Deals.scrape_all/0`, daily).
   defp fetched(ends) do
-    expect(Tore.MockHTTP, :fetch, fn @store_url -> offers(ends) end)
+    expect(Tore.MockHTTP, :fetch, fn @store_url, _headers -> offers(ends) end)
     :ok = Deals.scrape_all()
   end
 

@@ -136,7 +136,7 @@ defmodule ToreWeb.DealsLiveTest do
     test "adds a store from just a link, reads it at once, and a toast says what it found", %{
       conn: conn
     } do
-      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url -> {:ok, @ica_html} end)
+      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url, _headers -> {:ok, @ica_html} end)
       {:ok, view, _html} = live(conn, ~p"/deals")
 
       assert add_store(view, @store_url) =~ "ICA Supermarket Danvikstull"
@@ -156,7 +156,10 @@ defmodule ToreWeb.DealsLiveTest do
     end
 
     test "a store that can't be read now stays added, and a toast says so", %{conn: conn} do
-      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url -> {:error, {:http_error, 403}} end)
+      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url, _headers ->
+        {:error, {:http_error, 403}}
+      end)
+
       {:ok, view, _html} = live(conn, ~p"/deals")
 
       add_store(view, @store_url)

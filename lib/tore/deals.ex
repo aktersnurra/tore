@@ -329,7 +329,7 @@ defmodule Tore.Deals do
   @spec scrape_url(String.t(), String.t()) :: {:ok, integer()} | {:error, term()}
   def scrape_url(url, store_name) do
     with {:ok, parser} <- Parsers.for_url(url),
-         {:ok, html} <- @http.fetch(url),
+         {:ok, html} <- @http.fetch(url, parser.headers()),
          {:ok, deals} <- parser.parse(html) do
       chain = parser.chain()
       deals = Enum.map(deals, &Map.merge(&1, %{store: store_name, chain: chain}))

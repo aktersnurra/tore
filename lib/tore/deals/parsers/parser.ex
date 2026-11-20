@@ -5,4 +5,6 @@ defmodule Tore.Deals.Parsers.Parser do
   @doc "The one link for the store, so different links to it are one store."
   @callback canonical_url(URI.t()) :: String.t()
   @callback parse(html :: String.t()) :: {:ok, [map()]} | {:error, term()}
+  @doc "Headers the store's site needs before it answers."
+  @callback headers() :: [{String.t(), String.t()}]
 end

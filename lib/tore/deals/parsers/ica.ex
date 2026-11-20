@@ -7,6 +7,11 @@ defmodule Tore.Deals.Parsers.ICA do
   @impl Tore.Deals.Parsers.Parser
   def chain, do: "ica"
 
+  # ICA's firewall answers 403 to every user agent but curl's, browsers' and Req's included
+  # (checked 2026-11-20). The pages are public; this is the one client it lets through.
+  @impl Tore.Deals.Parsers.Parser
+  def headers, do: [{"user-agent", "curl/8.0.0"}]
+
   # A store's offers page, `/erbjudanden/<slug>-<id>/`, or its own page,
   # `/butiker/<kind>/<town>/<slug>-<id>/`, which has the same slug and id.
   @offers ~r{^/erbjudanden/(ica-[a-z0-9-]+-\d+)/?$}

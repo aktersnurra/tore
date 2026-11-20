@@ -18,7 +18,7 @@ defmodule Tore.DealsScrapeTest do
 
   test "scrape_url fetches HTML, parses deals, and upserts under the store's name and chain" do
     Tore.MockHTTP
-    |> expect(:fetch, fn @store_url -> {:ok, @ica_html} end)
+    |> expect(:fetch, fn @store_url, _headers -> {:ok, @ica_html} end)
 
     assert {:ok, 1} = Tore.Deals.scrape_url(@store_url, "Danvikstull")
 
@@ -27,9 +27,20 @@ defmodule Tore.DealsScrapeTest do
     assert deal.chain == "ica"
   end
 
+  # ICA's firewall answers 403 to anything but curl's user agent, Req's and browsers' included.
+  test "an ICA page is fetched as curl, the one client ICA lets through" do
+    Tore.MockHTTP
+    |> expect(:fetch, fn @store_url, headers ->
+      assert {"user-agent", "curl/8.0.0"} in headers
+      {:ok, @ica_html}
+    end)
+
+    assert {:ok, 1} = Tore.Deals.scrape_url(@store_url, "Danvikstull")
+  end
+
   test "a failed fetch of a switched-on store sends an alert" do
     {:ok, _} = Deals.add_store(home_scope(), @store_url)
-    Tore.MockHTTP |> expect(:fetch, fn @store_url -> {:error, {:http_error, 403}} end)
+    Tore.MockHTTP |> expect(:fetch, fn @store_url, _headers -> {:error, {:http_error, 403}} end)
 
     assert :ok = Deals.scrape_all()
 
@@ -39,7 +50,7 @@ defmodule Tore.DealsScrapeTest do
 
   test "scrape_url returns error on HTTP failure" do
     Tore.MockHTTP
-    |> expect(:fetch, fn _url -> {:error, :timeout} end)
+    |> expect(:fetch, fn _url, _headers -> {:error, :timeout} end)
 
     assert {:error, :timeout} = Tore.Deals.scrape_url(@store_url, "Danvikstull")
   end
@@ -103,7 +114,7 @@ defmodule Tore.DealsScrapeTest do
       {:ok, _} = Deals.add_store(home_scope(), @store_url)
 
       Tore.MockHTTP
-      |> expect(:fetch, fn @store_url -> {:ok, @ica_html} end)
+      |> expect(:fetch, fn @store_url, _headers -> {:ok, @ica_html} end)
 
       assert :ok = Deals.scrape_all()
 
@@ -121,7 +132,7 @@ defmodule Tore.DealsScrapeTest do
       assert mine.store_id == theirs.store_id
 
       Tore.MockHTTP
-      |> expect(:fetch, 1, fn @store_url -> {:ok, @ica_html} end)
+      |> expect(:fetch, 1, fn @store_url, _headers -> {:ok, @ica_html} end)
 
       assert :ok = Deals.scrape_all()
 
@@ -151,7 +162,7 @@ defmodule Tore.DealsScrapeTest do
       {:ok, _} = Deals.toggle_scraping(home_scope(), mine.id)
 
       Tore.MockHTTP
-      |> expect(:fetch, 1, fn @store_url -> {:ok, @ica_html} end)
+      |> expect(:fetch, 1, fn @store_url, _headers -> {:ok, @ica_html} end)
 
       assert :ok = Deals.scrape_all()
       assert Deals.list_current(home_scope()) == []
