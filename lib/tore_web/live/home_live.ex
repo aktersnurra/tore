@@ -151,27 +151,48 @@ defmodule ToreWeb.HomeLive do
               <%!-- Can I start? Tonight with everything at home the answer is Cook now, first
                  and always in the same place. Otherwise what to buy, as Shop lists it, and what
                  Tore isn't sure is still here, as Hemma asks it: a tag for a head, a row each. --%>
-              <%!-- Cook now, always here tonight. With something still to buy it first asks what
-                 to use instead (Before you start), and can cook anyway. --%>
-              <.link
-                :if={@day == :tonight and @home.missing == []}
-                navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
-                class="pill pill-lamp press reveal mt-5 w-full md:w-auto"
+              <%!-- What to do, together, in a fixed place: Cook now (tonight), something else, ask.
+                 With something still to buy, Cook now first opens Before you start (use something
+                 else, or cook anyway), so swapping happens on the way in. --%>
+              <div
+                data-role="actions"
+                class="reveal mt-5 grid grid-cols-2 gap-2 md:flex md:flex-wrap"
                 style="--i: 2"
-                data-role="start-cooking"
               >
-                <.icon name="ph-fire-fill" /> {gettext("Cook now")}
-              </.link>
-              <button
-                :if={@day == :tonight and @home.missing != []}
-                type="button"
-                phx-click="before_cooking"
-                class="pill pill-lamp press reveal mt-5 w-full md:w-auto"
-                style="--i: 2"
-                data-role="start-cooking"
-              >
-                <.icon name="ph-fire-fill" /> {gettext("Cook now")}
-              </button>
+                <.link
+                  :if={@day == :tonight and @home.missing == []}
+                  navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
+                  class="pill pill-lamp press col-span-2"
+                  data-role="start-cooking"
+                >
+                  <.icon name="ph-fire-fill" /> {gettext("Cook now")}
+                </.link>
+                <button
+                  :if={@day == :tonight and @home.missing != []}
+                  type="button"
+                  phx-click="before_cooking"
+                  class="pill pill-lamp press col-span-2"
+                  data-role="start-cooking"
+                >
+                  <.icon name="ph-fire-fill" /> {gettext("Cook now")}
+                </button>
+                <button
+                  type="button"
+                  phx-click="something_else"
+                  class="pill press"
+                  data-role="something-else"
+                >
+                  <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
+                </button>
+                <%!-- With something missing, the question about it is already typed. --%>
+                <.link
+                  navigate={~p"/capture?#{ask_params(@dish, @home)}"}
+                  data-role="ask-tore"
+                  class="pill press"
+                >
+                  <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
+                </.link>
+              </div>
 
               <p
                 :if={
@@ -190,14 +211,14 @@ defmodule ToreWeb.HomeLive do
 
               <%!-- What to buy, ticked off as on Shop: a tick puts it at home (and ticks it on the
                  week's list when it's there); a ticked row stays, and tapping it again undoes it. --%>
-              <section :if={@buy != []} data-role="at-home" class="reveal mt-6" style="--i: 2">
-                <.group_head
-                  id="today-buy"
-                  label={gettext("To buy")}
-                  tint="red"
-                  count={length(@home.missing)}
-                />
-                <ul id="today-buy" class="pl-6">
+              <section :if={@buy != []} data-role="at-home" class="reveal mt-8" style="--i: 3">
+                <h2 class="t-head mb-3 flex items-baseline gap-2">
+                  {gettext("To buy")}
+                  <span class="num text-[15px] font-normal text-[color:var(--muted)]">
+                    {length(@home.missing)}
+                  </span>
+                </h2>
+                <ul class="menu-lines">
                   <li
                     :for={name <- @buy}
                     data-buy={name}
@@ -236,17 +257,12 @@ defmodule ToreWeb.HomeLive do
                 </ul>
               </section>
 
-              <section :if={@home.unsure != []} data-role="unsure" class="reveal mt-4" style="--i: 2">
-                <div class="flex items-center justify-between gap-3">
-                  <.group_head
-                    id="today-unsure"
-                    label={gettext("Still there?")}
-                    tint="grey"
-                    count={length(@home.unsure)}
-                  />
+              <section :if={@home.unsure != []} data-role="unsure" class="reveal mt-8" style="--i: 3">
+                <div class="mb-3 flex items-baseline justify-between gap-3">
+                  <h2 class="t-head">{gettext("Still there?")}</h2>
                   <.pantry_link />
                 </div>
-                <ul id="today-unsure" class="pl-6">
+                <ul class="menu-lines">
                   <li
                     :for={thing <- asked(@home)}
                     data-item={thing.id}
@@ -296,20 +312,6 @@ defmodule ToreWeb.HomeLive do
                   </li>
                 </ul>
               </section>
-
-              <div class="reveal mt-6 grid grid-cols-2 gap-2 md:flex md:flex-wrap" style="--i: 3">
-                <button type="button" phx-click="something_else" class="pill press">
-                  <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
-                </button>
-                <%!-- With something missing, the question about it is already typed. --%>
-                <.link
-                  navigate={~p"/capture?#{ask_params(@dish, @home)}"}
-                  data-role="ask-tore"
-                  class="pill press"
-                >
-                  <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
-                </.link>
-              </div>
 
               <.note :if={@note} note={@note} added={@note_added} class="mt-5" />
 

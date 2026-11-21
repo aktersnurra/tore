@@ -705,24 +705,25 @@ Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with
 When     — one line: Tonight · 20 min · ready by 18:40; Lunch under it when one is planned.
            Ready by only from 15:00 until the evening's over (`:cooking_from`), since
            "ready 00:57" says nothing
-Can I start? — the first thing it answers (2026-11-21), in Shop's and Hemma's style: a group
-           head (caret, tag, count) with a row each, no card:
-           tonight: [🔥 Cook now], always, in a fixed place. With nothing to buy it starts
-             cooking; with something still to buy it opens Before you start (what to use
-             instead, or cook anyway), so swapping happens on the way in
-           ▾ [Handla] 5
+Actions  — together, in one row under When, always in the same place (2026-11-21):
+           [🔥 Cook now] [Something else] [Ask Tore]; on a phone Cook now spans the row and the
+           other two share the one under it. Cook now is tonight only: with nothing to buy it
+           starts cooking; with something still to buy it opens Before you start (what to use
+           instead, or cook anyway), so swapping happens on the way in. Ask Tore is the dish's
+           own conversation, with the question about what's missing typed when there is some.
+           No dinner tonight is in Something else's sheet
+Can I start? — under the actions, as the recipe page lays out Ingredienser: a section heading
+           (`h2.t-head`, with the count beside it) over a card of rows:
+           Handla 5
                ☐ 🍝 spaghetti   (each with its picture, as Hemma shows it)
                ☑ 🍅 passata     (ticked: at home now, and ticked on the week's list when it's
                                 there; the row stays, tapping again undoes it, and a row the
                                 tick made in the pantry goes again)
              the count is what's still to buy
-           ▾ [Finns det kvar?] 2                                     Hemma ›
+           Finns det kvar?                                             Hemma ›
                🥛 mjölk, last seen 10 days ago      [Finns] [Slut]
              up to three; Slut puts it under Handla; "+2 more" opens Hemma
            tomorrow, nothing missing or unsure: [✓ Everything's at home] · Hemma ›
-Actions  — [Something else] [Ask Tore] (the dish's own conversation, as on its recipe page; with
-           something missing the question about it is already typed). One of each: no icon
-           appears twice. No dinner tonight is in Something else's sheet
 Note     — the home pick's one note, with its action, when there is one
 ```
 No ingredient list: the recipe page has it. Opening Today asks Jev for the pictures of tonight's
@@ -737,11 +738,10 @@ what can still be sorted out this evening:
 ✓ Kycklinggryta, lagad ikväll
 [cover] Laxpasta
 Tomorrow · 35 min
-[🔥 Cook now]
-▾ [Handla] 2
+[🔥 Cook now] [Something else] [Ask Tore]
+Handla 2
    ☐ lax
    ☐ dill
-[Something else] [Ask Tore]
 ```
 
 No Cook now and no ready-by time for tomorrow. An open tomorrow reads "Tomorrow is open".

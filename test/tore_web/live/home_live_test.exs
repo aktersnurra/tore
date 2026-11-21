@@ -116,8 +116,11 @@ defmodule ToreWeb.HomeLiveTest do
 
       # What to buy, as Shop lists it: a head with how many, then a row each with its picture.
       # The ingredients themselves are on the recipe page.
-      assert view |> element(~s([data-role="at-home"] [data-role="group-head"])) |> render() =~
-               "Handla"
+      assert view |> element(~s([data-role="at-home"] h2)) |> render() =~ "Handla"
+
+      # The things to do sit together, in one row: cook, something else, ask.
+      for role <- ["start-cooking", "something-else", "ask-tore"],
+          do: assert(has_element?(view, ~s([data-role="actions"] [data-role="#{role}"])))
 
       assert has_element?(
                view,
