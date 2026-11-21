@@ -479,29 +479,16 @@ defmodule Tore.Pantry do
     end
   end
 
-  @doc "Whether the pantry has a row for `name`, whatever Tore believes of it."
-  @spec kept?(Scope.t(), String.t()) :: boolean()
-  def kept?(%Scope{} = scope, name) do
-    key = Ingredient.to_key(name)
-    Enum.any?(list_inventory(scope), &(Ingredient.to_key(&1.name) == key))
-  end
+  @doc "The pantry's row for `name`, whatever Tore believes of it; nil when it has none."
+  @spec get_by_name(Scope.t(), String.t()) :: PantryItem.t() | nil
+  def get_by_name(%Scope{} = scope, name) do
+    case Tore.Pantry.Match.ingredient(scope, {:name, name}) do
+      {:ok, %Ingredient{id: id}} ->
+        Repo.get_by(PantryItem, [ingredient_id: id], Scope.repo_opts(scope))
 
-  @doc """
-  Not bought after all (a tick on Today taken back): as it was. A row that was `kept_before` is
-  missing again; one the tick made goes. Unlike `mark_gone/2` nothing is learned, since nothing
-  was eaten.
-  """
-  @spec not_bought(Scope.t(), String.t(), boolean()) :: :ok
-  def not_bought(%Scope{} = scope, name, kept_before) do
-    key = Ingredient.to_key(name)
-
-    for item <- list_usable(scope), Ingredient.to_key(item.name) == key do
-      if kept_before,
-        do: {:ok, _} = item |> Ecto.Changeset.change(belief: "missing") |> Repo.update(),
-        else: :ok = remove_item(scope, item.id)
+      :unknown ->
+        nil
     end
-
-    :ok
   end
 
   @doc "Gone: believed missing, as after a dinner (`use_up/2`), until it's bought again."

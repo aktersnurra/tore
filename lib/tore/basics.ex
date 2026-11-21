@@ -132,6 +132,30 @@ defmodule Tore.Basics do
     :ok
   end
 
+  @doc "The regular buy `name` is, if it's one."
+  @spec get(Scope.t(), String.t()) :: Basic.t() | nil
+  def get(%Scope{} = scope, name) do
+    case Match.ingredient(scope, {:name, name}) do
+      {:ok, %Ingredient{id: id}} ->
+        Repo.get_by(Basic, [ingredient_id: id], Scope.repo_opts(scope))
+
+      :unknown ->
+        nil
+    end
+  end
+
+  @doc "A buy taken back: `basic` was last bought when it was before `bought/3`."
+  @spec unbought(Scope.t(), Basic.t()) :: :ok
+  def unbought(%Scope{} = scope, %Basic{id: id, last_bought: date, removals: removals}) do
+    Repo.update_all(
+      from(b in Basic, where: b.id == ^id),
+      [set: [last_bought: date, removals: removals]],
+      Scope.repo_opts(scope)
+    )
+
+    :ok
+  end
+
   @doc """
   A basic taken off the list: it waits its interval again from today, the interval grows by half,
   and three in a row stop it.

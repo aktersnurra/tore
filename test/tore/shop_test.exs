@@ -86,6 +86,50 @@ defmodule Tore.ShopTest do
     assert Enum.any?(pantry, &(&1.name == "pasta"))
   end
 
+  describe "buying from Today" do
+    defp kept(name), do: Enum.find(Tore.Pantry.list_inventory(home_scope()), &(&1.name == name))
+
+    test "taking back a buy puts the list, the pantry row and the regular buy back as they were" do
+      :ok = Tore.Basics.ask(home_scope(), [%{name: "mjöl"}])
+
+      {:ok, flour, _, _} =
+        Tore.Pantry.upsert_belief(home_scope(), %{
+          catalogue_name: "mjöl",
+          quantity: Decimal.new(1),
+          unit: "kg"
+        })
+
+      {:ok, _} = Tore.Pantry.mark_gone(home_scope(), flour.id)
+      before = kept("mjöl")
+      [%{basic: %{last_bought: last_bought}}] = Tore.Basics.list(home_scope())
+      Shop.add_item(home_scope(), list_id(), "mjöl", Decimal.new(2), "kg", 1)
+
+      {:ok, bought} = Shop.buy(home_scope(), list_id(), "mjöl", 1)
+      assert %{belief: "probable", quantity: quantity} = kept("mjöl")
+      assert Decimal.eq?(quantity, 3)
+      {:ok, %{items: items}} = Shop.load_list(home_scope(), list_id())
+      assert Enum.all?(Map.values(items), & &1.checked)
+
+      :ok = Shop.take_back(home_scope(), bought, 1)
+      {:ok, %{items: items}} = Shop.load_list(home_scope(), list_id())
+      refute Enum.any?(Map.values(items), & &1.checked)
+      after_ = kept("mjöl")
+
+      assert {after_.belief, after_.quantity, after_.added_at} ==
+               {before.belief, before.quantity, before.added_at}
+
+      assert [%{basic: %{last_bought: ^last_bought}}] = Tore.Basics.list(home_scope())
+    end
+
+    test "something not on the list is put away, and taking it back leaves no row" do
+      {:ok, bought} = Shop.buy(home_scope(), list_id(), "ägg", 1)
+      assert kept("ägg")
+
+      :ok = Shop.take_back(home_scope(), bought, 1)
+      refute kept("ägg")
+    end
+  end
+
   test "annotate_with_pantry_belief/1 tags items whose name matches a non-missing pantry row" do
     {:ok, _, _, _} =
       Tore.Pantry.upsert_belief(home_scope(), %{catalogue_name: "Milk", provenance: "receipt"})

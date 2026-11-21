@@ -274,6 +274,51 @@ defmodule Tore.Shop do
     end
   end
 
+  @typedoc "What `buy/4` changed, so `take_back/3` can put it back."
+  @type bought :: %{
+          list_id: String.t(),
+          on_list: String.t() | nil,
+          pantry: {integer(), Tore.Harness.Undo.pantry_before() | :absent},
+          basic: Basics.Basic.t() | nil
+        }
+
+  @doc """
+  Bought, from Today: ticks `name` on the list when it's there unticked (which puts it away, as
+  a tick here does), or else puts it away. Answers what `take_back/3` needs to undo it.
+  """
+  @spec buy(Scope.t(), String.t(), String.t(), integer()) :: {:ok, bought()}
+  def buy(%Scope{} = scope, list_id, name, user_id) do
+    kept = Pantry.get_by_name(scope, name)
+    basic = Basics.get(scope, name)
+    {:ok, %{items: items}} = load_list(scope, list_id)
+    key = Ingredient.to_key(name)
+
+    on_list =
+      Enum.find_value(items, fn {id, item} ->
+        !item.checked and Ingredient.to_key(item.name) == key and id
+      end)
+
+    if on_list,
+      do: {:ok, _} = check_item(scope, list_id, on_list, user_id),
+      else: {:ok, _} = Pantry.put_away(scope, name, nil, nil)
+
+    %Tore.Pantry.PantryItem{id: item_id} = Pantry.get_by_name(scope, name)
+    before = if kept, do: Pantry.before_image(kept), else: :absent
+
+    {:ok, %{list_id: list_id, on_list: on_list, pantry: {item_id, before}, basic: basic}}
+  end
+
+  @doc "A buy taken back: the list, the pantry row and the regular buy as they were before it."
+  @spec take_back(Scope.t(), bought(), integer()) :: :ok
+  def take_back(%Scope{} = scope, %{pantry: {item_id, before}} = bought, user_id) do
+    if bought.on_list,
+      do: {:ok, _} = uncheck_item(scope, bought.list_id, bought.on_list, user_id)
+
+    :ok = Pantry.restore_item(scope, item_id, before)
+    if bought.basic, do: :ok = Basics.unbought(scope, bought.basic)
+    :ok
+  end
+
   @doc """
   Puts checked-off items (`name`, `quantity`, `unit`) into the pantry, as a pantry run, with no
   model. A name Tore hasn't seen is learned afterwards (`Tore.Pantry.Learn`).

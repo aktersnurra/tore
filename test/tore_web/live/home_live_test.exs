@@ -179,7 +179,7 @@ defmodule ToreWeb.HomeLiveTest do
       assert view |> element(box) |> render() =~ ~s(aria-checked="false")
 
       # Eggs were never kept, so taking the tick back leaves no row behind for Hemma to show.
-      refute Tore.Pantry.kept?(home_scope(), "ägg")
+      refute Tore.Pantry.get_by_name(home_scope(), "ägg")
 
       # With all of it ticked, Cook now goes straight to cooking.
       view |> element(box) |> render_click()

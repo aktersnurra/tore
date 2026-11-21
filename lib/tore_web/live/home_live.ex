@@ -34,7 +34,7 @@ defmodule ToreWeb.HomeLive do
         before_cooking: false,
         choices: nil,
         changed: nil,
-        ticked: %{}
+        bought: %{}
       )
       |> PiReply.init()
       |> reload_tonight()
@@ -230,13 +230,13 @@ defmodule ToreWeb.HomeLive do
                     data-buy={name}
                     class={[
                       "tick-row flex min-h-[44px] items-center gap-3 py-1",
-                      Map.has_key?(@ticked, name) && "is-checked"
+                      Map.has_key?(@bought, name) && "is-checked"
                     ]}
                   >
                     <button
                       type="button"
                       role="checkbox"
-                      aria-checked={to_string(Map.has_key?(@ticked, name))}
+                      aria-checked={to_string(Map.has_key?(@bought, name))}
                       aria-label={name}
                       phx-click="tick_buy"
                       phx-value-name={name}
@@ -530,7 +530,7 @@ defmodule ToreWeb.HomeLive do
     # ticked row keeps its place.
     buy =
       for %{ingredient: %{name: name}} <- (tonight && tonight.recipe_ingredients) || [],
-          name in home.missing or Map.has_key?(socket.assigns.ticked, name),
+          name in home.missing or Map.has_key?(socket.assigns.bought, name),
           uniq: true,
           do: name
 
@@ -636,17 +636,21 @@ defmodule ToreWeb.HomeLive do
   # Ticked off: bought, so at home; on the week's list it's ticked there too, as on Shop. Tapping
   # again undoes both.
   def handle_event("tick_buy", %{"name" => name}, socket) do
-    ticked =
-      case Map.fetch(socket.assigns.ticked, name) do
-        {:ok, ticked} ->
-          :ok = untick(socket, name, ticked)
-          Map.delete(socket.assigns.ticked, name)
+    %{current_scope: scope, current_user: user, bought: bought} = socket.assigns
 
-        :error ->
-          Map.put(socket.assigns.ticked, name, tick(socket, name))
+    bought =
+      case Map.pop(bought, name) do
+        {nil, bought} ->
+          list_id = Tore.Streams.shop_list(scope, socket.assigns.week_start)
+          {:ok, buy} = Tore.Shop.buy(scope, list_id, name, user.id)
+          Map.put(bought, name, buy)
+
+        {buy, bought} ->
+          :ok = Tore.Shop.take_back(scope, buy, user.id)
+          bought
       end
 
-    {:noreply, socket |> assign(ticked: ticked) |> reload_tonight()}
+    {:noreply, socket |> assign(bought: bought) |> reload_tonight()}
   end
 
   # Something Tore was unsure of: still there makes it sure, gone puts it with what's missing.
@@ -797,38 +801,6 @@ defmodule ToreWeb.HomeLive do
       {gettext("At home")} <.icon name="ph-caret-right" class="size-3.5" />
     </.link>
     """
-  end
-
-  # Ticks `name` on the week's list when it's there unticked (which puts it away, as on Shop), or
-  # puts it away; answers what undoing it needs: the list's item it ticked, if any, and whether
-  # the pantry had a row for it before.
-  defp tick(socket, name) do
-    %{current_scope: scope, current_user: user, week_start: week_start} = socket.assigns
-    kept_before = Tore.Pantry.kept?(scope, name)
-    list_id = Tore.Streams.shop_list(scope, week_start)
-    key = Tore.Recipes.Ingredient.to_key(name)
-    {:ok, %{items: items}} = Tore.Shop.load_list(scope, list_id)
-
-    case Enum.find(items, fn {_id, item} ->
-           !item.checked and Tore.Recipes.Ingredient.to_key(item.name) == key
-         end) do
-      {id, _item} ->
-        {:ok, _} = Tore.Shop.check_item(scope, list_id, id, user.id)
-        %{on_list: {list_id, id}, kept_before: kept_before}
-
-      nil ->
-        {:ok, _} = Tore.Pantry.put_away(scope, name, nil, nil)
-        %{on_list: nil, kept_before: kept_before}
-    end
-  end
-
-  defp untick(socket, name, %{on_list: on_list, kept_before: kept_before}) do
-    %{current_scope: scope, current_user: user} = socket.assigns
-
-    with {list_id, id} <- on_list,
-         do: {:ok, _} = Tore.Shop.uncheck_item(scope, list_id, id, user.id)
-
-    Tore.Pantry.not_bought(scope, name, kept_before)
   end
 
   # When dinner is ready if it's started now: only when it could be (from the afternoon until
