@@ -35,6 +35,19 @@ defmodule ToreWeb.SettingsLiveTest do
 
       assert has_element?(view, ~s([data-role="member"].row-added), "bo")
       refute has_element?(view, ~s(form[phx-submit="add_member"] .saved-flash))
+
+      # The field empties: a new form, since the browser keeps what's typed in an input it's in.
+      refute has_element?(view, "form#add-member-0")
+      assert has_element?(view, ~s(form#add-member-1 input[name="username"]))
+      refute view |> element(~s(form#add-member-1 input[name="username"])) |> render() =~ "bo"
+    end
+
+    test "a username that can't be added stays in the field", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/settings/members")
+      add_member(view, user.username)
+
+      assert view |> element(~s(form#add-member-0 input[name="username"])) |> render() =~
+               user.username
     end
 
     test "adding someone who has an account flashes their row", %{conn: conn} do

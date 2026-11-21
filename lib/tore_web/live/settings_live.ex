@@ -26,6 +26,7 @@ defmodule ToreWeb.SettingsLive do
      |> assign_ai_sponsor()
      |> assign(
        member_username: "",
+       member_form: 0,
        name_saved?: false,
        member_added: nil,
        member_error: nil,
@@ -82,7 +83,8 @@ defmodule ToreWeb.SettingsLive do
         {:noreply,
          socket
          |> assign_members()
-         |> assign(member_username: "", member_added: added, member_error: nil)}
+         |> assign(member_username: "", member_added: added, member_error: nil)
+         |> update(:member_form, &(&1 + 1))}
 
       {:error, reason} ->
         {:noreply,
@@ -459,9 +461,17 @@ defmodule ToreWeb.SettingsLive do
               </div>
             </div>
 
-            <form phx-submit="add_member" class="mt-4">
+            <%!-- Each one added gets a new form, so the field empties (the browser keeps what's
+               typed in an input it's in, whatever the server says), with the cursor in it for
+               the next. --%>
+            <form
+              id={"add-member-#{@member_form}"}
+              phx-submit="add_member"
+              phx-mounted={@member_form > 0 && JS.focus_first()}
+              class="mt-4"
+            >
               <.field
-                id="member-username"
+                id={"member-username-#{@member_form}"}
                 name="username"
                 value={@member_username}
                 placeholder={gettext("Pocket ID username")}
