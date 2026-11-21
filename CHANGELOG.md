@@ -18,6 +18,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Opening Hemma asks Jev about anything it hasn't judged yet (kept from before Jev was asked, or left by a failed call), and has anything without a section sorted, so it moves out of Skafferi; with nothing waiting it makes no call.
 - Hemma's "what's left" field is wide enough for its hint.
 - Today's Handla rows tick off as on Shop: bought means at home (and ticked on the week's list when it's there); tapping again undoes it. Cook now is always there tonight and, with something still to buy, opens Before you start to swap or cook anyway; "Byt ut" is gone.
+- Ticks answer at once (drawn while the server saves, on Today and Shop alike), and an empty tick box has a ring that's 3:1 against any surface (it was 1.6:1 in the light theme).
 - Settings → Things Tore has learned shows how full each part is as a small blue bar beside the number.
 - Erbjudanden shows each store's logo, taken from the page Tore reads its offers from (the largest touch icon the site gives, else its largest icon), kept on the store and refreshed with each morning's read. The first letter stays until a store's page has been read.
 - Today, tidied: what's missing is a "Handla" list in Shop's style, each with its picture (Jev picks pictures for tonight's ingredients too), with Byt ut on its head; what Tore is unsure of is the same, with Finns/Slut. No card, no icon twice, no ingredient list. "Ready by" shows only from 15:00 until the evening's over.
