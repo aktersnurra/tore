@@ -171,15 +171,16 @@ defmodule Tore.Pantry.Lasts do
         [] ->
           0
 
+        # None when a learn job merged it away while Jev was answering.
         set ->
-          {1, _} =
+          {updated, _} =
             Repo.update_all(
               from(i in Ingredient, where: i.id == ^id),
               [set: set],
               Scope.repo_opts(scope)
             )
 
-          1
+          updated
       end
     end)
     |> Enum.sum()
@@ -194,15 +195,16 @@ defmodule Tore.Pantry.Lasts do
   defp icon(%{"choice" => icon}), do: if(Icons.known?(icon), do: [icon: icon], else: [])
   defp icon(_answer), do: []
 
-  # The household's language, as Jev is told it.
-  defp language("sv"), do: "Swedish"
-  defp language("en"), do: "English"
+  # The household's language, as Jev is told it; none before the household has chosen one.
+  defp language("sv"), do: "Its names are written in Swedish."
+  defp language("en"), do: "Its names are written in English."
+  defp language(nil), do: nil
 
   # What Tore knows of the household that bears on it, a line each.
   defp state(scope) do
     [
       "A household's pantry: how they use each thing they keep, and how fast it goes.",
-      "Its names are written in #{language(Household.locale(scope))}.",
+      language(Household.locale(scope)),
       Household.Memory.snapshot(scope),
       case Enum.map(Basics.list(scope), & &1.name) do
         [] -> nil

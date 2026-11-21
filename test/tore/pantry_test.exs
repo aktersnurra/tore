@@ -275,6 +275,24 @@ defmodule Tore.PantryTest do
       assert [%{basic: %{interval_days: 5}}] = Tore.Basics.list(home_scope())
     end
 
+    # Today asks about a row only once Tore is unsure of it, a half-life after it was last seen;
+    # how long it lasted is then only "at most", so it would only ever slow the rhythm down.
+    test "a row Tore had stopped believing in teaches nothing when it's gone" do
+      :ok = Tore.Basics.ask(home_scope(), [%{name: "Mjölk"}])
+      {:ok, milk, _, _} = Pantry.upsert_belief(home_scope(), %{catalogue_name: "Mjölk"})
+
+      milk
+      |> Ecto.Changeset.change(
+        added_at: Date.add(Tore.Clock.today(), -10),
+        last_seen_at: DateTime.add(DateTime.utc_now(:second), -10, :day)
+      )
+      |> Tore.Repo.update!()
+
+      {:ok, _} = Pantry.mark_gone(home_scope(), milk.id)
+
+      assert [%{basic: %{interval_days: 7}}] = Tore.Basics.list(home_scope())
+    end
+
     test "something else eaten between meals learns its own days, which then set its half-life" do
       {:ok, yoghurt, _, _} = Pantry.upsert_belief(home_scope(), %{catalogue_name: "Yoghurt"})
 

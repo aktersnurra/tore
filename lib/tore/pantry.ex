@@ -515,14 +515,20 @@ defmodule Tore.Pantry do
 
   # Gone: how long the pack lasted teaches how fast it goes, for what's eaten between meals. A
   # regular buy's rhythm moves halfway to it (so it's also on the list sooner or later); anything
-  # else with a half-life learns its own days. What's only for cooking learns nothing.
+  # else with a half-life learns its own days. What's only for cooking learns nothing, and so does
+  # a row Tore had stopped believing in (a half-life or more since it was seen): then it lasted at
+  # most that long, which would only ever slow the rhythm down.
   defp learn_lasted(_scope, %PantryItem{belief: "missing"}), do: :ok
   defp learn_lasted(_scope, %PantryItem{added_at: nil}), do: :ok
   defp learn_lasted(_scope, %PantryItem{ingredient_id: nil}), do: :ok
 
   defp learn_lasted(scope, %PantryItem{} = item) do
     opts = Scope.repo_opts(scope)
-    lasted = max(Date.diff(Tore.Clock.today(), item.added_at), 1)
+    today = Tore.Clock.today()
+    lasted = max(Date.diff(today, item.added_at), 1)
+
+    unseen =
+      if item.last_seen_at, do: Date.diff(today, DateTime.to_date(item.last_seen_at)), else: 0
 
     basic =
       Repo.one(
@@ -533,13 +539,16 @@ defmodule Tore.Pantry do
       )
 
     if basic do
-      basic
-      |> Ecto.Changeset.change(interval_days: halfway(basic.interval_days, lasted))
-      |> Repo.update!()
+      if unseen < basic.interval_days do
+        basic
+        |> Ecto.Changeset.change(interval_days: halfway(basic.interval_days, lasted))
+        |> Repo.update!()
+      end
     else
       ingredient = Repo.get!(Ingredient, item.ingredient_id, opts)
+      days = ingredient.lasts_days || Tore.Pantry.Lasts.half_life_days(ingredient.lasts)
 
-      if days = ingredient.lasts_days || Tore.Pantry.Lasts.half_life_days(ingredient.lasts) do
+      if days && unseen < days do
         ingredient |> Ecto.Changeset.change(lasts_days: halfway(days, lasted)) |> Repo.update!()
       end
     end

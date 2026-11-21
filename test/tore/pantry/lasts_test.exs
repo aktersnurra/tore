@@ -1,6 +1,8 @@
 defmodule Tore.Pantry.LastsTest do
   use Tore.DataCase, async: false
 
+  import Ecto.Query
+
   alias Tore.{Costs, Pantry}
   alias Tore.Pantry.Lasts
 
@@ -92,6 +94,46 @@ defmodule Tore.Pantry.LastsTest do
     assert_received {:asked, questions}
     %{"instructions" => question} = questions["icon_#{carrot.id}"]
     assert question =~ "morot" and question =~ "produce"
+  end
+
+  test "a household that hasn't chosen its language yet is asked without one" do
+    jev()
+
+    Tore.Repo.update_all(
+      from(h in Tore.Household.HouseholdSchema, where: h.id == ^home_scope().household_id),
+      set: [locale: nil]
+    )
+
+    assert {:ok, 3} = Lasts.sort(home_scope(), req: req(), api_key: "k")
+    assert_received {:state, state}
+    refute Enum.any?(state, &(&1 =~ "written in"))
+  end
+
+  # A learn job's merge can delete an ingredient while Jev is answering about it.
+  test "something gone by the time Jev answers is skipped, and the rest is kept" do
+    jev()
+    [butter] = for item <- Pantry.list_kept(home_scope()), item.name == "smör", do: item
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      :ok = Pantry.remove_item(home_scope(), butter.id)
+
+      Tore.Repo.delete_all(
+        from(i in Tore.Recipes.Ingredient, where: i.id == ^butter.ingredient_id),
+        Tore.Scope.repo_opts(home_scope())
+      )
+
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+
+      answers =
+        Map.new(Jason.decode!(body)["questions"], fn {key, _} ->
+          {key,
+           %{"choice" => if(key =~ "icon", do: "pasta", else: "cooking"), "confidence" => 0.8}}
+        end)
+
+      Req.Test.json(conn, %{"answers" => answers, "usage" => %{"cost" => 0.0001}})
+    end)
+
+    assert {:ok, 2} = Lasts.sort(home_scope(), req: req(), api_key: "k")
   end
 
   test "tonight's ingredients that aren't kept get a picture, and nothing else is asked" do
