@@ -51,7 +51,7 @@ if config_env() == :prod do
 
   config :tore,
          :openrouter_site_url,
-         System.get_env("OPENROUTER_SITE_URL", "https://scullion.gustafrydholm.xyz")
+         System.get_env("OPENROUTER_SITE_URL", "https://tore.gustafrydholm.xyz")
 
   config :tore, :openrouter_app_name, System.get_env("OPENROUTER_APP_NAME", "Tore")
 

@@ -11,8 +11,22 @@ defmodule Tore.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      releases: [tore: [steps: [:assemble, &copy_harness/1]]]
     ]
+  end
+
+  # pi's session launcher and the instructions it gives pi, which the server runs from the
+  # release (TORE_PI_COMMAND=/opt/tore/harness/pi-session). The task files are compiled in.
+  defp copy_harness(release) do
+    dir = Path.join(release.path, "harness")
+    File.mkdir_p!(dir)
+
+    for file <- ~w(pi-session AGENTS.md),
+        do: File.cp!(Path.join("harness", file), Path.join(dir, file))
+
+    File.chmod!(Path.join(dir, "pi-session"), 0o755)
+    release
   end
 
   # Configuration for the OTP application.

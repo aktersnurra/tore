@@ -68,7 +68,7 @@ config :phoenix, :filter_parameters, ["password", "secret", "token", "api_key"]
 # Port injection: the HTTP transport, injected per environment.
 config :tore, :http_client, Tore.Adapters.ReqHTTP
 
-config :tore, :openrouter_site_url, "https://scullion.gustafrydholm.xyz"
+config :tore, :openrouter_site_url, "https://tore.gustafrydholm.xyz"
 config :tore, :openrouter_app_name, "Tore"
 
 config :tore, Tore.Scheduler,

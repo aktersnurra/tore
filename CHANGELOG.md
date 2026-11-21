@@ -7,6 +7,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Ready to deploy with pi (2026-11-21)
+
+- The release carries `harness/pi-session` and `harness/AGENTS.md`, so the server runs pi from `/opt/tore/harness/pi-session`. pi 1.5.2 runs in the FreeBSD jail on Node 26; mirbad's `apps/tore` installs it (`install-pi.sh`) and names the env pi reads.
+- OpenRouter's site URL defaults to tore.gustafrydholm.xyz, not the old scullion name.
+
 ### The pantry knows what's eaten (2026-11-20)
 
 - What's eaten between meals (milk, bread, yoghurt) is believed eaten over time, with no one telling Tore: Jev judges once per ingredient how fast it goes, and your own buying rhythm takes over once Tore knows it. Pasta, spices and what's only for cooking no longer go unsure with age.
