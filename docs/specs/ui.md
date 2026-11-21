@@ -1172,6 +1172,11 @@ What does Tore know, and how can I correct it?
 
 One grouped list, like a phone's own settings (2026-11-20). Each row shows what it's set to, and
 opens its setting on a page of its own (`/settings/<section>`, with ‹ Settings back to the list).
+Like the other pages, each has its tinted duotone icon above its title, and the same icon small on
+its row (2026-11-21): Settings gear (grey), Namn house (orange), Medlemmar users (blue), Kost och
+allergier carrot (green), Saker Tore har lärt sig brain (purple), AI-användning coins (yellow),
+Dina hushåll buildings (grey). The rows that aren't pages have one too, so every label lines up:
+Språk translate, Utseende half circle, Logga ut sign-out (red).
 
 ```md
 Household     Name › · Members › · Language (shown, chosen once)

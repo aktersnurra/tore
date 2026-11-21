@@ -176,6 +176,14 @@ defmodule ToreWeb.SettingsLive do
   defp format_usd(nil), do: "$0.00"
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
 
+  # Each page's icon and tint, above its title and on its row, as the other pages have theirs.
+  defp section_icon("name"), do: {"ph-house-simple-duotone", "orange"}
+  defp section_icon("members"), do: {"ph-users-duotone", "blue"}
+  defp section_icon("food"), do: {"ph-carrot-duotone", "green"}
+  defp section_icon("memory"), do: {"ph-brain-duotone", "purple"}
+  defp section_icon("ai"), do: {"ph-coins-duotone", "yellow"}
+  defp section_icon("households"), do: {"ph-buildings-duotone", "grey"}
+
   defp section_title("name"), do: gettext("Name")
   defp section_title("members"), do: gettext("Members")
   defp section_title("food"), do: gettext("Diet and allergies")
@@ -274,7 +282,12 @@ defmodule ToreWeb.SettingsLive do
       <.page max_width={:md}>
         <%!-- The list --%>
         <div :if={!@section} id="settings-list" class="settle">
-          <h1 class="t-display mt-4 mb-6">{gettext("Settings")}</h1>
+          <.page_icon
+            icon="ph-gear-six-duotone"
+            tint="grey"
+            class="mt-4 size-14 rounded-[var(--r-xl)]"
+          />
+          <h1 class="t-display mt-3 mb-6">{gettext("Settings")}</h1>
 
           <.group label={gettext("Household")}>
             <.setting section="name" label={gettext("Name")} value={@household.name} />
@@ -283,8 +296,13 @@ defmodule ToreWeb.SettingsLive do
               label={gettext("Members")}
               value={members_value(@users, @pending)}
             />
-            <div class="flex min-h-12 items-center justify-between gap-3 py-2">
-              <span>{gettext("Language")}</span>
+            <div class="flex min-h-12 items-center gap-3 py-2">
+              <.page_icon
+                icon="ph-translate-duotone"
+                tint="grey"
+                class="size-7 shrink-0 rounded-[var(--r-sm)]"
+              />
+              <span class="flex-1">{gettext("Language")}</span>
               <span class="text-[color:var(--muted)]">
                 {Household.locale_label(@household.locale)}
               </span>
@@ -315,8 +333,13 @@ defmodule ToreWeb.SettingsLive do
           </.group>
 
           <.group label={gettext("This device")}>
-            <div class="flex min-h-12 items-center justify-between gap-3 py-2">
-              <span>{gettext("Look")}</span>
+            <div class="flex min-h-12 items-center gap-3 py-2">
+              <.page_icon
+                icon="ph-circle-half-duotone"
+                tint="grey"
+                class="size-7 shrink-0 rounded-[var(--r-sm)]"
+              />
+              <span class="flex-1">{gettext("Look")}</span>
               <.look />
             </div>
           </.group>
@@ -331,9 +354,13 @@ defmodule ToreWeb.SettingsLive do
             <.link
               href={~p"/logout"}
               method="delete"
-              class="press -mx-4 flex min-h-12 items-center gap-2 px-4 py-2 text-[color:var(--danger)] row-hover"
+              class="press -mx-4 flex min-h-12 items-center gap-3 px-4 py-2 text-[color:var(--danger)] row-hover"
             >
-              <.icon name="ph-sign-out" class="size-[18px]" />
+              <.page_icon
+                icon="ph-sign-out-duotone"
+                tint="red"
+                class="size-7 shrink-0 rounded-[var(--r-sm)]"
+              />
               {gettext("Sign out")}
             </.link>
           </.group>
@@ -352,6 +379,11 @@ defmodule ToreWeb.SettingsLive do
               <span class="text-[15px]">{gettext("Settings")}</span>
             </.link>
           </header>
+          <.page_icon
+            icon={elem(section_icon(@section), 0)}
+            tint={elem(section_icon(@section), 1)}
+            class="mt-3 size-14 rounded-[var(--r-xl)]"
+          />
           <h1 class="t-display mt-3 mb-6">{section_title(@section)}</h1>
 
           <%!-- A plain field: Enter saves it, and it flashes green when saved. --%>
@@ -657,6 +689,11 @@ defmodule ToreWeb.SettingsLive do
       class="press row-hover -mx-4 flex min-h-12 items-center gap-3 px-4 py-2"
       {@rest}
     >
+      <.page_icon
+        icon={elem(section_icon(@section), 0)}
+        tint={elem(section_icon(@section), 1)}
+        class="size-7 shrink-0 rounded-[var(--r-sm)]"
+      />
       <span class="shrink-0">{@label}</span>
       <span class="min-w-0 flex-1 truncate text-right text-[color:var(--muted)]">{@value}</span>
       <.icon name="ph-caret-right" class="size-4 shrink-0 text-[color:var(--subtle)]" />

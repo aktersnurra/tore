@@ -282,6 +282,29 @@ defmodule ToreWeb.SettingsLiveTest do
     end
   end
 
+  test "each page has its icon above its title, as the other pages do, and its row the same",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/settings")
+
+    assert has_element?(
+             view,
+             "#settings-list > .ph-gear-six-duotone, #settings-list [class*=ph-gear-six-duotone]"
+           )
+
+    assert has_element?(view, ~s(a[href="/settings/memory"] .ph-brain-duotone))
+
+    for {section, icon} <- [
+          {"name", "house-simple"},
+          {"members", "users"},
+          {"food", "carrot"},
+          {"memory", "brain"},
+          {"ai", "coins"}
+        ] do
+      {:ok, view, _html} = live(conn, ~p"/settings/#{section}")
+      assert has_element?(view, "#settings-#{section} [class*=ph-#{icon}-duotone]")
+    end
+  end
+
   test "has a way to sign out", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/settings")
 
