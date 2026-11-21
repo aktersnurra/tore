@@ -94,7 +94,7 @@ defmodule ToreWeb.HomeLiveTest do
       refute has_element?(view, "[data-role=lunch]")
     end
 
-    test "what's missing is a list to buy, which can be swapped or asked about", %{
+    test "what's missing is a list to buy; Cook now asks about it first", %{
       conn: conn
     } do
       Mox.set_mox_global()
@@ -127,22 +127,93 @@ defmodule ToreWeb.HomeLiveTest do
       refute has_element?(view, ~s([data-role="at-home"] li[data-buy="smör"]))
       refute has_element?(view, ~s([data-role="ingredients"]))
 
-      # The photo opens the recipe; there's no menu, and no Cook now while something's missing.
+      # The photo opens the recipe; there's no menu.
       assert has_element?(view, ~s(a[data-role="cover"][href="/recipes?id=#{buns.id}"]))
       refute has_element?(view, "#today-menu")
-      refute has_element?(view, ~s([data-role="start-cooking"]))
 
       # Fråga Tore asks about what's missing, in the dish's conversation: one way to ask.
       ask = view |> element(~s(a[data-role="ask-tore"])) |> render()
       assert ask =~ "recipe=#{buns.id}" and ask =~ "kanel"
 
-      # Byt ut says what to use instead, and can still cook anyway, back here after.
-      view
-      |> element(~s([data-role="at-home"] button[data-role="swap-missing"]))
-      |> render_click()
+      # Cook now is where it always is; with something missing it first asks what to use
+      # instead, and can still cook anyway, back here after.
+      refute has_element?(view, ~s([data-role="swap-missing"]))
+      view |> element(~s(button[data-role="start-cooking"])) |> render_click()
 
       assert view |> element(~s([data-missing="kanel"])) |> render() =~ "kanel"
       assert has_element?(view, ~s(a[data-role="cook-anyway"][href*="from=%2Ftoday"]))
+    end
+  end
+
+  describe "ticking off what's missing" do
+    defp tonight_needs(names) do
+      {:ok, dish} =
+        Tore.Recipes.create(home_scope(), %{
+          title: "Pannkakor",
+          recipe_type: :meal,
+          ingredients: Enum.map(names, &%{name: &1})
+        })
+
+      Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), dish.id, 4)
+      dish
+    end
+
+    defp missing, do: Tore.Pantry.at_home(home_scope(), ["mjöl", "ägg"]).missing
+
+    test "a tick says it's bought: at home now, the row stays ticked, tapping again undoes it",
+         %{conn: conn} do
+      tonight_needs(["mjöl", "ägg"])
+      {:ok, view, _html} = live(conn, ~p"/today")
+      box = ~s([data-buy="ägg"] button[role="checkbox"])
+
+      view |> element(box) |> render_click()
+      assert missing() == ["mjöl"]
+      assert view |> element(box) |> render() =~ ~s(aria-checked="true")
+      assert has_element?(view, ~s(li.is-checked[data-buy="ägg"]))
+
+      view |> element(box) |> render_click()
+      assert missing() == ["mjöl", "ägg"]
+      assert view |> element(box) |> render() =~ ~s(aria-checked="false")
+
+      # Eggs were never kept, so taking the tick back leaves no row behind for Hemma to show.
+      refute Tore.Pantry.kept?(home_scope(), "ägg")
+
+      # With all of it ticked, Cook now goes straight to cooking.
+      view |> element(box) |> render_click()
+      view |> element(~s([data-buy="mjöl"] button[role="checkbox"])) |> render_click()
+      assert view |> element(~s(a[data-role="start-cooking"])) |> render() =~ "/cook"
+    end
+
+    test "taking back a tick on something used up leaves it used up", %{conn: conn} do
+      tonight_needs(["mjöl", "ägg"])
+      {:ok, flour} = Tore.Pantry.add_item(home_scope(), %{name: "mjöl"})
+      {:ok, _} = Tore.Pantry.mark_gone(home_scope(), flour.id)
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+      box = ~s([data-buy="mjöl"] button[role="checkbox"])
+      view |> element(box) |> render_click()
+      view |> element(box) |> render_click()
+
+      assert missing() == ["mjöl", "ägg"]
+      assert Tore.Repo.reload!(flour, Tore.Scope.repo_opts(home_scope())).belief == "missing"
+    end
+
+    test "what's on this week's list is ticked there too", %{conn: conn} do
+      tonight_needs(["mjöl", "ägg"])
+      list_id = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
+      {:ok, _} = Tore.Shop.add_item(home_scope(), list_id, "Ägg", nil, nil, nil)
+
+      {:ok, view, _html} = live(conn, ~p"/today")
+      view |> element(~s([data-buy="ägg"] button[role="checkbox"])) |> render_click()
+
+      {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list_id)
+      assert [%{name: "Ägg", checked: true}] = Map.values(items)
+      assert missing() == ["mjöl"]
+
+      view |> element(~s([data-buy="ägg"] button[role="checkbox"])) |> render_click()
+      {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list_id)
+      assert [%{checked: false}] = Map.values(items)
+      assert missing() == ["mjöl", "ägg"]
     end
   end
 

@@ -707,10 +707,15 @@ When     — one line: Tonight · 20 min · ready by 18:40; Lunch under it when 
            "ready 00:57" says nothing
 Can I start? — the first thing it answers (2026-11-21), in Shop's and Hemma's style: a group
            head (caret, tag, count) with a row each, no card:
-           tonight, nothing missing: [🔥 Cook now] is the answer, first, in a fixed place
-           ▾ [Handla] 6                                              Byt ut ›
-               🍝 spaghetti   (each with its picture, as Hemma shows it)
-             Byt ut opens Before you start (what to use instead, or cook anyway)
+           tonight: [🔥 Cook now], always, in a fixed place. With nothing to buy it starts
+             cooking; with something still to buy it opens Before you start (what to use
+             instead, or cook anyway), so swapping happens on the way in
+           ▾ [Handla] 5
+               ☐ 🍝 spaghetti   (each with its picture, as Hemma shows it)
+               ☑ 🍅 passata     (ticked: at home now, and ticked on the week's list when it's
+                                there; the row stays, tapping again undoes it, and a row the
+                                tick made in the pantry goes again)
+             the count is what's still to buy
            ▾ [Finns det kvar?] 2                                     Hemma ›
                🥛 mjölk, last seen 10 days ago      [Finns] [Slut]
              up to three; Slut puts it under Handla; "+2 more" opens Hemma
@@ -732,9 +737,10 @@ what can still be sorted out this evening:
 ✓ Kycklinggryta, lagad ikväll
 [cover] Laxpasta
 Tomorrow · 35 min
-▾ [Handla] 2                    Byt ut ›
-   lax
-   dill
+[🔥 Cook now]
+▾ [Handla] 2
+   ☐ lax
+   ☐ dill
 [Something else] [Ask Tore]
 ```
 

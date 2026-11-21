@@ -33,7 +33,8 @@ defmodule ToreWeb.HomeLive do
         tonight_sheet: false,
         before_cooking: false,
         choices: nil,
-        changed: nil
+        changed: nil,
+        ticked: %{}
       )
       |> PiReply.init()
       |> reload_tonight()
@@ -150,6 +151,8 @@ defmodule ToreWeb.HomeLive do
               <%!-- Can I start? Tonight with everything at home the answer is Cook now, first
                  and always in the same place. Otherwise what to buy, as Shop lists it, and what
                  Tore isn't sure is still here, as Hemma asks it: a tag for a head, a row each. --%>
+              <%!-- Cook now, always here tonight. With something still to buy it first asks what
+                 to use instead (Before you start), and can cook anyway. --%>
               <.link
                 :if={@day == :tonight and @home.missing == []}
                 navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
@@ -159,10 +162,20 @@ defmodule ToreWeb.HomeLive do
               >
                 <.icon name="ph-fire-fill" /> {gettext("Cook now")}
               </.link>
+              <button
+                :if={@day == :tonight and @home.missing != []}
+                type="button"
+                phx-click="before_cooking"
+                class="pill pill-lamp press reveal mt-5 w-full md:w-auto"
+                style="--i: 2"
+                data-role="start-cooking"
+              >
+                <.icon name="ph-fire-fill" /> {gettext("Cook now")}
+              </button>
 
               <p
                 :if={
-                  @day == :tomorrow and @dish.recipe_ingredients != [] and @home.missing == [] and
+                  @day == :tomorrow and @dish.recipe_ingredients != [] and @buy == [] and
                     @home.unsure == []
                 }
                 data-role="ready"
@@ -175,42 +188,50 @@ defmodule ToreWeb.HomeLive do
                 <.pantry_link />
               </p>
 
-              <section
-                :if={@home.missing != []}
-                data-role="at-home"
-                class="reveal mt-6"
-                style="--i: 2"
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <.group_head
-                    id="today-buy"
-                    label={gettext("To buy")}
-                    tint="red"
-                    count={length(@home.missing)}
-                  />
-                  <%!-- Or use something else: Before you start, which can still cook anyway --%>
-                  <button
-                    type="button"
-                    phx-click="before_cooking"
-                    data-role="swap-missing"
-                    class="press flex items-center gap-1 text-[color:var(--muted)] hover:text-[color:var(--text)]"
-                    style="font-size: 14px;"
-                  >
-                    {gettext("Swap")} <.icon name="ph-caret-right" class="size-3.5" />
-                  </button>
-                </div>
+              <%!-- What to buy, ticked off as on Shop: a tick puts it at home (and ticks it on the
+                 week's list when it's there); a ticked row stays, and tapping it again undoes it. --%>
+              <section :if={@buy != []} data-role="at-home" class="reveal mt-6" style="--i: 2">
+                <.group_head
+                  id="today-buy"
+                  label={gettext("To buy")}
+                  tint="red"
+                  count={length(@home.missing)}
+                />
                 <ul id="today-buy" class="pl-6">
                   <li
-                    :for={name <- @home.missing}
+                    :for={name <- @buy}
                     data-buy={name}
-                    class="flex min-h-[44px] items-center gap-3 py-1"
+                    class={[
+                      "tick-row flex min-h-[44px] items-center gap-3 py-1",
+                      Map.has_key?(@ticked, name) && "is-checked"
+                    ]}
                   >
-                    <img
-                      src={~p"/images/food/#{Icons.file(picture(@dish, name))}"}
-                      alt=""
-                      class="size-7 shrink-0"
-                    />
-                    <span class="min-w-0 truncate">{name}</span>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={to_string(Map.has_key?(@ticked, name))}
+                      aria-label={name}
+                      phx-click="tick_buy"
+                      phx-value-name={name}
+                      class="press tick-box"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5.5 12.5l4.2 4.2L18.5 8" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="tick_buy"
+                      phx-value-name={name}
+                      class="press press-soft flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      <img
+                        src={~p"/images/food/#{Icons.file(picture(@dish, name))}"}
+                        alt=""
+                        class="size-7 shrink-0"
+                      />
+                      <span class="tick-name min-w-0 truncate">{name}</span>
+                    </button>
                   </li>
                 </ul>
               </section>
@@ -497,7 +518,16 @@ defmodule ToreWeb.HomeLive do
       tonight &&
         Tore.Pantry.at_home(scope, Enum.map(tonight.recipe_ingredients, & &1.ingredient.name))
 
+    # What to buy: what's missing, and what's been ticked off here, in the recipe's order, so a
+    # ticked row keeps its place.
+    buy =
+      for %{ingredient: %{name: name}} <- (tonight && tonight.recipe_ingredients) || [],
+          name in home.missing or Map.has_key?(socket.assigns.ticked, name),
+          uniq: true,
+          do: name
+
     assign(socket,
+      buy: buy,
       dish: tonight,
       lunch: lunch_id && scope |> Recipes.get_many([lunch_id]) |> List.first(),
       servings: slot && slot[:servings],
@@ -594,6 +624,22 @@ defmodule ToreWeb.HomeLive do
   def handle_event("tonight_command", _params, socket), do: {:noreply, socket}
 
   def handle_event("dismiss_pi_reply", _params, socket), do: {:noreply, PiReply.dismiss(socket)}
+
+  # Ticked off: bought, so at home; on the week's list it's ticked there too, as on Shop. Tapping
+  # again undoes both.
+  def handle_event("tick_buy", %{"name" => name}, socket) do
+    ticked =
+      case Map.fetch(socket.assigns.ticked, name) do
+        {:ok, ticked} ->
+          :ok = untick(socket, name, ticked)
+          Map.delete(socket.assigns.ticked, name)
+
+        :error ->
+          Map.put(socket.assigns.ticked, name, tick(socket, name))
+      end
+
+    {:noreply, socket |> assign(ticked: ticked) |> reload_tonight()}
+  end
 
   # Something Tore was unsure of: still there makes it sure, gone puts it with what's missing.
   def handle_event("still_there", %{"id" => id}, socket) do
@@ -743,6 +789,38 @@ defmodule ToreWeb.HomeLive do
       {gettext("At home")} <.icon name="ph-caret-right" class="size-3.5" />
     </.link>
     """
+  end
+
+  # Ticks `name` on the week's list when it's there unticked (which puts it away, as on Shop), or
+  # puts it away; answers what undoing it needs: the list's item it ticked, if any, and whether
+  # the pantry had a row for it before.
+  defp tick(socket, name) do
+    %{current_scope: scope, current_user: user, week_start: week_start} = socket.assigns
+    kept_before = Tore.Pantry.kept?(scope, name)
+    list_id = Tore.Streams.shop_list(scope, week_start)
+    key = Tore.Recipes.Ingredient.to_key(name)
+    {:ok, %{items: items}} = Tore.Shop.load_list(scope, list_id)
+
+    case Enum.find(items, fn {_id, item} ->
+           !item.checked and Tore.Recipes.Ingredient.to_key(item.name) == key
+         end) do
+      {id, _item} ->
+        {:ok, _} = Tore.Shop.check_item(scope, list_id, id, user.id)
+        %{on_list: {list_id, id}, kept_before: kept_before}
+
+      nil ->
+        {:ok, _} = Tore.Pantry.put_away(scope, name, nil, nil)
+        %{on_list: nil, kept_before: kept_before}
+    end
+  end
+
+  defp untick(socket, name, %{on_list: on_list, kept_before: kept_before}) do
+    %{current_scope: scope, current_user: user} = socket.assigns
+
+    with {list_id, id} <- on_list,
+         do: {:ok, _} = Tore.Shop.uncheck_item(scope, list_id, id, user.id)
+
+    Tore.Pantry.not_bought(scope, name, kept_before)
   end
 
   # When dinner is ready if it's started now: only when it could be (from the afternoon until
