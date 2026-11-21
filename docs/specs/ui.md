@@ -707,7 +707,7 @@ Cover    — tonight's photo, or the dish's tinted icon while one is drawn, the 
 When     — the facts as the recipe page gives its times: 🕒 Totalt: 5 h  Klar: 18:40
            Portioner: 6 (`ToreWeb.Dates.duration/1`, shared with the recipe page); Lunch
            under it when one is planned. Klar only from 15:00 until the evening's over
-           (`:cooking_from`), since "ready 00:57" says nothing. Actions are the recipe
+           (`:cooking_from_hour`), since "ready 00:57" says nothing. Actions are the recipe
            page's large pills
 Actions  — together, in one row under When, always in the same place (2026-11-21):
            [🔥 Cook now] [Something else] [Ask Tore]; on a phone Cook now spans the row and the
@@ -731,7 +731,7 @@ Can I start? — under the actions, as the recipe page lays out Ingredienser: a 
 Note     — the home pick's one note, with its action, when there is one
 ```
 No ingredient list: the recipe page has it. Opening Today asks Jev for the pictures of tonight's
-ingredients that have none (`Tore.Pantry.Lasts.pictures_later/2`), and Today redraws when they come.
+ingredients that have none (`Tore.Pantry.Lasts.icons_later/2`), and Today redraws when they come.
 
 ### After dinner (2026-11-19)
 

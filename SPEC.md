@@ -694,7 +694,7 @@ a Swedish name it doesn't know (2026-11-21: "morot" got salt, "russin" rice). It
 language the names are in, and each ingredient's section when Tore knows it. One Jev answers with that isn't there is not kept and is asked again, and a row whose
 pick is no longer there shows its category's. Jev is asked when something new comes into the pantry
 and when Hemma opens, so nothing kept waits for an add; with nothing unasked there's no call. Opening
-Hemma also has whatever is kept without a section learned (`Tore.Pantry.unsorted/1`, a `learn` job). An ingredient is asked only for what it lacks.
+Hemma also has whatever is kept without a section learned (`Tore.Pantry.without_section/1`, a `learn` job). An ingredient is asked only for what it lacks.
 
 **Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
 `Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same

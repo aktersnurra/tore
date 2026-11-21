@@ -14,9 +14,9 @@ defmodule Tore.Deals.Logo do
         {:error, _} -> []
       end
 
-    Enum.find_value([["apple-touch-icon"], ["icon"]], fn rel ->
+    Enum.find_value(["apple-touch-icon", "icon"], fn rel ->
       links
-      |> Enum.filter(&(rels(&1) -- rel != rels(&1)))
+      |> Enum.filter(&(rel in rels(&1)))
       |> Enum.max_by(&size/1, fn -> nil end)
       |> case do
         nil -> nil

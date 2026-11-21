@@ -26,7 +26,7 @@ defmodule ToreWeb.SettingsLive do
      |> assign_ai_sponsor()
      |> assign(
        member_username: "",
-       member_form: 0,
+       member_form_generation: 0,
        name_saved?: false,
        member_added: nil,
        member_error: nil,
@@ -84,7 +84,7 @@ defmodule ToreWeb.SettingsLive do
          socket
          |> assign_members()
          |> assign(member_username: "", member_added: added, member_error: nil)
-         |> update(:member_form, &(&1 + 1))}
+         |> update(:member_form_generation, &(&1 + 1))}
 
       {:error, reason} ->
         {:noreply,
@@ -179,12 +179,12 @@ defmodule ToreWeb.SettingsLive do
   defp format_usd(v), do: "$#{:erlang.float_to_binary(v / 1, decimals: 2)}"
 
   # Each page's icon and tint, above its title and on its row, as the other pages have theirs.
-  defp section_icon("name"), do: {"ph-house-simple-duotone", "orange"}
-  defp section_icon("members"), do: {"ph-users-duotone", "blue"}
-  defp section_icon("food"), do: {"ph-carrot-duotone", "green"}
-  defp section_icon("memory"), do: {"ph-brain-duotone", "purple"}
-  defp section_icon("ai"), do: {"ph-coins-duotone", "yellow"}
-  defp section_icon("households"), do: {"ph-buildings-duotone", "grey"}
+  defp section_icon("name"), do: %{icon: "ph-house-simple-duotone", tint: "orange"}
+  defp section_icon("members"), do: %{icon: "ph-users-duotone", tint: "blue"}
+  defp section_icon("food"), do: %{icon: "ph-carrot-duotone", tint: "green"}
+  defp section_icon("memory"), do: %{icon: "ph-brain-duotone", tint: "purple"}
+  defp section_icon("ai"), do: %{icon: "ph-coins-duotone", tint: "yellow"}
+  defp section_icon("households"), do: %{icon: "ph-buildings-duotone", tint: "grey"}
 
   defp section_title("name"), do: gettext("Name")
   defp section_title("members"), do: gettext("Members")
@@ -382,8 +382,7 @@ defmodule ToreWeb.SettingsLive do
             </.link>
           </header>
           <.page_icon
-            icon={elem(section_icon(@section), 0)}
-            tint={elem(section_icon(@section), 1)}
+            {section_icon(@section)}
             class="mt-3 size-14 rounded-[var(--r-xl)]"
           />
           <h1 class="t-display mt-3 mb-6">{section_title(@section)}</h1>
@@ -465,13 +464,13 @@ defmodule ToreWeb.SettingsLive do
                typed in an input it's in, whatever the server says), with the cursor in it for
                the next. --%>
             <form
-              id={"add-member-#{@member_form}"}
+              id={"add-member-#{@member_form_generation}"}
               phx-submit="add_member"
-              phx-mounted={@member_form > 0 && JS.focus_first()}
+              phx-mounted={@member_form_generation > 0 && JS.focus_first()}
               class="mt-4"
             >
               <.field
-                id={"member-username-#{@member_form}"}
+                id={"member-username-#{@member_form_generation}"}
                 name="username"
                 value={@member_username}
                 placeholder={gettext("Pocket ID username")}
@@ -700,8 +699,7 @@ defmodule ToreWeb.SettingsLive do
       {@rest}
     >
       <.page_icon
-        icon={elem(section_icon(@section), 0)}
-        tint={elem(section_icon(@section), 1)}
+        {section_icon(@section)}
         class="size-7 shrink-0 rounded-[var(--r-sm)]"
       />
       <span class="shrink-0">{@label}</span>

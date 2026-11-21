@@ -116,7 +116,7 @@ defmodule ToreWeb.HomeLiveTest do
 
       # What to buy, as Shop lists it: a head with how many, then a row each with its picture.
       # The ingredients themselves are on the recipe page.
-      assert view |> element(~s([data-role="at-home"] h2)) |> render() =~ "Handla"
+      assert view |> element(~s([data-role="to-buy"] h2)) |> render() =~ "Handla"
 
       # The things to do sit together, in one row: cook, something else, ask.
       for role <- ["start-cooking", "something-else", "ask-tore"],
@@ -124,10 +124,10 @@ defmodule ToreWeb.HomeLiveTest do
 
       assert has_element?(
                view,
-               ~s([data-role="at-home"] li[data-buy="kanel"] img[src^="/images/food/"])
+               ~s([data-role="to-buy"] li[data-buy="kanel"] img[src^="/images/food/"])
              )
 
-      refute has_element?(view, ~s([data-role="at-home"] li[data-buy="smör"]))
+      refute has_element?(view, ~s([data-role="to-buy"] li[data-buy="smör"]))
       refute has_element?(view, ~s([data-role="ingredients"]))
 
       # The photo opens the recipe; there's no menu.
@@ -276,8 +276,8 @@ defmodule ToreWeb.HomeLiveTest do
       assert has_element?(view, ~s([data-role="cover"] .tag-red), "Ikväll")
 
       # After midnight, "ready 00:57" says nothing.
-      Application.put_env(:tore, :cooking_from, 24)
-      on_exit(fn -> Application.put_env(:tore, :cooking_from, 0) end)
+      Application.put_env(:tore, :cooking_from_hour, 24)
+      on_exit(fn -> Application.put_env(:tore, :cooking_from_hour, 0) end)
       {:ok, view, _html} = live(conn, ~p"/today")
       refute has_element?(view, ~s([data-role="ready-by"]))
     end
@@ -295,7 +295,7 @@ defmodule ToreWeb.HomeLiveTest do
 
       view |> element(row <> ~s( [data-role="gone"])) |> render_click()
       refute has_element?(view, row)
-      assert has_element?(view, ~s([data-role="at-home"] li[data-buy="Mjölk"]))
+      assert has_element?(view, ~s([data-role="to-buy"] li[data-buy="Mjölk"]))
 
       unsure_milk()
       {:ok, view, _html} = live(conn, ~p"/today")

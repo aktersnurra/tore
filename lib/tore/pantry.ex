@@ -595,8 +595,8 @@ defmodule Tore.Pantry do
   The names of what's kept that has no section yet (a name a recipe brought, never learned), so
   it sits in the cupboard until it's learned (`Tore.Pantry.Learn`).
   """
-  @spec unsorted(Scope.t()) :: [String.t()]
-  def unsorted(%Scope{} = scope) do
+  @spec without_section(Scope.t()) :: [String.t()]
+  def without_section(%Scope{} = scope) do
     for item <- list_kept(scope),
         item.ingredient == nil or item.ingredient.category == nil,
         do: item.name

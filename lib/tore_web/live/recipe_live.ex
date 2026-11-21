@@ -1024,15 +1024,15 @@ defmodule ToreWeb.RecipeLive do
             <.icon name="ph-clock" class="size-5 text-[color:var(--muted)]" />
             <div :if={@selected.prep_time_minutes} class="flex gap-1">
               <dt class="font-semibold">{gettext("Prep:")}</dt>
-              <dd>{duration(@selected.prep_time_minutes)}</dd>
+              <dd>{ToreWeb.Dates.duration(@selected.prep_time_minutes)}</dd>
             </div>
             <div :if={@selected.cook_time_minutes} class="flex gap-1">
               <dt class="font-semibold">{gettext("Cook:")}</dt>
-              <dd>{duration(@selected.cook_time_minutes)}</dd>
+              <dd>{ToreWeb.Dates.duration(@selected.cook_time_minutes)}</dd>
             </div>
             <div class="flex gap-1">
               <dt class="font-semibold">{gettext("Total:")}</dt>
-              <dd>{duration(total_minutes(@selected))}</dd>
+              <dd>{ToreWeb.Dates.duration(total_minutes(@selected))}</dd>
             </div>
           </dl>
 
@@ -1964,15 +1964,14 @@ defmodule ToreWeb.RecipeLive do
 
   # "35 min, vegetarian, quick": time first, then up to two tags.
   defp recipe_meta(recipe) do
-    time = if total_minutes(recipe) > 0, do: [duration(total_minutes(recipe))], else: []
+    time =
+      if total_minutes(recipe) > 0, do: [ToreWeb.Dates.duration(total_minutes(recipe))], else: []
+
     Enum.join(time ++ (recipe.tags |> Enum.take(2) |> Enum.map(& &1.name)), ", ")
   end
 
   defp total_minutes(recipe),
     do: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
-
-  # 45 min, 2 h, 3 h 30 min
-  defp duration(minutes), do: ToreWeb.Dates.duration(minutes)
 
   defp error_message(changeset) do
     changeset.errors

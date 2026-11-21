@@ -25,7 +25,8 @@ defmodule ToreWeb.PantryLive do
       # failed call) is asked now; with nothing waiting there's no call.
       :ok = Pantry.Lasts.later(scope)
       # And what has no section yet is learned, so it moves out of the cupboard.
-      with [_ | _] = names <- Pantry.unsorted(scope), do: :ok = Pantry.Learn.later(scope, names)
+      with [_ | _] = names <- Pantry.without_section(scope),
+           do: :ok = Pantry.Learn.later(scope, names)
     end
 
     {:ok,

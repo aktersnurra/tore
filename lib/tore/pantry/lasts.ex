@@ -61,7 +61,7 @@ defmodule Tore.Pantry.Lasts do
     with :ok <- check(scope) do
       case unasked(scope) do
         [] -> {:ok, 0}
-        ingredients -> scope |> ask(ingredients, opts, &questions/1) |> tell(scope)
+        ingredients -> scope |> ask(ingredients, opts, &questions/1) |> broadcast_changed(scope)
       end
     end
   end
@@ -70,10 +70,10 @@ defmodule Tore.Pantry.Lasts do
   Pictures for `ingredient_ids` that haven't one, in the background: what tonight needs and isn't
   kept, so Today's list to buy shows them as Hemma would.
   """
-  @spec pictures_later(Scope.t(), [integer()]) :: :ok
-  def pictures_later(%Scope{} = scope, ingredient_ids) do
+  @spec icons_later(Scope.t(), [integer()]) :: :ok
+  def icons_later(%Scope{} = scope, ingredient_ids) do
     if Application.get_env(:tore, :learn, :background) == :background do
-      Task.Supervisor.start_child(Tore.TaskSupervisor, fn -> pictures(scope, ingredient_ids) end)
+      Task.Supervisor.start_child(Tore.TaskSupervisor, fn -> icons(scope, ingredient_ids) end)
     end
 
     :ok
@@ -83,14 +83,17 @@ defmodule Tore.Pantry.Lasts do
   Asks Jev only for the picture of each of `ingredient_ids` that hasn't one; how fast it goes is
   asked once it's kept (`sort/2`). Answers how many it kept a picture for.
   """
-  @spec pictures(Scope.t(), [integer()], keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
-  def pictures(%Scope{} = scope, ingredient_ids, opts \\ []) do
+  @spec icons(Scope.t(), [integer()], keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def icons(%Scope{} = scope, ingredient_ids, opts \\ []) do
     with :ok <- check(scope) do
       from(i in Ingredient, where: i.id in ^ingredient_ids and is_nil(i.icon), order_by: i.name)
       |> Repo.all(Scope.repo_opts(scope))
       |> case do
-        [] -> {:ok, 0}
-        ingredients -> scope |> ask(ingredients, opts, &[picture_question(&1)]) |> tell(scope)
+        [] ->
+          {:ok, 0}
+
+        ingredients ->
+          scope |> ask(ingredients, opts, &[icon_question(&1)]) |> broadcast_changed(scope)
       end
     end
   end
@@ -114,13 +117,13 @@ defmodule Tore.Pantry.Lasts do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
-  defp ask(scope, ingredients, opts, questions) do
+  defp ask(scope, ingredients, opts, questions_for) do
     state = state(scope)
 
     ingredients
     |> Enum.chunk_every(@batch)
     |> Enum.reduce_while({:ok, 0}, fn batch, {:ok, kept} ->
-      case Jev.decide(state, batch |> Enum.flat_map(questions) |> Map.new(), opts) do
+      case Jev.decide(state, batch |> Enum.flat_map(questions_for) |> Map.new(), opts) do
         {:ok, answers, cost} ->
           {:ok, _} = Costs.log_llm_usage(scope, %{feature: "pantry_lasts", cost_usd: cost})
           {:cont, {:ok, kept + keep(scope, batch, answers)}}
@@ -140,13 +143,13 @@ defmodule Tore.Pantry.Lasts do
            "How does this household use #{name}, and how long does a pack of it last them?",
            @criteria
          )},
-      ingredient.icon == nil && picture_question(ingredient)
+      ingredient.icon == nil && icon_question(ingredient)
     ]
     |> Enum.filter(& &1)
   end
 
   # The section, when Tore knows it, rules out the wild guesses at a word Jev doesn't know.
-  defp picture_question(%Ingredient{id: id, name: name, category: section}) do
+  defp icon_question(%Ingredient{id: id, name: name, category: section}) do
     kept = if section, do: " It's kept with #{String.replace(section, "_", " ")}.", else: ""
     {"icon_#{id}", choice("Which picture fits #{name} best?#{kept}", Icons.criteria())}
   end
@@ -155,12 +158,12 @@ defmodule Tore.Pantry.Lasts do
     do: %{"type" => "choice", "instructions" => instructions, "criteria" => criteria}
 
   # Hemma and Today show the half-lives and pictures just given.
-  defp tell({:ok, kept} = sorted, scope) when kept > 0 do
+  defp broadcast_changed({:ok, kept} = sorted, scope) when kept > 0 do
     :ok = Tore.Pantry.changed(scope)
     sorted
   end
 
-  defp tell(sorted, _scope), do: sorted
+  defp broadcast_changed(sorted, _scope), do: sorted
 
   defp keep(scope, batch, answers) do
     batch

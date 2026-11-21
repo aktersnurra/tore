@@ -40,9 +40,7 @@ defmodule ToreWeb.HomeLive do
       |> reload_tonight()
 
     # Tonight's ingredients get the pictures Hemma would show, for the list to buy.
-    with %{dish: %{recipe_ingredients: [_ | _] = needed}} <- socket.assigns,
-         true <- connected?(socket),
-         do: Tore.Pantry.Lasts.pictures_later(scope, Enum.map(needed, & &1.ingredient_id))
+    if connected?(socket), do: :ok = ask_icons(scope, socket.assigns.dish)
 
     {:ok, socket}
   end
@@ -217,7 +215,7 @@ defmodule ToreWeb.HomeLive do
 
               <%!-- What to buy, ticked off as on Shop: a tick puts it at home (and ticks it on the
                  week's list when it's there); a ticked row stays, and tapping it again undoes it. --%>
-              <section :if={@buy != []} data-role="at-home" class="reveal mt-8" style="--i: 3">
+              <section :if={@buy != []} data-role="to-buy" class="reveal mt-8" style="--i: 3">
                 <h2 class="t-head mb-3 flex items-baseline gap-2">
                   {gettext("To buy")}
                   <span class="num text-[15px] font-normal text-[color:var(--muted)]">
@@ -803,16 +801,21 @@ defmodule ToreWeb.HomeLive do
     """
   end
 
+  defp ask_icons(scope, %{recipe_ingredients: [_ | _] = needed}),
+    do: Tore.Pantry.Lasts.icons_later(scope, Enum.map(needed, & &1.ingredient_id))
+
+  defp ask_icons(_scope, _dish), do: :ok
+
   # When dinner is ready if it's started now: only when it could be (from the afternoon until
   # the evening's over), since "ready 00:57" says nothing.
   defp ready_by(minutes) do
     now = Tore.Clock.now()
 
-    if now.hour >= cooking_from() and now.hour < evening_over(),
+    if now.hour >= cooking_from_hour() and now.hour < evening_over(),
       do: now |> NaiveDateTime.add(minutes, :minute) |> Calendar.strftime("%H:%M")
   end
 
-  defp cooking_from, do: Application.get_env(:tore, :cooking_from, 15)
+  defp cooking_from_hour, do: Application.get_env(:tore, :cooking_from_hour, 15)
 
   # The picture of one of tonight's ingredients, as Hemma shows it.
   defp picture(dish, name) do

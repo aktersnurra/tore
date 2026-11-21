@@ -88,7 +88,7 @@ defmodule Tore.Pantry.LastsTest do
 
     {:ok, _} = carrot |> Ecto.Changeset.change(category: "produce") |> Tore.Repo.update()
 
-    assert {:ok, 1} = Lasts.pictures(home_scope(), [carrot.id], req: req(), api_key: "k")
+    assert {:ok, 1} = Lasts.icons(home_scope(), [carrot.id], req: req(), api_key: "k")
     assert_received {:state, state}
     assert Enum.any?(state, &(&1 =~ "Swedish"))
     assert_received {:asked, questions}
@@ -145,7 +145,7 @@ defmodule Tore.Pantry.LastsTest do
     [%{ingredient: garlic}] =
       Tore.Repo.preload(recipe, recipe_ingredients: :ingredient).recipe_ingredients
 
-    assert {:ok, 1} = Lasts.pictures(home_scope(), [garlic.id], req: req(), api_key: "k")
+    assert {:ok, 1} = Lasts.icons(home_scope(), [garlic.id], req: req(), api_key: "k")
     assert_received {:asked, questions}
     assert Map.keys(questions) == ["icon_#{garlic.id}"]
 
@@ -153,7 +153,7 @@ defmodule Tore.Pantry.LastsTest do
     assert garlic.icon == "pasta" and garlic.lasts == nil
 
     # Once it has one, it isn't asked again.
-    assert {:ok, 0} = Lasts.pictures(home_scope(), [garlic.id], req: req(), api_key: "k")
+    assert {:ok, 0} = Lasts.icons(home_scope(), [garlic.id], req: req(), api_key: "k")
     refute_received {:asked, _}
   end
 
