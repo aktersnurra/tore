@@ -1972,9 +1972,7 @@ defmodule ToreWeb.RecipeLive do
     do: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)
 
   # 45 min, 2 h, 3 h 30 min
-  defp duration(minutes) when minutes < 60, do: "#{minutes} min"
-  defp duration(minutes) when rem(minutes, 60) == 0, do: "#{div(minutes, 60)} h"
-  defp duration(minutes), do: "#{div(minutes, 60)} h #{rem(minutes, 60)} min"
+  defp duration(minutes), do: ToreWeb.Dates.duration(minutes)
 
   defp error_message(changeset) do
     changeset.errors

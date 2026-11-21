@@ -80,7 +80,7 @@ defmodule ToreWeb.HomeLive do
               aria-label={gettext("Open the recipe")}
               class="press press-soft block"
             >
-              <div class="relative h-[32svh] min-h-[210px] max-h-[300px] overflow-hidden rounded-[var(--r-xl)]">
+              <div class="relative h-[42svh] min-h-[240px] max-h-[460px] overflow-hidden rounded-[var(--r-xl)] md:h-[52svh]">
                 <img
                   :if={photo?(@dish)}
                   src={~p"/images/recipes/#{@dish.id}"}
@@ -95,43 +95,49 @@ defmodule ToreWeb.HomeLive do
                   aria-hidden="true"
                 >
                 </div>
-                <h1
-                  class={[
-                    "reveal t-display absolute inset-x-0 bottom-0 px-4 pb-4 md:px-5",
-                    photo?(@dish) && "on-photo-text"
-                  ]}
+                <%!-- The day as a tag (red tonight, blue tomorrow), the dish's name under it. --%>
+                <div
+                  class="reveal absolute inset-x-0 bottom-0 px-4 pb-4 md:px-6 md:pb-6"
                   style="--i: 1"
                 >
-                  {@dish.title}
-                </h1>
+                  <span class={["tag", if(@day == :tonight, do: "tag-red", else: "tag-blue")]}>
+                    {if @day == :tonight, do: gettext("Tonight"), else: gettext("Tomorrow")}
+                  </span>
+                  <h1 class={["t-display mt-2", photo?(@dish) && "on-photo-text"]}>
+                    {@dish.title}
+                  </h1>
+                </div>
               </div>
             </.link>
 
             <div class="min-w-0">
               <.cooked :if={@cooked} title={@cooked} class="mt-4" />
 
-              <%!-- When, in one line: the day, how long, ready by. --%>
-              <p
+              <%!-- The facts, as the recipe page gives its times: how long, when it's ready if it's
+                 started now (only when it could be), and for how many. --%>
+              <dl
                 data-role="when"
-                class="reveal num mt-3 text-[color:var(--muted)]"
+                class="reveal num mt-4 flex flex-wrap items-center gap-x-5 gap-y-1"
                 style="--i: 2; font-size: 15px;"
               >
-                <span class={[
-                  "font-semibold",
-                  if(@day == :tonight,
-                    do: "text-[color:var(--tag-red-ink)]",
-                    else: "text-[color:var(--tag-blue-ink)]"
-                  )
-                ]}>
-                  {if @day == :tonight, do: gettext("Tonight"), else: gettext("Tomorrow")}
-                </span>
-                <span :if={minutes(@dish) > 0}>
-                  · {gettext("%{minutes} min", minutes: minutes(@dish))}
-                </span>
-                <span :if={@day == :tonight and minutes(@dish) > 0 and ready_by(minutes(@dish))}>
-                  · {gettext("ready by %{time}", time: ready_by(minutes(@dish)))}
-                </span>
-              </p>
+                <.icon name="ph-clock" class="size-5 text-[color:var(--muted)]" />
+                <div :if={minutes(@dish) > 0} class="flex gap-1">
+                  <dt class="font-semibold">{gettext("Total:")}</dt>
+                  <dd>{ToreWeb.Dates.duration(minutes(@dish))}</dd>
+                </div>
+                <div
+                  :if={@day == :tonight and minutes(@dish) > 0 and ready_by(minutes(@dish))}
+                  data-role="ready-by"
+                  class="flex gap-1"
+                >
+                  <dt class="font-semibold">{gettext("Ready:")}</dt>
+                  <dd>{ready_by(minutes(@dish))}</dd>
+                </div>
+                <div :if={@servings} class="flex gap-1">
+                  <dt class="font-semibold">{gettext("Servings")}:</dt>
+                  <dd>{@servings}</dd>
+                </div>
+              </dl>
               <p
                 :if={@lunch}
                 data-role="lunch"
@@ -162,7 +168,7 @@ defmodule ToreWeb.HomeLive do
                 <.link
                   :if={@day == :tonight and @home.missing == []}
                   navigate={~p"/recipes/#{@dish.id}/cook?from=/today"}
-                  class="pill pill-lamp press col-span-2"
+                  class="pill pill-lg pill-lamp press col-span-2"
                   data-role="start-cooking"
                 >
                   <.icon name="ph-fire-fill" /> {gettext("Cook now")}
@@ -171,7 +177,7 @@ defmodule ToreWeb.HomeLive do
                   :if={@day == :tonight and @home.missing != []}
                   type="button"
                   phx-click="before_cooking"
-                  class="pill pill-lamp press col-span-2"
+                  class="pill pill-lg pill-lamp press col-span-2"
                   data-role="start-cooking"
                 >
                   <.icon name="ph-fire-fill" /> {gettext("Cook now")}
@@ -179,7 +185,7 @@ defmodule ToreWeb.HomeLive do
                 <button
                   type="button"
                   phx-click="something_else"
-                  class="pill press"
+                  class="pill pill-lg press"
                   data-role="something-else"
                 >
                   <.icon name="ph-arrows-left-right" /> {gettext("Something else")}
@@ -188,7 +194,7 @@ defmodule ToreWeb.HomeLive do
                 <.link
                   navigate={~p"/capture?#{ask_params(@dish, @home)}"}
                   data-role="ask-tore"
-                  class="pill press"
+                  class="pill pill-lg press"
                 >
                   <.icon name="ph-chat-circle" /> {gettext("Ask Tore")}
                 </.link>

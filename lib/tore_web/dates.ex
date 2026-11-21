@@ -59,6 +59,12 @@ defmodule ToreWeb.Dates do
   @spec month_year(Date.t()) :: String.t()
   def month_year(%Date{} = date), do: "#{String.capitalize(month(date))} #{date.year}"
 
+  @doc "How long something takes: \"20 min\", \"5 h\", \"1 h 35 min\"."
+  @spec duration(non_neg_integer()) :: String.t()
+  def duration(minutes) when minutes < 60, do: "#{minutes} min"
+  def duration(minutes) when rem(minutes, 60) == 0, do: "#{div(minutes, 60)} h"
+  def duration(minutes), do: "#{div(minutes, 60)} h #{rem(minutes, 60)} min"
+
   defp month(%Date{month: month}) do
     case month do
       1 -> gettext("January")

@@ -700,11 +700,15 @@ Today answers one question at a glance: what's for dinner, and is anything neede
 start? One column on every screen, the phone's, read top to bottom (2026-11-20):
 
 ```md
-Cover    — tonight's photo, or the dish's tinted icon while one is drawn, with the
-           dish's name on it; tapping it opens the recipe. No ⋯ menu (2026-11-20)
-When     — one line: Tonight · 20 min · ready by 18:40; Lunch under it when one is planned.
-           Ready by only from 15:00 until the evening's over (`:cooking_from`), since
-           "ready 00:57" says nothing
+Cover    — tonight's photo, or the dish's tinted icon while one is drawn, the one big thing on
+           the page: 42% of a phone's height, about half a laptop's (at most 460px), not a
+           letterbox. On it, the day as a tag (Ikväll red, Imorgon blue) over the dish's
+           name; tapping it opens the recipe. No ⋯ menu (2026-11-21)
+When     — the facts as the recipe page gives its times: 🕒 Totalt: 5 h  Klar: 18:40
+           Portioner: 6 (`ToreWeb.Dates.duration/1`, shared with the recipe page); Lunch
+           under it when one is planned. Klar only from 15:00 until the evening's over
+           (`:cooking_from`), since "ready 00:57" says nothing. Actions are the recipe
+           page's large pills
 Actions  — together, in one row under When, always in the same place (2026-11-21):
            [🔥 Cook now] [Something else] [Ask Tore]; on a phone Cook now spans the row and the
            other two share the one under it. Cook now is tonight only: with nothing to buy it

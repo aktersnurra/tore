@@ -265,14 +265,21 @@ defmodule ToreWeb.HomeLiveTest do
         })
 
       Tore.Planning.assign_recipe(home_scope(), plan_id_for_today(), today_slot_key(), dish.id, 2)
-      {:ok, _view, html} = live(conn, ~p"/today")
-      assert html =~ "klar "
+      {:ok, view, _html} = live(conn, ~p"/today")
+
+      # The facts, as the recipe page gives its times: how long, when it's ready, for how many.
+      assert view |> element(~s([data-role="when"])) |> render() =~ "Totalt:"
+      assert has_element?(view, ~s([data-role="when"] [data-role="ready-by"]), "Klar:")
+      assert view |> element(~s([data-role="when"])) |> render() =~ "Portioner"
+
+      # The day is a tag on the photo, with the dish's name.
+      assert has_element?(view, ~s([data-role="cover"] .tag-red), "Ikväll")
 
       # After midnight, "ready 00:57" says nothing.
       Application.put_env(:tore, :cooking_from, 24)
       on_exit(fn -> Application.put_env(:tore, :cooking_from, 0) end)
-      {:ok, _view, html} = live(conn, ~p"/today")
-      refute html =~ "klar "
+      {:ok, view, _html} = live(conn, ~p"/today")
+      refute has_element?(view, ~s([data-role="ready-by"]))
     end
 
     test "what Tore is unsure of is asked: Finns makes it sure, Slut puts it with what's missing",
