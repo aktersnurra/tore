@@ -17,6 +17,17 @@ defmodule Tore.Pantry.IconsTest do
     assert Icons.shown("🥛", "canned") == "tin"
   end
 
+  # Jev picked rice for "russin" and crispbread after: it doesn't know the Swedish word, so each
+  # picture says what it stands for in Swedish too.
+  test "each picture says what it stands for in Swedish as well as English" do
+    criteria = Icons.criteria()
+    assert criteria["grape"] =~ "raisins" and criteria["grape"] =~ "russin"
+    assert criteria["carrot"] =~ "morot"
+
+    for {name, description} <- criteria,
+        do: assert(description =~ ";", "#{name} has no Swedish words")
+  end
+
   test "only the pictures there are are known" do
     assert Icons.known?("crispbread")
     refute Icons.known?("spaceship")

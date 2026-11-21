@@ -145,8 +145,11 @@ defmodule Tore.Pantry.Lasts do
     |> Enum.filter(& &1)
   end
 
-  defp picture_question(%Ingredient{id: id, name: name}),
-    do: {"icon_#{id}", choice("Which picture fits #{name} best?", Icons.criteria())}
+  # The section, when Tore knows it, rules out the wild guesses at a word Jev doesn't know.
+  defp picture_question(%Ingredient{id: id, name: name, category: section}) do
+    kept = if section, do: " It's kept with #{String.replace(section, "_", " ")}.", else: ""
+    {"icon_#{id}", choice("Which picture fits #{name} best?#{kept}", Icons.criteria())}
+  end
 
   defp choice(instructions, criteria),
     do: %{"type" => "choice", "instructions" => instructions, "criteria" => criteria}
@@ -191,10 +194,15 @@ defmodule Tore.Pantry.Lasts do
   defp icon(%{"choice" => icon}), do: if(Icons.known?(icon), do: [icon: icon], else: [])
   defp icon(_answer), do: []
 
+  # The household's language, as Jev is told it.
+  defp language("sv"), do: "Swedish"
+  defp language("en"), do: "English"
+
   # What Tore knows of the household that bears on it, a line each.
   defp state(scope) do
     [
       "A household's pantry: how they use each thing they keep, and how fast it goes.",
+      "Its names are written in #{language(Household.locale(scope))}.",
       Household.Memory.snapshot(scope),
       case Enum.map(Basics.list(scope), & &1.name) do
         [] -> nil

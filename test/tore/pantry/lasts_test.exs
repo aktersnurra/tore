@@ -21,8 +21,9 @@ defmodule Tore.Pantry.LastsTest do
 
     Req.Test.stub(__MODULE__, fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)
-      %{"questions" => questions} = Jason.decode!(body)
+      %{"questions" => questions, "state" => state} = Jason.decode!(body)
       send(test, {:asked, questions})
+      send(test, {:state, state})
 
       answers =
         Map.new(questions, fn {key, %{"instructions" => text}} ->
@@ -71,6 +72,26 @@ defmodule Tore.Pantry.LastsTest do
 
     assert half_lives() == %{"mjölk" => 3, "smör" => 21, "spaghetti" => nil}
     assert Costs.last_llm_call(home_scope(), "pantry_lasts")
+  end
+
+  # "morot" alone got salt and "russin" rice: a Swedish word, out of context, is a guess.
+  test "Jev is told what language the names are in, and the section of each it asks about" do
+    jev()
+
+    {:ok, recipe} =
+      Tore.Recipes.create(home_scope(), %{title: "Morotskaka", ingredients: [%{name: "morot"}]})
+
+    [%{ingredient: carrot}] =
+      Tore.Repo.preload(recipe, recipe_ingredients: :ingredient).recipe_ingredients
+
+    {:ok, _} = carrot |> Ecto.Changeset.change(category: "produce") |> Tore.Repo.update()
+
+    assert {:ok, 1} = Lasts.pictures(home_scope(), [carrot.id], req: req(), api_key: "k")
+    assert_received {:state, state}
+    assert Enum.any?(state, &(&1 =~ "Swedish"))
+    assert_received {:asked, questions}
+    %{"instructions" => question} = questions["icon_#{carrot.id}"]
+    assert question =~ "morot" and question =~ "produce"
   end
 
   test "tonight's ingredients that aren't kept get a picture, and nothing else is asked" do

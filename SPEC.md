@@ -689,7 +689,9 @@ by itself. Slut (Gone) teaches it: how long the pack lasted since it was bought 
 which then comes between the rhythm and Jev's guess. What's only for cooking learns nothing.
 The same call picks each ingredient's picture for its Hemma row (`ingredients.icon`, a name), from
 the food icons `Tore.Pantry.Icons` has (Iconito Food, MIT, and eight drawn to match), each with what
-it stands for; one Jev answers with that isn't there is not kept and is asked again, and a row whose
+it stands for in English and in Swedish ("grapes, raisins; vindruvor, russin"), since Jev guesses at
+a Swedish name it doesn't know (2026-11-21: "morot" got salt, "russin" rice). It's also told the
+language the names are in, and each ingredient's section when Tore knows it. One Jev answers with that isn't there is not kept and is asked again, and a row whose
 pick is no longer there shows its category's. Jev is asked when something new comes into the pantry
 and when Hemma opens, so nothing kept waits for an add; with nothing unasked there's no call. Opening
 Hemma also has whatever is kept without a section learned (`Tore.Pantry.unsorted/1`, a `learn` job). An ingredient is asked only for what it lacks.
