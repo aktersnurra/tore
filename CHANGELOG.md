@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Review fixes, and Jev learns new names (2026-11-21)
+
+- Gone no longer slows the rhythm: a row Tore had stopped believing in (Today asks only about those) teaches nothing when it's gone.
+- Taking back a tick on Today puts everything back as it was: the pantry row's amount and dates, and when the regular buy was last bought (`Tore.Shop.buy/4`, `take_back/3`).
+- Jev learns a new name instead of a pi job: its section, how long it keeps, and whether it's one the household has, merged only when Jev is sure (≥ 0.9) and only among names one inside the other. pi's `learn` job matches products only.
+- Pantry pictures don't crash for a household with no language yet, nor when a merge removes an ingredient mid-call.
+- Names from the review: `Pantry.without_section/1`, `Lasts.icons/3`, `:cooking_from_hour`.
+
 ### Ready to deploy with pi (2026-11-21)
 
 - The release carries `harness/pi-session` and `harness/AGENTS.md`, so the server runs pi from `/opt/tore/harness/pi-session`. pi 1.5.2 runs in the FreeBSD jail on Node 26; mirbad's `apps/tore` installs it (`install-pi.sh`) and names the env pi reads.

@@ -35,6 +35,7 @@
 - **2026-11-20:** Jev (`typesafe/jev-1.14`, OpenRouter's Decisions API, `Tore.Jev`) guesses which offers a household wants: after each morning's fetch and when a store is added, `Tore.Deals.Picks` asks a `choice` question per new offer (`usual`, `maybe` or `no`), with what Tore knows of the household as its state, and keeps the answer and its confidence per household (`deal_picks`). On Erbjudanden `usual` joins the basics, `maybe` is its own group, and a sure `no` is folded at the foot. Jev is the one model Tore calls itself besides the picture model, an agreed exception to all AI going through pi; it needs the same sponsor and monthly limit, and logs its cost as `deal_picks`.
 - **2026-11-20:** A person has several chats (`Tore.Chats`, the `chats` table: a card of title, summary and tags, and when it was last used; pi keeps what was said). Each is a pi session `chat-<user_id>-<chat_id>`; the screens ask in a session of their own, none of the chats (`Tore.Pi.screen_session/1`). pi writes a chat's card after its first answer and when the talk moves on (`describe_chat`; its title only while the chat has none) and ends each answer with `suggest_replies`, shown as buttons and not saved. A pi session token now says which session it is (`Tore.Scope.pi_session`), so a tool can tell a chat from a background job. Finding a chat again searches the cards (`Tore.Chats.search/3`, words scored in title, tags and summary): in the tray's list, and when someone asks pi in a new chat for an earlier one, pi uses `find_chats` and `open_chat`, which switches the tray there and drops the lookup chat if it has no card.
 - **2026-11-20:** Offers are fetched every morning (`Tore.Deals.scrape_all/0` at 07:00), not only Friday to Sunday; `Tore.WeekAhead` only plans. An ICA store's own page is accepted as its offers link.
+- **2026-11-21:** Jev sorts things into kinds wherever that fits; pi keeps what needs reading, writing or searching. A new name is learned by Jev, no longer by a `learn` job: its section, how long it keeps (in buckets) and, from a shortlist of the household's names one inside the other, whether it's one of them, merged only when Jev is ≥ 0.9 sure (`Tore.Pantry.Learn`, cost `learn`). The `learn` job matches products only. Every Jev call goes through `Tore.Jev.check/1` (sponsor and monthly limit) and is told the language the names are in.
 
 ---
 
@@ -644,11 +645,12 @@ how long this food keeps.
 **The model sees a name once.** `Tore.Pantry.Match` finds an ingredient by its key, then by a learned alias
 (`ingredient_aliases`: another name's key, or `ean:<digits>`), with no substring or fuzzy matching. A tick, an
 add to the list and building the list use only `Match`, so they never wait for the model and work without it.
-A name `Match` doesn't know gets its ingredient as written, and `Tore.Pantry.Learn` starts a `learn` job for it
-afterwards, one per batch of names: pi says with `learn_ingredients` either that it means an ingredient Tore has (*mellanmjölk* is *mjölk*), and the two
-are merged with the name kept as an alias, or it fills the new ingredient's section and shelf life. Shop items
-waiting in "other" move to their section when that lands (`ItemSectionSet`). Without pi, the name stays as
-written.
+A name `Match` doesn't know gets its ingredient as written, and `Tore.Pantry.Learn` asks Jev about it
+afterwards, a batch of names per call: its section, how long it keeps, and whether it's an ingredient Tore has
+(*mellanmjölk* is *mjölk*), chosen only among the household's names one inside the other. Sure (≥ 0.9), the two
+are merged with the name kept as an alias; otherwise the new ingredient gets its section and shelf life. pi can
+say the same with `learn_ingredients` when someone puts a name right in the chat. Shop items waiting in "other"
+move to their section when that lands (`ItemSectionSet`). Without AI, the name stays as written.
 
 **Barcodes.** The scanner on Shop reads EAN-13, EAN-8 and UPC-A from the phone's camera (`barcode-detector` with
 ZXing's wasm, served by Tore). `Tore.Pantry.Scan`: a learned code lands on its ingredient with its pack size. A new
@@ -661,7 +663,7 @@ unticked on the list is ticked instead.
 to a row added since. Undoing a check-off unchecks the item and leaves the pantry as it is; if that's wrong, pi
 can remove the item.
 
-**Shelf life.** A guess at `shelf_life_days` per ingredient comes from the `learn` job the first time Tore sees a name, or
+**Shelf life.** A guess at `shelf_life_days` per ingredient comes from Jev (`Learn`) the first time Tore sees a name, or
 from pi's `keeps_days` when it sees the item, and stays on the ingredient. A pantry row's date follows
 `Tore.Pantry.Expiry`:
 
@@ -694,7 +696,7 @@ a Swedish name it doesn't know (2026-11-21: "morot" got salt, "russin" rice). It
 language the names are in, and each ingredient's section when Tore knows it. One Jev answers with that isn't there is not kept and is asked again, and a row whose
 pick is no longer there shows its category's. Jev is asked when something new comes into the pantry
 and when Hemma opens, so nothing kept waits for an add; with nothing unasked there's no call. Opening
-Hemma also has whatever is kept without a section learned (`Tore.Pantry.without_section/1`, a `learn` job). An ingredient is asked only for what it lacks.
+Hemma also has whatever is kept without a section learned (`Tore.Pantry.without_section/1`, through `Learn`). An ingredient is asked only for what it lacks.
 
 **Amounts** (2026-11-20). A dinner takes its amounts off what's at home (`Tore.Pantry.use_up/2`, with
 `Tore.Recipes.uses/2` for the servings cooked): where the pantry's unit and the recipe's are of the same

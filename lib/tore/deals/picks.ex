@@ -11,7 +11,7 @@ defmodule Tore.Deals.Picks do
 
   import Ecto.Query
 
-  alias Tore.{Basics, Costs, Deals, Household, Jev, Pi, Recipes, Repo, Scope, Shop, Streams}
+  alias Tore.{Basics, Costs, Deals, Household, Jev, Recipes, Repo, Scope, Shop, Streams}
   alias Tore.Costs.{LineItem, Receipt}
   alias Tore.Deals.{Deal, Pick}
 
@@ -48,21 +48,13 @@ defmodule Tore.Deals.Picks do
   """
   @spec sort(Scope.t(), keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def sort(%Scope{} = scope, opts \\ []) do
-    with :ok <- check(scope) do
+    with :ok <- Jev.check(scope) do
       asked = all(scope)
 
       case Enum.reject(Deals.list_current(scope), &Map.has_key?(asked, &1.id)) do
         [] -> {:ok, 0}
         deals -> ask(scope, deals, opts)
       end
-    end
-  end
-
-  defp check(scope) do
-    cond do
-      Household.ai_sponsor(scope) == nil -> {:error, :ai_unavailable}
-      Costs.llm_spend_this_month(scope) >= Pi.monthly_limit_usd() -> {:error, :budget_exceeded}
-      true -> :ok
     end
   end
 

@@ -1,17 +1,23 @@
 defmodule Tore.Pantry.Learn do
   @moduledoc """
-  What a new name means, worked out by pi afterwards. A tick or an add never waits for it: a name
-  Tore has never seen gets its ingredient as written at once, and a `learn` job
-  (`harness/tasks/learn.md`) then says through `learn_ingredients` whether it is an ingredient the
-  household has (*Mellanmjölk* is *Mjölk*: merged into it, the name kept as an alias) or one of its
-  own, with its section and shelf life. An ingredient that has a section is learned already, so
-  it's never asked about again. A household without pi skips this, and the name stays as written.
-  Product names on offers and receipt lines go to the same job (`Tore.Prices.Products`).
+  What a new name means, worked out by Jev (`Tore.Jev`) afterwards. A tick or an add never waits
+  for it: a name Tore has never seen gets its ingredient as written at once, and Jev then says
+  whether it's an ingredient the household has (*Mellanmjölk* is *Mjölk*: merged into it, the
+  name kept as an alias), and its section and how long it keeps. Jev picks the same ingredient
+  only among the household's names one inside the other, and a merge needs it to be sure, since
+  recipes and pantry rows move with it. An ingredient that has a section is learned already, so
+  it's never asked about again. A household without AI skips this, and the name stays as written.
+
+  pi says the same through `learn_ingredients` (`learn/2`) when someone puts a name right in the
+  chat, and matches product names on offers and receipt lines in a `learn` job (`ask/2`,
+  `Tore.Prices.Products`).
   """
 
   import Ecto.Query
 
-  alias Tore.{Agent, Pi, Repo, Scope}
+  require Logger
+
+  alias Tore.{Agent, Costs, Jev, Pi, Repo, Scope}
   alias Tore.Pantry.{IngredientAlias, Match, PantryItem}
   alias Tore.Recipes.{Ingredient, RecipeIngredient}
 
@@ -21,6 +27,45 @@ defmodule Tore.Pantry.Learn do
           section: String.t(),
           shelf_life_days: pos_integer() | nil
         }
+
+  @batch 25
+
+  # Jev merges a new name into one the household has only this sure.
+  @sure 0.9
+
+  # Where each kind of thing is found in a shop, as Jev is told: in English, then in Swedish.
+  @sections %{
+    "produce" => "Fruit and vegetables; frukt och grönt",
+    "meat" => "Meat and poultry, mince; kött, fågel, färs, kyckling",
+    "fish" => "Fish and seafood; fisk och skaldjur",
+    "dairy" =>
+      "Milk, cream, yoghurt, cheese, butter, eggs; mejeri: mjölk, grädde, fil, yoghurt, ost, smör, ägg",
+    "deli" => "Cold cuts, sausages, ready meals, hummus; chark och färdigmat, pålägg, korv",
+    "frozen" => "Frozen food; frysvaror, fryst",
+    "bread" => "Bread and baked goods; bröd, knäckebröd, kakor",
+    "dry_goods" =>
+      "Pasta, rice, flour, sugar, cereal, nuts, baking; torrvaror: pasta, ris, mjöl, socker, flingor, nötter",
+    "canned" => "Tins and jars; konserver: krossade tomater, bönor, kokosmjölk",
+    "beverages" => "Drinks; drycker: kaffe, te, juice, läsk, öl, vin",
+    "herbs_spices" => "Herbs and spices; kryddor och örter",
+    "condiments" => "Sauces, oils, vinegar, dressings; såser, olja, vinäger, senap, ketchup",
+    "household" => "Not food: cleaning, paper, toiletries; hushåll: diskmedel, toapapper, tvål",
+    "other" => "Anything else; övrigt"
+  }
+
+  # How long a thing keeps once bought, in days, and what each means as Jev is told.
+  @keeps %{"days" => 4, "week" => 7, "weeks" => 21, "months" => 90, "year" => 365}
+
+  @keeps_criteria %{
+    "days" =>
+      "Goes off within a few days: fresh fish, mince, berries, salad leaves; färsk fisk, färs, bär, sallad",
+    "week" =>
+      "Keeps about a week: milk, cream, bread, most vegetables; mjölk, grädde, bröd, grönsaker",
+    "weeks" =>
+      "Keeps a few weeks: cheese, butter, eggs, root vegetables; ost, smör, ägg, rotfrukter",
+    "months" => "Keeps for months: jam, frozen food, bottled sauces; sylt, frysvaror, flasksåser",
+    "year" => "Keeps a year or more: dry goods, tins, spices; torrvaror, konserver, kryddor"
+  }
 
   @doc """
   Learns `names` after the caller has moved on, then runs `then`, if given. Off in tests
@@ -39,18 +84,109 @@ defmodule Tore.Pantry.Learn do
   end
 
   @doc """
-  Asks pi about every name in `names` not learned yet, and waits for it. A name Tore has never
-  seen gets its ingredient first, as written.
+  Asks Jev about every name in `names` not learned yet, and waits for it. A name Tore has never
+  seen gets its ingredient first, as written. One Jev didn't answer for stays unlearned and is
+  asked again next time. `opts` go to `Tore.Jev.decide/3`.
   """
-  @spec names(Scope.t(), [String.t()]) :: :ok
-  def names(%Scope{} = scope, names) do
-    case unlearned(scope, names) do
-      [] -> :ok
-      learning -> ask(scope, "Names: " <> Enum.map_join(learning, "; ", & &1.name) <> ".")
+  @spec names(Scope.t(), [String.t()], keyword()) :: :ok
+  def names(%Scope{} = scope, names, opts \\ []) do
+    with :ok <- Jev.check(scope),
+         [_ | _] = learning <- unlearned(scope, names) do
+      learning
+      |> Enum.chunk_every(@batch)
+      |> Enum.each(&decide(scope, &1, opts))
+    end
+
+    :ok
+  end
+
+  defp decide(scope, batch, opts) do
+    ids = Enum.map(batch, & &1.id)
+    others = Repo.all(from(i in Ingredient, where: i.id not in ^ids), Scope.repo_opts(scope))
+    shortlists = Map.new(batch, &{&1.id, lookalikes(&1, others)})
+    questions = batch |> Enum.flat_map(&questions(&1, shortlists[&1.id])) |> Map.new()
+
+    with {:ok, answers, cost} <- Jev.decide(state(scope), questions, opts) do
+      {:ok, _} = Costs.log_llm_usage(scope, %{feature: "learn", cost_usd: cost})
+      Enum.each(batch, &keep(scope, &1, shortlists[&1.id], answers))
     end
   end
 
-  @doc "Runs a `learn` job with `details` (the names or products), and waits for it."
+  # The household's ingredients a new name could be a kind of, or the other way round: one name
+  # inside the other ("mjölk" in "mellanmjölk"). Jev picks only among these.
+  defp lookalikes(%Ingredient{key: key}, others) do
+    others
+    |> Enum.filter(fn %Ingredient{key: other} ->
+      String.length(other) >= 3 and (String.contains?(key, other) or String.contains?(other, key))
+    end)
+    |> Enum.take(8)
+  end
+
+  defp questions(%Ingredient{id: id, name: name}, lookalikes) do
+    [
+      {"section_#{id}", choice("Where in a shop is #{name} found?", @sections)},
+      {"keeps_#{id}", choice("How long does #{name} keep once bought?", @keeps_criteria)}
+      | same_question(id, name, lookalikes)
+    ]
+  end
+
+  defp same_question(_id, _name, []), do: []
+
+  defp same_question(id, name, lookalikes) do
+    criteria =
+      Map.new(lookalikes, &{&1.name, "The same as #{&1.name}: a kind or a brand of it."})
+      |> Map.put("own", "A thing of its own, none of these.")
+
+    [
+      {"same_#{id}",
+       choice(
+         "Is #{name} the same thing as one the household has, bought and cooked as one? " <>
+           "Mellanmjölk is Mjölk; kokosmjölk is not.",
+         criteria
+       )}
+    ]
+  end
+
+  defp choice(instructions, criteria),
+    do: %{"type" => "choice", "instructions" => instructions, "criteria" => criteria}
+
+  defp keep(scope, %Ingredient{id: id, name: name}, lookalikes, answers) do
+    with %{"choice" => section} <- answers["section_#{id}"] do
+      learn(scope, %{
+        name: name,
+        same_as: same_as(answers["same_#{id}"], lookalikes),
+        section: section,
+        shelf_life_days: with(%{"choice" => keeps} <- answers["keeps_#{id}"], do: @keeps[keeps])
+      })
+    end
+  end
+
+  defp same_as(%{"choice" => same, "confidence" => confidence}, lookalikes)
+       when is_number(confidence) and confidence >= @sure,
+       do: Enum.find_value(lookalikes, &(&1.name == same and &1.name))
+
+  # Shown, so the line for sure can be tuned against what Jev really answers.
+  defp same_as(%{"choice" => same, "confidence" => confidence}, lookalikes) do
+    if Enum.any?(lookalikes, &(&1.name == same)),
+      do: Logger.info("Learn: not sure enough to merge into #{same} (#{confidence})")
+
+    nil
+  end
+
+  defp same_as(_answer, _lookalikes), do: nil
+
+  # What Tore knows that bears on it, a line each.
+  defp state(scope) do
+    Enum.reject(
+      [
+        "A household's shopping: what each new name they wrote is, where it's found in a shop, and how long it keeps.",
+        Jev.names_language(scope)
+      ],
+      &is_nil/1
+    )
+  end
+
+  @doc "Runs a `learn` job with `details` (the products), and waits for it."
   @spec ask(Scope.t(), String.t()) :: :ok
   def ask(%Scope{} = scope, details) do
     if Pi.check(scope) == :ok, do: Agent.run(scope, "learn", nil, details)

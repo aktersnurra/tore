@@ -1,8 +1,6 @@
 defmodule Tore.Pantry.LearnTest do
-  @moduledoc "New names, learned by pi afterwards: list_ingredients, learn_ingredients and the job."
+  @moduledoc "New names, learned by Jev afterwards, and pi's list_ingredients and learn_ingredients."
   use Tore.DataCase, async: false
-
-  import Tore.FakePi
 
   alias Tore.{Mcp, Pantry}
   alias Tore.Pantry.{Learn, Match}
@@ -106,33 +104,100 @@ defmodule Tore.Pantry.LearnTest do
              Match.ingredient(home_scope(), {:name, "Gräddfil"})
   end
 
-  describe "names/2" do
-    setup :fake_pi
+  describe "names/3" do
+    defp req, do: Req.new(plug: {Req.Test, __MODULE__})
 
-    test "asks pi about the names not learned yet, as a learn job", %{pi_log: log} do
-      ingredient(home_scope(), %{name: "Mjölk", category: "dairy"})
+    # Jev, as a household would have it: gräddfil is dairy and keeps a week; mellanmjölk is
+    # mjölk, as sure as `same` says.
+    defp jev(same \\ 0.95) do
+      test = self()
 
-      assert :ok = Learn.names(home_scope(), ["Mjölk", "Gräddfil"])
+      Req.Test.stub(__MODULE__, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        %{"questions" => questions, "state" => state} = Jason.decode!(body)
+        send(test, {:asked, questions, state})
 
-      prompt = Enum.find(pi_records(log), &(&1["type"] == "prompt"))["message"]
-      assert prompt =~ "Background job: learn."
-      assert prompt =~ "Names: Gräddfil."
-      refute prompt =~ "Names: Mjölk"
+        answers =
+          Map.new(questions, fn
+            {"same_" <> _ = key, %{"criteria" => criteria}} ->
+              choice = if Map.has_key?(criteria, "Mjölk"), do: "Mjölk", else: "own"
+              {key, %{"choice" => choice, "confidence" => same}}
 
-      # A name Tore never saw has its ingredient already, as written.
-      assert {:ok, %Ingredient{category: nil}} =
-               Match.ingredient(home_scope(), {:name, "Gräddfil"})
+            {"section_" <> _ = key, _} ->
+              {key, %{"choice" => "dairy", "confidence" => 0.9}}
+
+            {"keeps_" <> _ = key, _} ->
+              {key, %{"choice" => "week", "confidence" => 0.8}}
+          end)
+
+        Req.Test.json(conn, %{"answers" => answers, "usage" => %{"cost" => 0.0001}})
+      end)
     end
 
-    test "asks nothing when every name is learned", %{pi_log: log} do
+    defp learn(names), do: Learn.names(home_scope(), names, req: req(), api_key: "k")
+
+    test "Jev says what a new name is: its section and how long it keeps" do
+      jev()
       ingredient(home_scope(), %{name: "Mjölk", category: "dairy"})
 
-      assert :ok = Learn.names(home_scope(), ["Mjölk"])
-      refute File.exists?(log)
+      assert :ok = learn(["Mjölk", "Gräddfil"])
+      assert_received {:asked, questions, state}
+      assert Enum.any?(state, &(&1 =~ "Swedish"))
+      # Only Gräddfil, which has nothing it could be a kind of: what it is and how long it keeps.
+      assert Enum.sort(Enum.map(questions, fn {key, _} -> hd(String.split(key, "_")) end)) ==
+               ["keeps", "section"]
+
+      assert {:ok, %Ingredient{category: "dairy", shelf_life_days: 7}} =
+               Match.ingredient(home_scope(), {:name, "Gräddfil"})
+
+      assert Tore.Costs.last_llm_call(home_scope(), "learn")
+    end
+
+    test "a kind of one the household has is merged into it when Jev is sure" do
+      jev()
+      %{id: milk} = ingredient(home_scope(), %{name: "Mjölk", category: "dairy"})
+      ingredient(home_scope(), %{name: "Smör", category: "dairy"})
+
+      assert :ok = learn(["Mellanmjölk"])
+
+      # Jev picks only among names one inside the other.
+      assert_received {:asked, questions, _state}
+      {_key, %{"criteria" => criteria}} = Enum.find(questions, fn {k, _} -> k =~ "same_" end)
+      assert Map.keys(criteria) |> Enum.sort() == ["Mjölk", "own"]
+
+      assert {:ok, %Ingredient{id: ^milk}} =
+               Match.ingredient(home_scope(), {:name, "Mellanmjölk"})
+    end
+
+    test "unsure, it stays its own, with its own section" do
+      jev(0.6)
+      %{id: milk} = ingredient(home_scope(), %{name: "Mjölk", category: "dairy"})
+
+      assert :ok = learn(["Mellanmjölk"])
+
+      assert {:ok, %Ingredient{id: id, category: "dairy"}} =
+               Match.ingredient(home_scope(), {:name, "Mellanmjölk"})
+
+      assert id != milk
+    end
+
+    test "nothing to compare it with, it's only asked what it is" do
+      jev()
+      assert :ok = learn(["Gräddfil"])
+      assert_received {:asked, questions, _state}
+      refute Enum.any?(questions, fn {key, _} -> key =~ "same_" end)
+    end
+
+    test "asks nothing when every name is learned" do
+      jev()
+      ingredient(home_scope(), %{name: "Mjölk", category: "dairy"})
+
+      assert :ok = learn(["Mjölk"])
+      refute_received {:asked, _, _}
     end
   end
 
-  test "without pi, a new name stays as written" do
+  test "without AI, a new name stays as written" do
     scope = scope_fixture(household_fixture())
     {:ok, _} = tick(scope, "Gräddfil")
 

@@ -14,7 +14,7 @@ defmodule Tore.Pantry.Lasts do
 
   import Ecto.Query
 
-  alias Tore.{Basics, Costs, Household, Jev, Pi, Repo, Scope}
+  alias Tore.{Basics, Costs, Household, Jev, Repo, Scope}
   alias Tore.Pantry.{Icons, PantryItem}
   alias Tore.Recipes.Ingredient
 
@@ -58,7 +58,7 @@ defmodule Tore.Pantry.Lasts do
   """
   @spec sort(Scope.t(), keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def sort(%Scope{} = scope, opts \\ []) do
-    with :ok <- check(scope) do
+    with :ok <- Jev.check(scope) do
       case unasked(scope) do
         [] -> {:ok, 0}
         ingredients -> scope |> ask(ingredients, opts, &questions/1) |> broadcast_changed(scope)
@@ -85,7 +85,7 @@ defmodule Tore.Pantry.Lasts do
   """
   @spec icons(Scope.t(), [integer()], keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def icons(%Scope{} = scope, ingredient_ids, opts \\ []) do
-    with :ok <- check(scope) do
+    with :ok <- Jev.check(scope) do
       from(i in Ingredient, where: i.id in ^ingredient_ids and is_nil(i.icon), order_by: i.name)
       |> Repo.all(Scope.repo_opts(scope))
       |> case do
@@ -95,14 +95,6 @@ defmodule Tore.Pantry.Lasts do
         ingredients ->
           scope |> ask(ingredients, opts, &[icon_question(&1)]) |> broadcast_changed(scope)
       end
-    end
-  end
-
-  defp check(scope) do
-    cond do
-      Household.ai_sponsor(scope) == nil -> {:error, :ai_unavailable}
-      Costs.llm_spend_this_month(scope) >= Pi.monthly_limit_usd() -> {:error, :budget_exceeded}
-      true -> :ok
     end
   end
 
@@ -198,16 +190,11 @@ defmodule Tore.Pantry.Lasts do
   defp icon(%{"choice" => icon}), do: if(Icons.known?(icon), do: [icon: icon], else: [])
   defp icon(_answer), do: []
 
-  # The household's language, as Jev is told it; none before the household has chosen one.
-  defp language("sv"), do: "Its names are written in Swedish."
-  defp language("en"), do: "Its names are written in English."
-  defp language(nil), do: nil
-
   # What Tore knows of the household that bears on it, a line each.
   defp state(scope) do
     [
       "A household's pantry: how they use each thing they keep, and how fast it goes.",
-      language(Household.locale(scope)),
+      Jev.names_language(scope),
       Household.Memory.snapshot(scope),
       case Enum.map(Basics.list(scope), & &1.name) do
         [] -> nil
