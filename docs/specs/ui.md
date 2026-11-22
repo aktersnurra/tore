@@ -1416,7 +1416,11 @@ already knows (`Tore.Deals.page/3`), and one from Jev's guesses (2026-11-20, bel
   ("89 kr", "2 för 20", "99 kr/kg") over the regular price struck through, and on a laptop
   what it saves. On a phone the store and end date sit under the name.
 - A + square puts it on this week's list, under its ingredient's name when it's matched to one;
-  a deal already on the list shows "På listan" (a check on a phone, in the same square).
+  a deal already on the list shows "På listan" (a check on a phone, in the same square). The
+  item remembers its offer: if the store withdraws it before the item is ticked, Shop asks under
+  the item, "Erbjudandet är borta. Behålla?", with Behåll and Ta bort. An offer that simply runs
+  to its end date asks nothing.
+- A folded group opened by hand stays open as the page updates (a + in it).
 - A store's logo is the one its own site gives phones (`Tore.Deals.Logo`), taken from the page
   Tore reads offers from, so it costs no extra request and each morning keeps it current; the
   store's first letter until its page has been read.

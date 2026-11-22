@@ -36,7 +36,9 @@ defmodule ToreWeb.DealsLive do
         user_id = socket.assigns[:current_user] && socket.assigns.current_user.id
 
         {:ok, _} =
-          Shop.add_item(scope, Streams.shop_list(scope, week), entry.name, nil, nil, user_id)
+          Shop.add_item(scope, Streams.shop_list(scope, week), entry.name, nil, nil, user_id,
+            deal_id: entry.deal.id
+          )
 
         {:noreply, load(socket)}
     end

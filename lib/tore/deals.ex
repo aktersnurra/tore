@@ -244,6 +244,16 @@ defmodule Tore.Deals do
 
   @history_days 26 * 7
 
+  @doc "Which of `deal_ids` the store withdrew before they ended."
+  @spec withdrawn(Scope.t(), [integer()]) :: MapSet.t(integer())
+  def withdrawn(_scope, []), do: MapSet.new()
+
+  def withdrawn(%Scope{} = scope, deal_ids) do
+    from(d in Deal, where: d.id in ^deal_ids and not is_nil(d.withdrawn_on), select: d.id)
+    |> all(scope)
+    |> MapSet.new()
+  end
+
   @doc "Deletes offers that ended more than half a year ago. Newer ones are the price history."
   @spec clear_expired() :: :ok
   def clear_expired do

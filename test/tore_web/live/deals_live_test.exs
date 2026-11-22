@@ -129,6 +129,16 @@ defmodule ToreWeb.DealsLiveTest do
     view |> element("[data-role=add-deal]") |> render_click()
 
     assert list_names() == ["Mjölk"]
+    deal = Tore.Repo.get_by!(Deals.Deal, product_name: "MELLANMJÖLK")
+
+    {:ok, %{items: items}} =
+      Shop.load_list(
+        home_scope(),
+        Streams.shop_list(home_scope(), Streams.monday(Tore.Clock.today()))
+      )
+
+    assert [%{deal_id: deal_id}] = Map.values(items)
+    assert deal_id == deal.id
     assert has_element?(view, "[data-role=on-list]")
     refute has_element?(view, "[data-role=add-deal]")
   end

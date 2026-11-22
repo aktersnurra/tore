@@ -148,8 +148,9 @@ defmodule Tore.Shop do
   @doc """
   Puts `name` on the list. A name already on it and not yet ticked off stays as it is, so
   "Put on the list" pressed twice, or from two screens, gives one line: `{:ok, []}`.
+  `deal_id:` is the offer it's put on for, so the list can ask if the store withdraws it.
   """
-  def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id) do
+  def add_item(%Scope{} = scope, list_id, name, quantity, unit, user_id, opts \\ []) do
     if not_on_list(scope, list_id, [name]) == [] do
       {:ok, []}
     else
@@ -160,7 +161,8 @@ defmodule Tore.Shop do
           quantity: quantity,
           unit: unit,
           section: section_for(scope, name),
-          added_by: user_id
+          added_by: user_id,
+          deal_id: opts[:deal_id]
         })
 
       learn(scope, list_id, [name])
@@ -256,6 +258,12 @@ defmodule Tore.Shop do
 
     result
   end
+
+  @doc "Keeps an item whose offer the store withdrew: the list stops asking about it."
+  @spec keep_item(Scope.t(), String.t(), String.t(), integer() | nil) ::
+          {:ok, [Tore.Shop.Events.t()]} | {:error, term()}
+  def keep_item(%Scope{} = scope, list_id, item_id, user_id),
+    do: run(scope, list_id, %Commands.KeepItem{item_id: item_id, kept_by: user_id})
 
   def check_item(%Scope{} = scope, list_id, item_id, user_id) do
     with {:ok, state} <- EventStore.load(scope, list_id, Decider),

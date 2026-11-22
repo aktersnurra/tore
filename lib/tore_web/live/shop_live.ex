@@ -24,6 +24,7 @@ defmodule ToreWeb.ShopLive do
        week_number: Tore.Streams.week_number(week_start),
        list_id: list_id,
        grocery_state: grocery_state,
+       offers_gone: offers_gone(scope, grocery_state),
        user_id: user_id,
        export_text: nil,
        item_sheet: nil,
@@ -98,6 +99,13 @@ defmodule ToreWeb.ShopLive do
     )
 
     {:noreply, assign(socket, item_sheet: nil)}
+  end
+
+  # Kept though its offer is gone: the list stops asking.
+  def handle_event("keep_item", %{"item_id" => id}, socket) do
+    %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
+    {:ok, _} = Shop.keep_item(scope, list_id, id, user_id)
+    {:noreply, socket}
   end
 
   def handle_event("export_list", _params, socket) do
@@ -227,8 +235,14 @@ defmodule ToreWeb.ShopLive do
     do: {:noreply, assign(socket, making_list: false)}
 
   def handle_info({:events, _events}, socket) do
-    {:ok, grocery_state} = Shop.load_list(socket.assigns.current_scope, socket.assigns.list_id)
-    {:noreply, assign(socket, grocery_state: grocery_state)}
+    scope = socket.assigns.current_scope
+    {:ok, grocery_state} = Shop.load_list(scope, socket.assigns.list_id)
+
+    {:noreply,
+     assign(socket,
+       grocery_state: grocery_state,
+       offers_gone: offers_gone(scope, grocery_state)
+     )}
   end
 
   def handle_info({:run_changed, %{status: :reverted, surface: :shop}}, socket),
@@ -289,6 +303,17 @@ defmodule ToreWeb.ShopLive do
   defp assign_dinners(socket) do
     %{current_scope: scope, week_start: week_start} = socket.assigns
     assign(socket, dinners: Shop.meals_for(scope, week_start, Tore.Clock.today()))
+  end
+
+  # The unticked items whose offer the store withdrew before they were bought.
+  defp offers_gone(scope, %{items: items}) do
+    deal_ids = for {_id, %{checked: false, deal_id: id}} <- items, id, do: id
+    withdrawn = Tore.Deals.withdrawn(scope, deal_ids)
+
+    for {id, %{checked: false, deal_id: deal}} <- items,
+        deal in withdrawn,
+        into: MapSet.new(),
+        do: id
   end
 
   defp reload_spending(socket),
@@ -445,6 +470,7 @@ defmodule ToreWeb.ShopLive do
                   <.item_row
                     :for={item <- section_items}
                     item={item}
+                    offer_gone={item.id in @offers_gone}
                     dinner={dinner_line(@dinners, item)}
                   />
                 </ul>
@@ -642,6 +668,7 @@ defmodule ToreWeb.ShopLive do
 
   attr :item, :map, required: true
   attr :dinner, :string, default: nil
+  attr :offer_gone, :boolean, default: false, doc: "its offer was withdrawn before it was bought"
 
   # Ticking draws the check, then the row folds away into the basket (the `.Tick` hook waits
   # for that before telling the server); with reduced motion it moves at once.
@@ -654,7 +681,7 @@ defmodule ToreWeb.ShopLive do
       data-item-id={@item.id}
       data-item-name={@item.name}
       class={[
-        "tick-row flex min-h-[44px] items-center gap-3 py-1.5",
+        "tick-row flex min-h-[44px] flex-wrap items-center gap-x-3 py-1.5",
         @item.checked && "is-checked"
       ]}
     >
@@ -711,6 +738,34 @@ defmodule ToreWeb.ShopLive do
       >
         {qty_label(@item)}
       </span>
+      <div
+        :if={@offer_gone}
+        data-role="deal-gone"
+        class="settle flex w-full items-center gap-2 pb-1 pl-9"
+        style="font-size: var(--t-meta);"
+      >
+        <span class="min-w-0 flex-1 text-[color:var(--muted)]">
+          {gettext("The offer is gone. Keep it?")}
+        </span>
+        <button
+          type="button"
+          phx-click="keep_item"
+          phx-value-item_id={@item.id}
+          data-role="keep"
+          class="press pill phx-click-loading:opacity-60"
+        >
+          {gettext("Keep")}
+        </button>
+        <button
+          type="button"
+          phx-click="remove_item"
+          phx-value-item_id={@item.id}
+          data-role="remove"
+          class="press pill phx-click-loading:opacity-60"
+        >
+          {gettext("Remove")}
+        </button>
+      </div>
     </li>
     """
   end

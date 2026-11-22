@@ -25,6 +25,87 @@ defmodule ToreWeb.ShopLiveTest do
     end
   end
 
+  describe "an item from an offer the store withdrew" do
+    defp offer(name, attrs \\ %{}) do
+      {:ok, _} =
+        Tore.Deals.upsert_deals([
+          Map.merge(
+            %{
+              chain: "ica",
+              store: "ICA Maxi",
+              product_name: name,
+              valid_until: Date.add(Tore.Clock.today(), 2)
+            },
+            attrs
+          )
+        ])
+
+      Tore.Repo.get_by!(Tore.Deals.Deal, product_name: name)
+    end
+
+    defp withdraw(deal),
+      do: deal |> Ecto.Changeset.change(withdrawn_on: Tore.Clock.today()) |> Tore.Repo.update!()
+
+    defp from_offer(deal, name) do
+      list = Tore.Streams.shop_list(home_scope(), Tore.Streams.monday(Tore.Clock.today()))
+      {:ok, _} = Tore.Shop.add_item(home_scope(), list, name, nil, nil, nil, deal_id: deal.id)
+      list
+    end
+
+    defp names(list) do
+      {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list)
+      items |> Map.values() |> Enum.map(& &1.name)
+    end
+
+    test "asks whether to keep it; Keep keeps it and doesn't ask again", %{conn: conn} do
+      deal = offer("Laxfilé")
+      list = from_offer(deal, "Lax")
+      withdraw(deal)
+
+      {:ok, view, _} = live(conn, ~p"/shop")
+      assert has_element?(view, "[data-role=deal-gone]", "Erbjudandet")
+
+      view |> element("[data-role=deal-gone] [data-role=keep]") |> render_click()
+
+      refute has_element?(view, "[data-role=deal-gone]")
+      assert names(list) == ["Lax"]
+      {:ok, view, _} = live(conn, ~p"/shop")
+      refute has_element?(view, "[data-role=deal-gone]")
+    end
+
+    test "Remove takes it off the list", %{conn: conn} do
+      deal = offer("Laxfilé")
+      list = from_offer(deal, "Lax")
+      withdraw(deal)
+
+      {:ok, view, _} = live(conn, ~p"/shop")
+      view |> element("[data-role=deal-gone] [data-role=remove]") |> render_click()
+
+      assert names(list) == []
+      refute has_element?(view, "[data-role=deal-gone]")
+    end
+
+    test "an offer still on, or one that ran to its end, asks nothing", %{conn: conn} do
+      from_offer(offer("Laxfilé"), "Lax")
+      from_offer(offer("Glass", %{valid_until: Date.add(Tore.Clock.today(), -1)}), "Glass")
+
+      {:ok, view, _} = live(conn, ~p"/shop")
+      refute has_element?(view, "[data-role=deal-gone]")
+    end
+
+    test "nor does one already in the basket", %{conn: conn} do
+      deal = offer("Laxfilé")
+      list = from_offer(deal, "Lax")
+      {:ok, %{items: items}} = Tore.Shop.load_list(home_scope(), list)
+      [id] = Map.keys(items)
+      {:ok, _} = Tore.Shop.check_item(home_scope(), list, id, nil)
+      withdraw(deal)
+
+      {:ok, view, _} = live(conn, ~p"/shop")
+      refute has_element?(view, "[data-role=deal-gone]")
+    end
+  end
+
   test "sections follow a walk through the store: fruit and veg first, frozen last", %{
     conn: conn
   } do

@@ -103,8 +103,23 @@ defmodule Tore.Shop.DeciderTest do
                # Section is normalised to :other when missing/unknown so the
                # render's atom-keyed grouping always finds a bucket.
                section: :other,
-               checked: false
+               checked: false,
+               deal_id: nil
              }
+    end
+
+    test "an item put on from an offer keeps the offer until it's kept without it" do
+      added = %Events.ItemAdded{item_id: "z", name: "Lax", deal_id: 7}
+      state = Decider.evolve(Decider.initial(), added)
+      assert state.items["z"].deal_id == 7
+
+      assert {:ok, [kept]} = Decider.decide(%Commands.KeepItem{item_id: "z", kept_by: 1}, state)
+      assert Decider.evolve(state, kept).items["z"].deal_id == nil
+    end
+
+    test "keeping an item not on the list is refused" do
+      assert {:error, :item_not_found} =
+               Decider.decide(%Commands.KeepItem{item_id: "nope"}, Decider.initial())
     end
 
     test "ItemAdded normalises a string section to its atom form (rehydration)" do

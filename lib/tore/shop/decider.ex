@@ -18,7 +18,8 @@ defmodule Tore.Shop.Decider do
          quantity: cmd.quantity,
          unit: cmd.unit,
          section: cmd.section,
-         added_by: cmd.added_by
+         added_by: cmd.added_by,
+         deal_id: cmd.deal_id
        }
      ]}
   end
@@ -50,6 +51,14 @@ defmodule Tore.Shop.Decider do
   def decide(%Commands.SetItemSection{item_id: id, section: section}, state) do
     if Map.has_key?(state.items, id) do
       {:ok, [%Events.ItemSectionSet{item_id: id, section: section}]}
+    else
+      {:error, :item_not_found}
+    end
+  end
+
+  def decide(%Commands.KeepItem{item_id: id, kept_by: by}, state) do
+    if Map.has_key?(state.items, id) do
+      {:ok, [%Events.ItemKept{item_id: id, kept_by: by}]}
     else
       {:error, :item_not_found}
     end
@@ -99,7 +108,8 @@ defmodule Tore.Shop.Decider do
       # event store (string from Jason). The render groups items by atom
       # section keys, so a string here silently drops the item from view.
       section: to_section_atom(e.section),
-      checked: false
+      checked: false,
+      deal_id: e.deal_id
     }
 
     %{state | items: Map.put(state.items, e.item_id, item)}
@@ -115,6 +125,10 @@ defmodule Tore.Shop.Decider do
 
   def evolve(state, %Events.ItemUnchecked{item_id: id}) do
     %{state | items: update_in(state.items, [id], &Map.put(&1, :checked, false))}
+  end
+
+  def evolve(state, %Events.ItemKept{item_id: id}) do
+    %{state | items: update_in(state.items, [id], &Map.put(&1, :deal_id, nil))}
   end
 
   def evolve(state, %Events.ItemSectionSet{item_id: id, section: section}) do
