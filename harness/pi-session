@@ -57,7 +57,7 @@ mkdir -p "$state/cwd" && cd "$state/cwd"
 
 exec pi --mode rpc \
   --no-extensions -e builtin:mcp -e "npm:pi-web-access" \
-  --no-tools --tools 'mcp__tore__*,web_search,fetch_content' \
+  --no-tools --tools 'mcp__tore__*,web_search,fetch_content,get_search_content' \
   --append-system-prompt "$dir/AGENTS.md" \
   ${model:+--model "$model"} \
   --session-dir "$sessions" --session-id "$session"

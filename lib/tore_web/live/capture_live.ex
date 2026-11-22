@@ -499,15 +499,7 @@ defmodule ToreWeb.CaptureLive do
   defp markdown(text),
     do: raw(MDEx.to_html!(text, extension: [autolink: true, strikethrough: true]))
 
-  defp avatar(assigns) do
-    ~H"""
-    <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--on-accent)]">
-      <.icon name="ph-cooking-pot-duotone" class="size-4" />
-    </span>
-    """
-  end
-
-  # Whether each message starts a run of Tore's: only the first gets Tore's mark and name.
+  # Whether each message starts a run of Tore's: only the first gets Tore's name.
   defp with_heads(messages) do
     {turns, _previous} =
       Enum.map_reduce(messages, nil, fn msg, previous ->
@@ -527,13 +519,13 @@ defmodule ToreWeb.CaptureLive do
 
   defp turn(%{msg: %{role: :recipe}} = assigns) do
     ~H"""
-    <div class="rise-in pl-10"><.recipe_card card={@msg} /></div>
+    <div class="rise-in"><.recipe_card card={@msg} /></div>
     """
   end
 
   defp turn(%{msg: %{quiet: true}} = assigns) do
     ~H"""
-    <div data-role="bubble-assistant" class="rise-in flex items-start gap-2 pl-10 text-[15px]">
+    <div data-role="bubble-assistant" class="rise-in flex items-start gap-2 text-[15px]">
       <.icon
         name={if Map.get(@msg, :reverted), do: "ph-arrow-u-up-left", else: "ph-check-circle-fill"}
         class="mt-0.5 size-[18px] shrink-0 text-[color:var(--muted)]"
@@ -558,12 +550,9 @@ defmodule ToreWeb.CaptureLive do
 
   defp turn(assigns) do
     ~H"""
-    <div data-role="bubble-assistant" class={["rise-in flex items-start gap-3", !@head && "pl-10"]}>
-      <.avatar :if={@head} />
-      <div class="min-w-0 flex-1 pt-0.5">
-        <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
-        <div class="chat-md text-[color:var(--text)]">{markdown(@msg.text)}</div>
-      </div>
+    <div data-role="bubble-assistant" class="rise-in min-w-0">
+      <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">Tore</div>
+      <div class="chat-md text-[color:var(--text)]">{markdown(@msg.text)}</div>
     </div>
     """
   end
@@ -875,41 +864,35 @@ defmodule ToreWeb.CaptureLive do
               <div
                 :if={@draft}
                 data-role="draft"
-                class={["flex items-start gap-3", !@head && "pl-10"]}
+                class="min-w-0"
               >
-                <.avatar :if={@head} />
-                <div class="min-w-0 flex-1 pt-0.5">
-                  <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
-                    Tore
-                  </div>
-                  <div class="chat-md is-streaming text-[color:var(--text)]">
-                    {markdown(@draft)}
-                  </div>
+                <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
+                  Tore
+                </div>
+                <div class="chat-md is-streaming text-[color:var(--text)]">
+                  {markdown(@draft)}
                 </div>
               </div>
 
               <div
                 :if={@loading and is_nil(@draft)}
-                class={["rise-in flex items-start gap-3", !@head && "pl-10"]}
+                class="rise-in min-w-0"
               >
-                <.avatar :if={@head} />
-                <div class="min-w-0 flex-1 pt-0.5">
-                  <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
-                    Tore
-                  </div>
-                  <div role="status" class="flex items-center gap-2">
-                    <.icon
-                      name="ph-arrows-clockwise"
-                      class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
-                    />
-                    <span
-                      id={"working-#{:erlang.phash2(@working)}"}
-                      data-role="working"
-                      class="settle text-[15px] text-[color:var(--muted)]"
-                    >
-                      {@working}
-                    </span>
-                  </div>
+                <div :if={@head} class="mb-1 text-[14px] font-semibold text-[color:var(--text)]">
+                  Tore
+                </div>
+                <div role="status" class="flex items-center gap-2">
+                  <.icon
+                    name="ph-arrows-clockwise"
+                    class="size-4 text-[color:var(--muted)] motion-safe:animate-spin"
+                  />
+                  <span
+                    id={"working-#{:erlang.phash2(@working)}"}
+                    data-role="working"
+                    class="settle text-[15px] text-[color:var(--muted)]"
+                  >
+                    {@working}
+                  </span>
                 </div>
               </div>
             </div>

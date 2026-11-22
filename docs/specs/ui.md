@@ -665,7 +665,7 @@ Unknown → Ask what to do
 
 The tray looks like Claude's chat: a page beside the menu on a laptop, a sheet on a phone, one column about
 48rem wide. What the person wrote sits on the right in a soft bubble, with no avatar. Tore's
-answers are reading text under its mark and name, shown once per run of its messages, set as
+answers are reading text under its name, with no avatar either, shown once per run of its messages, set as
 markdown (`.chat-md`) with a caret while they stream in. A change pi made is a quiet line with a
 check and Undo. The composer is one rounded box: the text grows with what's written, Enter sends
 and Shift+Enter is a new line, with ↵ on its right; while pi works, ↵ becomes Stop, which aborts
