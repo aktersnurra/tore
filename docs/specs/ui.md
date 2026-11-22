@@ -1974,9 +1974,10 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
   menu.
 - Rows answer hover with a soft background; chrome stays quiet.
 - **Pictures** share one house style (one fixed art direction appended to every dish), so
-  the library looks like one feed: straight down, an off-white plate on pale warm-grey linen,
-  soft daylight from the left, a light warm-neutral grade close to the app's own off-whites,
-  and real home cooking rather than a styled shoot.
+  the library looks like one feed: pale warm-grey linen or light wood, off-white stoneware,
+  soft daylight from the left and a light warm-neutral grade close to the app's own off-whites.
+  Each dish is served and shot as it really is (bread on a board, a soup in a bowl from 45°,
+  only flat dishes from straight above), real home cooking rather than a styled shoot.
 
 ## 16.3 Agent acts; user undoes
 

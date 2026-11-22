@@ -20,8 +20,8 @@ defmodule Tore.RecipesTest do
                Recipes.draw_picture(home_scope(), recipe.id, "Cinnamon buns in a tin. ")
 
       assert_received {:image_prompt, prompt}
-      assert prompt =~ ~r/\ACinnamon buns in a tin\.\n\nBright, airy overhead food photo/
-      assert prompt =~ "warm-grey linen"
+      assert prompt =~ ~r/\ACinnamon buns in a tin\.\n\nA real home cook's food photo/
+      assert prompt =~ "bread on a wooden board"
 
       assert key =~ ~r"\Ahouseholds/#{home_scope().household_id}/recipes/#{recipe.id}/.+\.jpg\z"
       assert {:ok, _png} = Tore.Storage.Mock.get_object(Tore.Storage.Buckets.recipes(), key)

@@ -13,17 +13,21 @@ defmodule Tore.Recipes do
 
   # Every recipe picture is taken the same way, so the library reads as one cookbook in Tore's
   # cast-iron palette. pi only describes the dish; this sets the light, surface and frame.
-  # Real home cooking in one Instagram-like frame: the same pale plate, linen, light and grade
-  # every time, close to the app's own warm off-whites, so the library reads as one feed.
+  # Real home cooking, one feed: every picture shares the linen or light wood, daylight and grade,
+  # close to the app's own warm off-whites; how a dish is served and shot is its own, so bread
+  # isn't on a plate seen from above.
   @house_style """
-  Bright, airy overhead food photo, shot straight down, in the style of a home cook's Instagram \
-  feed. The dish sits centred in a plain matte off-white stoneware plate or bowl, on a pale \
-  warm-grey linen tablecloth. Soft, even daylight from a window on the left, gentle natural \
-  shadows falling to the right. A clean, light, warm-neutral colour grade: whites stay white, \
-  colours true and fresh, lifted shadows, soft contrast. Real home cooking with real texture: \
-  uneven browning, a little sauce at the rim, a few crumbs; appetising, never glossy or too \
-  perfect. At most one small prop at the edge of the frame, a fork or a folded napkin in the \
-  same pale tones; nothing else. No text, no hands, no people, no logos.\
+  A real home cook's food photo, the kind they'd post on Instagram: bright, airy and natural. \
+  Serve and frame the dish the way it is really served and photographed: bread on a wooden \
+  board, a cake on a plain cake plate, a soup in a bowl, a stew in its pot, a burger on a plate \
+  or board, a pasta or a pizza on a plate. Shoot from straight above only for flat dishes such as \
+  pizza, pasta or a tray bake; anything with height (bread, cake, burgers, soups, stews) from \
+  about 45 degrees. What every picture shares: a pale warm-grey linen cloth or light wooden table \
+  underneath, plain matte off-white stoneware where there's a plate or bowl, soft daylight from a \
+  window on the left, and a clean, light, warm-neutral colour grade with whites that stay white, \
+  true fresh colours and soft contrast. Real texture: uneven browning, crumbs, a drip of sauce; \
+  appetising, never glossy or too perfect. At most one small prop. No text, no hands, no people, \
+  no logos.\
   """
 
   @snapshot_fields ~w(title description instructions steps recipe_type base_servings prep_time_minutes cook_time_minutes source_url image_path)a
