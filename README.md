@@ -162,6 +162,12 @@ Tests use an in-memory storage mock, so `mix test` needs nothing running.
 
 ---
 
+## Deploying
+
+Tore runs as a FreeBSD jail on the home server, deployed with serai from the infrastructure repo
+(`apps/tore` in mirbad): `serai up tore --revision master`. Its `env.template` names every variable
+the release reads, and the jail's `/etc/tore/env` must give each one a value.
+
 ## Running tests
 
 ```sh
