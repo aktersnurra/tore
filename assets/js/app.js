@@ -73,6 +73,9 @@ window.addEventListener("phx:reset_form", ({detail: {id}}) => {
 })
 
 // connect if there are any LiveViews on the page
+// Tore is an app, not a page: no pinch zoom, which iOS Safari allows despite user-scalable=no.
+document.addEventListener("gesturestart", e => e.preventDefault())
+
 liveSocket.connect()
 
 // expose liveSocket on window for web console debug logs and latency simulation:

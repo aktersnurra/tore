@@ -133,6 +133,30 @@ defmodule ToreWeb.DealsLiveTest do
     refute has_element?(view, "[data-role=add-deal]")
   end
 
+  test "+ works in every group, what Jev thought they might want or not included", %{conn: conn} do
+    use_store("ICA Maxi")
+    offer("Glass", "30", "45")
+    offer("Kattmat", "20", "29")
+
+    for deal <- Deals.list_current(home_scope()) do
+      kind = if deal.product_name == "Glass", do: "maybe", else: "no"
+
+      Tore.Repo.insert!(%Tore.Deals.Pick{
+        household_id: home_scope().household_id,
+        deal_id: deal.id,
+        kind: kind,
+        confidence: 0.9
+      })
+    end
+
+    {:ok, view, _} = live(conn, ~p"/deals")
+    view |> element("[data-role=group-maybe] [data-role=add-deal]") |> render_click()
+    view |> element("[data-role=group-not-for-us] [data-role=add-deal]") |> render_click()
+
+    assert Enum.sort(list_names()) == ["Glass", "Kattmat"]
+    refute has_element?(view, "[data-role=add-deal]")
+  end
+
   test "an offer nothing matched goes on the list by its own name", %{conn: conn} do
     use_store("ICA Maxi")
     offer("Chips", "20", "29")

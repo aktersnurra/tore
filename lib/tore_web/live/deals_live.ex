@@ -26,7 +26,9 @@ defmodule ToreWeb.DealsLive do
     %{page: page, week: week, current_scope: scope} = socket.assigns
     id = String.to_integer(id)
 
-    case Enum.find(page.meals ++ page.usual ++ page.others, &(&1.deal.id == id)) do
+    entries = page.meals ++ page.usual ++ page.maybe ++ page.others ++ page.not_for_us
+
+    case Enum.find(entries, &(&1.deal.id == id)) do
       nil ->
         {:noreply, socket}
 
@@ -289,7 +291,14 @@ defmodule ToreWeb.DealsLive do
 
   defp group(assigns) do
     ~H"""
-    <details data-role={"group-#{@role}"} class="group mt-3" open={@open}>
+    <%!-- Opened or closed by hand, a group stays so when the page updates (a + below). --%>
+    <details
+      id={"group-#{@role}"}
+      data-role={"group-#{@role}"}
+      class="group mt-3"
+      open={@open}
+      phx-mounted={JS.ignore_attributes(["open"])}
+    >
       <summary class="press press-soft" style="font-size: 13px;">
         <.icon name="ph-caret-right" class="arrow size-3.5 text-[color:var(--muted)]" />
         <span class={"tag tag-#{@tint}"}>{@label}</span>
