@@ -103,9 +103,12 @@ defmodule Tore.Deals do
     scope
     |> valid_from(week_start)
     |> where([d], d.inserted_at < ^seen_by and d.inserted_at <= ^as_of)
-    |> where([d], is_nil(d.withdrawn_on) or d.withdrawn_on > ^NaiveDateTime.to_date(as_of))
+    # withdrawn_on is the household's date; as_of is UTC.
+    |> where([d], is_nil(d.withdrawn_on) or d.withdrawn_on > ^withdrawn_by(as_of))
     |> all(scope)
   end
+
+  defp withdrawn_by(as_of), do: as_of |> Tore.Clock.local() |> NaiveDateTime.to_date()
 
   @doc "The moment the week starting `week_start` ends: the next Monday at midnight."
   @spec week_end(Date.t()) :: NaiveDateTime.t()
