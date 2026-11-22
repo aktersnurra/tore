@@ -65,5 +65,5 @@ defmodule Tore.ImageGen.OpenRouter do
   end
 
   defp image_model,
-    do: Application.get_env(:tore, :openrouter_image_model, "microsoft/mai-image-2.6")
+    do: Application.get_env(:tore, :openrouter_image_model, "microsoft/mai-image-2.7")
 end

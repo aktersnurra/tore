@@ -57,7 +57,7 @@ if config_env() == :prod do
 
   config :tore,
          :openrouter_image_model,
-         System.get_env("OPENROUTER_IMAGE_MODEL", "microsoft/mai-image-2.6")
+         System.get_env("OPENROUTER_IMAGE_MODEL", "microsoft/mai-image-2.7")
 
   database_path =
     System.get_env("DATABASE_PATH") ||
