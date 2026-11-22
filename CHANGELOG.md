@@ -7,6 +7,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### First deploy, and offers that change (2026-11-22)
+
+- Tore runs on the NUC at tore.gustafrydholm.xyz. It listens on IPv4 (the jail has no IPv6), `pi-session` finds pi, node and jq under rc's short PATH, and pi reaches `/mcp` at 127.0.0.1, which force_ssl doesn't redirect.
+- pi may read back a multi-page fetch (`get_search_content`), so a recipe index imports in one go.
+- Chat: Tore's answers sit under its name alone, without the avatar.
+- Erbjudanden: + works in every group, a folded group opened by hand stays open, and the app doesn't zoom.
+- A store's latest read is its offers: a new price replaces the old, and an offer it stops listing is withdrawn (`withdrawn_on`, kept as price history).
+- An item put on the list from an offer the store then withdraws asks on Shop whether to keep it (Behåll / Ta bort).
+
 ### Review fixes, and Jev learns new names (2026-11-21)
 
 - Gone no longer slows the rhythm: a row Tore had stopped believing in (Today asks only about those) teaches nothing when it's gone.
