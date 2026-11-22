@@ -780,6 +780,10 @@ price per item and the comparison price per kg or litre, all as numbers. The ICA
 offer's own words, so the öre stay, and an offer that only says what you save has no price. An offer without an end
 date runs to Sunday. Each week's offer is its own row, and `clear_expired` keeps ended ones for 26 weeks: they are
 the price history the weekly budget prices recipes from. A failed fetch emails an alert, as zero deals does.
+Each read of a store is what it offers now, for each end date it lists offers under: an offer seen again takes its
+new price, and one the store no longer lists is withdrawn (`withdrawn_on`, kept as price history), off the deals
+page and out of the budget from that day. Another week's offers, which the read doesn't cover, are left alone, and
+a read that finds nothing changes nothing.
 
 **Products to ingredients.** `Tore.Prices.Products` matches each deal's and receipt line's product name to one of the
 household's ingredients, once per name, in `product_matches`. A name with an ingredient's key, or one the pantry has

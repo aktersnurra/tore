@@ -39,10 +39,25 @@ defmodule Tore.DealsTest do
     assert {:ok, 2} = Tore.Deals.upsert_deals(deals)
   end
 
-  test "the same offer seen again is stored once" do
-    deals = [%{chain: "ica", store: "ICA Maxi", product_name: "Ost", source: :scraped}]
-    assert {:ok, 1} = Tore.Deals.upsert_deals(deals)
-    assert {:ok, 0} = Tore.Deals.upsert_deals(deals)
+  test "the same offer seen again is stored once, as it is now" do
+    deal = %{chain: "ica", store: "ICA Maxi", product_name: "Ost", source: :scraped}
+    {:ok, _} = Tore.Deals.upsert_deals([Map.put(deal, :price, Decimal.new("40"))])
+    {:ok, _} = Tore.Deals.upsert_deals([Map.put(deal, :price, Decimal.new("35"))])
+
+    assert [%{price: price}] = Tore.Repo.all(Tore.Deals.Deal)
+    assert Decimal.equal?(price, 35)
+  end
+
+  test "valid_in_week leaves out an offer withdrawn by then, not before" do
+    today = Tore.Clock.today()
+    week_start = Tore.Streams.monday(today)
+    Tore.Deals.upsert_deals([deal("Fisk", Date.add(week_start, 6))])
+    seen = NaiveDateTime.new!(Date.add(today, -2), ~T[12:00:00])
+    Tore.Repo.update_all(Tore.Deals.Deal, set: [inserted_at: seen, withdrawn_on: today])
+
+    before = NaiveDateTime.new!(Date.add(today, -1), ~T[12:00:00])
+    assert names(Tore.Deals.valid_in_week(home_scope(), week_start, before)) == ["Fisk"]
+    assert names(Tore.Deals.valid_in_week(home_scope(), week_start)) == []
   end
 
   defp deal(name, valid_until),

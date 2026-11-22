@@ -27,6 +27,83 @@ defmodule Tore.DealsScrapeTest do
     assert deal.chain == "ica"
   end
 
+  describe "reading a store again" do
+    # ICA's offers as the page lists them: {name, price, end date or nil for this Sunday}.
+    defp ica(offers) do
+      weekly =
+        for {name, price, until} <- offers do
+          %{
+            "details" => %{"name" => name},
+            "parsedMechanics" => %{"value1" => "1", "value2" => price, "value4" => "/st"},
+            "stores" => [%{"storeMarketingName" => "ICA Maxi", "regularPrice" => "99"}],
+            "comparisonPrice" => nil,
+            "validTo" => until && "#{until}T23:59:59"
+          }
+        end
+
+      # In the page's order: the parser finds the data by its first key.
+      ~s({"weeklyOffers":#{Jason.encode!(weekly)},"compensationOffersStatus":"ok"})
+    end
+
+    defp read(offers) do
+      Tore.MockHTTP |> expect(:fetch, fn @store_url, _headers -> {:ok, ica(offers)} end)
+      {:ok, _} = Deals.scrape_url(@store_url, "Danvikstull")
+    end
+
+    defp offer(name), do: Tore.Repo.get_by!(Deals.Deal, product_name: name)
+
+    setup do
+      store = Tore.Repo.insert!(%Deals.Store{name: "Danvikstull", url: @store_url})
+
+      Tore.Repo.insert!(%Deals.HouseholdStore{
+        household_id: home_scope().household_id,
+        store_id: store.id
+      })
+
+      :ok
+    end
+
+    defp current, do: home_scope() |> Deals.list_current() |> Enum.map(& &1.product_name)
+
+    test "a changed price replaces the old one, and an offer that's gone is withdrawn" do
+      read([{"Kycklingfilé", "59", nil}, {"Laxfilé", "99", nil}])
+      read([{"Kycklingfilé", "49", nil}])
+
+      assert Decimal.equal?(offer("Kycklingfilé").price, 49)
+      assert offer("Kycklingfilé").withdrawn_on == nil
+      assert offer("Laxfilé").withdrawn_on == Tore.Clock.today()
+      assert current() == ["Kycklingfilé"]
+    end
+
+    test "a read of next week's offers leaves this week's alone" do
+      next_sunday = Tore.Clock.today() |> Tore.Streams.monday() |> Date.add(13)
+
+      read([{"Kycklingfilé", "59", nil}])
+      read([{"Laxfilé", "99", next_sunday}])
+
+      assert offer("Kycklingfilé").withdrawn_on == nil
+      assert Enum.sort(current()) == ["Kycklingfilé", "Laxfilé"]
+    end
+
+    test "an offer that comes back is current again" do
+      read([{"Kycklingfilé", "59", nil}, {"Laxfilé", "99", nil}])
+      read([{"Kycklingfilé", "59", nil}])
+      read([{"Kycklingfilé", "59", nil}, {"Laxfilé", "99", nil}])
+
+      assert offer("Laxfilé").withdrawn_on == nil
+      assert Enum.sort(current()) == ["Kycklingfilé", "Laxfilé"]
+    end
+
+    test "a read that finds no offers changes nothing" do
+      read([{"Kycklingfilé", "59", nil}])
+      Tore.MockHTTP |> expect(:fetch, fn @store_url, _headers -> {:ok, ica([])} end)
+      # ICA's parser calls an empty list no data; either way nothing is withdrawn.
+      _empty = Deals.scrape_url(@store_url, "Danvikstull")
+
+      assert current() == ["Kycklingfilé"]
+    end
+  end
+
   test "the store's page gives its logo, which the store keeps" do
     {:ok, _} = Deals.add_store(home_scope(), @store_url)
 

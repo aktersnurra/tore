@@ -24,6 +24,8 @@ defmodule Tore.Deals.Deal do
     field :offer_condition, :string
     field :valid_from, :date
     field :valid_until, :date
+    # The day the store stopped listing it before it ended; kept, as the price history.
+    field :withdrawn_on, :date
     field :source, Ecto.Enum, values: [:scraped, :vision, :manual]
     timestamps()
   end

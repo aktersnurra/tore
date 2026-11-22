@@ -11,14 +11,31 @@ defmodule Tore.Deals do
   # How sure Jev must be that an offer isn't for the household for it to be folded away.
   @sure 0.5
 
+  # What a store says of an offer, which a later read of it replaces.
+  @offer_fields [
+    :store_location,
+    :brand,
+    :size,
+    :price,
+    :quantity,
+    :price_unit,
+    :regular_price,
+    :comparison_price,
+    :comparison_unit,
+    :offer_condition,
+    :valid_from,
+    :source
+  ]
+
   @doc """
   Stores offers, each week's as its own row. An offer without an end date is taken to run to
-  Sunday, as ICA's do. The same offer seen again is left as it is.
+  Sunday, as ICA's do. The same offer seen again is stored as it is now, and listed again if it
+  was withdrawn.
   """
   @spec upsert_deals([map()]) :: {:ok, integer()} | {:error, term()}
   def upsert_deals(deals) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-    sunday = Tore.Clock.today() |> Streams.monday() |> Date.add(6)
+    sunday = this_sunday()
 
     rows =
       deals
@@ -29,21 +46,46 @@ defmodule Tore.Deals do
         d
         |> Map.put_new(:source, :scraped)
         |> Map.update(:valid_until, sunday, &(&1 || sunday))
-        |> Map.merge(%{inserted_at: now, updated_at: now})
+        |> Map.merge(%{withdrawn_on: nil, inserted_at: now, updated_at: now})
       end)
 
     {count, _} =
       Repo.insert_all(Deal, rows,
-        on_conflict: :nothing,
+        on_conflict: {:replace, @offer_fields ++ [:withdrawn_on, :updated_at]},
         conflict_target: [:chain, :store, :product_name, :valid_until]
       )
 
     {:ok, count}
   end
 
+  defp this_sunday, do: Tore.Clock.today() |> Streams.monday() |> Date.add(6)
+
+  # A read is what the store offers now for each end date it has offers for: one it no longer
+  # lists under that date is withdrawn. Another week's offers, which the read doesn't cover, stay.
+  defp withdraw_missing(chain, store, deals) do
+    sunday = this_sunday()
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    deals
+    |> Enum.group_by(&(&1[:valid_until] || sunday), & &1[:product_name])
+    |> Enum.each(fn {until, names} ->
+      from(d in Deal,
+        where:
+          d.chain == ^chain and d.store == ^store and d.valid_until == ^until and
+            is_nil(d.withdrawn_on) and d.product_name not in ^Enum.reject(names, &is_nil/1)
+      )
+      |> Repo.update_all(set: [withdrawn_on: Tore.Clock.today(), updated_at: now])
+    end)
+  end
+
   @doc "Current deals at the stores the household uses and has switched on."
   @spec list_current(Scope.t()) :: [Deal.t()]
-  def list_current(%Scope{} = scope), do: scope |> valid_from(Tore.Clock.today()) |> all(scope)
+  def list_current(%Scope{} = scope) do
+    scope
+    |> valid_from(Tore.Clock.today())
+    |> where([d], is_nil(d.withdrawn_on))
+    |> all(scope)
+  end
 
   @doc """
   The deals that can count for the week starting `week_start`: those still running on its Monday
@@ -61,6 +103,7 @@ defmodule Tore.Deals do
     scope
     |> valid_from(week_start)
     |> where([d], d.inserted_at < ^seen_by and d.inserted_at <= ^as_of)
+    |> where([d], is_nil(d.withdrawn_on) or d.withdrawn_on > ^NaiveDateTime.to_date(as_of))
     |> all(scope)
   end
 
@@ -387,7 +430,9 @@ defmodule Tore.Deals do
           {:ok, 0}
 
         _ ->
-          upsert_deals(deals)
+          {:ok, count} = upsert_deals(deals)
+          withdraw_missing(chain, store_name, deals)
+          {:ok, count}
       end
     end
   end
