@@ -30,8 +30,9 @@ defmodule Tore.Pantry.Learn do
 
   @batch 25
 
-  # Jev merges a new name into one the household has only this sure.
-  @sure 0.9
+  # Jev merges a new name into one the household has only this sure. Jev was 0.68 sure that
+  # lättmjölk is mjölk (2026-11-21), so 0.9 merged almost nothing.
+  @sure 0.65
 
   # Where each kind of thing is found in a shop, as Jev is told: in English, then in Swedish.
   @sections %{

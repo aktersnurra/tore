@@ -11,7 +11,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 - Gone no longer slows the rhythm: a row Tore had stopped believing in (Today asks only about those) teaches nothing when it's gone.
 - Taking back a tick on Today puts everything back as it was: the pantry row's amount and dates, and when the regular buy was last bought (`Tore.Shop.buy/4`, `take_back/3`).
-- Jev learns a new name instead of a pi job: its section, how long it keeps, and whether it's one the household has, merged only when Jev is sure (≥ 0.9) and only among names one inside the other. pi's `learn` job matches products only.
+- Jev learns a new name instead of a pi job: its section, how long it keeps, and whether it's one the household has, merged only when Jev is sure (≥ 0.65) and only among names one inside the other. pi's `learn` job matches products only.
 - Pantry pictures don't crash for a household with no language yet, nor when a merge removes an ingredient mid-call.
 - Names from the review: `Pantry.without_section/1`, `Lasts.icons/3`, `:cooking_from_hour`.
 

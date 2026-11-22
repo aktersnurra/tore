@@ -154,7 +154,8 @@ defmodule Tore.Pantry.LearnTest do
     end
 
     test "a kind of one the household has is merged into it when Jev is sure" do
-      jev()
+      # As sure as Jev was that lättmjölk is mjölk.
+      jev(0.68)
       %{id: milk} = ingredient(home_scope(), %{name: "Mjölk", category: "dairy"})
       ingredient(home_scope(), %{name: "Smör", category: "dairy"})
 
