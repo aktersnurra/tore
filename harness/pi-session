@@ -14,6 +14,11 @@
 # pi's own config (the installed web package) lives in $HARNESS_STATE_DIR/pi, never ~/.pi.
 set -eu
 
+# A service may start Tore with a minimal PATH (FreeBSD's rc has no /usr/local/bin), where pi,
+# node (pi's interpreter) and jq are installed.
+PATH=$PATH:/usr/local/bin
+export PATH
+
 dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 state=${HARNESS_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/tore-harness}
 
