@@ -13,13 +13,17 @@ defmodule Tore.Recipes do
 
   # Every recipe picture is taken the same way, so the library reads as one cookbook in Tore's
   # cast-iron palette. pi only describes the dish; this sets the light, surface and frame.
+  # Real home cooking in one Instagram-like frame: the same pale plate, linen, light and grade
+  # every time, close to the app's own warm off-whites, so the library reads as one feed.
   @house_style """
-  Editorial cookbook photograph, vertical 3:4 frame, shot from about 45 degrees. The dish sits \
-  on a dark, matte charcoal stoneware or seasoned cast-iron surface. Soft, warm light from a \
-  single window on one side, deep warm shadows, gentle amber highlights. Muted natural colours; \
-  the food is the brightest thing in the frame. Plain matte ceramic or the dish's own pan, at \
-  most one quiet prop such as linen or a wooden spoon. Shallow depth of field, natural and \
-  appetising, not glossy. No text, no hands, no people, no logos.\
+  Bright, airy overhead food photo, shot straight down, in the style of a home cook's Instagram \
+  feed. The dish sits centred in a plain matte off-white stoneware plate or bowl, on a pale \
+  warm-grey linen tablecloth. Soft, even daylight from a window on the left, gentle natural \
+  shadows falling to the right. A clean, light, warm-neutral colour grade: whites stay white, \
+  colours true and fresh, lifted shadows, soft contrast. Real home cooking with real texture: \
+  uneven browning, a little sauce at the rim, a few crumbs; appetising, never glossy or too \
+  perfect. At most one small prop at the edge of the frame, a fork or a folded napkin in the \
+  same pale tones; nothing else. No text, no hands, no people, no logos.\
   """
 
   @snapshot_fields ~w(title description instructions steps recipe_type base_servings prep_time_minutes cook_time_minutes source_url image_path)a
