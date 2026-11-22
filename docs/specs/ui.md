@@ -1425,6 +1425,9 @@ already knows (`Tore.Deals.page/3`), and one from Jev's guesses (2026-11-20, bel
   Tore reads offers from, so it costs no extra request and each morning keeps it current; the
   store's first letter until its page has been read.
 - **Butiker** at the foot: each store with its offers this week, a switch, and × to remove.
+  "Hämta nu" beside the heading reads every store switched on now, as the morning does (the
+  button spins and waits), and a toast says how many offers there are or which store it
+  couldn't read.
   "Lägg till butik" opens the link field; it's open from the start when there are none. A link
   Tore has no parser for gets "Tore kan inte läsa den butiken än". A store just added is read at
   once, in the background, and a toast says how many offers Tore found, or that it couldn't

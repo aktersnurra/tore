@@ -246,6 +246,37 @@ defmodule ToreWeb.DealsLiveTest do
       assert render(view) =~ "Kycklingfilé"
     end
 
+    test "Fetch now reads every store switched on, and a toast says what it found", %{
+      conn: conn
+    } do
+      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url, _headers -> {:ok, @ica_html} end)
+      {:ok, _} = Deals.add_store(home_scope(), @store_url)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+      refute render(view) =~ "Kycklingfilé"
+
+      view |> element("[data-role=read-stores]") |> render_click()
+      assert has_element?(view, "[data-role=read-stores][disabled]")
+      render_async(view)
+
+      assert has_element?(view, "#flash-info", "1 erbjudande")
+      assert render(view) =~ "Kycklingfilé"
+      refute has_element?(view, "[data-role=read-stores][disabled]")
+    end
+
+    test "Fetch now names a store it couldn't read", %{conn: conn} do
+      Mox.expect(Tore.MockHTTP, :fetch, fn @store_url, _headers ->
+        {:error, {:http_error, 503}}
+      end)
+
+      {:ok, _} = Deals.add_store(home_scope(), @store_url)
+      {:ok, view, _html} = live(conn, ~p"/deals")
+
+      view |> element("[data-role=read-stores]") |> render_click()
+      render_async(view)
+
+      assert has_element?(view, "#flash-error", "ICA Supermarket Danvikstull")
+    end
+
     test "a store that can't be read now stays added, and a toast says so", %{conn: conn} do
       Mox.expect(Tore.MockHTTP, :fetch, fn @store_url, _headers ->
         {:error, {:http_error, 403}}

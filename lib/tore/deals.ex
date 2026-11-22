@@ -423,6 +423,27 @@ defmodule Tore.Deals do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
+  @doc """
+  Reads every store the household has switched on now, as the morning does, then matches and
+  sorts what they offer. Answers how many offers are current, or the stores it couldn't read
+  (the others are read all the same).
+  """
+  @spec read_stores_now(Scope.t()) :: {:ok, non_neg_integer()} | {:error, {:unread, [String.t()]}}
+  def read_stores_now(%Scope{} = scope) do
+    unread =
+      for store <- switched_on_stores(scope),
+          not match?({:ok, _}, scrape_url(store.url, store.name)),
+          do: store.name
+
+    match_products(scope)
+    pick(scope)
+
+    case unread do
+      [] -> {:ok, length(list_current(scope))}
+      names -> {:error, {:unread, names}}
+    end
+  end
+
   @spec scrape_url(String.t(), String.t()) :: {:ok, integer()} | {:error, term()}
   def scrape_url(url, store_name) do
     with {:ok, parser} <- Parsers.for_url(url),

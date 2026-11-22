@@ -10,7 +10,11 @@ defmodule ToreWeb.DealsLive do
 
   @impl true
   def mount(_params, _session, socket),
-    do: {:ok, socket |> assign(store_url: "", store_error: nil, adding_store: false) |> load()}
+    do:
+      {:ok,
+       socket
+       |> assign(store_url: "", store_error: nil, adding_store: false, reading_stores: false)
+       |> load()}
 
   defp load(socket) do
     today = Tore.Clock.today()
@@ -68,6 +72,19 @@ defmodule ToreWeb.DealsLive do
     end
   end
 
+  # The morning's read, now: every store switched on.
+  def handle_event("read_stores", _, %{assigns: %{reading_stores: true}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("read_stores", _, socket) do
+    scope = socket.assigns.current_scope
+
+    {:noreply,
+     socket
+     |> assign(reading_stores: true)
+     |> start_async(:read_stores, fn -> Deals.read_stores_now(scope) end)}
+  end
+
   def handle_event("open_store_form", _, socket),
     do: {:noreply, assign(socket, adding_store: true)}
 
@@ -85,6 +102,34 @@ defmodule ToreWeb.DealsLive do
   end
 
   @impl true
+  def handle_async(:read_stores, result, socket) do
+    socket =
+      case result do
+        {:ok, {:ok, count}} ->
+          put_flash(
+            socket,
+            :info,
+            ngettext(
+              "Read your stores: %{count} offer this week.",
+              "Read your stores: %{count} offers this week.",
+              count
+            )
+          )
+
+        {:ok, {:error, {:unread, names}}} ->
+          put_flash(
+            socket,
+            :error,
+            gettext("Tore couldn't read %{stores} just now.", stores: Enum.join(names, ", "))
+          )
+
+        {:exit, _reason} ->
+          put_flash(socket, :error, gettext("Tore couldn't read the stores just now."))
+      end
+
+    {:noreply, socket |> assign(reading_stores: false) |> load()}
+  end
+
   def handle_async({:read_store, store}, result, socket) do
     socket =
       case result do
@@ -192,6 +237,7 @@ defmodule ToreWeb.DealsLive do
           url={@store_url}
           error={@store_error}
           adding={@adding_store}
+          reading={@reading_stores}
         />
       </.page>
     </Layouts.app>
@@ -202,12 +248,29 @@ defmodule ToreWeb.DealsLive do
   attr :url, :string, required: true
   attr :error, :string, default: nil
   attr :adding, :boolean, default: false
+  attr :reading, :boolean, default: false, doc: "the stores are being read now"
 
   # The stores Tore reads offers from, at the foot: they're set once and rarely touched.
   defp stores(assigns) do
     ~H"""
     <section data-role="stores" class="mt-10 max-w-[520px]">
-      <h2 class="t-head">{gettext("Stores")}</h2>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="t-head">{gettext("Stores")}</h2>
+        <button
+          :if={@stores != []}
+          type="button"
+          phx-click="read_stores"
+          disabled={@reading}
+          data-role="read-stores"
+          class="press pill disabled:opacity-60"
+        >
+          <.icon
+            name="ph-arrows-clockwise"
+            class={["size-4", @reading && "motion-safe:animate-spin"]}
+          />
+          {if @reading, do: gettext("Fetching…"), else: gettext("Fetch now")}
+        </button>
+      </div>
       <p class="text-[color:var(--muted)]" style="font-size: 13px;">
         {gettext("Tore reads their offers every morning.")}
       </p>
