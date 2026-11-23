@@ -15,18 +15,19 @@ defmodule Tore.ImageResize.Vips do
 
   @timeout_s 20
 
-  # Looked up once per boot: a server that gets vips installed picks it up on restart.
+  # Found once, then remembered; not found is looked for again each time (a PATH search), so
+  # vips installed while Tore runs is picked up without a restart.
   @impl true
   def available? do
-    case :persistent_term.get({__MODULE__, :available?}, nil) do
-      nil ->
-        available? = System.find_executable("vipsthumbnail") != nil
-        :persistent_term.put({__MODULE__, :available?}, available?)
-        available?
+    :persistent_term.get({__MODULE__, :available?}, false) or
+      case System.find_executable("vipsthumbnail") do
+        nil ->
+          false
 
-      available? ->
-        available?
-    end
+        _ ->
+          :persistent_term.put({__MODULE__, :available?}, true)
+          true
+      end
   end
 
   @impl true
@@ -50,7 +51,10 @@ defmodule Tore.ImageResize.Vips do
     {cmd, args} = with_timeout(exe, args)
 
     with :ok <- File.write(input, image) do
-      case System.cmd(cmd, args, stderr_to_stdout: true, env: [{"VIPS_BLOCK_UNTRUSTED", "1"}]) do
+      case System.cmd(cmd, args,
+             stderr_to_stdout: true,
+             env: [{"VIPS_BLOCK_UNTRUSTED", "1"}, {"VIPS_CONCURRENCY", "1"}]
+           ) do
         {_, 0} ->
           File.read(output)
 

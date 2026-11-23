@@ -138,7 +138,7 @@ defmodule ToreWeb.RecipeImageControllerTest do
       assert get_resp_header(conn, "cache-control") == ["private, max-age=31536000, immutable"]
     end
 
-    test "a width that can't be made is the original, kept only five minutes", %{
+    test "a width that can't be made is the original, kept an hour", %{
       conn: conn,
       user: user,
       recipe: recipe
@@ -148,6 +148,20 @@ defmodule ToreWeb.RecipeImageControllerTest do
 
       assert conn.status == 200
       assert conn.resp_body == "not an image"
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=3600"]
+      assert get_resp_header(conn, "etag") == []
+    end
+
+    test "a width still being made is the original, kept five minutes", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, "slow bytes")
+      conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe, 1440))
+
+      assert conn.status == 200
+      assert conn.resp_body == "slow bytes"
       assert get_resp_header(conn, "cache-control") == ["private, max-age=300"]
       assert get_resp_header(conn, "etag") == []
     end
