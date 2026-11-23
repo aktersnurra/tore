@@ -9,6 +9,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Pictures load side by side (2026-11-23)
 
+- Pictures are served by a signed link (`/images/pictures/<signature>/<key>`): an HMAC of the storage key under a secret derived from `secret_key_base`, checked without a session, a login or the database, then one read from storage. A link is the same every time, so the browser still keeps it a year. While a write held the one SQLite connection for a second, 16 tiles took 37 ms this way; through the database each failed. `/images/recipes/:id` stays, behind login, for what only knows a recipe's id.
 - A picture's request reads only its key (one query), not the whole recipe with its tags, ingredients and parts: every tile on a page shares the one SQLite connection.
 - A width not made yet is waited for at most 1.5 s, then the original is sent (kept five minutes) while the width is still made for the next look; one that can't be made (no vips, not a photo) is the original kept an hour. Widths are made one per CPU core at a time, each vips on one thread (`VIPS_CONCURRENCY=1`).
 - Without vips, the original is sent straight away instead of queueing to find out.

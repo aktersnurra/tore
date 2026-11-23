@@ -280,8 +280,13 @@ defmodule ToreWeb.RecipeLiveTest do
       assert has_element?(lv, ~s([data-role="hero"] [data-role="times"]), "3 h 30 min")
       assert has_element?(lv, ~s([data-role="hero"] p), "Långkokt ragù med pancetta.")
       assert has_element?(lv, ~s([data-role="hero"] [data-role="start-cooking"]))
-      assert has_element?(lv, ~s([data-role="hero"] img[src^="/images/recipes/#{dish.id}?v="]))
-      assert has_element?(lv, ~s([data-role="hero"] img[src$="&w=720"][srcset*="&w=1440 1440w"]))
+
+      assert has_element?(
+               lv,
+               ~s([data-role="hero"] img[src="#{ToreWeb.RecipeImage.path(dish, 720)}"])
+             )
+
+      assert has_element?(lv, ~s([data-role="hero"] img[srcset*="?w=1440 1440w"]))
     end
 
     test "baking is started, not planned", %{conn: conn, user: user} do
@@ -428,9 +433,9 @@ defmodule ToreWeb.RecipeLiveTest do
         |> Tore.Repo.insert()
 
       {:ok, lv, _html} = live(authed(conn, user), "/recipes")
-      refute render(lv) =~ "/images/recipes/#{recipe.id}"
+      refute render(lv) =~ "/images/pictures/"
 
-      {:ok, _} =
+      {:ok, drawn} =
         Recipes.update(home_scope(), recipe, %{
           image_path: "households/#{home_scope().household_id}/recipes/#{recipe.id}/abc.jpg"
         })
@@ -441,7 +446,7 @@ defmodule ToreWeb.RecipeLiveTest do
         {:recipe_changed, recipe.id}
       )
 
-      assert render(lv) =~ "/images/recipes/#{recipe.id}"
+      assert render(lv) =~ ToreWeb.RecipeImage.path(drawn, 720)
     end
   end
 

@@ -15,6 +15,12 @@ defmodule ToreWeb.Router do
     plug ToreWeb.Plugs.Auth
   end
 
+  # A recipe's picture by its signed link (ToreWeb.RecipeImage): the signature is the
+  # permission, so no session, no login and no database, for every tile on a page at once.
+  scope "/images/pictures", ToreWeb do
+    get "/:signature/:key", RecipeImageController, :signed
+  end
+
   # Public routes — no authentication required
   scope "/", ToreWeb do
     pipe_through :browser

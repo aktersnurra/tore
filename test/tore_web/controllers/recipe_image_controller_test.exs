@@ -79,8 +79,20 @@ defmodule ToreWeb.RecipeImageControllerTest do
       %{recipe: recipe, version: ToreWeb.RecipeImage.version(key)}
     end
 
-    test "a versioned URL is kept for a year", %{conn: conn, user: user, recipe: recipe} do
+    test "a signed URL is kept for a year", %{conn: conn, user: user, recipe: recipe} do
       conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe))
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=31536000, immutable"]
+    end
+
+    test "a versioned recipe URL is kept for a year", %{
+      conn: conn,
+      user: user,
+      recipe: recipe,
+      version: version
+    } do
+      conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}?v=#{version}")
 
       assert conn.status == 200
       assert get_resp_header(conn, "cache-control") == ["private, max-age=31536000, immutable"]
@@ -113,9 +125,12 @@ defmodule ToreWeb.RecipeImageControllerTest do
       assert get_resp_header(conn, "etag") == [~s("#{version}")]
     end
 
-    test "a new picture is a new URL", %{recipe: recipe} do
+    test "a picture's URL is the same every time, and a new picture is a new URL", %{
+      recipe: recipe
+    } do
       before = ToreWeb.RecipeImage.path(recipe)
-      assert before =~ "/images/recipes/#{recipe.id}?v="
+      assert before =~ ~r"\A/images/pictures/[\w-]+/[\w-]+\z"
+      assert ToreWeb.RecipeImage.path(recipe) == before
 
       refute ToreWeb.RecipeImage.path(%{recipe | image_path: "recipes/#{recipe.id}/new.jpg"}) ==
                before
@@ -177,6 +192,50 @@ defmodule ToreWeb.RecipeImageControllerTest do
 
       conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}")
       assert get_resp_header(conn, "content-type") == ["image/png"]
+    end
+  end
+
+  describe "a signed link" do
+    setup %{recipe: recipe} do
+      key = "households/#{home_scope().household_id}/recipes/#{recipe.id}/abc.jpg"
+      {:ok, _} = Mock.put_object(Buckets.recipes(), key, "the image bytes")
+      {:ok, recipe} = set_image_path(recipe, key)
+      %{recipe: recipe}
+    end
+
+    test "needs no login", %{conn: conn, recipe: recipe} do
+      conn = get(conn, ToreWeb.RecipeImage.path(recipe, 720))
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "720:the image bytes"
+      assert get_resp_header(conn, "set-cookie") == []
+    end
+
+    test "doesn't read the database: it serves even once the recipe is gone", %{
+      conn: conn,
+      recipe: recipe
+    } do
+      path = ToreWeb.RecipeImage.path(recipe)
+      Tore.Repo.delete!(recipe)
+
+      assert get(conn, path).resp_body == "the image bytes"
+    end
+
+    test "a tampered signature, or another key under it, is a 404", %{conn: conn, recipe: recipe} do
+      ["", "images", "pictures", signature, encoded] =
+        String.split(ToreWeb.RecipeImage.path(recipe), "/")
+
+      other = Base.url_encode64("households/0/recipes/0/theirs.jpg", padding: false)
+      {:ok, _} = Mock.put_object(Buckets.recipes(), "households/0/recipes/0/theirs.jpg", "theirs")
+
+      for path <- [
+            "/images/pictures/#{String.reverse(signature)}/#{encoded}",
+            "/images/pictures/#{signature}/#{other}",
+            "/images/pictures/#{signature}/not*base64",
+            "/images/pictures/x/#{encoded}"
+          ] do
+        assert get(conn, path).status == 404
+      end
     end
   end
 
