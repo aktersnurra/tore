@@ -1,6 +1,8 @@
 defmodule ToreWeb.ShopLive do
   use ToreWeb, :live_view
 
+  require Logger
+
   on_mount {ToreWeb.Live.Auth, :hears_runs}
 
   alias Tore.Shop
@@ -242,8 +244,16 @@ defmodule ToreWeb.ShopLive do
     end
   end
 
-  def handle_event("scanner_failed", _params, socket),
-    do: {:noreply, update(socket, :scanner, &(&1 && %{&1 | camera: :failed}))}
+  # The scanner says what its camera did, so the log shows why a phone's stayed black.
+  def handle_event("scanner_failed", params, socket) do
+    Logger.warning("Scanner failed: #{params["reason"]}; #{params["detail"]}")
+    {:noreply, update(socket, :scanner, &(&1 && %{&1 | camera: :failed}))}
+  end
+
+  def handle_event("scanner_stuck", %{"detail" => detail}, socket) do
+    Logger.warning("Scanner still starting after 10 s: #{detail}")
+    {:noreply, socket}
+  end
 
   def handle_info({:pi, _session, event}, socket) do
     socket = ToreWeb.PiReply.event(socket, event)

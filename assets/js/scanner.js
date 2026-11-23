@@ -11,6 +11,9 @@ const GONE_MS = 1500
 // A camera that gives no new picture for this long is opened again, this many times in a row.
 const STALLED_MS = 2500
 const RESTARTS = 3
+// Still starting after this long (Safari never answered, or the video never began): said to
+// Tore once, with what the camera and video are doing, so the log shows where it stuck.
+const STUCK_MS = 10000
 
 prepareZXingModule({
   overrides: {locateFile: (path, prefix) => (path.endsWith(".wasm") ? readerWasm : prefix + path)},
@@ -38,6 +41,8 @@ export default {
   async start() {
     if (this.starting || this.gone) return
     this.starting = true
+    this.step = "asking"
+    this.startedAt = Date.now()
     this.el.dataset.state = "starting"
     this.release()
 
@@ -51,8 +56,11 @@ export default {
       this.video.srcObject = stream
       this.seen = Date.now()
       this.frame = -1
-      // Refused where a video needs a tap first: the view says so, and the tap starts it.
-      await this.video.play().catch(() => { this.el.dataset.state = "paused" })
+      this.step = "playing"
+      // Not waited on: on an iPhone play() can stay pending for good, and then nothing would
+      // ever watch for pictures. tick() does. Refused where a video needs a tap first: the view
+      // says so, and the tap starts it.
+      this.video.play().catch(() => { this.el.dataset.state = "paused" })
     } catch (error) {
       this.fail(error.name || "unavailable")
     } finally {
@@ -64,7 +72,8 @@ export default {
   // none for a while is opened again, a few times before giving up.
   tick() {
     const now = Date.now()
-    if (this.starting || !this.stream) return
+    if (this.starting) return this.stuck(now)
+    if (!this.stream) return
     if (document.visibilityState !== "visible") return (this.seen = now)
 
     const [track] = this.stream.getVideoTracks()
@@ -80,7 +89,7 @@ export default {
     if (now - this.seen < STALLED_MS) return
     // Waiting for a tap, with a camera that's fine.
     if (live && this.video.paused) return (this.el.dataset.state = "paused")
-    if (this.restarts >= RESTARTS) return this.fail("stalled")
+    if (this.restarts >= RESTARTS) return this.fail("stalled", this.detail())
     this.restarts += 1
     this.start()
   },
@@ -111,10 +120,25 @@ export default {
     }
   },
 
-  fail(reason) {
+  stuck(now) {
+    if (this.toldStuck || now - this.startedAt < STUCK_MS) return
+    this.toldStuck = true
+    this.pushEvent("scanner_stuck", {detail: this.detail()})
+  },
+
+  // What the camera and the video are doing, for the log.
+  detail() {
+    const [track] = this.stream?.getVideoTracks() || []
+    const v = this.video
+    return `${this.step}; track ${track ? `${track.readyState}${track.muted ? " muted" : ""}` : "none"}; ` +
+      `video ${v.videoWidth}x${v.videoHeight} ready ${v.readyState}${v.paused ? " paused" : ""} t ${v.currentTime.toFixed(1)}; ` +
+      `${document.visibilityState}; ${navigator.userAgent}`
+  },
+
+  fail(reason, detail = this.detail()) {
     clearInterval(this.timer)
     this.release()
-    if (!this.gone) this.pushEvent("scanner_failed", {reason})
+    if (!this.gone) this.pushEvent("scanner_failed", {reason, detail})
   },
 
   release() {
