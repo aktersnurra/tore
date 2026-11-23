@@ -50,6 +50,39 @@ defmodule Tore.PantryTest do
     assert changeset.errors[:category]
   end
 
+  # A pantry row is sorted by the shop's sections, as its ingredient is: bacon from a receipt,
+  # its ingredient in the deli, crashed the pantry update when the row knew only nine.
+  test "upsert_belief/2 keeps an item in any shop section, the deli and household too" do
+    for {name, section} <- [{"Bacon", "deli"}, {"Maskindisktabletter", "household"}] do
+      assert {:ok, item, :added, nil} =
+               Pantry.upsert_belief(home_scope(), %{
+                 catalogue_name: name,
+                 quantity: Decimal.new(1),
+                 unit: "st",
+                 category: section,
+                 provenance: "vision"
+               })
+
+      assert item.category == section
+    end
+
+    assert Enum.sort(Tore.Pantry.PantryItem.category_values()) ==
+             Enum.sort(Tore.Recipes.Ingredient.sections())
+  end
+
+  test "upsert_belief/2 answers a row it can't keep with why, rather than crashing" do
+    assert {:error, %Ecto.Changeset{errors: errors}} =
+             Pantry.upsert_belief(home_scope(), %{
+               catalogue_name: "Mjölk",
+               quantity: Decimal.new(1),
+               unit: "L",
+               category: "attic",
+               provenance: "vision"
+             })
+
+    assert errors[:category]
+  end
+
   test "PantryItem.categories/0 returns ordered list of atoms" do
     cats = Tore.Pantry.PantryItem.categories()
     assert is_list(cats)

@@ -25,19 +25,15 @@ defmodule Tore.Pantry do
 
       case Repo.get_by(PantryItem, [ingredient_id: ingredient.id], Scope.repo_opts(scope)) do
         nil ->
-          {:ok, item} =
-            attrs
-            |> base_pantry_attrs(ingredient)
-            |> Map.put(:quantity, attrs[:quantity])
-            |> Map.merge(expiry_attrs(%{expires_at: nil, expires_source: nil}, attrs, ingredient))
-            |> then(&add_item(scope, &1))
-
-          {item, :added, nil}
+          attrs
+          |> base_pantry_attrs(ingredient)
+          |> Map.put(:quantity, attrs[:quantity])
+          |> Map.merge(expiry_attrs(%{expires_at: nil, expires_source: nil}, attrs, ingredient))
+          |> then(&add_item(scope, &1))
+          |> kept(:added, nil)
 
         existing ->
-          before = before_image(existing)
-          {:ok, item} = bump_existing(existing, attrs, ingredient)
-          {item, :bumped, before}
+          existing |> bump_existing(attrs, ingredient) |> kept(:bumped, before_image(existing))
       end
     end)
     |> case do
@@ -53,6 +49,10 @@ defmodule Tore.Pantry do
         err
     end
   end
+
+  # A row the changeset refuses ends the write with why, for the run to fail on and log.
+  defp kept({:ok, item}, change, before), do: {item, change, before}
+  defp kept({:error, changeset}, _change, _before), do: Repo.rollback(changeset)
 
   defp expiry_attrs(current, attrs, ingredient) do
     {expires_at, expires_source} =
@@ -70,18 +70,19 @@ defmodule Tore.Pantry do
 
     case Repo.get_by(Ingredient, [key: key], Scope.repo_opts(scope)) do
       nil ->
-        {:ok, ing} =
-          %Ingredient{household_id: scope.household_id}
-          |> Ingredient.changeset(%{
-            name: attrs[:catalogue_name] || attrs[:name],
-            key: key,
-            category: attrs[:category],
-            default_unit: attrs[:default_unit] || attrs[:unit],
-            shelf_life_days: attrs[:shelf_life_days]
-          })
-          |> Repo.insert()
-
-        ing
+        %Ingredient{household_id: scope.household_id}
+        |> Ingredient.changeset(%{
+          name: attrs[:catalogue_name] || attrs[:name],
+          key: key,
+          category: attrs[:category],
+          default_unit: attrs[:default_unit] || attrs[:unit],
+          shelf_life_days: attrs[:shelf_life_days]
+        })
+        |> Repo.insert()
+        |> case do
+          {:ok, ingredient} -> ingredient
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
 
       ing ->
         fill_shelf_life(ing, attrs[:shelf_life_days])

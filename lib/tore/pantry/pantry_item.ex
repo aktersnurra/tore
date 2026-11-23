@@ -2,17 +2,7 @@ defmodule Tore.Pantry.PantryItem do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @categories [
-    :dairy,
-    :meat,
-    :produce,
-    :frozen,
-    :dry_goods,
-    :canned,
-    :herbs_spices,
-    :condiments,
-    :other
-  ]
+  alias Tore.Recipes.Ingredient
 
   @provenances ~w[manual receipt vision belief grocery_checkoff barcode]
   @beliefs ~w[confirmed probable uncertain missing]
@@ -36,9 +26,11 @@ defmodule Tore.Pantry.PantryItem do
     timestamps()
   end
 
-  def categories, do: @categories
+  # A row is sorted by the shop's sections, as its ingredient is (it takes the ingredient's when
+  # nothing else is said), so the two lists are one.
+  def categories, do: Enum.map(Ingredient.sections(), &String.to_atom/1)
 
-  def category_values, do: Enum.map(@categories, &Atom.to_string/1)
+  def category_values, do: Ingredient.sections()
 
   def beliefs, do: @beliefs
 
