@@ -101,6 +101,9 @@ defmodule ToreWeb.CaptureLiveTest do
     # pi is asked to name the chat while it has no title; the bubble keeps their words.
     assert [%{"message" => "Vad ska jag laga?" <> note}] = prompts(log)
     assert note =~ "describe_chat"
+    # Their question is answered first; the card is done quietly, not talked about.
+    assert note =~ "Answer them as you would anyway"
+    assert note =~ "without mentioning it"
     refute has_element?(lv, ~s([data-role="bubble-user"]), "describe_chat")
   end
 

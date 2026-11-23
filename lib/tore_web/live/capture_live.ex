@@ -239,9 +239,11 @@ defmodule ToreWeb.CaptureLive do
 
   defp about(_recipe, _before, message), do: message
 
-  # pi is told to name a chat while it has none, rather than left to remember to; the bubble and
-  # the history keep only the person's words.
-  @card_note "\n\n(This chat has no title yet: once you've answered, give it its card with describe_chat.)"
+  # pi is told to name a chat while it has none, rather than left to remember to: after its
+  # answer, and without a word about it (told only "give it its card", pi did that instead of
+  # answering). The bubble and the history keep only the person's words, whatever the note said.
+  @card_note "\n\n(This chat has no title yet. Answer them as you would anyway; then, without mentioning it, also give the chat its card with describe_chat.)"
+  @card_note_suffix ~r/\n\n\(This chat has no title yet[^)]*\)\z/
 
   defp ask_for_card(message, %Chats.Chat{title: nil}), do: message <> @card_note
   defp ask_for_card(message, _chat), do: message
@@ -454,7 +456,7 @@ defmodule ToreWeb.CaptureLive do
   defp unabout(text) do
     text
     |> String.replace(~r/\AFrom the recipe page, about .*? \(recipe \d+\): /s, "")
-    |> String.replace_suffix(@card_note, "")
+    |> String.replace(@card_note_suffix, "")
   end
 
   # pi names Tore's tools `mcp__tore__<tool>`.
