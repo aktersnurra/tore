@@ -430,6 +430,7 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
 /* ── The chef on Today: pi's drawing in a shadow root (assets/js/chef.js), which moves by
    itself; here only its size, and the line it says when tapped. ── */
 .chef { --chef: 56px; display: inline-block; width: var(--chef); height: var(--chef); }
+.chef-tiny { --chef: 32px; }
 .chef-large { --chef: 140px; }
 .chef-art { display: block; width: 100%; height: 100%; }
 .chef-line { opacity: 0; transform: translate(-50%, 6px) scale(0.92);

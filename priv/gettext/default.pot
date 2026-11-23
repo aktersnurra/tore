@@ -3560,24 +3560,9 @@ msgstr ""
 msgid "Yes, chef!"
 msgstr ""
 
-#: lib/tore_web/components/chef.ex:138
-#, elixir-autogen, elixir-format
-msgid "What are we cooking tonight?"
-msgstr ""
-
 #: lib/tore_web/components/chef.ex:139
 #, elixir-autogen, elixir-format
 msgid "Taste it first!"
-msgstr ""
-
-#: lib/tore_web/components/chef.ex:140
-#, elixir-autogen, elixir-format
-msgid "A pinch more salt?"
-msgstr ""
-
-#: lib/tore_web/components/chef.ex:141
-#, elixir-autogen, elixir-format
-msgid "The dishes won't wait."
 msgstr ""
 
 #: lib/tore_web/components/chef.ex:65
@@ -3593,3 +3578,33 @@ msgid "1 dinner cooked at home"
 msgid_plural "%{count} dinners cooked at home"
 msgstr[0] ""
 msgstr[1] ""
+
+#: lib/tore_web/components/chef.ex:94
+#, elixir-autogen, elixir-format
+msgid "Mm… I was having a nap."
+msgstr ""
+
+#: lib/tore_web/live/home_live.ex:505
+#, elixir-autogen, elixir-format
+msgid "%{dish} tonight!"
+msgstr ""
+
+#: lib/tore_web/live/home_live.ex:506
+#, elixir-autogen, elixir-format
+msgid "%{dish} tomorrow."
+msgstr ""
+
+#: lib/tore_web/live/home_live.ex:507
+#, elixir-autogen, elixir-format
+msgid "%{dish}, nicely done!"
+msgstr ""
+
+#: lib/tore_web/live/home_live.ex:508
+#, elixir-autogen, elixir-format
+msgid "Eating out tonight. Enjoy!"
+msgstr ""
+
+#: lib/tore_web/live/home_live.ex:509
+#, elixir-autogen, elixir-format
+msgid "Hungry? Ask me for an idea."
+msgstr ""

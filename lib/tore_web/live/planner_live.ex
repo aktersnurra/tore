@@ -542,7 +542,7 @@ defmodule ToreWeb.PlannerLive do
           </button>
         </div>
 
-        <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
+        <PiReply.pi_reply reply={@pi_reply} working={@pi_working} chef={@pi_chef} />
 
         <div :if={@current_run} class="mt-4">
           <.live_component

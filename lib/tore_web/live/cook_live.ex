@@ -130,11 +130,23 @@ defmodule ToreWeb.CookLive do
 
     :ok = Recipes.record_used(scope, recipe.id)
     used = Tore.Pantry.use_up(scope, uses)
-    # A step for the chef on Today.
+    # A step for the chef, who shows on the card: proud, or cheering when it moved him up.
+    was = Tore.Chef.now(scope).stage
     {:ok, dinner} = Tore.Chef.cooked(scope, recipe.id, used)
+    chef = Tore.Chef.now(scope).stage
     # Tomorrow is what's next now, so Today's note is worth picking again.
     Tore.Home.refresh(scope)
-    {:noreply, assign(socket, done: %{used: used, was: recipe.last_used_at, dinner: dinner})}
+
+    {:noreply,
+     assign(socket,
+       done: %{
+         used: used,
+         was: recipe.last_used_at,
+         dinner: dinner,
+         chef: chef,
+         moved_up: chef != was
+       }
+     )}
   end
 
   def handle_event("done", _params, socket), do: {:noreply, socket}
@@ -155,19 +167,22 @@ defmodule ToreWeb.CookLive do
   defp done_card(nil), do: nil
 
   # Says what ran out; what's only less now goes unsaid.
-  defp done_card(%{used: used}) do
+  defp done_card(%{used: used, chef: chef, moved_up: moved_up}) do
     gone = Enum.filter(used, & &1.gone)
 
     %{
       text: gettext("Cooked"),
       needs:
-        if(gone == [],
-          do: [],
-          else: [
+        [
+          moved_up &&
+            gettext("Tore is %{stage} now", stage: String.downcase(ToreWeb.Chef.stage_name(chef))),
+          gone != [] &&
             gettext("Used up at home: %{things}.", things: Enum.map_join(gone, ", ", & &1.name))
-          ]
-        ),
-      undo: "undo_done"
+        ]
+        |> Enum.filter(&is_binary/1),
+      undo: "undo_done",
+      chef: chef,
+      mood: if(moved_up, do: "cheer", else: "proud")
     }
   end
 

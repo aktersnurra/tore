@@ -3560,25 +3560,10 @@ msgstr "%{count} kvar till %{stage}"
 msgid "Yes, chef!"
 msgstr "Ja, chef!"
 
-#: lib/tore_web/components/chef.ex:138
-#, elixir-autogen, elixir-format
-msgid "What are we cooking tonight?"
-msgstr "Vad lagar vi i kväll?"
-
 #: lib/tore_web/components/chef.ex:139
 #, elixir-autogen, elixir-format
 msgid "Taste it first!"
 msgstr "Smaka av först!"
-
-#: lib/tore_web/components/chef.ex:140
-#, elixir-autogen, elixir-format
-msgid "A pinch more salt?"
-msgstr "En nypa salt till?"
-
-#: lib/tore_web/components/chef.ex:141
-#, elixir-autogen, elixir-format
-msgid "The dishes won't wait."
-msgstr "Disken väntar inte."
 
 #: lib/tore_web/components/chef.ex:65
 #, elixir-autogen, elixir-format
@@ -3593,3 +3578,33 @@ msgid "1 dinner cooked at home"
 msgid_plural "%{count} dinners cooked at home"
 msgstr[0] "1 middag lagad hemma"
 msgstr[1] "%{count} middagar lagade hemma"
+
+#: lib/tore_web/components/chef.ex:94
+#, elixir-autogen, elixir-format
+msgid "Mm… I was having a nap."
+msgstr "Mm… jag tog en tupplur."
+
+#: lib/tore_web/live/home_live.ex:505
+#, elixir-autogen, elixir-format
+msgid "%{dish} tonight!"
+msgstr "%{dish} i kväll!"
+
+#: lib/tore_web/live/home_live.ex:506
+#, elixir-autogen, elixir-format
+msgid "%{dish} tomorrow."
+msgstr "%{dish} i morgon."
+
+#: lib/tore_web/live/home_live.ex:507
+#, elixir-autogen, elixir-format
+msgid "%{dish}, nicely done!"
+msgstr "%{dish}, snyggt jobbat!"
+
+#: lib/tore_web/live/home_live.ex:508
+#, elixir-autogen, elixir-format
+msgid "Eating out tonight. Enjoy!"
+msgstr "Ute och äter i kväll. Njut!"
+
+#: lib/tore_web/live/home_live.ex:509
+#, elixir-autogen, elixir-format
+msgid "Hungry? Ask me for an idea."
+msgstr "Sugen? Fråga mig om ett förslag."

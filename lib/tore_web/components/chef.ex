@@ -20,7 +20,7 @@ defmodule ToreWeb.Chef do
         data-role="open-chef"
         class="press press-soft flex w-full items-center gap-3 rounded-[var(--r-lg)] py-2 text-left"
       >
-        <.figure id="chef-small" chef={@chef} size={:small} />
+        <.figure id="chef-small" stage={@chef.stage} size={:small} />
         <span class="min-w-0">
           <span class="block font-semibold">{stage_name(@chef.stage)}</span>
           <span class="num block text-[13px] text-[color:var(--muted)]">
@@ -42,13 +42,14 @@ defmodule ToreWeb.Chef do
   end
 
   attr :chef, :map, required: true
+  attr :lines, :list, required: true, doc: "what the chef may say when tapped: about the day"
 
   @doc "The chef's sheet: larger, saying a line when tapped; the dinners, and what's next."
   def chef_sheet(assigns) do
     ~H"""
     <.bottom_sheet id="chef-sheet" on_close="close_chef">
       <div class="flex flex-col items-center px-5 pt-2 pb-4 text-center">
-        <.figure id="chef-large" chef={@chef} size={:large} lines={lines()} />
+        <.figure id="chef-large" stage={@chef.stage} size={:large} lines={@lines} />
         <p class="t-head mt-3">{stage_name(@chef.stage)}</p>
         <p class="num mt-2 text-[color:var(--muted)]" style="font-size: 15px;">
           {dinners(@chef.dinners)}
@@ -74,23 +75,33 @@ defmodule ToreWeb.Chef do
   end
 
   attr :id, :string, required: true
-  attr :chef, :map, required: true
-  attr :size, :atom, values: [:small, :large], required: true
+  attr :stage, :atom, required: true, doc: "the household's stage, from `Tore.Chef.now/1`"
+  attr :size, :atom, values: [:tiny, :small, :large], required: true
   attr :lines, :list, default: [], doc: "what the chef may say when tapped"
+  attr :mood, :string, default: nil, doc: "one reaction when he's put in: \"proud\" or \"cheer\""
+  attr :stir, :boolean, default: false, doc: "stirring a pot, while Tore is answering"
+  attr :class, :any, default: nil
 
   # The figure the hook draws the chef in: its own shadow root, so the drawing's styles and ids
   # stay apart from the page's and from the other figure's.
-  defp figure(assigns) do
+  @doc """
+  The chef himself, wherever he shows: on Today, on the card for a dinner cooked, and stirring
+  while Tore answers.
+  """
+  def figure(assigns) do
     ~H"""
     <div
       id={@id}
       phx-hook="Chef"
       data-chef
       data-src={~p"/images/chef.svg"}
-      data-stage={@chef.stage}
-      data-stage-index={stage_index(@chef.stage)}
+      data-stage={@stage}
+      data-stage-index={stage_index(@stage)}
       data-lines={Jason.encode!(@lines)}
-      class={["chef relative shrink-0 select-none", "chef-#{@size}"]}
+      data-mood={@mood}
+      data-stir={@stir}
+      data-wake-line={gettext("Mm… I was having a nap.")}
+      class={["chef relative shrink-0 select-none", "chef-#{@size}", @class]}
       aria-hidden="true"
     >
       <span
@@ -108,26 +119,16 @@ defmodule ToreWeb.Chef do
   @stages [:dishwasher, :apprentice, :cook, :sous_chef, :head_chef]
   defp stage_index(stage), do: Enum.find_index(@stages, &(&1 == stage))
 
-  defp stage_name(:dishwasher), do: gettext("Dishwasher")
-  defp stage_name(:apprentice), do: gettext("Apprentice")
-  defp stage_name(:cook), do: gettext("Cook")
-  defp stage_name(:sous_chef), do: gettext("Sous chef")
-  defp stage_name(:head_chef), do: gettext("Head chef")
+  @doc "The stage's name, as the household's language says it."
+  def stage_name(:dishwasher), do: gettext("Dishwasher")
+  def stage_name(:apprentice), do: gettext("Apprentice")
+  def stage_name(:cook), do: gettext("Cook")
+  def stage_name(:sous_chef), do: gettext("Sous chef")
+  def stage_name(:head_chef), do: gettext("Head chef")
 
   defp dinners(count),
     do: ngettext("1 dinner cooked at home", "%{count} dinners cooked at home", count)
 
   defp next(%{stage: stage, left: left}),
     do: gettext("%{count} more to %{stage}", count: left, stage: stage_name(stage))
-
-  # What a tap makes the chef say.
-  defp lines do
-    [
-      gettext("Yes, chef!"),
-      gettext("What are we cooking tonight?"),
-      gettext("Taste it first!"),
-      gettext("A pinch more salt?"),
-      gettext("The dishes won't wait.")
-    ]
-  end
 end

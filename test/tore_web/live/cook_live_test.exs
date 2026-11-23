@@ -133,6 +133,7 @@ defmodule ToreWeb.CookLiveTest do
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == ["vitlök"]
     assert Recipes.get!(home_scope(), recipe.id).last_used_at
     assert Tore.Chef.now(home_scope()).dinners == 1
+    assert has_element?(view, ~s(#cooked-chef[data-mood="proud"]))
 
     assert has_element?(view, ~s([data-role="close-done"]))
     refute has_element?(view, ~s([data-role="done"]))
@@ -143,6 +144,20 @@ defmodule ToreWeb.CookLiveTest do
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == []
     refute Recipes.get!(home_scope(), recipe.id).last_used_at
     assert Tore.Chef.now(home_scope()).dinners == 0
+  end
+
+  test "the dinner that moves the chef up a stage has him cheer, and says so", %{
+    conn: conn,
+    recipe: recipe
+  } do
+    for _ <- 1..7, do: {:ok, _} = Tore.Chef.cooked(home_scope(), recipe.id, [])
+    {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
+    assert eventually(view, "Fräs vitlöken i oljan")
+
+    html = view |> element(~s([data-role="done"])) |> render_click()
+
+    assert has_element?(view, ~s(#cooked-chef[data-mood="cheer"][data-stage="apprentice"]))
+    assert html =~ "Tore är lärling nu"
   end
 
   test "Done takes the amounts cooked off what's at home; only what ran out is said to be out", %{

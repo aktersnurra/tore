@@ -32,6 +32,7 @@ defmodule ToreWeb.StepCards do
     doc: """
     After `on_done`: `%{text:, needs:, undo:}`, shown as a last card in the same place, with
     Close where Done was and Undo (the `undo` event) where the step buttons were. Nothing moves.
+    With `chef:` (a stage) and `mood:`, the chef stands where the check would, in that mood.
     """
 
   attr :timers, :list,
@@ -120,8 +121,16 @@ defmodule ToreWeb.StepCards do
       >
         <%!-- Keyed by position, so each new step arrives instead of swapping in place --%>
         <span id={if @done, do: "#{@id}-done", else: "#{@id}-card-#{@index}"} class="reveal block">
+          <ToreWeb.Chef.figure
+            :if={@done && @done[:chef]}
+            id="cooked-chef"
+            stage={@done.chef}
+            size={:large}
+            mood={@done[:mood]}
+            class="-ml-3 mb-1"
+          />
           <.icon
-            :if={@done}
+            :if={@done && !@done[:chef]}
             name="ph-check-circle-fill"
             class="mb-2 size-10 text-[color:var(--done)]"
           />

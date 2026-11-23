@@ -398,7 +398,11 @@ defmodule ToreWeb.ShopLive do
         <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)] lg:items-start lg:gap-x-16">
           <div class="min-w-0">
             <%!-- A receipt being read shows by its button instead. --%>
-            <ToreWeb.PiReply.pi_reply reply={@pi_reply} working={!@scanning && @pi_working} />
+            <ToreWeb.PiReply.pi_reply
+              reply={@pi_reply}
+              working={!@scanning && @pi_working}
+              chef={@pi_chef}
+            />
 
             <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter
              (and the phone's Go key) adds; cleared after, focus kept. The scanner sits at its end
