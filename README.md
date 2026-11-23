@@ -106,7 +106,9 @@ TORE_PI_LIGHT_MODEL=anthropic/claude-haiku-5-5  # the home pick and learning nam
 ```
 
 Recipe pictures are drawn by an image model through OpenRouter: set `OPENROUTER_API_KEY`, and
-optionally `OPENROUTER_IMAGE_MODEL` (default `microsoft/mai-image-2.7`). The same key lets Jev
+optionally `OPENROUTER_IMAGE_MODEL` (default `microsoft/mai-image-2.7`, which allows zero data
+retention; `bytedance-seed/seedream-5-0-pro` draws more natural pictures but needs a key whose
+guardrail allows non-ZDR endpoints, see `OPENROUTER_IMAGE_API_KEY`). The same key lets Jev
 (`typesafe/jev-1.14`) guess which of the week's offers a household wants. Set
 `OPENROUTER_IMAGE_API_KEY` to give pictures a key of their own, for example one whose
 OpenRouter guardrail allows an image model that isn't zero-retention.

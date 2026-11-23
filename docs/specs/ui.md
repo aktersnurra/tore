@@ -1980,10 +1980,10 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
   menu.
 - Rows answer hover with a soft background; chrome stays quiet.
 - **Pictures** share one house style (one fixed art direction appended to every dish), so
-  the library looks like one feed: pale warm-grey linen or light wood, off-white stoneware,
-  soft daylight from the left and a light warm-neutral grade close to the app's own off-whites.
-  Each dish is served and shot as it really is (bread on a board, a soup in a bowl from 45°,
-  only flat dishes from straight above), real home cooking rather than a styled shoot.
+  the library looks like one feed: a friend's unedited phone photo, soft window daylight,
+  muted natural colour, slightly off-centre, with someone already into the dish. pi names what
+  each dish is really served in and on (the tin it baked in, a board, a glazed bowl, baking
+  paper on a tray), varied so they don't all look alike. Seedream 5.0 Pro draws them (2026-11-24).
 
 ## 16.3 Agent acts; user undoes
 

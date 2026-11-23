@@ -447,7 +447,7 @@ affordance.
 
 Every model call goes through pi (`pi --mode rpc`, `Tore.Pi`), started per household session by
 `harness/pi-session`. Tore has no model client and writes no prompts; only recipe pictures are
-drawn by an image model (MAI-Image-2.6, `OPENROUTER_IMAGE_MODEL`) through OpenRouter (`Tore.ImageGen`), when pi calls `draw_recipe_picture`
+drawn by an image model (`OPENROUTER_IMAGE_MODEL`: MAI-Image-2.7 by default, Seedream 5.0 Pro on the household's server, which needs a picture key without ZDR, `OPENROUTER_IMAGE_API_KEY`) through OpenRouter (`Tore.ImageGen`), when pi calls `draw_recipe_picture`
 with its own description of the dish. There are two ways in, both an agent session with Tore's
 `/mcp` tools and the web, under `harness/AGENTS.md`:
 

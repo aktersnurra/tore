@@ -19,12 +19,14 @@ defmodule Tore.Mcp.Tools.DrawRecipePicture do
   @impl true
   def description,
     do: """
-    Draws the recipe's picture, replacing the one it has. `dish` describes only the finished \
-    food, in 30-60 words of English for an image model: the dish in the vessel that suits it \
-    (plate, bowl, jar, board, the pan it was made in), its colours and textures, the garnish that \
-    belongs with it, and what shows best (a cut bun showing its swirl). Nothing the recipe \
-    doesn't have, and no light, background, surface or angle: those are fixed, so every picture \
-    looks like one cookbook. Takes up to a minute. Undo puts the old picture back.\
+    Draws the recipe's picture, replacing the one it has. `dish` describes the finished food, \
+    in 30-60 words of English for an image model: what it is, its colours and textures, the \
+    garnish that belongs with it, what shows best (a cut bun showing its swirl), and what it's \
+    really served in at home and on: the pan or tin it was cooked in, a wooden board, a glazed \
+    bowl in some colour, baking paper on a tray, on a kitchen counter, a wooden table or a linen \
+    cloth. Vary these with the dish so the pictures don't all look alike; a plain plate is fine \
+    now and then. Nothing the recipe doesn't have, and no light, style or angle: those are fixed, \
+    so every picture looks like one feed. Takes up to a minute. Undo puts the old picture back.\
     """
 
   @impl true

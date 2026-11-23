@@ -11,23 +11,18 @@ defmodule Tore.Recipes do
   # An ingredient name will never contain this, so joined names split cleanly.
   @fp_sep "\x1f"
 
-  # Every recipe picture is taken the same way, so the library reads as one cookbook in Tore's
-  # cast-iron palette. pi only describes the dish; this sets the light, surface and frame.
-  # Real home cooking, one feed: every picture shares the linen or light wood, daylight and grade,
-  # close to the app's own warm off-whites; how a dish is served and shot is its own, so bread
-  # isn't on a plate seen from above.
+  # Every recipe picture is taken the same way, a friend's unedited phone photo, so the library
+  # reads as one feed: the light, angle and look are set here. pi describes the dish and what
+  # it's really served in and on (`draw_recipe_picture`), so each dish keeps its own pan or board.
   @house_style """
-  A real home cook's food photo, the kind they'd post on Instagram: bright, airy and natural. \
-  Serve and frame the dish the way it is really served and photographed: bread on a wooden \
-  board, a cake on a plain cake plate, a soup in a bowl, a stew in its pot, a burger on a plate \
-  or board, a pasta or a pizza on a plate. Shoot from straight above only for flat dishes such as \
-  pizza, pasta or a tray bake; anything with height (bread, cake, burgers, soups, stews) from \
-  about 45 degrees. What every picture shares: a pale warm-grey linen cloth or light wooden table \
-  underneath, plain matte off-white stoneware where there's a plate or bowl, soft daylight from a \
-  window on the left, and a clean, light, warm-neutral colour grade with whites that stay white, \
-  true fresh colours and soft contrast. Real texture: uneven browning, crumbs, a drip of sauce; \
-  appetising, never glossy or too perfect. At most one small prop. No text, no hands, no people, \
-  no logos.\
+  A casual phone photo of this one dish, taken on an iPhone at home just before eating, the kind \
+  of picture a friend posts without editing much. Only this dish is in the picture, served in \
+  the vessel described; no other food, pots or bowls. Daylight from a window to the side or a \
+  little behind, soft and a little uneven, the scene light and fresh, not dark. Framed slightly \
+  off-centre and a little too close; shot from a seated angle unless the dish is flat. The food \
+  as it really looks: someone has already cut into it or taken a spoonful, a drip or smear, a few \
+  crumbs, toppings that have slid or sunk. Natural, slightly muted colour, the flat look of an \
+  unedited phone photo, shallow phone depth of field. No text, no hands, no people, no logos.\
   """
 
   @snapshot_fields ~w(title description instructions steps recipe_type base_servings prep_time_minutes cook_time_minutes source_url image_path)a
