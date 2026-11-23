@@ -710,9 +710,10 @@ defmodule ToreWeb.RecipeLive do
                 <.blank_cover :if={!recipe.image_path} dish={recipe} />
                 <img
                   :if={recipe.image_path}
-                  src={~p"/images/recipes/#{recipe.id}"}
+                  src={RecipeImage.path(recipe)}
                   alt=""
                   loading="lazy"
+                  decoding="async"
                   class="absolute inset-0 size-full rounded-[inherit] object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.03]"
                   style={
                     if @selected == nil and @opened == recipe.id,
@@ -822,9 +823,10 @@ defmodule ToreWeb.RecipeLive do
                   <.blank_cover :if={!recipe.image_path} dish={recipe} icon_class="size-6" />
                   <img
                     :if={recipe.image_path}
-                    src={~p"/images/recipes/#{recipe.id}"}
+                    src={RecipeImage.path(recipe)}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     class="size-full object-cover"
                   />
                 </span>
@@ -988,8 +990,9 @@ defmodule ToreWeb.RecipeLive do
           <.blank_cover :if={!@selected.image_path} dish={@selected} icon_class="size-20" />
           <img
             :if={@selected.image_path}
-            src={~p"/images/recipes/#{@selected.id}"}
+            src={RecipeImage.path(@selected)}
             alt=""
+            fetchpriority="high"
             class="absolute inset-0 size-full rounded-[inherit] object-cover"
             style={"view-transition-name: dish-#{@selected.id}"}
           />

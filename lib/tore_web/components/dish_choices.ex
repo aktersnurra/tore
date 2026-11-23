@@ -11,6 +11,8 @@ defmodule ToreWeb.DishChoices do
   import ToreWeb.CoreComponents, only: [icon: 1]
   import ToreWeb.Look, only: [blank_cover: 1]
 
+  alias ToreWeb.RecipeImage
+
   attr :choices, :list, required: true, doc: "[%{recipe: recipe, reasons: [String.t()]}]"
   attr :event, :string, required: true
   attr :prices, :map, default: %{}, doc: "recipe id => a price line such as \"−35 kr\""
@@ -45,9 +47,10 @@ defmodule ToreWeb.DishChoices do
           <span class="relative size-20 shrink-0 overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)]">
             <img
               :if={choice.recipe.image_path}
-              src={"/images/recipes/#{choice.recipe.id}"}
+              src={RecipeImage.path(choice.recipe)}
               alt=""
               loading="lazy"
+              decoding="async"
               class="absolute inset-0 size-full object-cover"
             />
             <.blank_cover :if={!choice.recipe.image_path} dish={choice.recipe} icon_class="size-9" />

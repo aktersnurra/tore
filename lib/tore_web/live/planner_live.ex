@@ -716,9 +716,10 @@ defmodule ToreWeb.PlannerLive do
             <span class="relative size-11 shrink-0 overflow-hidden rounded-[var(--r-md)]">
               <img
                 :if={@recipe.image_path}
-                src={~p"/images/recipes/#{@recipe.id}"}
+                src={RecipeImage.path(@recipe)}
                 alt=""
                 loading="lazy"
+                decoding="async"
                 class="size-full object-cover"
               />
               <.blank_cover :if={!@recipe.image_path} dish={@recipe} icon_class="size-6" />
@@ -857,9 +858,10 @@ defmodule ToreWeb.PlannerLive do
       <span class="relative block aspect-square w-full overflow-hidden rounded-[var(--r-sm)] bg-[var(--sunken)]">
         <img
           :if={@recipe && @recipe.image_path}
-          src={~p"/images/recipes/#{@recipe.id}"}
+          src={RecipeImage.path(@recipe)}
           alt=""
           loading="lazy"
+          decoding="async"
           class="absolute inset-0 size-full object-cover"
         />
         <.blank_cover
@@ -968,8 +970,9 @@ defmodule ToreWeb.PlannerLive do
               <div class="relative aspect-[16/9] w-full">
                 <img
                   :if={@selected_recipe.image_path}
-                  src={~p"/images/recipes/#{@selected_recipe.id}"}
+                  src={RecipeImage.path(@selected_recipe)}
                   alt=""
+                  decoding="async"
                   class="h-full w-full object-cover"
                 />
                 <.blank_cover :if={!@selected_recipe.image_path} dish={@selected_recipe} />
@@ -1302,8 +1305,10 @@ defmodule ToreWeb.PlannerLive do
         <div class="relative size-12 shrink-0 overflow-hidden rounded-[var(--r-md)]">
           <img
             :if={@recipe.image_path}
-            src={~p"/images/recipes/#{@recipe.id}"}
+            src={RecipeImage.path(@recipe)}
             alt=""
+            loading="lazy"
+            decoding="async"
             class="h-full w-full object-cover"
           />
           <.blank_cover :if={!@recipe.image_path} dish={@recipe} icon_class="size-6" />

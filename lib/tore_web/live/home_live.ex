@@ -81,8 +81,9 @@ defmodule ToreWeb.HomeLive do
               <div class="relative h-[42svh] min-h-[240px] max-h-[460px] overflow-hidden rounded-[var(--r-xl)] md:h-[52svh]">
                 <img
                   :if={photo?(@dish)}
-                  src={~p"/images/recipes/#{@dish.id}"}
+                  src={RecipeImage.path(@dish)}
                   alt=""
+                  fetchpriority="high"
                   class="absolute inset-0 size-full rounded-[inherit] object-cover"
                   style={"view-transition-name: dish-#{@dish.id}"}
                 />

@@ -280,7 +280,7 @@ defmodule ToreWeb.RecipeLiveTest do
       assert has_element?(lv, ~s([data-role="hero"] [data-role="times"]), "3 h 30 min")
       assert has_element?(lv, ~s([data-role="hero"] p), "Långkokt ragù med pancetta.")
       assert has_element?(lv, ~s([data-role="hero"] [data-role="start-cooking"]))
-      assert has_element?(lv, ~s([data-role="hero"] img[src="/images/recipes/#{dish.id}"]))
+      assert has_element?(lv, ~s([data-role="hero"] img[src^="/images/recipes/#{dish.id}?v="]))
     end
 
     test "baking is started, not planned", %{conn: conn, user: user} do
