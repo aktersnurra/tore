@@ -131,7 +131,9 @@ defmodule Tore.PiTest do
     assert Pi.refusal_text(:timeout) == nil
   end
 
-  test "a chat's token is its person's; a job's is the household's", %{pi_log: log} do
+  test "a chat's token is its person's and names its session; a job's is the household's", %{
+    pi_log: log
+  } do
     user = user_fixture()
     person = %{home_scope() | user_id: user.id}
 
@@ -141,8 +143,12 @@ defmodule Tore.PiTest do
     wait_for(fn -> length(Enum.filter(pi_records(log), &Map.has_key?(&1, "token"))) == 2 end)
     tokens = for %{"token" => t, "session" => s} <- pi_records(log), into: %{}, do: {s, t}
 
-    assert {:ok, %Tore.Scope{user_id: user_id}} = SessionToken.verify(tokens["chat-#{user.id}-1"])
+    assert {:ok, %Tore.Scope{user_id: user_id, pi_session: session}} =
+             SessionToken.verify(tokens["chat-#{user.id}-1"])
+
     assert user_id == user.id
+    # The chat tools (describe_chat, suggest_replies) find the chat by its session's name.
+    assert session == "chat-#{user.id}-1"
     assert {:ok, %Tore.Scope{user_id: nil}} = SessionToken.verify(tokens["plan_week-1"])
   end
 

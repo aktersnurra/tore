@@ -168,7 +168,7 @@ defmodule Tore.Pi.Session do
       household: state.scope.household_id,
       session: state.name,
       mcp_url: config[:mcp_url] || ToreWeb.Endpoint.url() <> "/mcp",
-      token: SessionToken.mint(state.scope, "pi-#{state.name}", @token_s),
+      token: SessionToken.mint(state.scope, state.name, @token_s),
       model:
         if(kind(state) in @light_kinds,
           do: config[:light_model] || config[:model],
