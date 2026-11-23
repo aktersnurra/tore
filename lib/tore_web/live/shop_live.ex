@@ -581,24 +581,50 @@ defmodule ToreWeb.ShopLive do
       </.bottom_sheet>
       <.undo_bar :if={@undo} text={@undo.text} on_undo="undo" on_dismiss="dismiss_undo" />
       <script :type={Phoenix.LiveView.ColocatedHook} name=".Tick">
-        // Ticking an item draws its check, then folds the row away before the server moves it
-        // to the basket. Unticking, or reduced motion, goes straight through.
+        // Ticking an item checks it where it stands, as Reminders does: for a moment a second
+        // tap takes the tick back, then the row folds into the basket. Each row waits on its
+        // own, so several can be ticked in a row. Unticking in the basket goes straight through.
+        // The waiting look is set at once and also through this.js(), which applies it a frame
+        // later but keeps it through a patch from another tick.
         export default {
           mounted() {
+            this.waiting = new Map()
             this.onClick = (e) => {
               const target = e.target.closest("[data-tick]")
               const row = target?.closest(".tick-row")
               if (!row || row.classList.contains("is-checked")) return
-              if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
               e.stopPropagation()
               e.preventDefault()
-              if (row.classList.contains("is-ticking")) return
-              row.classList.add("is-ticking")
-              setTimeout(() => this.pushEvent("toggle_item", {item_id: target.dataset.tick}), 620)
+              const id = target.dataset.tick
+              if (this.waiting.has(id)) {
+                clearTimeout(this.waiting.get(id))
+                this.waiting.delete(id)
+                this.pending(row, false)
+                return
+              }
+              this.pending(row, true)
+              this.waiting.set(id, setTimeout(() => this.tick(id), 2500))
             }
             this.el.addEventListener("click", this.onClick, true)
           },
-          destroyed() { this.el.removeEventListener("click", this.onClick, true) }
+          pending(row, on) {
+            row.classList.toggle("is-pending", on)
+            on ? this.js().addClass(row, "is-pending") : this.js().removeClass(row, "is-pending")
+          },
+          tick(id) {
+            this.waiting.delete(id)
+            const row = document.getElementById(`item-${id}`)
+            const still = matchMedia("(prefers-reduced-motion: reduce)").matches
+            if (row) {
+              this.pending(row, false)
+              if (!still) row.classList.add("is-ticking")
+            }
+            setTimeout(() => this.pushEvent("toggle_item", {item_id: id}), still ? 0 : 300)
+          },
+          destroyed() {
+            this.el.removeEventListener("click", this.onClick, true)
+            this.waiting.forEach((timer) => clearTimeout(timer))
+          }
         }
       </script>
     </Layouts.app>

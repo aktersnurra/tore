@@ -395,7 +395,8 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
 .ink-green  { color: var(--tag-green-ink); }
 .ink-blue   { color: var(--tag-blue-ink); }
 
-/* ── Ticking an item: the check draws, then the row folds into the basket. ── */
+/* ── Ticking an item: the check draws, the row waits a moment (tap again to take it back),
+   then folds into the basket. ── */
 .tick-box {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   width: 20px; height: 20px; border-radius: 4px; border: 1.5px solid var(--muted); /* 3:1 on every surface */
@@ -407,11 +408,11 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
   stroke-linecap: round; stroke-linejoin: round; }
 .tick-box path { stroke-dasharray: 22; stroke-dashoffset: 22;
   transition: stroke-dashoffset var(--dur-base) var(--ease-out) 60ms; }
-.tick-row.is-checked .tick-box, .tick-row.is-ticking .tick-box {
+.tick-row.is-checked .tick-box, .tick-row.is-pending .tick-box, .tick-row.is-ticking .tick-box {
   background: var(--done); border-color: var(--done);
 }
-.tick-row.is-checked .tick-box path, .tick-row.is-ticking .tick-box path { stroke-dashoffset: 0; }
-.tick-row.is-checked .tick-name { text-decoration: line-through; color: var(--muted); }
+.tick-row.is-checked .tick-box path, .tick-row.is-pending .tick-box path, .tick-row.is-ticking .tick-box path { stroke-dashoffset: 0; }
+.tick-row.is-checked .tick-name, .tick-row.is-pending .tick-name, .tick-row.is-ticking .tick-name { text-decoration: line-through; color: var(--muted); }
 .tick-name { transition: color var(--dur-fast) var(--ease-out); }
 /* A tick answers at once: drawn (or taken back) while the server saves it, which LiveView marks
    with phx-click-loading on the pressed button. */
@@ -420,7 +421,7 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
 .tick-row.is-checked:has(.phx-click-loading) .tick-box { background: transparent; border-color: var(--muted); }
 .tick-row.is-checked:has(.phx-click-loading) .tick-box path { stroke-dashoffset: 22; }
 .tick-row.is-checked:has(.phx-click-loading) .tick-name { text-decoration: none; color: var(--text); }
-.tick-row.is-ticking { overflow: hidden; animation: tick-fold var(--dur-base) var(--ease-out) 340ms forwards; }
+.tick-row.is-ticking { overflow: hidden; animation: tick-fold var(--dur-base) var(--ease-out) forwards; }
 @keyframes tick-fold {
   from { max-height: 80px; opacity: 1; }
   to { max-height: 0; min-height: 0; padding-block: 0; opacity: 0; }
