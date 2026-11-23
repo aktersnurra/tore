@@ -681,14 +681,17 @@ defmodule ToreWeb.BudgetLive do
           </text>
         </g>
       </svg>
-      <%!-- The pale bars are quiet on purpose; their numbers are here for a screen reader. --%>
-      <table class="sr-only">
-        <caption>{chart_label(@page)}</caption>
-        <tr :for={bar <- @bars}>
-          <th scope="row">{gettext("Week %{n}", n: Streams.week_number(bar.week.week_start))}</th>
-          <td>{bar.title}</td>
-        </tr>
-      </table>
+      <%!-- The pale bars are quiet on purpose; their numbers are here for a screen reader. In a
+           box of its own: a table won't shrink to sr-only's 1px, and would widen the page. --%>
+      <div class="sr-only">
+        <table>
+          <caption>{chart_label(@page)}</caption>
+          <tr :for={bar <- @bars}>
+            <th scope="row">{gettext("Week %{n}", n: Streams.week_number(bar.week.week_start))}</th>
+            <td>{bar.title}</td>
+          </tr>
+        </table>
+      </div>
     </div>
     """
   end

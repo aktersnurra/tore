@@ -171,6 +171,9 @@
 
 html, body {
   touch-action: manipulation;  /* no double-tap zoom */
+  /* No rubber-band at the page's ends: on an iPhone it drags the tab bar and the chat's sheet,
+     fixed to the screen, along with the page. Lists that scroll inside still bounce. */
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--text);
   font: 400 var(--t-body)/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
