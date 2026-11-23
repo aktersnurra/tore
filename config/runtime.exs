@@ -45,8 +45,12 @@ if config_env() == :prod do
            raise("environment variable UPLOADS_DIR is missing. Example: /var/data/tore/uploads")
 
   # Recipe pictures (Tore.ImageGen.OpenRouter) and Jev's guesses at which offers a household
-  # wants (Tore.Jev); every other model call goes through pi.
-  config :tore, :openrouter_api_key, System.get_env("OPENROUTER_API_KEY")
+  # wants (Tore.Jev); every other model call goes through pi. Pictures can have a key of their
+  # own, so its OpenRouter guardrail (ZDR or not) can differ from the rest.
+  config :tore,
+         :openrouter_api_key,
+         System.get_env("OPENROUTER_IMAGE_API_KEY") || System.get_env("OPENROUTER_API_KEY")
+
   config :tore, :jev_api_key, System.get_env("OPENROUTER_API_KEY")
 
   config :tore,
