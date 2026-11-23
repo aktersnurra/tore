@@ -401,7 +401,8 @@ defmodule ToreWeb.CaptureLive do
           id: id,
           title: title,
           minutes: (r["prep_time_minutes"] || 0) + (r["cook_time_minutes"] || 0),
-          picture?: r["has_picture"] == true
+          # No key in the tool's answer: the unversioned URL, which an ETag still answers with a 304.
+          picture: if(r["has_picture"] == true, do: ~p"/images/recipes/#{id}?#{[w: 256]}")
         }
 
       _ ->
@@ -417,7 +418,7 @@ defmodule ToreWeb.CaptureLive do
       id: recipe.id,
       title: recipe.title,
       minutes: (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0),
-      picture?: recipe.image_path != nil
+      picture: ToreWeb.RecipeImage.path(recipe, 256)
     }
   end
 
@@ -569,12 +570,14 @@ defmodule ToreWeb.CaptureLive do
       >
         <span class="relative size-14 shrink-0 overflow-hidden rounded-[var(--r-md)] bg-[var(--sunken)]">
           <img
-            :if={@card.picture?}
-            src={~p"/images/recipes/#{@card.id}"}
+            :if={@card.picture}
+            src={@card.picture}
             alt=""
+            loading="lazy"
+            decoding="async"
             class="absolute inset-0 size-full object-cover"
           />
-          <span :if={!@card.picture?} class="flex size-full items-center justify-center">
+          <span :if={!@card.picture} class="flex size-full items-center justify-center">
             <.icon name="ph-cooking-pot" class="size-6 text-[color:var(--muted)]" />
           </span>
         </span>

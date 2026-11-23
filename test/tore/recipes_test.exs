@@ -28,6 +28,18 @@ defmodule Tore.RecipesTest do
       assert Recipes.get!(home_scope(), recipe.id).image_path == nil
     end
 
+    test "makes the picture's small widths as soon as it's stored" do
+      Tore.Storage.Mock.reset()
+      {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())
+
+      assert {:ok, key} = Recipes.draw_picture(home_scope(), recipe.id, "Soup.")
+
+      for w <- Tore.Recipes.Pictures.widths() do
+        assert {:ok, _} =
+                 Tore.Storage.Mock.get_object(Tore.Storage.Buckets.recipes(), "#{key}.w#{w}.webp")
+      end
+    end
+
     test "what drawing it cost counts toward the household's AI spend" do
       Tore.Storage.Mock.reset()
       {:ok, recipe} = Recipes.create(home_scope(), recipe_attrs())

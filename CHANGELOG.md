@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Pictures load once (2026-11-23)
+
+- A recipe's picture URL carries its version (`?v=`, a hash of its storage key), so the browser keeps it for a year (`Cache-Control: immutable`) and a new picture is a new URL. An unversioned URL is revalidated, and a matching ETag is a 304 without reading storage.
+- Pictures are served with the type the bytes really are (PNG, WebP or JPEG).
+- Thumbnails load lazily and decode off the main thread; the hero on Today and an open recipe load first (`fetchpriority="high"`).
+- Each screen gets a picture its size: 256px WebP for thumbnails, 720px for cards, and a 720/1440 `srcset` for the big ones, instead of the full generated image. libvips' `vipsthumbnail` makes each width once, kept beside the original (`<key>.w<width>.webp`): straight after a picture is drawn or fetched, and on first view for older ones. Without vips the original is served, cached only an hour.
+- Widths are made two at a time (`:image_resize_concurrency`), and one asked for twice at once is made once; a look that waits more than 15 s gets the original. Only JPEG, PNG, WebP and GIF reach vips, with its other loaders blocked (`VIPS_BLOCK_UNTRUSTED`), and a run is killed after 20 s.
+- Pictures stored before widths existed: `bin/tore rpc "Tore.Recipes.Pictures.warm_all()"` makes theirs once.
+- Pantry: the schema comes before the functions that match its struct, so `Tore.Pantry.PantryItem` compiles.
+
 ### First deploy, and offers that change (2026-11-22)
 
 - Tore runs on the NUC at tore.gustafrydholm.xyz. It listens on IPv4 (the jail has no IPv6), `pi-session` finds pi, node and jq under rc's short PATH, and pi reaches `/mcp` at 127.0.0.1, which force_ssl doesn't redirect.

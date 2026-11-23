@@ -93,6 +93,7 @@ defmodule ToreWeb do
       # Common modules used in templates
       alias Phoenix.LiveView.JS
       alias ToreWeb.Layouts
+      alias ToreWeb.RecipeImage
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

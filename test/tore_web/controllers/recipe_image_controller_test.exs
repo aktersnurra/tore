@@ -32,7 +32,7 @@ defmodule ToreWeb.RecipeImageControllerTest do
     conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}")
 
     assert conn.status == 200
-    assert get_resp_header(conn, "content-type") == ["image/jpeg; charset=utf-8"]
+    assert get_resp_header(conn, "content-type") == ["image/jpeg"]
     assert conn.resp_body == "the image bytes"
   end
 
@@ -69,6 +69,99 @@ defmodule ToreWeb.RecipeImageControllerTest do
   test "redirects unauthenticated requests to login", %{conn: conn, recipe: recipe} do
     conn = get(conn, ~p"/images/recipes/#{recipe.id}")
     assert redirected_to(conn) == "/login"
+  end
+
+  describe "caching" do
+    setup %{recipe: recipe} do
+      key = "recipes/#{recipe.id}/abc.jpg"
+      {:ok, _} = Mock.put_object(Buckets.recipes(), key, "the image bytes")
+      {:ok, recipe} = set_image_path(recipe, key)
+      %{recipe: recipe, version: ToreWeb.RecipeImage.version(key)}
+    end
+
+    test "a versioned URL is kept for a year", %{conn: conn, user: user, recipe: recipe} do
+      conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe))
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=31536000, immutable"]
+    end
+
+    test "an unversioned or stale URL is revalidated", %{conn: conn, user: user, recipe: recipe} do
+      for path <- [~p"/images/recipes/#{recipe.id}", ~p"/images/recipes/#{recipe.id}?v=old"] do
+        conn = get(authed(conn, user), path)
+        assert conn.status == 200
+        assert get_resp_header(conn, "cache-control") == ["private, no-cache"]
+      end
+    end
+
+    test "a matching ETag is a 304 without reading storage", %{
+      conn: conn,
+      user: user,
+      recipe: recipe,
+      version: version
+    } do
+      Mock.reset()
+
+      conn =
+        conn
+        |> authed(user)
+        |> put_req_header("if-none-match", ~s(W/"#{version}"))
+        |> get(~p"/images/recipes/#{recipe.id}")
+
+      assert conn.status == 304
+      assert conn.resp_body == ""
+      assert get_resp_header(conn, "etag") == [~s("#{version}")]
+    end
+
+    test "a new picture is a new URL", %{recipe: recipe} do
+      before = ToreWeb.RecipeImage.path(recipe)
+      assert before =~ "/images/recipes/#{recipe.id}?v="
+
+      refute ToreWeb.RecipeImage.path(%{recipe | image_path: "recipes/#{recipe.id}/new.jpg"}) ==
+               before
+
+      assert ToreWeb.RecipeImage.path(%{recipe | image_path: nil}) == nil
+    end
+
+    test "a width is served small, as WebP, with its own ETag", %{
+      conn: conn,
+      user: user,
+      recipe: recipe,
+      version: version
+    } do
+      conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe, 256))
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "content-type") == ["image/webp"]
+      assert conn.resp_body =~ "256:the image bytes"
+      assert get_resp_header(conn, "etag") == [~s("#{version}-256")]
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=31536000, immutable"]
+    end
+
+    test "a width that can't be made is the original, kept only an hour", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, "not an image")
+      conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe, 720))
+
+      assert conn.status == 200
+      assert conn.resp_body == "not an image"
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=3600"]
+      assert get_resp_header(conn, "etag") == []
+    end
+
+    test "a width Tore doesn't make is the original", %{conn: conn, user: user, recipe: recipe} do
+      conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}?w=999")
+      assert conn.resp_body == "the image bytes"
+    end
+
+    test "says PNG when the bytes are PNG", %{conn: conn, user: user, recipe: recipe} do
+      {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, <<0x89, "PNG", 13, 10, 26, 10>>)
+      conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}")
+      assert get_resp_header(conn, "content-type") == ["image/png"]
+    end
   end
 
   defp set_image_path(recipe, key) do
