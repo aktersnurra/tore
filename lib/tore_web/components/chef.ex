@@ -1,15 +1,12 @@
 defmodule ToreWeb.Chef do
   @moduledoc """
   The chef on Today (`Tore.Chef`): a quiet row at the foot of the page, and a sheet with the chef
-  larger, the dinners cooked and what's next. The figure is a stand-in until the chef is drawn:
-  everything about it is in `figure/1` and the `Chef` hook (assets/js/chef.js), which a Lottie
-  player can take over, keeping `data-stage`, `data-extras` and the taps.
+  larger, the dinners cooked and what's next. The chef is pi's drawing,
+  priv/static/images/chef.svg: five stages in one SVG that breathes, blinks and moves its
+  stage's prop by itself. The `Chef` hook (assets/js/chef.js) puts it in, picks the stage, and
+  plays its hop on a tap and its cheer when the chef has moved up.
   """
   use ToreWeb, :html
-
-  # The stand-in: the cook, with what each stage holds, and the kitchen's extras in a row.
-  @props %{dishwasher: "🧽", apprentice: "🥔", cook: "🔪", sous_chef: "🍳", head_chef: "🍲"}
-  @extras ~w(🧄 📚 🌿 🫖 🐈 🥖)
 
   attr :chef, :map, required: true
 
@@ -67,7 +64,8 @@ defmodule ToreWeb.Chef do
             @chef.rescued
           )}
         </p>
-        <p :if={@chef.next} class="num mt-4" style="font-size: 15px;">
+        <%!-- Things in the kitchen past the last stage aren't drawn yet, so they go unsaid --%>
+        <p :if={@chef.next && @chef.next.stage != :extra} class="num mt-4" style="font-size: 15px;">
           {next(@chef.next)}
         </p>
       </div>
@@ -80,20 +78,19 @@ defmodule ToreWeb.Chef do
   attr :size, :atom, values: [:small, :large], required: true
   attr :lines, :list, default: [], doc: "what the chef may say when tapped"
 
-  # The figure the hook animates: idle bob, a hop and a line on a tap, the move up once.
+  # The figure the hook draws the chef in: its own shadow root, so the drawing's styles and ids
+  # stay apart from the page's and from the other figure's.
   defp figure(assigns) do
-    assigns = assign(assigns, prop: @props[assigns.chef.stage], extras: extras(assigns.chef))
-
     ~H"""
     <div
       id={@id}
       phx-hook="Chef"
       data-chef
+      data-src={~p"/images/chef.svg"}
       data-stage={@chef.stage}
       data-stage-index={stage_index(@chef.stage)}
-      data-extras={@chef.extras}
       data-lines={Jason.encode!(@lines)}
-      class={["chef relative shrink-0 select-none", "chef-#{@size}", "chef-#{@chef.stage}"]}
+      class={["chef relative shrink-0 select-none", "chef-#{@size}"]}
       aria-hidden="true"
     >
       <span
@@ -103,18 +100,13 @@ defmodule ToreWeb.Chef do
         class="chef-line pointer-events-none absolute bottom-full left-1/2 mb-1 whitespace-nowrap rounded-[var(--r-pill)] bg-[var(--surface)] px-3 py-1 text-[14px] font-semibold text-[color:var(--text)] shadow-sm"
       >
       </span>
-      <span class="chef-body">
-        <span class="chef-face">🧑‍🍳</span><span class="chef-prop">{@prop}</span>
-      </span>
-      <span :if={@extras != []} class="chef-extras">{@extras}</span>
+      <span id={"#{@id}-art"} phx-update="ignore" data-chef-art class="chef-art"></span>
     </div>
     """
   end
 
   @stages [:dishwasher, :apprentice, :cook, :sous_chef, :head_chef]
   defp stage_index(stage), do: Enum.find_index(@stages, &(&1 == stage))
-
-  defp extras(%{extras: count}), do: @extras |> Enum.take(count) |> Enum.join()
 
   defp stage_name(:dishwasher), do: gettext("Dishwasher")
   defp stage_name(:apprentice), do: gettext("Apprentice")
@@ -124,9 +116,6 @@ defmodule ToreWeb.Chef do
 
   defp dinners(count),
     do: ngettext("1 dinner cooked at home", "%{count} dinners cooked at home", count)
-
-  defp next(%{stage: :extra, left: left}),
-    do: gettext("%{count} more to something new in the kitchen", count: left)
 
   defp next(%{stage: stage, left: left}),
     do: gettext("%{count} more to %{stage}", count: left, stage: stage_name(stage))

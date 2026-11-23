@@ -3550,11 +3550,6 @@ msgstr "Souschef"
 msgid "Head chef"
 msgstr "Kökschef"
 
-#: lib/tore_web/components/chef.ex:129
-#, elixir-autogen, elixir-format
-msgid "%{count} more to something new in the kitchen"
-msgstr "%{count} kvar till något nytt i köket"
-
 #: lib/tore_web/components/chef.ex:132
 #, elixir-autogen, elixir-format
 msgid "%{count} more to %{stage}"
