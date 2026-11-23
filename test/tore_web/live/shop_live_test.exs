@@ -249,6 +249,47 @@ defmodule ToreWeb.ShopLiveTest do
     end
   end
 
+  describe "changing and removing an item" do
+    defp add(view, line), do: view |> form("#add-item", %{name: line}) |> render_submit()
+    defp row(name), do: ~s(li[data-swipe-event="remove_item"][data-name="#{name}"])
+
+    test "a swipe removes it, and Ångra puts it back with its amount", %{conn: conn} do
+      {:ok, view, _} = live(conn, ~p"/shop")
+      add(view, "2 st gurka")
+      id = item_id_from_render(view)
+
+      view |> element(row("gurka")) |> render_hook("remove_item", %{"id" => id})
+      refute has_element?(view, ~s([data-item-name="gurka"]))
+      assert view |> element("#undo-bar") |> render() =~ "gurka togs bort"
+
+      view |> element("#undo-bar button", "Ångra") |> render_click()
+      assert view |> element(row("gurka")) |> render() =~ "2 st"
+      refute has_element?(view, "#undo-bar")
+    end
+
+    test "tapping its amount opens its sheet, where the amount is changed", %{conn: conn} do
+      {:ok, view, _} = live(conn, ~p"/shop")
+      add(view, "2 st gurka")
+
+      view |> element(row("gurka") <> ~s( [data-role="amount"])) |> render_click()
+      view |> form("#item-amount", %{amount: "3 st"}) |> render_submit()
+
+      assert view |> element(row("gurka")) |> render() =~ "3 st"
+      refute has_element?(view, "#item-sheet")
+    end
+
+    test "Ta bort in its sheet removes it, with Ångra", %{conn: conn} do
+      {:ok, view, _} = live(conn, ~p"/shop")
+      add(view, "2 st gurka")
+
+      view |> element(row("gurka") <> ~s( [data-role="amount"])) |> render_click()
+      view |> element(~s(#item-sheet [data-role="sheet-remove"])) |> render_click()
+
+      refute has_element?(view, ~s([data-item-name="gurka"]))
+      assert has_element?(view, "#undo-bar")
+    end
+  end
+
   describe "grocery item object sheet" do
     setup :fake_pi
 

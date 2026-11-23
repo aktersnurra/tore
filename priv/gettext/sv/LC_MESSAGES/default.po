@@ -3504,3 +3504,13 @@ msgstr "En till"
 #, elixir-autogen, elixir-format
 msgid "Best before"
 msgstr "Bäst före"
+
+#: lib/tore_web/live/shop_live.ex:563
+#, elixir-autogen, elixir-format
+msgid "How much?"
+msgstr "Hur mycket?"
+
+#: lib/tore_web/live/shop_live.ex:803
+#, elixir-autogen, elixir-format
+msgid "Change %{name}"
+msgstr "Ändra %{name}"

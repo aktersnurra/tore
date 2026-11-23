@@ -259,6 +259,36 @@ defmodule Tore.Shop do
     result
   end
 
+  @doc "Sets an item's amount by hand: `quantity` and `unit` as `parse_amount/1` reads them."
+  @spec set_quantity(Scope.t(), String.t(), String.t(), Decimal.t(), String.t() | nil, integer()) ::
+          {:ok, [Tore.Shop.Events.t()]} | {:error, term()}
+  def set_quantity(%Scope{} = scope, list_id, item_id, quantity, unit, user_id) do
+    run(scope, list_id, %Commands.SetItemQuantity{
+      item_id: item_id,
+      quantity: quantity,
+      unit: unit,
+      set_by: user_id
+    })
+  end
+
+  @doc """
+  Puts a removed item back as it was on the list (Ångra), under its own id: its amount, section
+  and the offer it was for.
+  """
+  @spec put_back(Scope.t(), String.t(), map(), integer()) ::
+          {:ok, [Tore.Shop.Events.t()]} | {:error, term()}
+  def put_back(%Scope{} = scope, list_id, item, user_id) do
+    run(scope, list_id, %Commands.AddItem{
+      item_id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      section: item.section,
+      added_by: user_id,
+      deal_id: item[:deal_id]
+    })
+  end
+
   @doc "Keeps an item whose offer the store withdrew: the list stops asking about it."
   @spec keep_item(Scope.t(), String.t(), String.t(), integer() | nil) ::
           {:ok, [Tore.Shop.Events.t()]} | {:error, term()}

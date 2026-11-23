@@ -56,6 +56,22 @@ defmodule Tore.Shop.Decider do
     end
   end
 
+  def decide(%Commands.SetItemQuantity{item_id: id} = cmd, state) do
+    if Map.has_key?(state.items, id) do
+      {:ok,
+       [
+         %Events.ItemQuantitySet{
+           item_id: id,
+           quantity: cmd.quantity,
+           unit: cmd.unit,
+           set_by: cmd.set_by
+         }
+       ]}
+    else
+      {:error, :item_not_found}
+    end
+  end
+
   def decide(%Commands.KeepItem{item_id: id, kept_by: by}, state) do
     if Map.has_key?(state.items, id) do
       {:ok, [%Events.ItemKept{item_id: id, kept_by: by}]}
@@ -125,6 +141,10 @@ defmodule Tore.Shop.Decider do
 
   def evolve(state, %Events.ItemUnchecked{item_id: id}) do
     %{state | items: update_in(state.items, [id], &Map.put(&1, :checked, false))}
+  end
+
+  def evolve(state, %Events.ItemQuantitySet{item_id: id, quantity: quantity, unit: unit}) do
+    %{state | items: update_in(state.items, [id], &%{&1 | quantity: quantity, unit: unit})}
   end
 
   def evolve(state, %Events.ItemKept{item_id: id}) do

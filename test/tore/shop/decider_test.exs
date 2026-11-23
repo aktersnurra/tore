@@ -46,6 +46,30 @@ defmodule Tore.Shop.DeciderTest do
     end
   end
 
+  describe "decide/2 — SetItemQuantity" do
+    test "returns :item_not_found when missing" do
+      cmd = %Commands.SetItemQuantity{item_id: "missing", quantity: Decimal.new(2), unit: "l"}
+      assert {:error, :item_not_found} = Decider.decide(cmd, Decider.initial())
+    end
+
+    test "emits ItemQuantitySet, and the item takes the new amount" do
+      cmd = %Commands.SetItemQuantity{
+        item_id: "item-1",
+        quantity: Decimal.new(2),
+        unit: "l",
+        set_by: 1
+      }
+
+      assert {:ok, [%Events.ItemQuantitySet{item_id: "item-1"} = event]} =
+               Decider.decide(cmd, state_with_item())
+
+      assert %{quantity: quantity, unit: "l"} =
+               Decider.evolve(state_with_item(), event).items["item-1"]
+
+      assert Decimal.equal?(quantity, 2)
+    end
+  end
+
   describe "decide/2 — CheckItem" do
     test "returns :item_not_found when missing" do
       cmd = %Commands.CheckItem{item_id: "missing", checked_by: 1}

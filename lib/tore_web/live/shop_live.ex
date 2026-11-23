@@ -28,6 +28,7 @@ defmodule ToreWeb.ShopLive do
        user_id: user_id,
        export_text: nil,
        item_sheet: nil,
+       undo: nil,
        spending: ToreWeb.Spending.load(scope),
        section_order: Shop.Walk.order(scope),
        scanning: false,
@@ -100,13 +101,26 @@ defmodule ToreWeb.ShopLive do
     {:noreply, socket}
   end
 
-  def handle_event("remove_item", %{"item_id" => id}, socket) do
-    Shop.remove_item(
-      socket.assigns.current_scope,
-      socket.assigns.list_id,
-      id,
-      socket.assigns.user_id
-    )
+  # From the item's sheet, or a swipe (`id`); Ångra puts it back as it was.
+  def handle_event("remove_item", %{"item_id" => id}, socket), do: remove(socket, id)
+  def handle_event("remove_item", %{"id" => id}, socket), do: remove(socket, id)
+
+  def handle_event("undo", _params, %{assigns: %{undo: %{item: item}}} = socket) do
+    %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
+    {:ok, _} = Shop.put_back(scope, list_id, item, user_id)
+    {:noreply, assign(socket, undo: nil)}
+  end
+
+  def handle_event("undo", _params, socket), do: {:noreply, socket}
+  def handle_event("dismiss_undo", _params, socket), do: {:noreply, assign(socket, undo: nil)}
+
+  # The amount typed in the sheet, as "3 st" or "500 g"; anything else leaves it as it was.
+  def handle_event("set_amount", %{"item_id" => id, "amount" => text}, socket) do
+    %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
+
+    with {:ok, quantity, unit} <- Shop.parse_amount(text) do
+      {:ok, _} = Shop.set_quantity(scope, list_id, id, quantity, unit, user_id)
+    end
 
     {:noreply, assign(socket, item_sheet: nil)}
   end
@@ -524,29 +538,48 @@ defmodule ToreWeb.ShopLive do
         </div>
 
         <div class="px-5 pt-3">
-          <form phx-submit="item_command">
+          <div class="flex items-center gap-3">
+            <form
+              id="item-amount"
+              phx-submit="set_amount"
+              phx-value-item_id={@item_sheet.id}
+              class="min-w-0 flex-1"
+            >
+              <.field
+                id="item-amount-field"
+                name="amount"
+                value={qty_label(@item_sheet)}
+                placeholder={gettext("How much?")}
+                aria-label={gettext("How much?")}
+                autocomplete="off"
+                enterkeyhint="done"
+                class="num"
+              />
+            </form>
+            <button
+              type="button"
+              phx-click="remove_item"
+              phx-value-item_id={@item_sheet.id}
+              data-role="sheet-remove"
+              class="press h-11 shrink-0 rounded-[var(--r-pill)] px-4 font-semibold text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
+            >
+              {gettext("Remove")}
+            </button>
+          </div>
+          <form phx-submit="item_command" class="mt-3">
             <.field
               id="item-command"
               name="command"
               autocomplete="off"
-              autofocus
               placeholder={gettext("Anything about this item…")}
               aria-label={gettext("Anything about this item…")}
               send={gettext("Send")}
               enterkeyhint="send"
             />
           </form>
-          <button
-            type="button"
-            phx-click="remove_item"
-            phx-value-item_id={@item_sheet.id}
-            aria-label={gettext("Remove from the list")}
-            class="press mt-3 -ml-2.5 grid size-11 place-items-center rounded-[var(--r-pill)] text-[color:var(--muted)] hover:bg-[var(--danger-soft)] hover:text-[color:var(--danger)]"
-          >
-            <.icon name="ph-trash" class="size-5" />
-          </button>
         </div>
       </.bottom_sheet>
+      <.undo_bar :if={@undo} text={@undo.text} on_undo="undo" on_dismiss="dismiss_undo" />
       <script :type={Phoenix.LiveView.ColocatedHook} name=".Tick">
         // Ticking an item draws its check, then folds the row away before the server moves it
         // to the basket. Unticking, or reduced motion, goes straight through.
@@ -689,95 +722,125 @@ defmodule ToreWeb.ShopLive do
     ~H"""
     <li
       id={"item-#{@item.id}"}
-      phx-hook="LongPress"
-      data-long-press-event="open_item_sheet"
-      data-item-id={@item.id}
-      data-item-name={@item.name}
-      class={[
-        "tick-row flex min-h-[44px] flex-wrap items-center gap-x-3 py-1.5",
-        @item.checked && "is-checked"
-      ]}
+      phx-hook={!@item.checked && "Swipe"}
+      data-swipe-event="remove_item"
+      data-id={@item.id}
+      data-name={@item.name}
+      class={["tick-row relative overflow-hidden", @item.checked && "is-checked"]}
     >
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={to_string(@item.checked)}
-        aria-label={@item.name}
-        phx-click="toggle_item"
-        phx-value-item_id={@item.id}
-        data-tick={@item.id}
-        class="press tick-box"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2L18.5 8" /></svg>
-      </button>
-      <button
-        type="button"
-        phx-click="toggle_item"
-        phx-value-item_id={@item.id}
-        data-tick={@item.id}
-        class="press press-soft min-w-0 flex-1 text-left"
-      >
-        <span class="tick-name block truncate text-[var(--text)]" style="font-size: 15.5px;">
-          <span :if={Map.get(@item, :pantry_belief)} class="mr-1 text-[color:var(--muted)]">?</span>{@item.name}
-        </span>
-        <span
-          :if={Map.get(@item, :pantry_belief)}
-          class="mt-0.5 block text-[color:var(--muted)]"
-          style="font-size: var(--t-micro);"
-        >
-          {pantry_belief_hint(@item.pantry_belief, @item.pantry_last_seen_at)}
-        </span>
-        <span
-          :if={@dinner && !Map.get(@item, :pantry_belief)}
-          data-role="for-dinner"
-          class="mt-0.5 block truncate text-[color:var(--muted)]"
-          style="font-size: var(--t-micro);"
-        >
-          {@dinner}
-        </span>
-        <span
-          :if={Map.get(@item, :basic) && !@dinner && !Map.get(@item, :pantry_belief)}
-          data-role="basic"
-          class="mt-0.5 block text-[color:var(--muted)]"
-          style="font-size: var(--t-micro);"
-        >
-          {gettext("Basic")}
-        </span>
-      </button>
+      <%!-- What a swipe left does, shown as the row slides over it --%>
       <span
-        :if={qty_label(@item) != ""}
-        class="shrink-0 text-[color:var(--muted)] tabular-nums"
-        style="font-size: var(--t-meta);"
+        :if={!@item.checked}
+        data-swipe-label
+        aria-hidden="true"
+        class="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-4 font-semibold text-[color:var(--danger)] opacity-0"
+        style="font-size: 15px;"
       >
-        {qty_label(@item)}
+        <.icon name="ph-trash" class="size-5" /> {gettext("Remove")}
       </span>
       <div
-        :if={@offer_gone}
-        data-role="deal-gone"
-        class="settle flex w-full items-center gap-2 pb-1 pl-9"
-        style="font-size: var(--t-meta);"
+        id={"item-body-#{@item.id}"}
+        data-swipe-body
+        phx-hook="LongPress"
+        data-long-press-event="open_item_sheet"
+        data-item-id={@item.id}
+        data-item-name={@item.name}
+        class="relative flex min-h-[44px] flex-wrap items-center gap-x-3 bg-[var(--bg)] py-1.5"
       >
-        <span class="min-w-0 flex-1 text-[color:var(--muted)]">
-          {gettext("The offer is gone. Keep it?")}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={to_string(@item.checked)}
+          aria-label={@item.name}
+          phx-click="toggle_item"
+          phx-value-item_id={@item.id}
+          data-tick={@item.id}
+          class="press tick-box"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2L18.5 8" /></svg>
+        </button>
+        <button
+          type="button"
+          phx-click="toggle_item"
+          phx-value-item_id={@item.id}
+          data-tick={@item.id}
+          class="press press-soft min-w-0 flex-1 text-left"
+        >
+          <span class="tick-name block truncate text-[var(--text)]" style="font-size: 15.5px;">
+            <span :if={Map.get(@item, :pantry_belief)} class="mr-1 text-[color:var(--muted)]">?</span>{@item.name}
+          </span>
+          <span
+            :if={Map.get(@item, :pantry_belief)}
+            class="mt-0.5 block text-[color:var(--muted)]"
+            style="font-size: var(--t-micro);"
+          >
+            {pantry_belief_hint(@item.pantry_belief, @item.pantry_last_seen_at)}
+          </span>
+          <span
+            :if={@dinner && !Map.get(@item, :pantry_belief)}
+            data-role="for-dinner"
+            class="mt-0.5 block truncate text-[color:var(--muted)]"
+            style="font-size: var(--t-micro);"
+          >
+            {@dinner}
+          </span>
+          <span
+            :if={Map.get(@item, :basic) && !@dinner && !Map.get(@item, :pantry_belief)}
+            data-role="basic"
+            class="mt-0.5 block text-[color:var(--muted)]"
+            style="font-size: var(--t-micro);"
+          >
+            {gettext("Basic")}
+          </span>
+        </button>
+        <%!-- The amount opens the item's sheet, to change it or take the item off --%>
+        <button
+          :if={qty_label(@item) != "" && !@item.checked}
+          type="button"
+          phx-click="open_item_sheet"
+          phx-value-item_id={@item.id}
+          data-role="amount"
+          aria-label={gettext("Change %{name}", name: @item.name)}
+          class="press -mr-2 h-11 shrink-0 rounded-[var(--r-md)] px-2 text-[color:var(--muted)] tabular-nums hover:text-[color:var(--text)]"
+          style="font-size: var(--t-meta);"
+        >
+          {qty_label(@item)}
+        </button>
+        <span
+          :if={qty_label(@item) != "" && @item.checked}
+          class="shrink-0 text-[color:var(--muted)] tabular-nums"
+          style="font-size: var(--t-meta);"
+        >
+          {qty_label(@item)}
         </span>
-        <button
-          type="button"
-          phx-click="keep_item"
-          phx-value-item_id={@item.id}
-          data-role="keep"
-          class="press pill phx-click-loading:opacity-60"
+        <div
+          :if={@offer_gone}
+          data-role="deal-gone"
+          class="settle flex w-full items-center gap-2 pb-1 pl-9"
+          style="font-size: var(--t-meta);"
         >
-          {gettext("Keep")}
-        </button>
-        <button
-          type="button"
-          phx-click="remove_item"
-          phx-value-item_id={@item.id}
-          data-role="remove"
-          class="press pill phx-click-loading:opacity-60"
-        >
-          {gettext("Remove")}
-        </button>
+          <span class="min-w-0 flex-1 text-[color:var(--muted)]">
+            {gettext("The offer is gone. Keep it?")}
+          </span>
+          <button
+            type="button"
+            phx-click="keep_item"
+            phx-value-item_id={@item.id}
+            data-role="keep"
+            class="press pill phx-click-loading:opacity-60"
+          >
+            {gettext("Keep")}
+          </button>
+          <button
+            type="button"
+            phx-click="remove_item"
+            phx-value-item_id={@item.id}
+            data-role="remove"
+            class="press pill phx-click-loading:opacity-60"
+          >
+            {gettext("Remove")}
+          </button>
+        </div>
       </div>
     </li>
     """
@@ -817,6 +880,24 @@ defmodule ToreWeb.ShopLive do
     |> Enum.map(fn section ->
       {section, Enum.sort_by(grouped[section], &String.downcase(&1.name))}
     end)
+  end
+
+  defp remove(socket, id) do
+    %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
+
+    case Map.get(socket.assigns.grocery_state.items, id) do
+      nil ->
+        {:noreply, assign(socket, item_sheet: nil)}
+
+      item ->
+        {:ok, _} = Shop.remove_item(scope, list_id, id, user_id)
+
+        {:noreply,
+         assign(socket,
+           item_sheet: nil,
+           undo: %{item: item, text: gettext("%{name} removed", name: item.name)}
+         )}
+    end
   end
 
   defp qty_label(%{quantity: nil, unit: nil}), do: ""

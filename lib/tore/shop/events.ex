@@ -10,6 +10,8 @@ defmodule Tore.Shop.Events do
   defmodule ItemSectionSet, do: defstruct([:item_id, :section])
   # Kept on the list after its offer was withdrawn; it no longer goes by the offer.
   defmodule ItemKept, do: defstruct([:item_id, :kept_by])
+  # Its amount changed by hand, from the item's sheet.
+  defmodule ItemQuantitySet, do: defstruct([:item_id, :quantity, :unit, :set_by])
 
   @type t ::
           %ListBuilt{}
@@ -19,4 +21,5 @@ defmodule Tore.Shop.Events do
           | %ItemUnchecked{}
           | %ItemSectionSet{}
           | %ItemKept{}
+          | %ItemQuantitySet{}
 end

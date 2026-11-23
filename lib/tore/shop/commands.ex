@@ -9,6 +9,7 @@ defmodule Tore.Shop.Commands do
   defmodule UncheckItem, do: defstruct([:item_id, :unchecked_by])
   defmodule SetItemSection, do: defstruct([:item_id, :section])
   defmodule KeepItem, do: defstruct([:item_id, :kept_by])
+  defmodule SetItemQuantity, do: defstruct([:item_id, :quantity, :unit, :set_by])
 
   @type t ::
           %BuildList{}
@@ -18,4 +19,5 @@ defmodule Tore.Shop.Commands do
           | %UncheckItem{}
           | %SetItemSection{}
           | %KeepItem{}
+          | %SetItemQuantity{}
 end
