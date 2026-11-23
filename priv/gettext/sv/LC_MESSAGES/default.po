@@ -3479,3 +3479,28 @@ msgid "1 pack + %{rest}"
 msgid_plural "%{count} packs + %{rest}"
 msgstr[0] "1 förp + %{rest}"
 msgstr[1] "%{count} förp + %{rest}"
+
+#: lib/tore_web/live/pantry_live.ex:93
+#, elixir-autogen, elixir-format
+msgid "%{name} is used up"
+msgstr "%{name} är slut"
+
+#: lib/tore_web/live/pantry_live.ex:99
+#, elixir-autogen, elixir-format
+msgid "%{name} removed"
+msgstr "%{name} togs bort"
+
+#: lib/tore_web/live/pantry_live.ex:412
+#, elixir-autogen, elixir-format
+msgid "One less"
+msgstr "En mindre"
+
+#: lib/tore_web/live/pantry_live.ex:437
+#, elixir-autogen, elixir-format
+msgid "One more"
+msgstr "En till"
+
+#: lib/tore_web/live/pantry_live.ex:452
+#, elixir-autogen, elixir-format
+msgid "Best before"
+msgstr "Bäst före"

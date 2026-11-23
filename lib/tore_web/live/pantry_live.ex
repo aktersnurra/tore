@@ -31,7 +31,7 @@ defmodule ToreWeb.PantryLive do
 
     {:ok,
      socket
-     |> assign(asking: nil, editing_left: nil)
+     |> assign(asking: nil, sheet: nil, undo: nil)
      |> load()}
   end
 
@@ -47,11 +47,10 @@ defmodule ToreWeb.PantryLive do
     end
   end
 
-  def handle_event("edit_left", %{"id" => id}, socket),
-    do: {:noreply, assign(socket, editing_left: String.to_integer(id))}
+  def handle_event("open_item", %{"id" => id}, socket),
+    do: {:noreply, assign(socket, sheet: String.to_integer(id))}
 
-  def handle_event("cancel_left", _params, socket),
-    do: {:noreply, assign(socket, editing_left: nil)}
+  def handle_event("close_item", _params, socket), do: {:noreply, assign(socket, sheet: nil)}
 
   # What's left, as "400 g" or "2"; something that isn't an amount leaves it as it was.
   def handle_event("set_left", %{"id" => id, "left" => text}, socket) do
@@ -60,7 +59,23 @@ defmodule ToreWeb.PantryLive do
         Pantry.set_left(socket.assigns.current_scope, String.to_integer(id), quantity, unit)
     end
 
-    {:noreply, socket |> assign(editing_left: nil) |> load()}
+    {:noreply, load(socket)}
+  end
+
+  # − and +: one pack, or one of what's counted, less or more; none left is gone.
+  def handle_event("step", %{"id" => id, "by" => by}, socket) do
+    item = find_item(socket, String.to_integer(id))
+    step = item |> step() |> Decimal.mult(String.to_integer(by))
+    left = item.quantity |> Decimal.add(step) |> Decimal.max(0)
+    {:ok, _item} = Pantry.set_left(socket.assigns.current_scope, item.id, left, item.unit)
+    {:noreply, load(socket)}
+  end
+
+  # The date picked is the household's; cleared, the row has none.
+  def handle_event("set_expiry", %{"id" => id, "expires_at" => value}, socket) do
+    date = if value == "", do: nil, else: Date.from_iso8601!(value)
+    {:ok, _item} = Pantry.set_expiry(socket.assigns.current_scope, String.to_integer(id), date)
+    {:noreply, load(socket)}
   end
 
   def handle_event("ask", %{"id" => id}, socket),
@@ -71,10 +86,26 @@ defmodule ToreWeb.PantryLive do
     {:noreply, socket |> assign(asking: nil) |> load()}
   end
 
+  # Slut: from the row's question, its sheet or a swipe; Ångra puts it back as it was.
   def handle_event("gone", %{"id" => id}, socket) do
-    {:ok, _item} = Pantry.mark_gone(socket.assigns.current_scope, String.to_integer(id))
-    {:noreply, socket |> assign(asking: nil) |> load()}
+    item = find_item(socket, String.to_integer(id))
+    {:ok, _item} = Pantry.mark_gone(socket.assigns.current_scope, item.id)
+    {:noreply, socket |> undoable(item, gettext("%{name} is used up", name: item.name)) |> load()}
   end
+
+  def handle_event("remove", %{"id" => id}, socket) do
+    item = find_item(socket, String.to_integer(id))
+    :ok = Pantry.remove_item(socket.assigns.current_scope, item.id)
+    {:noreply, socket |> undoable(item, gettext("%{name} removed", name: item.name)) |> load()}
+  end
+
+  def handle_event("undo", _params, %{assigns: %{undo: %{item: item}}} = socket) do
+    :ok = Pantry.restore_item(socket.assigns.current_scope, item.id, Pantry.before_image(item))
+    {:noreply, socket |> assign(undo: nil) |> load()}
+  end
+
+  def handle_event("undo", _params, socket), do: {:noreply, socket}
+  def handle_event("dismiss_undo", _params, socket), do: {:noreply, assign(socket, undo: nil)}
 
   @impl true
   def handle_info(:pantry_changed, socket), do: {:noreply, load(socket)}
@@ -87,11 +118,24 @@ defmodule ToreWeb.PantryLive do
     kept = Enum.reject(rows, &(&1.group == :gone))
 
     assign(socket,
+      rows: rows,
       groups: for(group <- @groups, rows = by_group[group], do: {group, rows}),
       kept: length(kept),
       soon: Enum.count(kept, &match?(%{status: {:soon, _}}, &1))
     )
   end
+
+  defp find_item(socket, id),
+    do: socket.assigns.rows |> Enum.find(&(&1.item.id == id)) |> Map.fetch!(:item)
+
+  # The row as it was, for Ångra; the sheet it came from closes.
+  defp undoable(socket, item, text),
+    do: assign(socket, undo: %{item: item, text: text}, sheet: nil, asking: nil)
+
+  # What − and + move by: a pack when the row knows one, one of what's counted, else nothing.
+  defp step(%PantryItem{pack_size: %Decimal{} = size}), do: size
+  defp step(%PantryItem{unit: unit}) when unit in ~w(st förp paket pkt burk), do: Decimal.new(1)
+  defp step(_item), do: nil
 
   # One row: where it belongs, its picture (Jev's pick, otherwise its category's), a line under
   # the name, and what to say about it.
@@ -273,61 +317,171 @@ defmodule ToreWeb.PantryLive do
               :for={row <- rows}
               id={"item-#{row.item.id}"}
               data-item={row.item.id}
-              class="flex min-h-[52px] items-center gap-3 py-1.5"
+              phx-hook="Swipe"
+              data-swipe-event={if row.group == :gone, do: "remove", else: "gone"}
+              data-id={row.item.id}
+              class="relative overflow-hidden"
             >
-              <img
-                src={~p"/images/food/#{Icons.file(row.icon)}"}
-                alt=""
-                class={["size-8 shrink-0", row.group == :gone && "opacity-50 grayscale"]}
-              />
-              <span class="min-w-0 flex-1">
-                <span class={[
-                  "block truncate",
-                  row.group == :gone && "text-[color:var(--muted)]"
-                ]}>
-                  {row.item.name}
-                </span>
-                <%!-- The amount: tap it to say what's left --%>
-                <form
-                  :if={@editing_left == row.item.id}
-                  id={"left-#{row.item.id}"}
-                  phx-submit="set_left"
-                  phx-value-id={row.item.id}
-                  phx-window-keydown="cancel_left"
-                  phx-key="Escape"
-                  class="settle"
-                >
-                  <input
-                    type="text"
-                    name="left"
-                    value={amount(row.item)}
-                    placeholder={gettext("How much is left?")}
-                    aria-label={gettext("How much is left?")}
-                    enterkeyhint="done"
-                    autocomplete="off"
-                    phx-mounted={JS.focus()}
-                    class="inline-field num mt-0.5 w-full max-w-60"
-                  />
-                  <button type="submit" class="sr-only">{gettext("Save")}</button>
-                </form>
-                <button
-                  :if={@editing_left != row.item.id}
-                  type="button"
-                  phx-click="edit_left"
-                  phx-value-id={row.item.id}
-                  data-role="left"
-                  aria-label={gettext("How much is left of %{name}?", name: row.item.name)}
-                  class="num press block max-w-full truncate text-left text-[12.5px] text-[color:var(--muted)] hover:text-[color:var(--text)]"
-                >
-                  {sub_line(row.item) || gettext("How much is left?")}
-                </button>
+              <%!-- What a swipe left does, shown as the row slides over it --%>
+              <span
+                data-swipe-label
+                aria-hidden="true"
+                class="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-4 font-semibold text-[color:var(--danger)] opacity-0"
+                style="font-size: 15px;"
+              >
+                <.icon
+                  name={if row.group == :gone, do: "ph-trash", else: "ph-check"}
+                  class="size-5"
+                />
+                {if row.group == :gone, do: gettext("Remove"), else: gettext("Gone")}
               </span>
-              <.status row={row} asking={@asking == row.item.id} />
+              <div
+                data-swipe-body
+                class="relative flex min-h-[52px] items-center gap-3 bg-[var(--bg)] py-1.5"
+              >
+                <%!-- The row opens its sheet: what's left, its date, Slut and Ta bort --%>
+                <button
+                  type="button"
+                  phx-click="open_item"
+                  phx-value-id={row.item.id}
+                  data-role="open"
+                  class="press press-soft flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                  <img
+                    src={~p"/images/food/#{Icons.file(row.icon)}"}
+                    alt=""
+                    class={["size-8 shrink-0", row.group == :gone && "opacity-50 grayscale"]}
+                  />
+                  <span class="min-w-0 flex-1">
+                    <span class={[
+                      "block truncate",
+                      row.group == :gone && "text-[color:var(--muted)]"
+                    ]}>
+                      {row.item.name}
+                    </span>
+                    <span
+                      :if={sub_line(row.item)}
+                      data-role="left"
+                      class="num block truncate text-[12.5px] text-[color:var(--muted)]"
+                    >
+                      {sub_line(row.item)}
+                    </span>
+                  </span>
+                </button>
+                <.status row={row} asking={@asking == row.item.id} />
+              </div>
             </li>
           </ul>
         </section>
       </.page>
+
+      <.item_sheet :if={item = sheet_item(@rows, @sheet)} item={item} />
+      <.undo_bar :if={@undo} text={@undo.text} on_undo="undo" on_dismiss="dismiss_undo" />
     </Layouts.app>
+    """
+  end
+
+  defp sheet_item(_rows, nil), do: nil
+
+  defp sheet_item(rows, id) do
+    case Enum.find(rows, &(&1.item.id == id)) do
+      nil -> nil
+      row -> row.item
+    end
+  end
+
+  attr :item, PantryItem, required: true
+
+  # A row opened: what's left (− and + by a pack), its best-before, and Slut or Ta bort.
+  defp item_sheet(assigns) do
+    assigns = assign(assigns, step: step(assigns.item))
+
+    ~H"""
+    <.bottom_sheet id="pantry-item" on_close="close_item">
+      <div class="px-5 pt-1">
+        <p class="t-head">{@item.name}</p>
+
+        <div class="mt-4 flex items-center gap-2">
+          <button
+            :if={@step}
+            type="button"
+            phx-click="step"
+            phx-value-id={@item.id}
+            phx-value-by="-1"
+            data-role="less"
+            aria-label={gettext("One less")}
+            class="press grid size-11 shrink-0 place-items-center rounded-[var(--r-pill)] bg-[var(--sunken)]"
+          >
+            <.icon name="ph-minus" class="size-5" />
+          </button>
+          <form id="item-left" phx-submit="set_left" phx-value-id={@item.id} class="min-w-0 flex-1">
+            <.field
+              id={"item-left-#{@item.id}"}
+              name="left"
+              value={amount(@item)}
+              placeholder={gettext("How much is left?")}
+              aria-label={gettext("How much is left?")}
+              autocomplete="off"
+              enterkeyhint="done"
+              inputmode="decimal"
+              class="num"
+            />
+          </form>
+          <button
+            :if={@step}
+            type="button"
+            phx-click="step"
+            phx-value-id={@item.id}
+            phx-value-by="1"
+            data-role="more"
+            aria-label={gettext("One more")}
+            class="press grid size-11 shrink-0 place-items-center rounded-[var(--r-pill)] bg-[var(--sunken)]"
+          >
+            <.icon name="ph-plus" class="size-5" />
+          </button>
+        </div>
+        <p
+          :if={in_packs(@item) != amount(@item)}
+          class="num mt-1.5 text-[13px] text-[color:var(--muted)]"
+        >
+          {in_packs(@item)}
+        </p>
+
+        <form id="item-expiry" phx-change="set_expiry" phx-value-id={@item.id} class="mt-4">
+          <label class="flex min-h-11 items-center justify-between gap-3">
+            <span>{gettext("Best before")}</span>
+            <input
+              type="date"
+              name="expires_at"
+              value={@item.expires_at && Date.to_iso8601(@item.expires_at)}
+              class="inline-field num w-auto text-right"
+            />
+          </label>
+        </form>
+
+        <div class="mt-5 flex items-center justify-between gap-3">
+          <button
+            :if={@item.belief != "missing"}
+            type="button"
+            phx-click="gone"
+            phx-value-id={@item.id}
+            data-role="sheet-gone"
+            class="pill press h-11 px-4"
+          >
+            <.icon name="ph-check" class="size-5" /> {gettext("Gone")}
+          </button>
+          <button
+            type="button"
+            phx-click="remove"
+            phx-value-id={@item.id}
+            data-role="remove"
+            class="press ml-auto h-11 rounded-[var(--r-pill)] px-4 font-semibold text-[color:var(--danger)] hover:bg-[var(--danger-soft)]"
+          >
+            {gettext("Remove")}
+          </button>
+        </div>
+      </div>
+    </.bottom_sheet>
     """
   end
 

@@ -88,6 +88,40 @@ defmodule ToreWeb.CoreComponents do
   end
 
   @doc """
+  The undo line: what was just done and Ångra, fixed above the tab bar where a flash shows, so
+  it's in the same place whatever was done. `on_undo` puts it back; tapping the line elsewhere,
+  or a few seconds, lets it go (`on_dismiss`).
+  """
+  attr :text, :string, required: true
+  attr :on_undo, :string, required: true
+  attr :on_dismiss, :string, required: true
+
+  def undo_bar(assigns) do
+    ~H"""
+    <div
+      id="undo-bar"
+      role="status"
+      phx-click={@on_dismiss}
+      phx-hook="AutoDismiss"
+      data-ms="6000"
+      class="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 flex justify-center px-4 lg:bottom-6"
+    >
+      <div class="rise-in flex w-full max-w-md items-center gap-3 rounded-[var(--r-lg)] bg-[var(--text)] py-1.5 pr-1.5 pl-4 text-[color:var(--bg)] shadow-[var(--shadow-pop)]">
+        <span class="min-w-0 flex-1 truncate font-medium" style="font-size: 15px;">{@text}</span>
+        <button
+          type="button"
+          phx-click={@on_undo}
+          class="press h-10 shrink-0 rounded-[var(--r-md)] px-3 font-semibold text-[color:var(--bg)] hover:bg-white/10"
+          style="font-size: 15px;"
+        >
+          {gettext("Undo")}
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders an input with label and error messages.
 
   A `Phoenix.HTML.FormField` may be passed as argument,

@@ -90,23 +90,111 @@ defmodule ToreWeb.PantryLiveTest do
     refute has_element?(view, row <> ~s( [data-role="ask"]))
   end
 
-  test "tapping a thing's amount says what's left of it; nothing left is gone", %{conn: conn} do
-    pasta = kept("Spaghetti", "dry_goods", %{quantity: Decimal.new(1), unit: "kg"})
-    row = ~s([data-item="#{pasta.id}"])
+  describe "a row's sheet" do
+    defp open_sheet(view, item),
+      do: view |> element(~s([data-item="#{item.id}"] [data-role="open"])) |> render_click()
 
-    {:ok, view, _html} = live(conn, ~p"/pantry")
-    assert view |> element(row <> ~s( [data-role="left"])) |> render() =~ "1 kg"
+    defp quantity_of(item) do
+      Tore.Repo.get!(Tore.Pantry.PantryItem, item.id, Tore.Scope.repo_opts(home_scope())).quantity
+    end
 
-    view |> element(row <> ~s( [data-role="left"])) |> render_click()
-    view |> form("#left-#{pasta.id}", %{left: "400 g"}) |> render_submit()
+    test "tapping a row opens it; what's left is said there, and nothing left is gone", %{
+      conn: conn
+    } do
+      pasta = kept("Spaghetti", "dry_goods", %{quantity: Decimal.new(1), unit: "kg"})
+      row = ~s([data-item="#{pasta.id}"])
 
-    assert view |> element(row <> ~s( [data-role="left"])) |> render() =~ "400 g"
-    [left] = Pantry.list_inventory(home_scope())
-    assert {Decimal.to_string(left.quantity, :normal), left.unit} == {"400", "g"}
+      {:ok, view, _html} = live(conn, ~p"/pantry")
+      assert view |> element(row) |> render() =~ "1 kg"
 
-    view |> element(row <> ~s( [data-role="left"])) |> render_click()
-    view |> form("#left-#{pasta.id}", %{left: "0"}) |> render_submit()
-    assert has_element?(view, ~s([data-group="gone"] ) <> row)
+      open_sheet(view, pasta)
+      assert view |> element("#pantry-item") |> render() =~ "spaghetti"
+      view |> form("#item-left", %{left: "400 g"}) |> render_submit()
+
+      assert view |> element(row) |> render() =~ "400 g"
+      [left] = Pantry.list_inventory(home_scope())
+      assert {Decimal.to_string(left.quantity, :normal), left.unit} == {"400", "g"}
+
+      view |> form("#item-left", %{left: "0"}) |> render_submit()
+      assert has_element?(view, ~s([data-group="gone"] ) <> row)
+    end
+
+    test "− and + take away and add one pack", %{conn: conn} do
+      chicken =
+        kept("kycklingfilé", "meat", %{
+          quantity: Decimal.new(1640),
+          unit: "g",
+          pack_size: Decimal.new(820)
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/pantry")
+      open_sheet(view, chicken)
+
+      view |> element(~s(#pantry-item [data-role="more"])) |> render_click()
+      assert Decimal.equal?(quantity_of(chicken), 2460)
+      assert view |> element("#pantry-item") |> render() =~ "3 × 820 g"
+
+      view |> element(~s(#pantry-item [data-role="less"])) |> render_click()
+      view |> element(~s(#pantry-item [data-role="less"])) |> render_click()
+      assert Decimal.equal?(quantity_of(chicken), 820)
+    end
+
+    test "the best-before date is set there, as the household's", %{conn: conn} do
+      milk = kept("mjölk", "dairy", %{quantity: Decimal.new(1), unit: "l"})
+
+      {:ok, view, _html} = live(conn, ~p"/pantry")
+      open_sheet(view, milk)
+      view |> form("#item-expiry", %{expires_at: "2026-12-01"}) |> render_change()
+
+      [item] = Pantry.list_inventory(home_scope())
+      assert {item.expires_at, item.expires_source} == {~D[2026-12-01], "manual"}
+    end
+
+    test "Slut, from the sheet or a swipe, moves it to Gone with Ångra, which brings it back", %{
+      conn: conn
+    } do
+      butter = kept("Smör", "dairy")
+      row = ~s([data-item="#{butter.id}"])
+
+      {:ok, view, _html} = live(conn, ~p"/pantry")
+      open_sheet(view, butter)
+      view |> element(~s(#pantry-item [data-role="sheet-gone"])) |> render_click()
+
+      assert has_element?(view, ~s([data-group="gone"] ) <> row)
+      refute has_element?(view, "#pantry-item")
+      assert view |> element("#undo-bar") |> render() =~ "smör är slut"
+
+      view |> element("#undo-bar button", "Ångra") |> render_click()
+      assert has_element?(view, ~s([data-group="fridge"] ) <> row)
+      refute has_element?(view, "#undo-bar")
+
+      # A swipe pushes the same.
+      view |> element(row) |> render_hook("gone", %{"id" => to_string(butter.id)})
+      assert has_element?(view, ~s([data-group="gone"] ) <> row)
+      assert has_element?(view, "#undo-bar")
+    end
+
+    test "Ta bort takes it out, and Ångra puts it back as it was", %{conn: conn} do
+      chicken =
+        kept("kycklingfilé", "meat", %{
+          quantity: Decimal.new(1640),
+          unit: "g",
+          pack_size: Decimal.new(820)
+        })
+
+      row = ~s([data-item="#{chicken.id}"])
+
+      {:ok, view, _html} = live(conn, ~p"/pantry")
+      open_sheet(view, chicken)
+      view |> element(~s(#pantry-item [data-role="remove"])) |> render_click()
+
+      refute has_element?(view, row)
+      assert Pantry.list_inventory(home_scope()) == []
+      assert view |> element("#undo-bar") |> render() =~ "kycklingfilé togs bort"
+
+      view |> element("#undo-bar button", "Ångra") |> render_click()
+      assert view |> element(row) |> render() =~ "2 × 820 g"
+    end
   end
 
   test "a line typed in is put away, with its amount", %{conn: conn} do

@@ -25,13 +25,15 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/tore"
 import LongPress from "./long_press"
 import Scanner from "./scanner"
+import Swipe from "./swipe"
 
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-// A confirmation says its piece and leaves; an error stays until it's dismissed.
+// A confirmation says its piece and leaves (an undo line waits longer: data-ms); an error stays
+// until it's dismissed.
 const AutoDismiss = {
-  mounted() { this.timer = setTimeout(() => this.el.click(), 3500) },
+  mounted() { this.timer = setTimeout(() => this.el.click(), Number(this.el.dataset.ms) || 3500) },
   destroyed() { clearTimeout(this.timer) },
 }
 
@@ -54,7 +56,7 @@ document.addEventListener("click", e => {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {LongPress, AutoDismiss, Scanner, ...colocatedHooks},
+  hooks: {LongPress, AutoDismiss, Scanner, Swipe, ...colocatedHooks},
   dom: {
     // A transition applies its patch a frame or more later, so patches that arrive meanwhile wait
     // behind it: applied ahead of it they'd be undone by it (the chat's history, read just after
