@@ -972,7 +972,7 @@ defmodule ToreWeb.PlannerLive do
                   :if={@selected_recipe.image_path}
                   src={RecipeImage.path(@selected_recipe, 720)}
                   srcset={RecipeImage.srcset(@selected_recipe)}
-                  sizes="(min-width: 640px) 32rem, 100vw"
+                  sizes="(min-width: 768px) 28rem, calc(100vw - 2rem)"
                   alt=""
                   decoding="async"
                   class="h-full w-full object-cover"

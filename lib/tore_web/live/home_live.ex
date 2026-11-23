@@ -83,7 +83,7 @@ defmodule ToreWeb.HomeLive do
                   :if={photo?(@dish)}
                   src={RecipeImage.path(@dish, 720)}
                   srcset={RecipeImage.srcset(@dish)}
-                  sizes="100vw"
+                  sizes="(min-width: 1024px) calc(100vw - 248px), 100vw"
                   alt=""
                   fetchpriority="high"
                   class="absolute inset-0 size-full rounded-[inherit] object-cover"

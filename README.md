@@ -172,6 +172,8 @@ Tore runs as a FreeBSD jail on the home server, deployed with serai from the inf
 (`apps/tore` in mirbad): `serai up tore --revision master`. Its `env.template` names every variable
 the release reads, and the jail's `/etc/tore/env` must give each one a value.
 The jail needs `vips` (`pkg install vips`) for `vipsthumbnail`, which makes the small pictures.
+After the first deploy with it, make the small pictures for the ones already stored:
+`bin/tore rpc "Tore.Recipes.Pictures.warm_all()"`.
 
 ## Running tests
 

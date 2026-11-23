@@ -1,5 +1,5 @@
 defmodule Tore.Recipes.PicturesTest do
-  use ExUnit.Case, async: false
+  use Tore.DataCase, async: false
 
   alias Tore.Recipes.Pictures
   alias Tore.Storage.{Buckets, Mock}
@@ -33,6 +33,28 @@ defmodule Tore.Recipes.PicturesTest do
 
   test "a missing picture is an error" do
     assert {:error, :not_found} = Pictures.get("nope.jpg", 720)
+  end
+
+  test "warm_all makes every household's pictures, skipping widths already kept" do
+    other = household_fixture()
+
+    for {household_id, key} <- [{home_scope().household_id, @key}, {other.id, "b.jpg"}] do
+      {:ok, _} = Mock.put_object(Buckets.recipes(), key, "original")
+
+      Tore.Repo.insert!(%Tore.Recipes.Recipe{
+        household_id: household_id,
+        title: key,
+        recipe_type: :meal,
+        image_path: key
+      })
+    end
+
+    {:ok, _} = Mock.put_object(Buckets.recipes(), @key <> ".w256.webp", "kept")
+    :ok = Pictures.warm_all()
+
+    assert {:ok, "kept"} = Mock.get_object(Buckets.recipes(), @key <> ".w256.webp")
+    assert {:ok, _} = Mock.get_object(Buckets.recipes(), @key <> ".w1440.webp")
+    assert {:ok, _} = Mock.get_object(Buckets.recipes(), "b.jpg.w720.webp")
   end
 
   test "warm makes every width" do

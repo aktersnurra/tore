@@ -21,9 +21,24 @@ defmodule Tore.ImageResize.VipsTest do
     assert webp_width(same) == 8
   end
 
+  test "only a photo's formats are read" do
+    svg = ~s(<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"/>)
+    assert {:error, :not_a_photo} = Vips.thumbnail(svg, 256)
+    assert {:error, :not_a_photo} = Vips.thumbnail("%PDF-1.4", 256)
+    assert {:error, :not_a_photo} = Vips.thumbnail("not an image", 256)
+  end
+
   @tag :capture_log
-  test "an unreadable picture is an error" do
-    assert {:error, {:vipsthumbnail, _}} = Vips.thumbnail("not an image", 256)
+  test "a photo's header on bytes that aren't one is an error" do
+    assert {:error, {:vipsthumbnail, _}} =
+             Vips.thumbnail(<<0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A, "garbage">>, 256)
+  end
+
+  test "leaves no files behind" do
+    before = File.ls!(System.tmp_dir!()) |> Enum.filter(&String.starts_with?(&1, "tore-thumb-"))
+    {:ok, _} = Vips.thumbnail(@png, 4)
+    after_ = File.ls!(System.tmp_dir!()) |> Enum.filter(&String.starts_with?(&1, "tore-thumb-"))
+    assert after_ == before
   end
 
   # Lossy WebP (VP8): the width is the low 14 bits of the frame header's first field.

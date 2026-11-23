@@ -13,6 +13,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Pictures are served with the type the bytes really are (PNG, WebP or JPEG).
 - Thumbnails load lazily and decode off the main thread; the hero on Today and an open recipe load first (`fetchpriority="high"`).
 - Each screen gets a picture its size: 256px WebP for thumbnails, 720px for cards, and a 720/1440 `srcset` for the big ones, instead of the full generated image. libvips' `vipsthumbnail` makes each width once, kept beside the original (`<key>.w<width>.webp`): straight after a picture is drawn or fetched, and on first view for older ones. Without vips the original is served, cached only an hour.
+- Widths are made two at a time (`:image_resize_concurrency`), and one asked for twice at once is made once; a look that waits more than 15 s gets the original. Only JPEG, PNG, WebP and GIF reach vips, with its other loaders blocked (`VIPS_BLOCK_UNTRUSTED`), and a run is killed after 20 s.
+- Pictures stored before widths existed: `bin/tore rpc "Tore.Recipes.Pictures.warm_all()"` makes theirs once.
+- Pantry: the schema comes before the functions that match its struct, so `Tore.Pantry.PantryItem` compiles.
 
 ### First deploy, and offers that change (2026-11-22)
 

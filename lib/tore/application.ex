@@ -23,7 +23,9 @@ defmodule Tore.Application do
         {Registry, keys: :unique, name: Tore.Pi.Registry},
         {DynamicSupervisor, name: Tore.Pi.Sessions, strategy: :one_for_one},
         Tore.Scheduler,
-        {Task.Supervisor, name: Tore.TaskSupervisor}
+        {Task.Supervisor, name: Tore.TaskSupervisor},
+        # Recipe pictures' small widths, a few at a time (Tore.Recipes.Pictures).
+        Tore.Recipes.Pictures.Maker
       ] ++
         oidc_children() ++
         [

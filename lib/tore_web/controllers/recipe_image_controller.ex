@@ -1,6 +1,7 @@
 defmodule ToreWeb.RecipeImageController do
   use ToreWeb, :controller
 
+  alias Tore.ImageResize
   alias Tore.Recipes
   alias Tore.Recipes.Pictures
   alias ToreWeb.RecipeImage
@@ -42,7 +43,7 @@ defmodule ToreWeb.RecipeImageController do
       {:ok, body, how} ->
         conn
         |> fallback_caching(width, how, current?)
-        |> put_resp_content_type(content_type(body), nil)
+        |> put_resp_content_type(body |> ImageResize.format() |> ImageResize.content_type(), nil)
         |> send_resp(200, body)
 
       _ ->
@@ -68,11 +69,4 @@ defmodule ToreWeb.RecipeImageController do
     |> Enum.flat_map(&String.split(&1, ","))
     |> Enum.map(&(&1 |> String.trim() |> String.trim_leading("W/")))
   end
-
-  # Pictures are stored as `.jpg`, but a generator or a recipe page may hand back PNG or WebP;
-  # say what the bytes really are.
-  defp content_type(<<0x89, "PNG", _::binary>>), do: "image/png"
-  defp content_type(<<"RIFF", _::binary-size(4), "WEBP", _::binary>>), do: "image/webp"
-  defp content_type(<<"GIF8", _::binary>>), do: "image/gif"
-  defp content_type(_), do: "image/jpeg"
 end

@@ -158,7 +158,7 @@ defmodule ToreWeb.RecipeImageControllerTest do
     end
 
     test "says PNG when the bytes are PNG", %{conn: conn, user: user, recipe: recipe} do
-      {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, <<0x89, "PNG", 13, 10>>)
+      {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, <<0x89, "PNG", 13, 10, 26, 10>>)
       conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}")
       assert get_resp_header(conn, "content-type") == ["image/png"]
     end
