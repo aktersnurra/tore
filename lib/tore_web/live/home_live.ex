@@ -34,7 +34,9 @@ defmodule ToreWeb.HomeLive do
         before_cooking: false,
         choices: nil,
         changed: nil,
-        bought: %{}
+        bought: %{},
+        chef: Tore.Chef.now(scope),
+        chef_sheet: false
       )
       |> PiReply.init()
       |> reload_tonight()
@@ -381,8 +383,11 @@ defmodule ToreWeb.HomeLive do
               </.link>
             </div>
           </section>
+
+          <ToreWeb.Chef.chef_row chef={@chef} />
         </div>
       </.page>
+      <ToreWeb.Chef.chef_sheet :if={@chef_sheet} chef={@chef} />
 
       <.live_component
         :if={@before_cooking and @dish != nil}
@@ -572,6 +577,11 @@ defmodule ToreWeb.HomeLive do
   end
 
   def handle_event("close_choices", _params, socket), do: {:noreply, assign(socket, choices: nil)}
+
+  def handle_event("open_chef", _params, socket), do: {:noreply, assign(socket, chef_sheet: true)}
+
+  def handle_event("close_chef", _params, socket),
+    do: {:noreply, assign(socket, chef_sheet: false)}
 
   # Cook now, when something isn't at home: first the sheet that asks about it.
   def handle_event("before_cooking", _params, socket),

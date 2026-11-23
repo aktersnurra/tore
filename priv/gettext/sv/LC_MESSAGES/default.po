@@ -3519,3 +3519,82 @@ msgstr "Ändra %{name}"
 #, elixir-autogen, elixir-format
 msgid "%{name} put away at home"
 msgstr "%{name} lagd hemma"
+
+#: lib/tore_web/components/chef.ex:41
+#, elixir-autogen, elixir-format
+msgid "Tore is %{stage} now"
+msgstr "Tore är %{stage} nu"
+
+#: lib/tore_web/components/chef.ex:119
+#, elixir-autogen, elixir-format
+msgid "Dishwasher"
+msgstr "Diskplockare"
+
+#: lib/tore_web/components/chef.ex:120
+#, elixir-autogen, elixir-format
+msgid "Apprentice"
+msgstr "Lärling"
+
+#: lib/tore_web/components/chef.ex:121
+#, elixir-autogen, elixir-format
+msgid "Cook"
+msgstr "Kock"
+
+#: lib/tore_web/components/chef.ex:122
+#, elixir-autogen, elixir-format
+msgid "Sous chef"
+msgstr "Souschef"
+
+#: lib/tore_web/components/chef.ex:123
+#, elixir-autogen, elixir-format
+msgid "Head chef"
+msgstr "Kökschef"
+
+#: lib/tore_web/components/chef.ex:129
+#, elixir-autogen, elixir-format
+msgid "%{count} more to something new in the kitchen"
+msgstr "%{count} kvar till något nytt i köket"
+
+#: lib/tore_web/components/chef.ex:132
+#, elixir-autogen, elixir-format
+msgid "%{count} more to %{stage}"
+msgstr "%{count} kvar till %{stage}"
+
+#: lib/tore_web/components/chef.ex:137
+#, elixir-autogen, elixir-format
+msgid "Yes, chef!"
+msgstr "Ja, chef!"
+
+#: lib/tore_web/components/chef.ex:138
+#, elixir-autogen, elixir-format
+msgid "What are we cooking tonight?"
+msgstr "Vad lagar vi i kväll?"
+
+#: lib/tore_web/components/chef.ex:139
+#, elixir-autogen, elixir-format
+msgid "Taste it first!"
+msgstr "Smaka av först!"
+
+#: lib/tore_web/components/chef.ex:140
+#, elixir-autogen, elixir-format
+msgid "A pinch more salt?"
+msgstr "En nypa salt till?"
+
+#: lib/tore_web/components/chef.ex:141
+#, elixir-autogen, elixir-format
+msgid "The dishes won't wait."
+msgstr "Disken väntar inte."
+
+#: lib/tore_web/components/chef.ex:65
+#, elixir-autogen, elixir-format
+msgid "1 of them used food that would otherwise have gone off"
+msgid_plural "%{count} of them used food that would otherwise have gone off"
+msgstr[0] "1 av dem räddade mat som annars hade blivit dålig"
+msgstr[1] "%{count} av dem räddade mat som annars hade blivit dålig"
+
+#: lib/tore_web/components/chef.ex:126
+#, elixir-autogen, elixir-format
+msgid "1 dinner cooked at home"
+msgid_plural "%{count} dinners cooked at home"
+msgstr[0] "1 middag lagad hemma"
+msgstr[1] "%{count} middagar lagade hemma"

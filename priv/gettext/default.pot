@@ -3519,3 +3519,82 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "%{name} put away at home"
 msgstr ""
+
+#: lib/tore_web/components/chef.ex:41
+#, elixir-autogen, elixir-format
+msgid "Tore is %{stage} now"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:119
+#, elixir-autogen, elixir-format
+msgid "Dishwasher"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:120
+#, elixir-autogen, elixir-format
+msgid "Apprentice"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:121
+#, elixir-autogen, elixir-format
+msgid "Cook"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:122
+#, elixir-autogen, elixir-format
+msgid "Sous chef"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:123
+#, elixir-autogen, elixir-format
+msgid "Head chef"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:129
+#, elixir-autogen, elixir-format
+msgid "%{count} more to something new in the kitchen"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:132
+#, elixir-autogen, elixir-format
+msgid "%{count} more to %{stage}"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:137
+#, elixir-autogen, elixir-format
+msgid "Yes, chef!"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:138
+#, elixir-autogen, elixir-format
+msgid "What are we cooking tonight?"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:139
+#, elixir-autogen, elixir-format
+msgid "Taste it first!"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:140
+#, elixir-autogen, elixir-format
+msgid "A pinch more salt?"
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:141
+#, elixir-autogen, elixir-format
+msgid "The dishes won't wait."
+msgstr ""
+
+#: lib/tore_web/components/chef.ex:65
+#, elixir-autogen, elixir-format
+msgid "1 of them used food that would otherwise have gone off"
+msgid_plural "%{count} of them used food that would otherwise have gone off"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/tore_web/components/chef.ex:126
+#, elixir-autogen, elixir-format
+msgid "1 dinner cooked at home"
+msgid_plural "%{count} dinners cooked at home"
+msgstr[0] ""
+msgstr[1] ""

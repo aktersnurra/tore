@@ -590,4 +590,32 @@ defmodule ToreWeb.HomeLiveTest do
       assert html =~ "Oxfilé"
     end
   end
+
+  describe "the chef" do
+    defp cook(times) do
+      {:ok, recipe} = Tore.Recipes.create(home_scope(), %{title: "Pasta", recipe_type: :meal})
+      for _ <- 1..times, do: {:ok, _} = Tore.Chef.cooked(home_scope(), recipe.id, [])
+    end
+
+    test "starts at the sink, with no dinners yet", %{conn: conn} do
+      {:ok, view, _} = live(conn, ~p"/today")
+
+      assert view |> element("#chef-row") |> render() =~ "Diskplockare"
+      assert has_element?(view, ~s(#chef-row [data-chef][data-stage="dishwasher"]))
+    end
+
+    test "grows with dinners cooked, and its sheet says how far and what's next", %{conn: conn} do
+      cook(8)
+      {:ok, view, _} = live(conn, ~p"/today")
+      assert view |> element("#chef-row") |> render() =~ "Lärling"
+
+      view |> element("#chef-row button[data-role=open-chef]") |> render_click()
+      sheet = view |> element("#chef-sheet") |> render()
+      assert sheet =~ "8 middagar lagade hemma"
+      assert sheet =~ "17 kvar till Kock"
+
+      render_click(view, "close_chef", %{})
+      refute has_element?(view, "#chef-sheet")
+    end
+  end
 end

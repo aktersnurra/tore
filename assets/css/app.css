@@ -427,6 +427,36 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
   to { max-height: 0; min-height: 0; padding-block: 0; opacity: 0; }
 }
 
+/* ── The chef on Today: a stand-in figure until it's drawn. It grows a little with each
+   stage, bobs while idle, hops when tapped, and pops in once when it moves up. ── */
+.chef { --chef: 56px; display: inline-grid; place-items: center; width: var(--chef); height: var(--chef); }
+.chef-large { --chef: 140px; }
+.chef-dishwasher { --grow: 0.72; } .chef-apprentice { --grow: 0.8; } .chef-cook { --grow: 0.88; }
+.chef-sous_chef { --grow: 0.95; } .chef-head_chef { --grow: 1; }
+.chef-body { display: inline-flex; align-items: flex-end; line-height: 1; transform-origin: 50% 100%;
+  animation: chef-idle 3.2s ease-in-out infinite; }
+.chef-face { font-size: calc(var(--chef) * 0.62 * var(--grow)); }
+.chef-prop { margin-left: -0.25em; font-size: calc(var(--chef) * 0.3 * var(--grow)); }
+.chef-extras { position: absolute; right: -6px; bottom: -4px; font-size: calc(var(--chef) * 0.17);
+  letter-spacing: -0.15em; }
+.chef-hop .chef-body { animation: chef-hop 560ms var(--ease-spring); }
+.chef-up .chef-body { animation: chef-up 900ms var(--ease-spring); }
+.chef-line { opacity: 0; transform: translate(-50%, 6px) scale(0.92);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-spring); }
+.chef-line.is-shown { opacity: 1; transform: translate(-50%, 0) scale(1); }
+@keyframes chef-idle { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-3%) scaleY(1.02); } }
+@keyframes chef-hop {
+  0% { transform: none; } 25% { transform: scale(1.08, 0.9); }
+  55% { transform: translateY(-18%) scale(0.95, 1.06); } 100% { transform: none; }
+}
+@keyframes chef-up { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: none; } }
+@keyframes chef-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .chef-body, .chef-hop .chef-body { animation: none; }
+  .chef-up .chef-body { animation: chef-fade 400ms var(--ease-out); }
+  .chef-line { transition: opacity var(--dur-fast) linear; transform: translate(-50%, 0); }
+}
+
 /* ── A running timer: quiet while counting, lit when it's done. ── */
 .timer-chip {
   display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 40px;
