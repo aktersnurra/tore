@@ -38,8 +38,14 @@ defmodule Tore.PricesTest do
   defp ingredient_id(scope, name),
     do: Repo.get_by!(Ingredient, [name: name], Tore.Scope.repo_opts(scope)).id
 
+  # Seen the Monday morning of @week, whatever today is: an offer stored now would be first seen
+  # after that week.
   defp deal(attrs) do
-    Deals.upsert_deals([Map.merge(%{chain: "ica", store: "ICA Maxi", quantity: 1}, attrs)])
+    {:ok, _} =
+      Deals.upsert_deals([Map.merge(%{chain: "ica", store: "ICA Maxi", quantity: 1}, attrs)])
+
+    seen = NaiveDateTime.new!(@week, ~T[08:00:00])
+    Repo.update_all(Tore.Deals.Deal, set: [inserted_at: seen, updated_at: seen])
   end
 
   defp paid(scope, date, lines) do
