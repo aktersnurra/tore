@@ -3472,3 +3472,10 @@ msgstr "Den ändringen går inte att ångra."
 #, elixir-autogen, elixir-format
 msgid "That couldn't be undone. Please try again."
 msgstr "Det gick inte att ångra. Försök igen."
+
+#: lib/tore_web/live/pantry_live.ex:184
+#, elixir-autogen, elixir-format
+msgid "1 pack + %{rest}"
+msgid_plural "%{count} packs + %{rest}"
+msgstr[0] "1 förp + %{rest}"
+msgstr[1] "%{count} förp + %{rest}"

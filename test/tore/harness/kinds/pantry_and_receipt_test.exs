@@ -139,6 +139,35 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       assert Decimal.equal?(quantity, 1)
     end
 
+    # Stored before pantry rows knew a pack's size (2026-11-24), an item has no pack_size.
+    test "an item stored before pack sizes loads, with none" do
+      item = %{
+        "name" => "mjölk",
+        "change" => "added",
+        "quantity" => "1",
+        "unit" => "l",
+        "category" => nil,
+        "expires_on" => nil,
+        "provenance" => "manual",
+        "last_seen_at" => "2026-11-20T10:00:00Z",
+        "catalogue_name" => nil,
+        "matched_key" => nil,
+        "default_unit" => nil,
+        "shelf_life_days" => nil,
+        "item_id" => nil
+      }
+
+      assert %PantryBeliefUpdate{items: [%{pack_size: nil}]} =
+               PantryBeliefUpdate.from_json(%{"items" => [item]})
+
+      with_pack = Map.put(item, "pack_size", "820")
+
+      assert %PantryBeliefUpdate{items: [%{pack_size: pack}]} =
+               PantryBeliefUpdate.from_json(%{"items" => [with_pack]})
+
+      assert Decimal.equal?(pack, 820)
+    end
+
     test "a stored item that isn't what an item looks like raises on load" do
       json = %{"items" => [%{"name" => "x"}]}
       assert_raise MatchError, fn -> PantryBeliefUpdate.from_json(json) end

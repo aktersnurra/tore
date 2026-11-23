@@ -17,7 +17,9 @@ defmodule Tore.Mcp.Tools.AddToPantry do
     Records that something is at home, with how much if known. Set `seen` when you see it there, \
     as on a photo of a shelf or the fridge: then the quantity is what's there now rather than what \
     came in, `best_before` is a date printed on it, and `keeps_days` is your guess at how many \
-    days this food keeps once bought. One call per item.\
+    days this food keeps once bought. When what came in is whole packs, give `pack_size`, how much \
+    one holds in `unit`, and the quantity in all (two packs of 820 g: quantity 1640, unit g, \
+    pack_size 820). One call per item.\
     """
 
   @impl true
@@ -28,6 +30,7 @@ defmodule Tore.Mcp.Tools.AddToPantry do
         "name" => %{"type" => "string"},
         "quantity" => %{"type" => "number", "exclusiveMinimum" => 0},
         "unit" => %{"type" => "string"},
+        "pack_size" => %{"type" => "number", "exclusiveMinimum" => 0},
         "seen" => %{"type" => "boolean"},
         "best_before" => %{"type" => "string", "format" => "date"},
         "keeps_days" => %{"type" => "integer", "minimum" => 1, "maximum" => 3650}
@@ -40,7 +43,14 @@ defmodule Tore.Mcp.Tools.AddToPantry do
   def call(scope, %{"name" => name} = args) when is_binary(name) do
     with {:ok, seen} <- seen(args) do
       Tool.reply(
-        Dispatch.add_to_pantry(name, args["quantity"], args["unit"], Tool.ctx(scope), seen)
+        Dispatch.add_to_pantry(
+          name,
+          args["quantity"],
+          args["unit"],
+          Tool.ctx(scope),
+          seen,
+          args["pack_size"]
+        )
       )
     end
   end

@@ -291,14 +291,27 @@ defmodule Tore.Capture.Dispatch do
   @doc """
   Puts something in the pantry. `seen` says it was seen at home, as on a photo of a shelf: then
   `quantity` is what's there now rather than what came in, and `seen` may give the date printed
-  on it (`:expires_on`) and how many days this food keeps (`:shelf_life_days`).
+  on it (`:expires_on`) and how many days this food keeps (`:shelf_life_days`). `pack_size` is
+  how much one pack holds, in `unit`, when what came in is whole packs.
   """
-  @spec add_to_pantry(String.t(), number() | nil, String.t() | nil, ctx(), map() | nil) ::
-          bubble()
-  def add_to_pantry(name, quantity, unit, ctx, seen \\ nil) when is_binary(name) do
+  @spec add_to_pantry(
+          String.t(),
+          number() | nil,
+          String.t() | nil,
+          ctx(),
+          map() | nil,
+          number() | nil
+        ) :: bubble()
+  def add_to_pantry(name, quantity, unit, ctx, seen \\ nil, pack_size \\ nil)
+      when is_binary(name) do
     item =
       Map.merge(
-        %{name: name, quantity: Tore.Types.decimal(quantity), unit: unit},
+        %{
+          name: name,
+          quantity: Tore.Types.decimal(quantity),
+          unit: unit,
+          pack_size: Tore.Types.decimal(pack_size)
+        },
         Map.take(seen || %{}, [:expires_on, :shelf_life_days])
       )
 

@@ -19,6 +19,26 @@ defmodule ToreWeb.PantryLiveTest do
     item
   end
 
+  test "an amount of whole packs reads as packs, and an opened one as packs and the rest", %{
+    conn: conn
+  } do
+    kept("kycklingfilé", "meat", %{
+      quantity: Decimal.new(1640),
+      unit: "g",
+      pack_size: Decimal.new(820)
+    })
+
+    kept("bacon", "deli", %{quantity: Decimal.new(440), unit: "g", pack_size: Decimal.new(140)})
+    kept("grädde", "dairy", %{quantity: Decimal.new(2), unit: "dl", pack_size: Decimal.new(5)})
+
+    {:ok, view, _html} = live(conn, ~p"/pantry")
+
+    assert view |> element("[data-role=left]", "2 × 820 g") |> has_element?()
+    assert view |> element("[data-role=left]", "3 förp + 20 g") |> has_element?()
+    # Less than a pack is just what's left.
+    assert view |> element("[data-role=left]", "2 dl") |> has_element?()
+  end
+
   test "an empty pantry says how things get here", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/pantry")
 

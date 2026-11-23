@@ -158,21 +158,42 @@ defmodule ToreWeb.PantryLive do
       count_line(kept, 0) <>
         " · " <> ngettext("%{count} going off soon", "%{count} going off soon", soon)
 
-  defp sub_line(%PantryItem{quantity: %Decimal{}} = item), do: amount(item)
+  defp sub_line(%PantryItem{quantity: %Decimal{}} = item), do: in_packs(item)
 
   defp sub_line(%PantryItem{added_at: %Date{} = added}),
     do: gettext("bought %{day}", day: ToreWeb.Dates.day(added))
 
   defp sub_line(_item), do: nil
 
+  # Whole packs as packs ("2 × 820 g"), an opened one as packs and the rest ("1 förp + 220 g");
+  # less than a pack, or one pack, is just the amount.
+  defp in_packs(%PantryItem{quantity: quantity, pack_size: %Decimal{} = size, unit: unit} = item) do
+    packs = quantity |> Decimal.div_int(size) |> Decimal.to_integer()
+    rest = Decimal.sub(quantity, Decimal.mult(size, packs))
+
+    cond do
+      packs >= 2 and Decimal.eq?(rest, 0) -> "#{packs} × #{amount(size, unit)}"
+      packs >= 1 and Decimal.gt?(rest, 0) -> packs_and(packs, amount(rest, unit))
+      true -> amount(item)
+    end
+  end
+
+  defp in_packs(item), do: amount(item)
+
+  defp packs_and(packs, rest),
+    do: ngettext("1 pack + %{rest}", "%{count} packs + %{rest}", packs, rest: rest)
+
   # "400 g", as the field takes it back.
-  defp amount(%PantryItem{quantity: %Decimal{} = quantity, unit: unit}) do
+  defp amount(%PantryItem{quantity: %Decimal{} = quantity, unit: unit}),
+    do: amount(quantity, unit)
+
+  defp amount(_item), do: ""
+
+  defp amount(%Decimal{} = quantity, unit) do
     [quantity |> Decimal.normalize() |> Decimal.to_string(:normal), unit]
     |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.join(" ")
   end
-
-  defp amount(_item), do: ""
 
   @impl true
   def render(assigns) do

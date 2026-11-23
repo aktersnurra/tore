@@ -116,6 +116,7 @@ defmodule Tore.Harness.Kinds.PantryUpdate do
             change: if(it[:item_id], do: :removed, else: :added),
             quantity: it[:quantity] || it["quantity"],
             unit: it[:unit] || it["unit"],
+            pack_size: it[:pack_size],
             category: it[:category] || it["category"],
             expires_on: it[:expires_on],
             shelf_life_days: it[:shelf_life_days],

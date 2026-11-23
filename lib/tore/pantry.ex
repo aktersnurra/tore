@@ -8,7 +8,7 @@ defmodule Tore.Pantry do
   Upsert a single canonicalised pantry belief.
 
   Expects an attrs map with `catalogue_name`, optional `matched_key`, plus
-  `quantity`, `unit`, `category`, `default_unit`, `provenance`, `last_seen_at`,
+  `quantity`, `unit`, optional `pack_size` (in `unit`), `category`, `default_unit`, `provenance`, `last_seen_at`,
   and optional `shelf_life_days` and `expires_on`. See `Tore.Pantry.Expiry`.
   Resolves the ingredient by key (find-or-create), then bumps an existing
   pantry row keyed on ingredient_id, or inserts a new one. The pantry row
@@ -104,6 +104,7 @@ defmodule Tore.Pantry do
     %{
       name: ingredient.name,
       unit: attrs[:unit] || ingredient.default_unit,
+      pack_size: attrs[:pack_size],
       category: attrs[:category] || ingredient.category,
       provenance: attrs[:provenance] || "manual",
       last_seen_at: attrs[:last_seen_at] || now(),
@@ -121,6 +122,7 @@ defmodule Tore.Pantry do
       %{
         quantity: new_qty,
         unit: new_unit,
+        pack_size: pack_size(item, attrs),
         added_at: if(Expiry.bought?(attrs), do: Tore.Clock.today(), else: item.added_at),
         last_seen_at: attrs[:last_seen_at] || now(),
         provenance: next_provenance,
@@ -130,6 +132,13 @@ defmodule Tore.Pantry do
     )
     |> Repo.update()
   end
+
+  # A new pack's size, given in the row's unit; otherwise the size the row knows.
+  defp pack_size(item, %{pack_size: %Decimal{} = size} = attrs) do
+    if units_compatible?(item.unit, attrs[:unit]), do: size, else: item.pack_size
+  end
+
+  defp pack_size(item, _attrs), do: item.pack_size
 
   # A photo shows what's there now, so it replaces what we knew. Every other
   # source reports what came in, so it adds. A photo with no readable quantity

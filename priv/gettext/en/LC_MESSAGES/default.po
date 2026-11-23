@@ -3472,3 +3472,10 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "That couldn't be undone. Please try again."
 msgstr ""
+
+#: lib/tore_web/live/pantry_live.ex:184
+#, elixir-autogen, elixir-format
+msgid "1 pack + %{rest}"
+msgid_plural "%{count} packs + %{rest}"
+msgstr[0] ""
+msgstr[1] ""

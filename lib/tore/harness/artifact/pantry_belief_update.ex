@@ -17,6 +17,7 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
           change: change_kind(),
           quantity: Decimal.t() | nil,
           unit: String.t() | nil,
+          pack_size: Decimal.t() | nil,
           category: String.t() | nil,
           expires_on: Date.t() | nil,
           provenance: String.t(),
@@ -55,6 +56,7 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
       "change" => Atom.to_string(it.change),
       "quantity" => decimal_to_string(it[:quantity]),
       "unit" => it[:unit],
+      "pack_size" => decimal_to_string(it[:pack_size]),
       "category" => it[:category],
       "expires_on" => it[:expires_on] && Date.to_iso8601(it[:expires_on]),
       "provenance" => it.provenance,
@@ -63,15 +65,17 @@ defmodule Tore.Harness.Artifact.PantryBeliefUpdate do
     |> Map.merge(Map.new(@resolved, &{Atom.to_string(&1), it[&1]}))
   end
 
-  # Strict: a stored item has exactly these keys, and a quantity that isn't a number raises.
+  # Strict: a stored item has exactly these keys, and a quantity that isn't a number raises. One
+  # stored before pantry rows knew a pack's size (2026-11-24) has no `pack_size`.
   defp item_from_json(m) do
-    true = m |> Map.keys() |> Enum.sort() == Enum.sort(@json_keys)
+    true = (m |> Map.keys() |> Enum.sort()) -- ["pack_size"] == Enum.sort(@json_keys)
 
     %{
       name: m["name"],
       change: change_atom(m["change"]),
       quantity: to_decimal(m["quantity"]),
       unit: m["unit"],
+      pack_size: to_decimal(m["pack_size"]),
       category: m["category"],
       expires_on: m["expires_on"] && Date.from_iso8601!(m["expires_on"]),
       provenance: m["provenance"],

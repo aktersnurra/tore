@@ -229,6 +229,21 @@ defmodule Tore.Mcp.WriteToolsTest do
     assert Pantry.list_inventory(scope) == []
   end
 
+  # Two packs of 820 g are 1640 g, and the row remembers a pack, so Hemma can say "2 × 820 g".
+  test "the pantry keeps how much a pack holds, and another pack keeps it", %{scope: scope} do
+    args = %{"name" => "kycklingfilé", "quantity" => 1640, "unit" => "g", "pack_size" => 820}
+    by_mcp!(scope, ok(scope, "add_to_pantry", args))
+
+    by_mcp!(
+      scope,
+      ok(scope, "add_to_pantry", Map.delete(%{args | "quantity" => 820}, "pack_size"))
+    )
+
+    assert [%{quantity: quantity, pack_size: pack}] = Pantry.list_inventory(scope)
+    assert Decimal.equal?(quantity, 2460)
+    assert Decimal.equal?(pack, 820)
+  end
+
   test "update_memory keeps a note, and a refused one says why", %{scope: scope} do
     result =
       ok(scope, "update_memory", %{

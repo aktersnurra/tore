@@ -12,6 +12,8 @@ defmodule Tore.Pantry.PantryItem do
     field :name, :string
     field :quantity, :decimal
     field :unit, :string
+    # How much one pack holds, in `unit`, so 1640 g shows as two packs of 820 g.
+    field :pack_size, :decimal
     field :category, :string
     field :added_at, :date
     field :expires_at, :date
@@ -93,6 +95,7 @@ defmodule Tore.Pantry.PantryItem do
       :name,
       :quantity,
       :unit,
+      :pack_size,
       :category,
       :ingredient_id,
       :added_at,
@@ -104,6 +107,7 @@ defmodule Tore.Pantry.PantryItem do
     ])
     |> validate_required([:name, :added_at, :provenance])
     |> update_change(:name, &normalize_name/1)
+    |> validate_number(:pack_size, greater_than: 0)
     |> validate_inclusion(:category, category_values())
     |> validate_inclusion(:provenance, @provenances)
     |> validate_inclusion(:belief, @beliefs)
