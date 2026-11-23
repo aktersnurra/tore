@@ -11,21 +11,15 @@ defmodule Tore.Recipes do
   # An ingredient name will never contain this, so joined names split cleanly.
   @fp_sep "\x1f"
 
-  # Every recipe picture is taken the same way, a friend's unedited phone photo, so the library
-  # reads as one feed: the light, angle and look are set here. pi describes the dish and what
-  # it's really served in and on (`draw_recipe_picture`), so each dish keeps its own pan or board.
-  @house_style """
-  A casual phone photo of this one dish, taken on an iPhone at home just before eating, the kind \
-  of picture a friend posts without editing much. Only this dish is in the picture, served in \
-  the vessel described; no other food, pots or bowls. Daylight from a window to the side or a \
-  little behind, soft and a little uneven, the scene light and fresh, not dark. Framed slightly \
-  off-centre and a little too close; shot from a seated angle unless the dish is flat. The food \
-  as it really looks: a spoonful already taken, a drip or smear, a few crumbs, toppings that have \
-  slid or sunk. A dish served in portions, like a cake, tart, pie or tray bake, has exactly one \
-  piece cut: the whole with that one piece lifted out, or that one piece alone on a small plate. \
-  Natural, slightly muted colour, the flat look of an unedited phone photo, shallow phone depth \
-  of field. No text, no hands, no people, no logos.\
-  """
+  # Where a recipe's picture is set, chosen by Tore and kept per recipe: asked to vary it, pi put
+  # most dishes on a wooden table.
+  @surfaces [
+    "on a light oak dining table",
+    "on a creased natural linen tablecloth",
+    "on a pale grey stone kitchen counter",
+    "on a dark walnut table",
+    "on a worn butcher-block kitchen counter"
+  ]
 
   @snapshot_fields ~w(title description instructions steps recipe_type base_servings prep_time_minutes cook_time_minutes source_url image_path)a
 
@@ -407,17 +401,44 @@ defmodule Tore.Recipes do
   end
 
   @doc """
-  Draws a picture of `dish` in Tore's one house style and stores it for the recipe, without
-  setting it: `update_picture` in a run does that, so undo puts the old one back. `dish`
-  describes only the finished food; the light, surface and frame are fixed here, so the library
-  reads as one cookbook. What it cost goes into the household's AI spend as `recipe_picture`.
+  What the image model is asked for: pi's `dish`, then the house style every picture shares, a
+  friend's unedited phone photo, so the library reads as one feed. pi names the dish, its sides,
+  its vessels and the one sign it's being eaten (`draw_recipe_picture`); the light, angle and
+  look are set here, and the surface by the recipe. Image models draw every thing a prompt lists
+  and multiply what isn't counted, so the style names no props and counts the cut.
+  """
+  @spec picture_prompt(integer(), String.t()) :: String.t()
+  def picture_prompt(recipe_id, dish) when is_integer(recipe_id) and is_binary(dish) do
+    surface = Enum.at(@surfaces, rem(recipe_id, length(@surfaces)))
+
+    String.trim(dish) <>
+      "\n\n" <>
+      """
+      A casual phone photo of this dish, taken on an iPhone at home just before eating, the kind \
+      of picture a friend posts without editing much. In the picture is only what the \
+      description names, sides included, each in the vessel described, set #{surface}; nothing \
+      else on the table. Daylight from a window to the side or a little behind, soft and a little \
+      uneven, the scene light and fresh, not dark. Framed slightly off-centre and a little too \
+      close; shot from a seated angle unless the dish is flat. The food as it really looks, with \
+      only the signs of eating the description names. A dish served in portions, like a cake, \
+      tart, pie or tray bake, has exactly one piece cut: the whole with that one piece lifted out, \
+      or that one piece alone on a small plate. Natural, slightly muted colour, the flat look of \
+      an unedited phone photo, shallow phone depth of field. No text, no hands, no people, no \
+      logos.\
+      """
+  end
+
+  @doc """
+  Draws a picture of `dish` in Tore's one house style (`picture_prompt/2`) and stores it for the
+  recipe, without setting it: `update_picture` in a run does that, so undo puts the old one
+  back. What it cost goes into the household's AI spend as `recipe_picture`.
   """
   @spec draw_picture(Scope.t(), integer(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def draw_picture(%Scope{} = scope, recipe_id, dish) when is_binary(dish) do
     key = "households/#{scope.household_id}/recipes/#{recipe_id}/#{Ecto.UUID.generate()}.jpg"
 
     with {:ok, %{image: binary, cost_usd: cost}} <-
-           @image_gen.generate_food_image(String.trim(dish) <> "\n\n" <> @house_style),
+           @image_gen.generate_food_image(picture_prompt(recipe_id, dish)),
          {:ok, _usage} <-
            Tore.Costs.log_llm_usage(scope, %{feature: "recipe_picture", cost_usd: cost}),
          {:ok, _url} <-

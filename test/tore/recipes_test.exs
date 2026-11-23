@@ -11,6 +11,26 @@ defmodule Tore.RecipesTest do
     Map.merge(%{title: "Test Recipe", recipe_type: :meal}, overrides)
   end
 
+  describe "picture_prompt/2" do
+    test "sides the description names are in, and nothing else" do
+      prompt = Recipes.picture_prompt(1, "Butter chicken with rice on the side.")
+      assert prompt =~ "sides included"
+      refute prompt =~ "no other food"
+    end
+
+    # Told to vary it, pi put 44 of 70 dishes on a wooden table; a list of signs of eating was
+    # drawn all at once. Tore picks the surface, and pi names the one sign.
+    test "each recipe keeps its own surface, and neighbours differ" do
+      surface = fn id ->
+        Recipes.picture_prompt(id, "Soup.") |> String.split("\n\n") |> Enum.at(1)
+      end
+
+      assert surface.(7) == surface.(7)
+      assert 1..5 |> Enum.map(surface) |> Enum.uniq() |> length() == 5
+      refute Recipes.picture_prompt(1, "Soup.") =~ "a few crumbs"
+    end
+  end
+
   describe "draw_picture/3" do
     test "draws the dish in the house style and stores it, without setting it" do
       Tore.Storage.Mock.reset()
@@ -20,7 +40,8 @@ defmodule Tore.RecipesTest do
                Recipes.draw_picture(home_scope(), recipe.id, "Cinnamon buns in a tin. ")
 
       assert_received {:image_prompt, prompt}
-      assert prompt =~ ~r/\ACinnamon buns in a tin\.\n\nA casual phone photo of this one dish/
+      assert prompt == Recipes.picture_prompt(recipe.id, "Cinnamon buns in a tin. ")
+      assert prompt =~ ~r/\ACinnamon buns in a tin\.\n\nA casual phone photo/
       assert prompt =~ "the flat look of an unedited phone photo"
       # Image models multiply a cut dish into a spread of slices unless told how many.
       assert prompt =~ "exactly one piece cut"

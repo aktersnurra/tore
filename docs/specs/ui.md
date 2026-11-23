@@ -1981,9 +1981,11 @@ Borrowed from Notion's structure, and since 2026-11-18 its look too (Papper, §4
 - Rows answer hover with a soft background; chrome stays quiet.
 - **Pictures** share one house style (one fixed art direction appended to every dish), so
   the library looks like one feed: a friend's unedited phone photo, soft window daylight,
-  muted natural colour, slightly off-centre, with someone already into the dish. pi names what
-  each dish is really served in and on (the tin it baked in, a board, a glazed bowl, baking
-  paper on a tray), varied so they don't all look alike. Seedream 5.0 Pro draws them (2026-11-24).
+  muted natural colour, slightly off-centre. pi names the dish, its sides, what each is really
+  served in (the tin it baked in, a board, a glazed bowl, baking paper on a tray) and one small
+  sign it's about to be eaten; only what it names is drawn, and a cake has exactly one piece
+  cut. Tore picks the surface (oak, linen, stone counter, walnut, butcher block) by recipe, since
+  pi asked to vary it chose a wooden table for most. Seedream 5.0 Pro draws them (2026-11-24).
 
 ## 16.3 Agent acts; user undoes
 

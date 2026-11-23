@@ -20,14 +20,18 @@ defmodule Tore.Mcp.Tools.DrawRecipePicture do
   def description,
     do: """
     Draws the recipe's picture, replacing the one it has. `dish` describes the finished food, \
-    in 30-60 words of English for an image model: what it is, its colours and textures, the \
-    garnish that belongs with it, what shows best (a bun torn open showing its swirl), how much \
-    of it there is (a cake or tart: the whole with one piece cut out, or one piece), and what it's \
-    really served in at home and on: the pan or tin it was cooked in, a wooden board, a glazed \
-    bowl in some colour, baking paper on a tray, on a kitchen counter, a wooden table or a linen \
-    cloth. Vary these with the dish so the pictures don't all look alike; a plain plate is fine \
-    now and then. Nothing the recipe doesn't have, and no light, style or angle: those are fixed, \
-    so every picture looks like one feed. Takes up to a minute. Undo puts the old picture back.\
+    in 30-60 words of English for an image model: what it is and only what the eye sees of it, \
+    its colours and textures. An image model draws every thing named, up front, so leave out \
+    spices and flavourings cooked in (cloves in a bread, zest or star anise in a glaze); a \
+    garnish only if one is really put on top. Then what shows best (a bun torn open showing its \
+    swirl), how much of it there is (a cake or tart: the whole with one piece cut out, or one \
+    piece), the sides \
+    served with it, what each is really served in at home (the pan or tin it was cooked in, a \
+    wooden board, a glazed bowl in some colour, baking paper on a tray; a plain plate now and \
+    then, varied with the dish), and one small sign it's about to be eaten that suits it (a \
+    spoonful gone from a soup, a fork resting in a pasta). Nothing the recipe doesn't have, and \
+    no surface, light, style or angle: Tore sets those, so every picture looks like one feed. \
+    Takes up to a minute. Undo puts the old picture back.\
     """
 
   @impl true
