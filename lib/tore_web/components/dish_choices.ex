@@ -47,7 +47,7 @@ defmodule ToreWeb.DishChoices do
           <span class="relative size-20 shrink-0 overflow-hidden rounded-[var(--r-lg)] bg-[var(--sunken)]">
             <img
               :if={choice.recipe.image_path}
-              src={RecipeImage.path(choice.recipe)}
+              src={RecipeImage.path(choice.recipe, 256)}
               alt=""
               loading="lazy"
               decoding="async"

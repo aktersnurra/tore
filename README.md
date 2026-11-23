@@ -89,6 +89,10 @@ mix setup          # install deps, create and migrate DB, seed
 mix phx.server     # http://localhost:4000
 ```
 
+Recipe pictures are shrunk to the size each screen shows them, as WebP, by libvips'
+`vipsthumbnail` (`brew install vips`, `apt install libvips-tools`). Without it every picture is
+still shown, at full size.
+
 Every AI request goes through [pi](https://github.com/badlogic/pi-mono) (`Tore.Pi`), started by
 `harness/pi-session`, which needs `jq`, `pi` and a model key (`ANTHROPIC_API_KEY` or
 `OPENROUTER_API_KEY`) in its environment. Without `TORE_PI_COMMAND` Tore still runs, in dev and
@@ -167,6 +171,7 @@ Tests use an in-memory storage mock, so `mix test` needs nothing running.
 Tore runs as a FreeBSD jail on the home server, deployed with serai from the infrastructure repo
 (`apps/tore` in mirbad): `serai up tore --revision master`. Its `env.template` names every variable
 the release reads, and the jail's `/etc/tore/env` must give each one a value.
+The jail needs `vips` (`pkg install vips`) for `vipsthumbnail`, which makes the small pictures.
 
 ## Running tests
 

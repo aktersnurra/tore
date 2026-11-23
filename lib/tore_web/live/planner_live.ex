@@ -716,7 +716,7 @@ defmodule ToreWeb.PlannerLive do
             <span class="relative size-11 shrink-0 overflow-hidden rounded-[var(--r-md)]">
               <img
                 :if={@recipe.image_path}
-                src={RecipeImage.path(@recipe)}
+                src={RecipeImage.path(@recipe, 256)}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -858,7 +858,7 @@ defmodule ToreWeb.PlannerLive do
       <span class="relative block aspect-square w-full overflow-hidden rounded-[var(--r-sm)] bg-[var(--sunken)]">
         <img
           :if={@recipe && @recipe.image_path}
-          src={RecipeImage.path(@recipe)}
+          src={RecipeImage.path(@recipe, 256)}
           alt=""
           loading="lazy"
           decoding="async"
@@ -970,7 +970,9 @@ defmodule ToreWeb.PlannerLive do
               <div class="relative aspect-[16/9] w-full">
                 <img
                   :if={@selected_recipe.image_path}
-                  src={RecipeImage.path(@selected_recipe)}
+                  src={RecipeImage.path(@selected_recipe, 720)}
+                  srcset={RecipeImage.srcset(@selected_recipe)}
+                  sizes="(min-width: 640px) 32rem, 100vw"
                   alt=""
                   decoding="async"
                   class="h-full w-full object-cover"
@@ -1305,7 +1307,7 @@ defmodule ToreWeb.PlannerLive do
         <div class="relative size-12 shrink-0 overflow-hidden rounded-[var(--r-md)]">
           <img
             :if={@recipe.image_path}
-            src={RecipeImage.path(@recipe)}
+            src={RecipeImage.path(@recipe, 256)}
             alt=""
             loading="lazy"
             decoding="async"

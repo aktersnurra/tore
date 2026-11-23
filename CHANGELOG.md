@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - A recipe's picture URL carries its version (`?v=`, a hash of its storage key), so the browser keeps it for a year (`Cache-Control: immutable`) and a new picture is a new URL. An unversioned URL is revalidated, and a matching ETag is a 304 without reading storage.
 - Pictures are served with the type the bytes really are (PNG, WebP or JPEG).
 - Thumbnails load lazily and decode off the main thread; the hero on Today and an open recipe load first (`fetchpriority="high"`).
+- Each screen gets a picture its size: 256px WebP for thumbnails, 720px for cards, and a 720/1440 `srcset` for the big ones, instead of the full generated image. libvips' `vipsthumbnail` makes each width once, kept beside the original (`<key>.w<width>.webp`): straight after a picture is drawn or fetched, and on first view for older ones. Without vips the original is served, cached only an hour.
 
 ### First deploy, and offers that change (2026-11-22)
 

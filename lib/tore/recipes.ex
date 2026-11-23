@@ -416,8 +416,22 @@ defmodule Tore.Recipes do
          {:ok, _url} <-
            Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, binary,
              content_type: "image/jpeg"
-           ),
-         do: {:ok, key}
+           ) do
+      warm_picture(key, binary)
+      {:ok, key}
+    end
+  end
+
+  # Every width of a just-stored picture, made while it's being shown for the first time.
+  defp warm_picture(key, image) do
+    work = fn -> Tore.Recipes.Pictures.warm(key, image) end
+
+    if Application.get_env(:tore, :agent_in_background, true) do
+      {:ok, _pid} = Task.Supervisor.start_child(Tore.TaskSupervisor, work)
+      :ok
+    else
+      work.()
+    end
   end
 
   @doc """
@@ -453,6 +467,8 @@ defmodule Tore.Recipes do
            Tore.Storage.client().put_object(Tore.Storage.Buckets.recipes(), key, binary,
              content_type: "image/jpeg"
            ) do
+      warm_picture(key, binary)
+
       Repo.update_all(
         from(r in Recipe, where: r.id == ^recipe_id),
         [set: [image_path: key]],

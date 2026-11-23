@@ -10,10 +10,24 @@ defmodule ToreWeb.RecipeImage do
 
   use ToreWeb, :verified_routes
 
-  @doc "The picture's URL, versioned by its key. Nil when the recipe has no picture."
-  @spec path(%{id: integer(), image_path: String.t() | nil}) :: String.t() | nil
-  def path(%{image_path: nil}), do: nil
-  def path(%{id: id, image_path: key}), do: ~p"/images/recipes/#{id}?#{[v: version(key)]}"
+  @type recipe :: %{id: integer(), image_path: String.t() | nil}
+
+  @doc """
+  The picture's URL, versioned by its key: the original, or `width` wide (one of
+  `Tore.Recipes.Pictures.widths/0`). Nil when the recipe has no picture.
+  """
+  @spec path(recipe(), pos_integer() | nil) :: String.t() | nil
+  def path(recipe, width \\ nil)
+  def path(%{image_path: nil}, _width), do: nil
+  def path(%{id: id, image_path: key}, nil), do: ~p"/images/recipes/#{id}?#{[v: version(key)]}"
+
+  def path(%{id: id, image_path: key}, width),
+    do: ~p"/images/recipes/#{id}?#{[v: version(key), w: width]}"
+
+  @doc "A `srcset` of the card and big widths, for a picture whose shown size varies with the screen."
+  @spec srcset(recipe()) :: String.t() | nil
+  def srcset(%{image_path: nil}), do: nil
+  def srcset(recipe), do: Enum.map_join([720, 1440], ", ", &"#{__MODULE__.path(recipe, &1)} #{&1}w")
 
   @doc "A short, stable version for a stored key."
   @spec version(String.t()) :: String.t()

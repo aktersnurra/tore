@@ -123,6 +123,40 @@ defmodule ToreWeb.RecipeImageControllerTest do
       assert ToreWeb.RecipeImage.path(%{recipe | image_path: nil}) == nil
     end
 
+    test "a width is served small, as WebP, with its own ETag", %{
+      conn: conn,
+      user: user,
+      recipe: recipe,
+      version: version
+    } do
+      conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe, 256))
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "content-type") == ["image/webp"]
+      assert conn.resp_body =~ "256:the image bytes"
+      assert get_resp_header(conn, "etag") == [~s("#{version}-256")]
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=31536000, immutable"]
+    end
+
+    test "a width that can't be made is the original, kept only an hour", %{
+      conn: conn,
+      user: user,
+      recipe: recipe
+    } do
+      {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, "not an image")
+      conn = get(authed(conn, user), ToreWeb.RecipeImage.path(recipe, 720))
+
+      assert conn.status == 200
+      assert conn.resp_body == "not an image"
+      assert get_resp_header(conn, "cache-control") == ["private, max-age=3600"]
+      assert get_resp_header(conn, "etag") == []
+    end
+
+    test "a width Tore doesn't make is the original", %{conn: conn, user: user, recipe: recipe} do
+      conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}?w=999")
+      assert conn.resp_body == "the image bytes"
+    end
+
     test "says PNG when the bytes are PNG", %{conn: conn, user: user, recipe: recipe} do
       {:ok, _} = Mock.put_object(Buckets.recipes(), recipe.image_path, <<0x89, "PNG", 13, 10>>)
       conn = get(authed(conn, user), ~p"/images/recipes/#{recipe.id}")
