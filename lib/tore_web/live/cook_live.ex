@@ -130,9 +130,11 @@ defmodule ToreWeb.CookLive do
 
     :ok = Recipes.record_used(scope, recipe.id)
     used = Tore.Pantry.use_up(scope, uses)
+    # A step for the chef on Today.
+    {:ok, dinner} = Tore.Chef.cooked(scope, recipe.id, used)
     # Tomorrow is what's next now, so Today's note is worth picking again.
     Tore.Home.refresh(scope)
-    {:noreply, assign(socket, done: %{used: used, was: recipe.last_used_at})}
+    {:noreply, assign(socket, done: %{used: used, was: recipe.last_used_at, dinner: dinner})}
   end
 
   def handle_event("done", _params, socket), do: {:noreply, socket}
@@ -141,6 +143,7 @@ defmodule ToreWeb.CookLive do
     %{current_scope: scope, recipe: recipe} = socket.assigns
     :ok = Tore.Pantry.put_back(scope, done.used)
     :ok = Recipes.record_used(scope, recipe.id, done.was)
+    :ok = Tore.Chef.uncooked(scope, done.dinner)
     {:noreply, assign(socket, done: nil)}
   end
 

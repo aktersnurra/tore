@@ -132,6 +132,7 @@ defmodule ToreWeb.CookLiveTest do
     assert html =~ "Slut hemma nu: vitlök."
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == ["vitlök"]
     assert Recipes.get!(home_scope(), recipe.id).last_used_at
+    assert Tore.Chef.now(home_scope()).dinners == 1
 
     assert has_element?(view, ~s([data-role="close-done"]))
     refute has_element?(view, ~s([data-role="done"]))
@@ -141,6 +142,7 @@ defmodule ToreWeb.CookLiveTest do
     assert has_element?(view, ~s([data-role="done"]))
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == []
     refute Recipes.get!(home_scope(), recipe.id).last_used_at
+    assert Tore.Chef.now(home_scope()).dinners == 0
   end
 
   test "Done takes the amounts cooked off what's at home; only what ran out is said to be out", %{
