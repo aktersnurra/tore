@@ -35,6 +35,18 @@ defmodule Tore.Harness.Kinds.PantryAndReceiptTest do
       assert names() == []
     end
 
+    test "undo puts a row's pack size back" do
+      ctx = %{scope: home_scope(), actor: :user}
+      Tore.Capture.Dispatch.add_to_pantry("kyckling", 820, "g", ctx, nil, 820)
+      bumped = Tore.Capture.Dispatch.add_to_pantry("kyckling", 500, "g", ctx, nil, 500)
+      assert [%{pack_size: pack}] = inventory()
+      assert Decimal.equal?(pack, 500)
+
+      {:ok, _} = Runs.revert(home_scope(), bumped.run_stream_id)
+      assert [%{pack_size: pack}] = inventory()
+      assert Decimal.equal?(pack, 820)
+    end
+
     test "undo puts a bumped item back exactly as it was" do
       {:ok, _} = tick([%{name: "smör", quantity: 1, unit: "st"}])
       before = inventory()

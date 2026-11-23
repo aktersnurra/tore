@@ -29,6 +29,7 @@ defmodule Tore.Harness.Undo do
           ingredient_id: integer() | nil,
           quantity: Decimal.t() | nil,
           unit: String.t() | nil,
+          pack_size: Decimal.t() | nil,
           category: String.t() | nil,
           added_at: Date.t() | nil,
           expires_at: Date.t() | nil,
@@ -51,7 +52,7 @@ defmodule Tore.Harness.Undo do
   @type t :: {:steps, [step()]} | {:irreversible, reason :: String.t()}
 
   @slot_keys ~w(recipe_id servings skipped leftover reason place amount)a
-  @pantry_keys ~w(name ingredient_id quantity unit category added_at expires_at expires_source provenance belief last_seen_at)a
+  @pantry_keys ~w(name ingredient_id quantity unit pack_size category added_at expires_at expires_source provenance belief last_seen_at)a
 
   @spec reversible?(t()) :: boolean()
   def reversible?({:irreversible, _reason}), do: false
@@ -210,14 +211,19 @@ defmodule Tore.Harness.Undo do
     end)
   end
 
+  # One stored before pantry rows knew a pack's size (2026-11-24) has no `pack_size`.
   defp decode_pantry(%{} = before) do
-    before = exact!(before, Enum.map(@pantry_keys, &Atom.to_string/1))
+    before =
+      before
+      |> Map.put_new("pack_size", nil)
+      |> exact!(Enum.map(@pantry_keys, &Atom.to_string/1))
 
     %{
       name: required(before["name"], &is_binary/1),
       ingredient_id: optional(before["ingredient_id"], &is_integer/1),
       quantity: optional(before["quantity"], &is_binary/1) |> then(&(&1 && Decimal.new(&1))),
       unit: optional(before["unit"], &is_binary/1),
+      pack_size: optional(before["pack_size"], &is_binary/1) |> then(&(&1 && Decimal.new(&1))),
       category: optional(before["category"], &is_binary/1),
       added_at:
         optional(before["added_at"], &is_binary/1) |> then(&(&1 && Date.from_iso8601!(&1))),

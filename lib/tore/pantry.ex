@@ -238,7 +238,7 @@ defmodule Tore.Pantry do
   end
 
   @spec remove_item(Scope.t(), integer()) :: :ok | {:error, :not_found}
-  @before_fields ~w(name ingredient_id quantity unit category added_at expires_at expires_source provenance belief last_seen_at)a
+  @before_fields ~w(name ingredient_id quantity unit pack_size category added_at expires_at expires_source provenance belief last_seen_at)a
 
   @doc "An item as `Tore.Harness.Undo` stores it, so a run can put it back."
   @spec before_image(PantryItem.t()) :: Tore.Harness.Undo.pantry_before()

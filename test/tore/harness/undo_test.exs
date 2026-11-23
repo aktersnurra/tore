@@ -27,6 +27,7 @@ defmodule Tore.Harness.UndoTest do
     ingredient_id: 12,
     quantity: Decimal.new("1.5"),
     unit: "l",
+    pack_size: Decimal.new("1.5"),
     category: "dairy",
     added_at: ~D[2026-11-01],
     expires_at: ~D[2026-11-08],
@@ -69,8 +70,18 @@ defmodule Tore.Harness.UndoTest do
       round_trip({:steps, [{:restore_pantry_item, 4, @pantry}]})
 
     assert %Decimal{} = before.quantity
+    assert %Decimal{} = before.pack_size
     assert %Date{} = before.expires_at
     assert %DateTime{} = before.last_seen_at
+  end
+
+  # Stored before pantry rows knew a pack's size (2026-11-24): it comes back with none.
+  test "a pantry before-image stored without a pack size decodes, with none" do
+    %{"steps" => [step]} = Undo.encode({:steps, [{:restore_pantry_item, 4, @pantry}]})
+    old = update_in(step, ["restore_pantry_item", "before"], &Map.delete(&1, "pack_size"))
+
+    assert {:steps, [{:restore_pantry_item, 4, %{pack_size: nil}}]} =
+             Undo.decode(%{"steps" => [old]})
   end
 
   test "an unknown shape raises instead of becoming an undo that does nothing" do
