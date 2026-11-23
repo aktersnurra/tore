@@ -27,7 +27,9 @@ defmodule ToreWeb.RecipeImage do
   @doc "A `srcset` of the card and big widths, for a picture whose shown size varies with the screen."
   @spec srcset(recipe()) :: String.t() | nil
   def srcset(%{image_path: nil}), do: nil
-  def srcset(recipe), do: Enum.map_join([720, 1440], ", ", &"#{__MODULE__.path(recipe, &1)} #{&1}w")
+
+  def srcset(recipe),
+    do: Enum.map_join([720, 1440], ", ", &"#{__MODULE__.path(recipe, &1)} #{&1}w")
 
   @doc "A short, stable version for a stored key."
   @spec version(String.t()) :: String.t()
