@@ -97,7 +97,24 @@ defmodule ToreWeb.CaptureLiveTest do
     [chat] = Tore.Chats.list(scope_fixture(user))
     [header | _] = pi_records(log)
     assert header["session"] == "chat-#{user.id}-#{chat.id}"
-    assert [%{"message" => "Vad ska jag laga?"}] = prompts(log)
+
+    # pi is asked to name the chat while it has no title; the bubble keeps their words.
+    assert [%{"message" => "Vad ska jag laga?" <> note}] = prompts(log)
+    assert note =~ "describe_chat"
+    refute has_element?(lv, ~s([data-role="bubble-user"]), "describe_chat")
+  end
+
+  test "a chat with a title is sent their words as they are", %{
+    conn: conn,
+    user: user,
+    pi_log: log
+  } do
+    chat_for(user, "Helgen")
+    {:ok, lv, _html} = live(conn, "/capture")
+    lv |> form("#chat-form", %{message: "Och söndag?"}) |> render_submit()
+
+    assert eventually(fn -> prompts(log) != [] end)
+    assert [%{"message" => "Och söndag?"}] = prompts(log)
   end
 
   describe "chats" do
@@ -113,6 +130,39 @@ defmodule ToreWeb.CaptureLiveTest do
 
       lv |> form(~s([data-role="chat-title"]), %{title: "Middag i helgen"}) |> render_submit()
       assert Tore.Chats.get(scope_fixture(user), latest.id).title == "Middag i helgen"
+    end
+
+    test "a chat last used yesterday isn't reopened: the tray starts a new one", %{
+      conn: conn,
+      user: user
+    } do
+      chat_for(user, "Igår")
+      yesterday = DateTime.add(DateTime.utc_now(), -1, :day)
+
+      Tore.Repo.update_all(
+        Tore.Chats.Chat,
+        [set: [updated_at: yesterday]],
+        Tore.Scope.repo_opts(scope_fixture(user))
+      )
+
+      {:ok, lv, _html} = live(conn, "/capture")
+      refute has_element?(lv, ~s(input[name="title"][value="Igår"]))
+      assert has_element?(lv, "header span", "Ny chatt")
+
+      # It's still in the list.
+      lv |> element(~s(button[data-role="chats"])) |> render_click()
+      assert has_element?(lv, ~s([data-role="chat-list"]), "Igår")
+    end
+
+    test "a new chat starts from the button beside the close", %{conn: conn, user: user} do
+      chat_for(user, "Helgen")
+      {:ok, lv, _html} = live(conn, "/capture?return_to=/plan")
+
+      lv |> element(~s(header button[data-role="tray-new-chat"])) |> render_click()
+      assert_patch(lv, "/capture?new=true&return_to=%2Fplan")
+      refute has_element?(lv, ~s(input[name="title"][value]))
+      # Already a new chat: nothing to start again.
+      refute has_element?(lv, ~s(header button[data-role="tray-new-chat"]))
     end
 
     test "a title pi gives shows at once", %{conn: conn, user: user} do
@@ -210,7 +260,8 @@ defmodule ToreWeb.CaptureLiveTest do
 
       lv |> element(~s([data-role="reply"]), "Gör den vegetarisk") |> render_click()
       assert eventually(fn -> length(prompts(log)) == 2 end)
-      assert List.last(prompts(log))["message"] == "Gör den vegetarisk"
+      # Still untitled (the fake pi doesn't name chats), so pi is asked again.
+      assert String.starts_with?(List.last(prompts(log))["message"], "Gör den vegetarisk")
       refute has_element?(lv, ~s([data-role="reply"]))
     end
   end
@@ -372,7 +423,11 @@ defmodule ToreWeb.CaptureLiveTest do
     System.put_env(
       "FAKE_PI_HISTORY",
       Jason.encode!([
-        %{"role" => "user", "content" => "Pizza på tisdag"},
+        %{
+          "role" => "user",
+          "content" =>
+            "Pizza på tisdag\n\n(This chat has no title yet: once you've answered, give it its card with describe_chat.)"
+        },
         %{
           "role" => "assistant",
           "content" => [%{"type" => "toolCall", "id" => "c1", "name" => "mcp__tore__set_dinner"}]
@@ -391,6 +446,7 @@ defmodule ToreWeb.CaptureLiveTest do
     html = render_async(lv)
 
     assert html =~ "Pizza på tisdag"
+    refute html =~ "describe_chat"
     assert html =~ dinner.done
     assert html =~ "Klart, pizza."
     refute has_element?(lv, "button", "Ångra")
@@ -461,7 +517,7 @@ defmodule ToreWeb.CaptureLiveTest do
     assert eventually(fn -> prompts(log) != [] end)
 
     [%{"message" => message, "images" => [image]}] = prompts(log)
-    assert message == Gettext.dgettext(ToreWeb.Gettext, "default", "1 photo")
+    assert String.starts_with?(message, Gettext.dgettext(ToreWeb.Gettext, "default", "1 photo"))
 
     assert image == %{
              "type" => "image",
@@ -539,7 +595,7 @@ defmodule ToreWeb.CaptureLiveTest do
       assert eventually(fn -> prompts(log) != [] end)
       [chat] = Tore.Chats.list(scope_fixture(user))
       assert hd(pi_records(log))["session"] == Tore.Chats.session(chat)
-      assert [%{"message" => "hej"}] = prompts(log)
+      assert [%{"message" => "hej" <> _card_note}] = prompts(log)
     end
   end
 

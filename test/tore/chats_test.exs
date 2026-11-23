@@ -14,16 +14,31 @@ defmodule Tore.ChatsTest do
     {:ok, _theirs} = Chats.create(scope_fixture(user_fixture()))
 
     assert Enum.map(Chats.list(scope), & &1.id) == [second.id, first.id]
-    assert Chats.current(scope).id == second.id
+    assert Chats.today(scope).id == second.id
 
     # Writing in the first again makes it the latest.
     :ok = Chats.touch(scope, first)
-    assert Chats.current(scope).id == first.id
+    assert Chats.today(scope).id == first.id
     assert Enum.map(Chats.list(scope), & &1.id) == [first.id, second.id]
   end
 
-  test "someone with no chat has no current one", %{scope: scope} do
-    assert Chats.current(scope) == nil
+  test "a chat last used yesterday isn't today's; writing in it again makes it so", %{
+    scope: scope
+  } do
+    {:ok, chat} = Chats.create(scope)
+    yesterday = DateTime.add(DateTime.utc_now(), -1, :day)
+    Repo.update_all(Tore.Chats.Chat, [set: [updated_at: yesterday]], Tore.Scope.repo_opts(scope))
+
+    assert Chats.today(scope) == nil
+    assert [%{id: id}] = Chats.list(scope)
+    assert id == chat.id
+
+    :ok = Chats.touch(scope, chat)
+    assert Chats.today(scope).id == chat.id
+  end
+
+  test "someone with no chat has none today", %{scope: scope} do
+    assert Chats.today(scope) == nil
     assert Chats.list(scope) == []
   end
 

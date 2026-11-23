@@ -14,7 +14,7 @@ defmodule Tore.Chats do
 
   import Ecto.Query
 
-  alias Tore.{Repo, Scope}
+  alias Tore.{Clock, Repo, Scope}
   alias Tore.Chats.Chat
 
   @doc "The person's chats, the latest used first."
@@ -24,9 +24,17 @@ defmodule Tore.Chats do
     |> Repo.all(Scope.repo_opts(scope))
   end
 
-  @doc "The chat the person used last, or nil."
-  @spec current(Scope.t()) :: Chat.t() | nil
-  def current(%Scope{} = scope), do: scope |> list() |> List.first()
+  @doc """
+  The chat the person used last, if that was today in the household's time zone, or nil: a new
+  day starts a new chat, and the old ones stay in the list.
+  """
+  @spec today(Scope.t()) :: Chat.t() | nil
+  def today(%Scope{} = scope) do
+    case list(scope) do
+      [%Chat{updated_at: used} = chat | _] -> if Clock.date_of(used) == Clock.today(), do: chat
+      [] -> nil
+    end
+  end
 
   @doc "One of the person's own chats, or nil."
   @spec get(Scope.t(), integer()) :: Chat.t() | nil

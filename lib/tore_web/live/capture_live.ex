@@ -90,17 +90,18 @@ defmodule ToreWeb.CaptureLive do
 
   defp recipe(_scope, _id), do: nil
 
-  # The chat the tray opens on: a new one when asked, the one asked for, or the one used last.
+  # The chat the tray opens on: a new one when asked, the one asked for, or today's; from a new
+  # day it starts a new one.
   defp chat(_scope, %{"new" => "true"}), do: nil
 
   defp chat(scope, %{"chat" => id}) when is_binary(id) do
     case Integer.parse(id) do
-      {id, ""} -> Chats.get(scope, id) || Chats.current(scope)
-      _ -> Chats.current(scope)
+      {id, ""} -> Chats.get(scope, id) || Chats.today(scope)
+      _ -> Chats.today(scope)
     end
   end
 
-  defp chat(scope, _params), do: Chats.current(scope)
+  defp chat(scope, _params), do: Chats.today(scope)
 
   # A new chat gets its row, and pi its session, with the first message sent in it.
   defp started(%{assigns: %{session: nil, current_scope: scope}} = socket) do
@@ -195,7 +196,11 @@ defmodule ToreWeb.CaptureLive do
       socket = started(socket)
       %{current_scope: scope, session: session, recipe: recipe, messages: before} = socket.assigns
       bubble = user_bubble_for(text, length(images))
-      message = about(recipe, before, if(text == "", do: bubble.text, else: text))
+
+      message =
+        recipe
+        |> about(before, if(text == "", do: bubble.text, else: text))
+        |> ask_for_card(socket.assigns.chat)
 
       socket =
         socket |> assign(input: "", replies: []) |> update(:messages, &(&1 ++ [bubble]))
@@ -233,6 +238,13 @@ defmodule ToreWeb.CaptureLive do
     do: "From the recipe page, about #{recipe.title} (recipe #{recipe.id}): #{message}"
 
   defp about(_recipe, _before, message), do: message
+
+  # pi is told to name a chat while it has none, rather than left to remember to; the bubble and
+  # the history keep only the person's words.
+  @card_note "\n\n(This chat has no title yet: once you've answered, give it its card with describe_chat.)"
+
+  defp ask_for_card(message, %Chats.Chat{title: nil}), do: message <> @card_note
+  defp ask_for_card(message, _chat), do: message
 
   @impl true
   def handle_async(:history, {:ok, {:ok, bubbles}}, socket),
@@ -439,8 +451,11 @@ defmodule ToreWeb.CaptureLive do
   end
 
   # What a recipe's chat told pi it's about (`about/3`) isn't what they said.
-  defp unabout(text),
-    do: String.replace(text, ~r/\AFrom the recipe page, about .*? \(recipe \d+\): /s, "")
+  defp unabout(text) do
+    text
+    |> String.replace(~r/\AFrom the recipe page, about .*? \(recipe \d+\): /s, "")
+    |> String.replace_suffix(@card_note, "")
+  end
 
   # pi names Tore's tools `mcp__tore__<tool>`.
   defp tool(name) when is_binary(name), do: String.replace_prefix(name, "mcp__tore__", "")
@@ -803,13 +818,26 @@ defmodule ToreWeb.CaptureLive do
             {gettext("About %{dish}", dish: @recipe.title)}
           </span>
           <.chat_title :if={!@recipe} chat={@chat} chats={@chats} />
-          <.link
-            navigate={@return_to}
-            aria-label={gettext("Close")}
-            class="press flex size-9 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
-          >
-            <.icon name="ph-x" class="size-5" />
-          </.link>
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              :if={!@recipe && @chat}
+              type="button"
+              phx-click="new_chat"
+              data-role="tray-new-chat"
+              aria-label={gettext("New chat")}
+              title={gettext("New chat")}
+              class="press flex size-9 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+            >
+              <.icon name="ph-note-pencil" class="size-5" />
+            </button>
+            <.link
+              navigate={@return_to}
+              aria-label={gettext("Close")}
+              class="press flex size-9 items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-[color:var(--accent)]"
+            >
+              <.icon name="ph-x" class="size-5" />
+            </.link>
+          </div>
         </header>
 
         <script :type={Phoenix.LiveView.ColocatedHook} name=".ScrollBottom">

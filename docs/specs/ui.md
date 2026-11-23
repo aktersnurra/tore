@@ -672,8 +672,11 @@ and Shift+Enter is a new line, with ↵ on its right; while pi works, ↵ become
 it and keeps what it had written. The camera sits under the box. With nothing said yet, Tore's
 mark and "What do you need?" sit in the middle.
 
-The chat's title sits top left: pi names it after its first answer, and tapping it lets the person
-change it (Enter or leaving the field saves). The caret beside it opens their chats, latest used
+The tray opens on today's chat, the one last used if that was today; from a new day it starts a
+new one, and the old ones stay in the list. A new-chat button (a pencil) sits beside the close.
+The chat's title sits top left: pi names it after its first answer (while a chat has no title,
+Tore asks pi for one with each message, and the person's bubble shows only their words), and
+tapping it lets the person change it (Enter or leaving the field saves). The caret beside it opens their chats, latest used
 first, each with pi's one-line summary under its title, with New chat at the top and a search
 field (focused) that narrows the list by title, tags and summary. Asking in a chat for an earlier
 one ("laxgrejen från förra veckan") has pi find it and open it; the tray goes there. A new chat is empty until something is sent in it. A recipe's
