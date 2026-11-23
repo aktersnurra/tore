@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" width="144" height="144" class="stage-1 idle" role="img" aria-labelledby="chef-title">
+  <title id="chef-title">Tore’s before-dinner checklist</title>
+  <style>
+    svg { --skin:#efb286; --curl:#574039; --ink:#49352f; --linen:#fff0d8; --shade:#dfd0b6; --leaf:#46765b; --cuff:#f1ddbc; --sleeve:#fff0d8 }
+    .stage { display:none }
+    svg:not([data-stage]).stage-1 #stage-1, svg[data-stage="1"] #stage-1,
+    svg:not([data-stage]).stage-2 #stage-2, svg[data-stage="2"] #stage-2,
+    svg:not([data-stage]).stage-3 #stage-3, svg[data-stage="3"] #stage-3,
+    svg:not([data-stage]).stage-4 #stage-4, svg[data-stage="4"] #stage-4,
+    svg:not([data-stage]).stage-5 #stage-5, svg[data-stage="5"] #stage-5 { display:inline }
+    .raised,.glint,.oh,.lids { opacity:0 }
+    .hop,.breath { transform-origin:72px 133px }
+    .eyes,.hat,.raised,.glint { transform-box:fill-box; transform-origin:center }
+    .raised { transform-origin:center bottom }
+    .head { transform-origin:0px 22px }
+    .idle .breath { animation:breathe 3.6s ease-in-out infinite }
+    .idle .eyes { animation:blink 4.9s ease-in-out infinite }
+    .tapped .hop { animation:hop 600ms cubic-bezier(.32,.02,.26,1) }
+    .tapped .oh { animation:show 600ms ease-in-out }
+    .tapped .smile,.cheer .working { animation:hide var(--reaction) ease-in-out }
+    .tapped { --reaction:600ms } .cheer { --reaction:1200ms }
+    .cheer .raised { animation:lift 1200ms cubic-bezier(.22,.75,.24,1) }
+    .cheer .hat { animation:toss 1200ms ease-in-out }
+    .cheer .glint { animation:twinkle 1200ms ease-in-out }
+    .look .eyes { animation:glance 1600ms ease-in-out }
+    .look .head { animation:turn 1600ms ease-in-out }
+    @keyframes turn { 19%,37% { transform:translateX(1.5px) rotate(3deg) } 64%,76% { transform:translateX(-1px) rotate(-2deg) } }
+    @keyframes glance { 12%,38% { transform:translate(3.6px,.3px) } 57%,79% { transform:translate(-3px,-.5px) } }
+    @keyframes breathe { 50% { transform:scale(.993,1.012) } }
+    @keyframes blink { 0%,55%,59%,100% { transform:scaleY(1) } 57% { transform:scaleY(.12) } }
+    @keyframes hop { 19% { transform:scale(1.06,.94) } 48% { transform:translateY(-5.5px) scale(.97,1.015) } 73% { transform:scale(1.035,.96) } 89% { transform:scale(.99,1.012) } }
+    @keyframes show { 0%,100% { opacity:0 } 16%,80% { opacity:1 } }
+    @keyframes hide { 0%,100% { opacity:1 } 16%,80% { opacity:0 } }
+    @keyframes lift { 0%,100% { opacity:0; transform:translateY(6px) scaleX(.92) } 16%,80% { opacity:1 } 31% { transform:translateY(-2px) scaleX(1.02) } 50%,80% { transform:none } }
+    @keyframes toss { 15% { transform:translateY(1px) } 36% { transform:translateY(-5px) rotate(-4deg) } 58% { transform:rotate(2deg) } 73% { transform:translateY(-1px) } }
+    @keyframes twinkle { 0%,18%,85%,100% { opacity:0; transform:scale(.5) } 43%,65% { opacity:1; transform:scale(1) } }
+    @keyframes fade { 45% { opacity:.64 } }
+    .idle:not(.look):not(.cheer) .attention { animation:read-lines 8.4s ease-in-out infinite }
+    @keyframes read-lines { 0%,47%,82%,100% { transform:none } 54%,62% { transform:translate(var(--scan-x),1.8px) } 70%,75% { transform:translate(var(--scan-x),3.3px) } }
+    .scene { --scan-x:2.5px }
+    svg[data-stage="1"] .working,svg.stage-1:not([data-stage]) .working { transform:translate(2px,7px) scale(.96); transform-origin:72px 102px }
+    svg[data-stage="2"] .working,svg.stage-2:not([data-stage]) .working { transform:translate(1px,3px) }
+    .idle .finger { animation:follow-line 8.4s ease-in-out infinite }
+    .idle:not(.look):not(.cheer) .head { animation:read-down 8.4s ease-in-out infinite }
+    @keyframes follow-line { 0%,46%,83%,100% { transform:none } 55%,62% { transform:translate(2px,.5px) } 70%,75% { transform:translate(2px,5px) } }
+    @keyframes read-down { 0%,47%,82%,100% { transform:none } 55%,75% { transform:translate(1px,2px) rotate(3deg) } }
+    @media (prefers-reduced-motion:reduce) {
+      .scene * { animation:none !important }
+      .tapped .scene { animation:fade 600ms ease-in-out }
+      .cheer .scene { animation:fade 1200ms ease-in-out }
+      .look .scene { animation:fade 1600ms ease-in-out }
+    }
+  </style>
+  <defs>
+<g id="face">
+      <path fill="var(--curl)" d="M-26 5C-31-6-28-21-19-26C-7-34 15-31 23-21Q32-12 26 6Z" />
+      <ellipse cx="-26" cy="3" rx="5.8" ry="7" fill="var(--skin)" /><ellipse cx="26" cy="3" rx="5.8" ry="7" fill="var(--skin)" />
+      <path fill="var(--skin)" d="M-25-10C-25-23-14-25 0-25S24-21 25-10L27 5C29 18 17 25 1 25C-15 25-28 20-27 8Z" />
+      <path fill="var(--curl)" d="M-26-2C-27-18-25-27-11-29C0-32 13-28 19-23C15-16 7-12 0-13Q4-16 4-20C-2-14-8-11-15-12Q-10-16-10-19Q-21-16-22-5Q-23-1-26-2Z" />
+      <g fill="#dc8c70"><ellipse cx="-18" cy="7.8" rx="6" ry="3.6" /><ellipse cx="18.5" cy="7" rx="5.5" ry="3.3" /></g>
+      <g fill="#845647"><circle cx="-20" cy="7" r="1" /><circle cx="-16.5" cy="8.6" r=".9" /></g>
+      <path d="M-3.8 3Q-.5-.3 3 2.3Q6.5 6.4 1.1 7.1Q-4.3 7.8-3.8 3Z" fill="#d88c68" />
+    </g>
+<g id="eye-pair" fill="var(--ink)"><ellipse cx="-11.4" cy="-.2" rx="2.6" ry="3.5" /><ellipse cx="11.4" cy="-.2" rx="2.6" ry="3.5" /></g>
+<path id="grin" fill="var(--ink)" d="M-7.6 12.1Q-1 14.6 6.8 10.7C5.8 17.6-3.5 20.2-7.6 12.1Z" />
+<ellipse id="gasp" fill="var(--ink)" cx="1" cy="15" rx="3.4" ry="4.2" />
+<g id="clogs"><path fill="#56655b" d="M47 117H96L92 132H78L73 124L69 132H52Z" /><path fill="var(--curl)" d="M54 127Q61 125 68 129L68 133Q67 136 62 136H49Q44 135 46 132Q48 128 54 127ZM80 128Q88 125 94 129Q102 130 101 134Q100 136 95 136H80Q76 135 77 132Z" /></g>
+<g id="necker"><path fill="#b8403a" d="M49 83Q68 89 93 81L75 95Q71 97 68 94Z" /><path fill="#cf6651" d="M72 92Q80 87 86 91Q84 98 77 99Z" /></g>
+<g id="hands-up">
+      <g id="wave"><path fill="var(--sleeve)" d="M55 88Q48 85 42 80L33 85Q36 100 49 106Q56 107 61 99Z" /><path fill="var(--cuff)" d="M32 83L41 77Q44 77 46 82L35 90Q32 90 32 83Z" /><path fill="var(--skin)" d="M33 85Q24 81 24 73Q24 68 28 70L32 74Q29 66 33 66Q36 65 39 73Q42 69 44 72Q46 76 41 81Z" /></g>
+      <use href="#wave" transform="translate(144) scale(-1 1)" />
+    </g>
+<g id="sparks" fill="#d5a04c"><path d="M26 46Q27 52 32 53Q27 54 26 61Q25 55 20 53Q25 51 26 46Z" /><path d="M115 33Q116 41 122 42Q116 44 115 52Q113 44 108 42Q114 40 115 33Z" /></g>
+<g id="coat"><path fill="var(--shade)" d="M72 77C92 77 104 91 106 115Q108 125 98 127Q73 132 46 127Q39 125 39 119C40 97 49 78 72 77Z" /><path fill="var(--linen)" d="M71 78C92 78 101 94 102 115Q104 122 96 124Q71 129 44 123Q40 122 40 117C43 94 50 78 71 78Z" /><path d="M76 94Q80 108 79 123" stroke="#d7c6ab" fill="none" stroke-width="1.5" /><g fill="#817261"><circle cx="73" cy="104" r="1.9" /><circle cx="73.5" cy="114" r="1.9" /></g></g>
+<path id="sprout" fill="var(--stitch,#bfcba5)" d="M0 1Q-5 1-6-5Q-1-5 1-1Q1-7 6-9Q8-2 2 1L1 4Z" />
+<g id="toque"><path fill="#f8ead4" stroke="#cebfa8" stroke-width="1.6" d="M-21 0L-23-14C-33-17-31-32-21-34Q-16-36-11-34C-8-45 8-46 13-36C25-41 34-29 28-20Q26-16 21-14L20 0Q1 5-21 0Z" /><path fill="#e2cfb1" d="M-21-7Q0-11 21-7L20 0Q0 3-21 0Z" /><path d="M-16-25Q-12-21-12-14M12-27Q9-22 10-15" stroke="#d9c8b0" fill="none" stroke-width="1.7" stroke-linecap="round" /></g>
+
+    <g id="ear-pencil"><path fill="#d4a44f" d="M18-2L33-21Q35-23 37-21L38-19L22 0L16 3Z"/><path fill="#725847" d="M18-2L22 0L16 3Z"/><path fill="#d68b79" d="M32-20L35-24Q37-25 39-22L37-18Z"/></g>
+    <g id="list-sleeves"><path fill="#e4d3b8" d="M50 90Q40 86 33 101Q31 107 39 110Q46 112 58 101ZM96 87Q107 88 113 100Q115 107 105 110L94 104Z"/></g>
+    <g id="dinner-list" transform="rotate(7 80 102)"><path fill="#ceb68c" d="M61 82L90 80L100 86L101 121Q86 126 60 124Z"/><path fill="#fff0d2" d="M59 80L89 78L98 85L99 118Q84 122 58 122Q62 109 59 80Z"/><path fill="#dec9a4" d="M89 78L98 85L89 87Z"/><rect x="65" y="85" width="18" height="3.7" rx="1.8" fill="#c68265"/><path d="M65 96L68 98L72 92M65 105L68 107L72 101" fill="none" stroke="#477c59" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M77 95L90 94M77 104L88 103M76 113L85 112" fill="none" stroke="#9e967b" stroke-width="2" stroke-linecap="round"/><rect x="65" y="111" width="5" height="5" rx="1.2" fill="#d6c4a3"/></g>
+    <path id="list-grip" fill="var(--skin)" d="M98 101Q100 96 104 98Q108 96 110 100Q114 105 108 110Q103 114 98 111Q94 108 98 101Z"/>
+    <path id="tracing-hand" fill="var(--skin)" d="M41 103Q46 99 52 99L64 94Q68 93 69 96Q70 98 66 100L60 104Q66 104 64 108Q62 113 52 113L44 110Q39 109 41 103Z"/>
+
+  </defs>
+  <g class="scene">
+    
+    <g class="retreat"><g class="hop"><g class="breath">
+      <g transform="translate(0 0)">
+<g id="stage-1" class="stage" transform="translate(8.6 15.5) scale(.88)" style="--sleeve:#adc3ae;--cuff:#dde3c9">
+      <use href="#clogs" />
+      <path fill="#adc3ae" d="M48 85Q69 75 92 84Q104 96 102 114H41Q38 94 48 85Z" />
+      <path fill="#507d65" d="M50 83L58 81L60 93Q68 97 83 91L86 81L94 84L90 97Q103 107 105 122Q106 127 101 128Q71 134 40 127Q38 120 45 102L52 93Z" />
+      <path fill="#79a08a" d="M60 107Q70 110 81 106L81 114Q80 121 72 121Q61 121 60 114Z" />
+      <use href="#sprout" transform="translate(71 116) scale(.72)" />
+      <g transform="translate(71 67)"><g class="head"><use href="#ear-pencil" /><use href="#face" /><g class="attention"><use class="eyes" href="#eye-pair" /></g><use class="smile" href="#grin" /><use class="oh" href="#gasp" />
+        <path class="hat" fill="var(--curl)" d="M-18-22Q-18-33-9-34Q-3-35-1-31Q-7-31-8-26Q3-36 10-32Q9-27 2-24Z" /></g></g>
+      <use class="raised" href="#hands-up" /><use class="glint" href="#sparks" />
+    </g>
+<g id="stage-2" class="stage" transform="translate(4.3 8.2) scale(.94)" style="--sleeve:#efd8ad">
+      <use href="#clogs" /><path fill="#efd8ad" d="M49 83Q72 76 93 84Q107 96 100 120H41Q38 97 49 83Z" />
+      <path fill="#59816b" d="M54 84L61 83L63 94Q74 96 83 92L84 82L91 84L89 97L103 121Q107 127 99 128Q70 132 42 127Q39 126 42 117L54 93Z" />
+      <path fill="#83a18a" d="M46 112Q73 119 99 111L101 116Q73 123 44 117Z" />
+      <g transform="translate(71 64)"><g class="head"><use href="#ear-pencil" /><use href="#face" /><g class="attention"><use class="eyes" href="#eye-pair" /></g><use class="smile" href="#grin" /><use class="oh" href="#gasp" />
+        <g class="hat"><path fill="#f8e9cd" stroke="#c8b89c" stroke-width="1.6" stroke-linejoin="round" d="M-24-18L-26-38Q-24-40-21-39L3-34L23-39L24-23Q3-15-24-18Z" /><path fill="#ddcaab" d="M-24-18L-15-26L23-39L24-23Q1-16-24-18Z" /><path fill="#faf0dd" d="M-24-18L-25-25Q-1-25 23-36L23-27Q3-18-24-18Z" /></g></g></g>
+      <use class="raised" href="#hands-up" /><use class="glint" href="#sparks" />
+    </g>
+<g id="stage-3" class="stage">
+      <use href="#clogs" /><use href="#coat" /><use href="#necker" />
+      <g transform="translate(71 60)"><g class="head"><use href="#ear-pencil" /><use href="#face" /><g class="attention"><use class="eyes" href="#eye-pair" /></g><use class="smile" href="#grin" /><use class="oh" href="#gasp" />
+        <g class="hat"><path fill="#fff0db" stroke="#cdbda3" stroke-width="1.6" d="M-24-17Q-31-33-19-37Q-2-43 18-40Q29-38 25-25L22-20Q0-14-24-17Z" /><path fill="#dfcfb4" d="M-25-23Q-4-20 24-28L22-20Q-1-14-24-17Z" /></g></g></g>
+      <use class="raised" href="#hands-up" /><use class="glint" href="#sparks" />
+    </g>
+<g id="stage-4" class="stage">
+      <use href="#clogs" /><use href="#coat" transform="translate(-4.3 -3.8) scale(1.06 1.03)" /><use href="#necker" />
+      <g transform="translate(68 59)"><g class="head"><use href="#ear-pencil" /><use href="#face" /><g class="attention"><use class="eyes" href="#eye-pair" /></g><use class="smile" href="#grin" /><use class="oh" href="#gasp" /><g transform="translate(0 -19) rotate(-5) scale(.93 .64)"><use class="hat" href="#toque" /></g></g></g>
+      <use class="raised" href="#hands-up" /><use class="glint" href="#sparks" />
+    </g>
+<g id="stage-5" class="stage">
+      <use href="#clogs" transform="translate(-6.5 0) scale(1.09 1)" />
+      <path fill="var(--shade)" d="M70 76C95 74 110 88 115 110Q122 128 104 130Q69 136 38 129Q24 127 31 106Q39 79 70 76Z" /><path fill="var(--linen)" d="M69 77Q102 73 111 103Q122 126 99 127Q69 131 36 125Q28 123 33 106Q42 81 69 77Z" />
+      <path d="M76 90Q87 106 84 127" fill="none" stroke="#ddcaaa" stroke-width="1.6" /><g fill="#7f705e"><circle cx="77" cy="122" r="2" /><circle cx="91" cy="121" r="2" /></g><use href="#necker" transform="translate(-10 -4) scale(1.14 1.04)" />
+      <g transform="translate(72 62) scale(1.12 1.04)"><g class="head"><use href="#ear-pencil" /><use href="#face" /><g class="attention"><use class="eyes" href="#eye-pair" />
+        </g><g class="smile"><path fill="var(--ink)" d="M-12 13Q1 16 12 12Q11 22 2 23Q-8 23-12 13Z" /><path fill="#fff1d7" d="M-9 14Q1 17 10 13Q7 19 0 18Q-6 18-9 14Z" /><path fill="#df947c" d="M-3 21Q2 18 8 19Q4 24-3 21Z" /></g><use class="oh" href="#gasp" />
+        <path fill="var(--curl)" d="M0 7C-4 3-9 4-13 7Q-18 10-22 5Q-21 14-13 15Q-5 16 0 10Q7 15 14 13Q21 11 22 3Q17 9 12 6Q5 2 0 7Z" />
+        <path d="M-16-6Q-12-10-8-7M8-8Q12-11 15-8" fill="none" stroke="var(--curl)" stroke-width="1.7" stroke-linecap="round" />
+        <g transform="translate(0 -14) rotate(-5) scale(1 .8)"><g class="hat"><path fill="#fff0d8" stroke="#cbbb9f" stroke-width="1.5" d="M-20 1L-23-20C-31-22-32-33-24-37Q-19-40-13-37C-10-47 5-47 11-39C23-45 34-33 27-23L22-19L20 1Q0 5-20 1Z" /><path d="M-15-29Q-12-21-12-12M13-31Q10-22 10-13" fill="none" stroke="#d6c5ac" stroke-width="1.6" stroke-linecap="round" /><path fill="#e6d3b4" d="M-21-7Q0-10 21-6L20 1Q1 5-20 1Z" /><use href="#sprout" transform="translate(13 -2) scale(.68)" style="--stitch:#63856a" /></g></g></g></g>
+      <use class="raised" href="#hands-up" transform="translate(-8.6 0) scale(1.12 1)" /><use class="glint" href="#sparks" />
+    </g>
+      </g>
+      <g class="working"><use href="#list-sleeves"/><g transform="translate(4 9) scale(.98 .96)"><use href="#dinner-list"/><use href="#list-grip"/><use href="#tracing-hand" class="finger"/></g></g>
+    </g></g></g>
+    
+  </g>
+</svg>
