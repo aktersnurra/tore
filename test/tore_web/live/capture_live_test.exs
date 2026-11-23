@@ -380,6 +380,55 @@ defmodule ToreWeb.CaptureLiveTest do
     assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
   end
 
+  describe "Undo that can't go through" do
+    # A receipt in the conversation, its change made through Tore as pi would make it.
+    setup %{user: user} do
+      chat_for(user)
+      dinner = set_dinner()
+
+      System.put_env(
+        "FAKE_PI_HISTORY",
+        Jason.encode!([
+          %{
+            "role" => "toolResult",
+            "toolName" => "mcp__tore__set_dinner",
+            "isError" => false,
+            "content" => [%{"type" => "text", "text" => dinner.text}]
+          }
+        ])
+      )
+
+      %{dinner: dinner}
+    end
+
+    test "already undone elsewhere, it says so", %{conn: conn, dinner: dinner} do
+      {:ok, lv, _html} = live(conn, "/capture")
+      render_async(lv)
+      {:ok, _} = Tore.Harness.Runs.revert(home_scope(), dinner.run_id)
+
+      lv |> element("button", "Ångra") |> render_click()
+
+      refute has_element?(lv, "button", "Ångra")
+      assert render(lv) =~ Gettext.dgettext(ToreWeb.Gettext, "default", "Reverted")
+    end
+
+    test "a change that's gone, it says why instead of doing nothing", %{
+      conn: conn,
+      dinner: dinner
+    } do
+      {:ok, lv, _html} = live(conn, "/capture")
+      render_async(lv)
+
+      run = Tore.Harness.Runs.get(home_scope(), dinner.run_id)
+      Tore.Repo.delete!(run, Tore.Scope.repo_opts(home_scope()))
+
+      html = lv |> element("button", "Ångra") |> render_click()
+
+      assert html =~ "Den ändringen finns inte längre"
+      assert has_element?(lv, "button", "Ångra")
+    end
+  end
+
   test "undone by asking pi, the change's receipt says so", %{conn: conn, user: user} do
     chat_for(user)
     dinner = set_dinner()

@@ -3457,3 +3457,18 @@ msgstr "1 fil"
 #, elixir-autogen, elixir-format
 msgid "%{n} files"
 msgstr "%{n} filer"
+
+#: lib/tore_web/live/capture_live.ex:453
+#, elixir-autogen, elixir-format
+msgid "That change no longer exists, so there's nothing to undo."
+msgstr "Den ändringen finns inte längre, så det finns inget att ångra."
+
+#: lib/tore_web/live/capture_live.ex:455
+#, elixir-autogen, elixir-format
+msgid "That change can't be undone."
+msgstr "Den ändringen går inte att ångra."
+
+#: lib/tore_web/live/capture_live.ex:456
+#, elixir-autogen, elixir-format
+msgid "That couldn't be undone. Please try again."
+msgstr "Det gick inte att ångra. Försök igen."

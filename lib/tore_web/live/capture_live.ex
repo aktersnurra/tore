@@ -18,6 +18,8 @@ defmodule ToreWeb.CaptureLive do
   """
   use ToreWeb, :live_view
 
+  require Logger
+
   alias Tore.{Chats, Home, Pi}
   alias Tore.Harness.Runs
 
@@ -199,8 +201,16 @@ defmodule ToreWeb.CaptureLive do
 
   def handle_event("undo_run", %{"sid" => sid}, socket) do
     case Runs.revert(socket.assigns.current_scope, sid) do
-      {:ok, _run} -> {:noreply, update(socket, :messages, &reverted(&1, sid))}
-      {:error, _} -> {:noreply, socket}
+      {:ok, _run} ->
+        {:noreply, update(socket, :messages, &reverted(&1, sid))}
+
+      # Undone already, by asking pi or on another screen.
+      {:error, {:invalid_transition, :reverted, _action}} ->
+        {:noreply, update(socket, :messages, &reverted(&1, sid))}
+
+      {:error, reason} ->
+        Logger.warning("Undo of #{sid} in the chat failed: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, undo_failed(reason))}
     end
   end
 
@@ -438,6 +448,12 @@ defmodule ToreWeb.CaptureLive do
   defp pi_event(_event, socket), do: socket
 
   defp append(socket, bubble), do: update(socket, :messages, &(&1 ++ [bubble]))
+
+  defp undo_failed(:not_found),
+    do: gettext("That change no longer exists, so there's nothing to undo.")
+
+  defp undo_failed(:irreversible), do: gettext("That change can't be undone.")
+  defp undo_failed(_reason), do: gettext("That couldn't be undone. Please try again.")
 
   defp reverted(messages, id) do
     Enum.map(messages, fn
