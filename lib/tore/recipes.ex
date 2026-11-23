@@ -85,6 +85,16 @@ defmodule Tore.Recipes do
     end
   end
 
+  @doc """
+  The recipe's picture key (nil without one), in one small query: what serving its picture needs,
+  for every tile on a page at once, on the one connection. Raises `Ecto.NoResultsError` for a
+  recipe that isn't the household's, like `get!/2`.
+  """
+  @spec image_path!(Scope.t(), term()) :: String.t() | nil
+  def image_path!(%Scope{} = scope, id) do
+    Repo.one!(from(r in Recipe, where: r.id == ^id, select: r.image_path), Scope.repo_opts(scope))
+  end
+
   @doc "The recipe with its ingredients, and a meal's parts with theirs (`with_parts/2`)."
   @spec get!(Scope.t(), term()) :: Recipe.t()
   def get!(%Scope{} = scope, id) do

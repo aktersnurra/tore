@@ -15,6 +15,20 @@ defmodule Tore.ImageResize.Vips do
 
   @timeout_s 20
 
+  # Looked up once per boot: a server that gets vips installed picks it up on restart.
+  @impl true
+  def available? do
+    case :persistent_term.get({__MODULE__, :available?}, nil) do
+      nil ->
+        available? = System.find_executable("vipsthumbnail") != nil
+        :persistent_term.put({__MODULE__, :available?}, available?)
+        available?
+
+      available? ->
+        available?
+    end
+  end
+
   @impl true
   def thumbnail(image, width) when is_binary(image) and is_integer(width) and width > 0 do
     with {:ok, format} <- photo_format(image),

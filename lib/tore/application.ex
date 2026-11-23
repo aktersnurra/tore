@@ -25,7 +25,9 @@ defmodule Tore.Application do
         Tore.Scheduler,
         {Task.Supervisor, name: Tore.TaskSupervisor},
         # Recipe pictures' small widths, a few at a time (Tore.Recipes.Pictures).
-        Tore.Recipes.Pictures.Maker
+        Tore.Recipes.Pictures.Maker,
+        # Pictures from before widths were made get theirs, once, in the background.
+        Tore.Recipes.Pictures
       ] ++
         oidc_children() ++
         [

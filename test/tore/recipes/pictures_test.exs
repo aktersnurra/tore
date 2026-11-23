@@ -31,6 +31,26 @@ defmodule Tore.Recipes.PicturesTest do
     assert {:error, :not_found} = Mock.get_object(Buckets.recipes(), @key <> ".w720.webp")
   end
 
+  test "a width that takes long is the original now, and small on the next look" do
+    {:ok, _} = Mock.put_object(Buckets.recipes(), @key, "slow original")
+
+    {us, result} = :timer.tc(fn -> Pictures.get(@key, 720) end)
+    assert {:ok, "slow original", :original} = result
+    assert us < 1_900_000
+
+    Process.sleep(700)
+    assert {:ok, "RIFF" <> _, :resized} = Pictures.get(@key, 720)
+  end
+
+  test "without vips, the original straight away, and nothing made" do
+    Application.put_env(:tore, :stub_image_resize_available?, false)
+    on_exit(fn -> Application.delete_env(:tore, :stub_image_resize_available?) end)
+
+    assert {:ok, "original", :original} = Pictures.get(@key, 720)
+    :ok = Pictures.warm(@key)
+    assert {:error, :not_found} = Mock.get_object(Buckets.recipes(), @key <> ".w720.webp")
+  end
+
   test "a missing picture is an error" do
     assert {:error, :not_found} = Pictures.get("nope.jpg", 720)
   end

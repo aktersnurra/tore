@@ -8,17 +8,16 @@ defmodule ToreWeb.RecipeImageController do
 
   # A versioned URL names one picture forever (see `ToreWeb.RecipeImage`): keep it a year and
   # never ask again. An unversioned or stale one is checked each time, which the ETag answers
-  # with a 304 without touching storage. The original sent in place of a width that couldn't be
-  # made is kept an hour, so the small one is picked up once it can be.
+  # with a 304 without touching storage. The original sent in place of a width that isn't made
+  # yet is kept five minutes, so the small one is picked up once it's there.
   @forever "private, max-age=31536000, immutable"
   @revalidate "private, no-cache"
-  @for_now "private, max-age=3600"
+  @for_now "private, max-age=300"
 
   def show(conn, %{"id" => id} = params) do
-    recipe = Recipes.get!(conn.assigns.current_scope, id)
     width = Pictures.width(params["w"])
 
-    with key when is_binary(key) <- recipe.image_path do
+    with key when is_binary(key) <- Recipes.image_path!(conn.assigns.current_scope, id) do
       version = RecipeImage.version(key)
       etag = ~s("#{version}#{width && "-#{width}"}")
       current? = params["v"] == version

@@ -19,8 +19,10 @@ defmodule Tore.Recipes.Pictures do
 
   @widths [256, 720, 1440]
 
-  # How long a look waits for its width before it's sent the original instead.
-  @wait_ms 15_000
+  # How long a look waits for its width before it's sent the original instead. Short: every tile
+  # on a page waits at once, and a picture a little big now beats a page that fills in slowly.
+  # The width is still made, for the next look.
+  @wait_ms 1_500
 
   @spec widths() :: [pos_integer()]
   def widths, do: @widths
@@ -49,10 +51,12 @@ defmodule Tore.Recipes.Pictures do
 
   def get(key, width) when width in @widths do
     with {:error, _} <- kept(key, width),
+         true <- Tore.ImageResize.available?() || :original,
          {:error, _} <- make(key, width, nil, @wait_ms) do
       original(key)
     else
       {:ok, small} -> {:ok, small, :resized}
+      :original -> original(key)
     end
   end
 
@@ -62,8 +66,10 @@ defmodule Tore.Recipes.Pictures do
   """
   @spec warm(String.t(), binary() | nil) :: :ok
   def warm(key, image \\ nil) do
-    for width <- @widths, match?({:error, _}, kept(key, width)) do
-      make(key, width, image, :infinity)
+    if Tore.ImageResize.available?() do
+      for width <- @widths, match?({:error, _}, kept(key, width)) do
+        make(key, width, image, :infinity)
+      end
     end
 
     :ok
@@ -71,7 +77,7 @@ defmodule Tore.Recipes.Pictures do
 
   @doc """
   Every household's pictures at every width: for the pictures stored before widths were made.
-  Run once on the server: `bin/tore rpc "Tore.Recipes.Pictures.warm_all()"`.
+  Runs by itself shortly after boot (`warm_all_later/0`); widths already kept are skipped.
   """
   @spec warm_all() :: :ok
   def warm_all do
@@ -85,6 +91,26 @@ defmodule Tore.Recipes.Pictures do
     end
 
     :ok
+  end
+
+  @doc """
+  `warm_all/0` in the background, a little after boot, so a deploy needs no manual step and
+  pictures from before are small by their next look. Off with `:warm_pictures_at_boot` false.
+  """
+  def child_spec(_opts) do
+    %{id: __MODULE__, start: {__MODULE__, :warm_all_later, []}, restart: :temporary}
+  end
+
+  @spec warm_all_later() :: {:ok, pid()} | :ignore
+  def warm_all_later do
+    if Application.get_env(:tore, :warm_pictures_at_boot, true) and Tore.ImageResize.available?() do
+      Task.start_link(fn ->
+        Process.sleep(:timer.seconds(10))
+        warm_all()
+      end)
+    else
+      :ignore
+    end
   end
 
   defp make(key, width, image, wait) do
