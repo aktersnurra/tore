@@ -18,6 +18,24 @@ defmodule Tore.Pantry.PantryItem do
   @beliefs ~w[confirmed probable uncertain missing]
   @expires_sources ~w[label estimate manual]
 
+  schema "pantry_items" do
+    field :name, :string
+    field :quantity, :decimal
+    field :unit, :string
+    field :category, :string
+    field :added_at, :date
+    field :expires_at, :date
+    field :expires_source, :string
+    field :provenance, :string, default: "manual"
+    field :belief, :string, default: "confirmed"
+    field :last_seen_at, :utc_datetime
+    field :household_id, :integer
+    # Its basic's rhythm, when it's eaten between dinners; loaded with the row, never stored here.
+    field :half_life_days, :integer, virtual: true
+    belongs_to :ingredient, Tore.Recipes.Ingredient
+    timestamps()
+  end
+
   def categories, do: @categories
 
   def category_values, do: Enum.map(@categories, &Atom.to_string/1)
@@ -76,24 +94,6 @@ defmodule Tore.Pantry.PantryItem do
     do: Date.after?(today, expires_at)
 
   def past_date?(%__MODULE__{}, %Date{}), do: false
-
-  schema "pantry_items" do
-    field :name, :string
-    field :quantity, :decimal
-    field :unit, :string
-    field :category, :string
-    field :added_at, :date
-    field :expires_at, :date
-    field :expires_source, :string
-    field :provenance, :string, default: "manual"
-    field :belief, :string, default: "confirmed"
-    field :last_seen_at, :utc_datetime
-    field :household_id, :integer
-    # Its basic's rhythm, when it's eaten between dinners; loaded with the row, never stored here.
-    field :half_life_days, :integer, virtual: true
-    belongs_to :ingredient, Tore.Recipes.Ingredient
-    timestamps()
-  end
 
   def changeset(item, attrs) do
     item
