@@ -29,6 +29,35 @@ defmodule Tore.Pantry.ExpiryTest do
     assert Expiry.next(dated("label"), @tick, 7, @today) == {~D[2026-11-12], "estimate"}
   end
 
+  # Another pack on top of one still at home: the older pack decides when it has to be used, so
+  # the earlier date stays (two chicken packs, the first with two days left).
+  describe "buying while some is still at home" do
+    defp left(source, quantity \\ Decimal.new(820)),
+      do: source |> dated() |> Map.merge(%{quantity: quantity, belief: "confirmed"})
+
+    test "keeps the earlier date, and where it came from" do
+      assert Expiry.next(left("label"), @tick, 7, @today) == {~D[2026-11-07], "label"}
+      assert Expiry.next(left("manual"), @tick, 7, @today) == {~D[2026-11-07], "manual"}
+    end
+
+    test "takes the new pack's date when it's the earlier one" do
+      later = %{left("label") | expires_at: ~D[2026-12-01]}
+      assert Expiry.next(later, @tick, 7, @today) == {~D[2026-11-12], "estimate"}
+    end
+
+    test "keeps the date it has when the new pack's can't be guessed" do
+      assert Expiry.next(left("label"), @tick, nil, @today) == {~D[2026-11-07], "label"}
+    end
+
+    test "starts over when what was there is used up or gone" do
+      assert Expiry.next(left("label", Decimal.new(0)), @tick, 7, @today) ==
+               {~D[2026-11-12], "estimate"}
+
+      gone = %{left("label") | belief: "missing"}
+      assert Expiry.next(gone, @tick, 7, @today) == {~D[2026-11-12], "estimate"}
+    end
+  end
+
   test "buying with no known shelf life clears the old date" do
     assert Expiry.next(dated("estimate"), @tick, nil, @today) == {nil, nil}
   end

@@ -4,7 +4,8 @@ defmodule Tore.Pantry.Expiry do
 
   A printed date beats a guess, and a date the household set beats both until
   the item is bought again. Seeing an item again doesn't make it fresher, so a
-  photo never extends a date. Buying it starts over.
+  photo never extends a date. Buying it starts over, unless some is still at
+  home: then the older pack decides, and the earlier date stays.
   """
 
   @max_shelf_life_days 3650
@@ -25,7 +26,7 @@ defmodule Tore.Pantry.Expiry do
           {Date.t() | nil, source()}
   def next(current, observation, shelf_life_days, today) do
     if bought?(observation) do
-      estimate(shelf_life_days, today)
+      current |> some_left?() |> bought(current, estimate(shelf_life_days, today))
     else
       next_from_photo(current, observation[:expires_on], shelf_life_days, today)
     end
@@ -45,6 +46,18 @@ defmodule Tore.Pantry.Expiry do
   defp next_from_photo(_current, nil, days, today), do: estimate(days, today)
 
   defp keep(current), do: {current.expires_at, current.expires_source}
+
+  defp bought(true, %{expires_at: %Date{} = at} = current, {new_at, _source} = new) do
+    if new_at && Date.before?(new_at, at), do: new, else: keep(current)
+  end
+
+  defp bought(_some_left, _current, new), do: new
+
+  # A row still holding some, not marked gone.
+  defp some_left?(%{quantity: %Decimal{} = quantity} = current),
+    do: Decimal.gt?(quantity, 0) and Map.get(current, :belief) != "missing"
+
+  defp some_left?(_current), do: false
 
   defp estimate(nil, _today), do: {nil, nil}
   defp estimate(days, today), do: {Date.add(today, days), "estimate"}
