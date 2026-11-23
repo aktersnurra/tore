@@ -126,6 +126,7 @@ defmodule ToreWeb.CookLiveTest do
     {:ok, _} = Tore.Pantry.add_item(home_scope(), %{name: "vitlök"})
     {:ok, view, _html} = live(conn, ~p"/recipes/#{recipe.id}/cook?step=3")
     assert eventually(view, "Fräs vitlöken i oljan")
+    assert has_element?(view, ~s(#cook-chef[data-scene="stove"]))
 
     html = view |> element(~s([data-role="done"])) |> render_click()
     assert html =~ "Lagat"
@@ -133,7 +134,9 @@ defmodule ToreWeb.CookLiveTest do
     assert Tore.Pantry.at_home(home_scope(), ["vitlök"]).missing == ["vitlök"]
     assert Recipes.get!(home_scope(), recipe.id).last_used_at
     assert Tore.Chef.now(home_scope()).dinners == 1
-    assert has_element?(view, ~s(#cooked-chef[data-mood="proud"]))
+    # The chef at the stove steps onto the card: proud, and the only chef on the page.
+    assert has_element?(view, ~s(#cooked-chef[data-scene="stove"][data-mood="proud"]))
+    refute has_element?(view, "#cook-chef")
 
     assert has_element?(view, ~s([data-role="close-done"]))
     refute has_element?(view, ~s([data-role="done"]))

@@ -54,6 +54,29 @@ defmodule Tore.Chef do
     :ok
   end
 
+  @night 22
+  @morning 6
+  @coffee_until 9
+  @dinner_from 16
+
+  @doc """
+  What the chef is doing on Today, from the hour and the day: asleep at night; then what's needed
+  first (the list when something must be bought for tonight, the stove at dinner time); else
+  coffee in the morning, or just himself.
+  """
+  @spec today_scene(%{
+          hour: 0..23,
+          cooked: boolean(),
+          to_buy: boolean(),
+          dinner_tonight: boolean()
+        }) :: :sleep | :list | :stove | :morning | :chef
+  def today_scene(%{hour: hour}) when hour >= @night or hour < @morning, do: :sleep
+  def today_scene(%{cooked: true}), do: :chef
+  def today_scene(%{to_buy: true}), do: :list
+  def today_scene(%{dinner_tonight: true, hour: hour}) when hour >= @dinner_from, do: :stove
+  def today_scene(%{hour: hour}) when hour < @coffee_until, do: :morning
+  def today_scene(_day), do: :chef
+
   @doc "The household's chef: dinners cooked, how many rescued food, and the stage they reach."
   @spec now(Scope.t()) :: map()
   def now(%Scope{} = scope) do

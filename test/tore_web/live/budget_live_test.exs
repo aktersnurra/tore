@@ -86,6 +86,8 @@ defmodule ToreWeb.BudgetLiveTest do
       assert html =~ "Vecka #{Streams.week_number(week_start())}"
       assert view |> element(~s([data-role="lands"])) |> render() =~ "Veckan landar runt 700 kr"
       assert view |> element(~s([data-role="budget-tag"])) |> render() =~ "200 kr under budget"
+      # Under budget: the chef at his desk is pleased.
+      assert has_element?(view, ~s(#budget-chef[data-scene="desk"][data-mood="pleased"]))
       assert view |> element(~s([data-role="kpi-paid"])) |> render() =~ "412 kr"
       assert view |> element(~s([data-role="kpi-left"])) |> render() =~ "288 kr"
       assert view |> element(~s([data-role="kpi-average"])) |> render() =~ "950 kr"

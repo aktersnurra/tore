@@ -7,8 +7,7 @@ defmodule ToreWeb.PiReply do
 
   The screen calls `init/1` in mount, `ask/3` to ask, hands `{:pi, _, event}` messages to
   `event/2` and its `"dismiss_pi_reply"` event to `dismiss/1`, and renders `pi_reply/1` with
-  `reply={@pi_reply} working={@pi_working} chef={@pi_chef}`: while pi works, the household's chef
-  stirs a pot by the working line.
+  `reply={@pi_reply} working={@pi_working}`.
   """
   use ToreWeb, :html
 
@@ -19,11 +18,7 @@ defmodule ToreWeb.PiReply do
     scope = socket.assigns.current_scope
     if Phoenix.LiveView.connected?(socket), do: listen(scope, Pi.screen_session(scope))
 
-    Phoenix.Component.assign(socket,
-      pi_reply: nil,
-      pi_working: nil,
-      pi_chef: Tore.Chef.now(scope).stage
-    )
+    Phoenix.Component.assign(socket, pi_reply: nil, pi_working: nil)
   end
 
   @doc """
@@ -101,7 +96,6 @@ defmodule ToreWeb.PiReply do
 
   attr :reply, :string, default: nil
   attr :working, :string, default: nil
-  attr :chef, :atom, default: nil, doc: "the household's chef stage: he stirs while pi works"
 
   def pi_reply(assigns) do
     ~H"""
@@ -111,8 +105,7 @@ defmodule ToreWeb.PiReply do
       class="mt-4 flex items-center gap-2 text-[14px] text-[color:var(--muted)]"
       role="status"
     >
-      <ToreWeb.Chef.figure :if={@chef} id="pi-working-chef" stage={@chef} size={:tiny} stir />
-      <.icon :if={!@chef} name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
+      <.icon name="ph-arrows-clockwise" class="size-4 motion-safe:animate-spin" />
       {@working}
     </p>
     <div

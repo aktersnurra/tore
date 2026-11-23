@@ -20,7 +20,7 @@ defmodule ToreWeb.BudgetLive do
     socket =
       socket
       |> assign(editing: false, budget_error: nil, budget_text: "", receipt: nil, picking: nil)
-      |> assign(rung: Forecast.OpenDays)
+      |> assign(rung: Forecast.OpenDays, chef: Tore.Chef.now(scope).stage)
       |> load()
 
     {:ok,
@@ -136,16 +136,25 @@ defmodule ToreWeb.BudgetLive do
       <.page max_width={:xl}>
         <.top_bar title={gettext("Weekly budget")} />
 
-        <header class="pt-2">
-          <p class="t-eyebrow">{week_line(@page.week_start)}</p>
-          <h1
-            id={"lands-#{@page.status.expected}-#{@page.status.low}"}
-            data-role="lands"
-            class="t-title settle mt-1"
-          >
-            {lands(@page.status)}
-          </h1>
-          <.budget_tag status={@page.status} />
+        <header class="flex items-start gap-4 pt-2">
+          <div class="min-w-0 flex-1">
+            <p class="t-eyebrow">{week_line(@page.week_start)}</p>
+            <h1
+              id={"lands-#{@page.status.expected}-#{@page.status.low}"}
+              data-role="lands"
+              class="t-title settle mt-1"
+            >
+              {lands(@page.status)}
+            </h1>
+            <.budget_tag status={@page.status} />
+          </div>
+          <ToreWeb.Chef.figure
+            id="budget-chef"
+            stage={@chef}
+            scene={:desk}
+            size={:small}
+            mood={under_budget?(@page.status) && "pleased"}
+          />
         </header>
 
         <div class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
@@ -468,6 +477,12 @@ defmodule ToreWeb.BudgetLive do
     qty = qty |> Decimal.normalize() |> Decimal.to_string(:normal) |> String.replace(".", ",")
     String.trim("#{qty} #{unit}")
   end
+
+  # Only ever pleased: over budget, he just keeps at his books.
+  defp under_budget?(%{budget: nil}), do: false
+
+  defp under_budget?(%{budget: budget, expected: expected}),
+    do: Decimal.compare(expected, budget) != :gt
 
   attr :status, :map, required: true
 

@@ -617,5 +617,16 @@ defmodule ToreWeb.HomeLiveTest do
       render_click(view, "close_chef", %{})
       refute has_element?(view, "#chef-sheet")
     end
+
+    test "is doing what Today's hour and day call for, and is the only chef on the page", %{
+      conn: conn
+    } do
+      {:ok, view, _} = live(conn, ~p"/today")
+
+      day = %{hour: Tore.Clock.now().hour, cooked: false, to_buy: false, dinner_tonight: false}
+      scene = Tore.Chef.today_scene(day)
+      assert has_element?(view, ~s(#chef-small[data-scene="#{scene}"]))
+      assert length(Regex.scan(~r/phx-hook="Chef"/, render(view))) == 1
+    end
   end
 end

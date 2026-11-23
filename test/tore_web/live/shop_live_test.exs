@@ -291,6 +291,9 @@ defmodule ToreWeb.ShopLiveTest do
       refute has_element?(view, ~s([data-item-name="gurka"]))
       assert %{name: "gurka"} = Tore.Pantry.get_by_name(home_scope(), "gurka")
       assert view |> element("#undo-bar") |> render() =~ "gurka lagd hemma"
+      # The chef with his cart drops it in.
+      assert has_element?(view, ~s(#shop-chef[data-scene="cart"]))
+      assert_push_event(view, "chef:react", %{name: "drop"})
 
       view |> element("#undo-bar button", "Ångra") |> render_click()
 

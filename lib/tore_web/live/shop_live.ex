@@ -35,7 +35,8 @@ defmodule ToreWeb.ShopLive do
        section_order: Shop.Walk.order(scope),
        scanning: false,
        scanner: nil,
-       making_list: false
+       making_list: false,
+       chef: Tore.Chef.now(scope).stage
      )
      |> ToreWeb.PiReply.init()
      |> assign_dinners()
@@ -90,7 +91,11 @@ defmodule ToreWeb.ShopLive do
       {:ok, bought} ->
         name = socket.assigns.grocery_state.items[id].name
         text = gettext("%{name} put away at home", name: name)
-        {:noreply, assign(socket, undo: %{bought: bought, text: text})}
+
+        {:noreply,
+         socket
+         |> assign(undo: %{bought: bought, text: text})
+         |> push_event("chef:react", %{name: "drop"})}
 
       {:error, :not_on_list} ->
         {:noreply, socket}
@@ -387,7 +392,13 @@ defmodule ToreWeb.ShopLive do
         </.top_bar>
 
         <header class="pt-1">
-          <.page_icon icon="ph-shopping-cart-duotone" tint="green" />
+          <ToreWeb.Chef.figure
+            id="shop-chef"
+            stage={@chef}
+            scene={:cart}
+            stir={@pi_working != nil}
+            size={:small}
+          />
           <h1 class="t-display mt-3">{gettext("Shop")}</h1>
           <p class="num mt-1 text-[color:var(--muted)]" style="font-size: 15px;">
             {gettext("%{count} left · week %{week}", count: @unchecked_count, week: @week_number)}
@@ -401,7 +412,6 @@ defmodule ToreWeb.ShopLive do
             <ToreWeb.PiReply.pi_reply
               reply={@pi_reply}
               working={!@scanning && @pi_working}
-              chef={@pi_chef}
             />
 
             <%!-- One line, where the thumb starts: "2 l mjölk" is read as two litres of milk. Enter

@@ -340,7 +340,7 @@ defmodule ToreWeb.HomeLive do
                 </button>
               </p>
 
-              <PiReply.pi_reply reply={@pi_reply} working={@pi_working} chef={@pi_chef} />
+              <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
             </div>
           </section>
 
@@ -370,7 +370,7 @@ defmodule ToreWeb.HomeLive do
               </button>
             </p>
             <.note :if={@note} note={@note} added={@note_added} class="mt-6" />
-            <PiReply.pi_reply reply={@pi_reply} working={@pi_working} chef={@pi_chef} />
+            <PiReply.pi_reply reply={@pi_reply} working={@pi_working} />
             <div :if={!@eating_out} class="reveal mt-6 flex flex-wrap gap-2" style="--i: 3">
               <button type="button" phx-click="something_else" class="pill pill-lamp press">
                 <.icon name="ph-lightbulb" /> {gettext("Suggest something")}
@@ -384,10 +384,19 @@ defmodule ToreWeb.HomeLive do
             </div>
           </section>
 
-          <ToreWeb.Chef.chef_row chef={@chef} />
+          <ToreWeb.Chef.chef_row
+            chef={@chef}
+            scene={chef_scene(assigns)}
+            stir={@pi_working != nil}
+          />
         </div>
       </.page>
-      <ToreWeb.Chef.chef_sheet :if={@chef_sheet} chef={@chef} lines={chef_lines(assigns)} />
+      <ToreWeb.Chef.chef_sheet
+        :if={@chef_sheet}
+        chef={@chef}
+        scene={chef_scene(assigns)}
+        lines={chef_lines(assigns)}
+      />
 
       <.live_component
         :if={@before_cooking and @dish != nil}
@@ -496,6 +505,16 @@ defmodule ToreWeb.HomeLive do
 
   # The hour the evening is over, and Today shows tomorrow though tonight wasn't marked cooked.
   defp evening_over, do: Application.get_env(:tore, :evening_over, 21)
+
+  # What the chef is doing on Today, by the household's hour and what tonight needs.
+  defp chef_scene(assigns) do
+    Tore.Chef.today_scene(%{
+      hour: Tore.Clock.now().hour,
+      cooked: assigns.cooked != nil,
+      to_buy: Enum.any?(assigns.buy, &(not Map.has_key?(assigns.bought, &1))),
+      dinner_tonight: assigns.day == :tonight and assigns.dish != nil
+    })
+  end
 
   # What the chef says when tapped: about the day as it is, never about what's left undone.
   defp chef_lines(assigns) do

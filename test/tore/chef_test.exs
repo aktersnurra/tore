@@ -52,4 +52,31 @@ defmodule Tore.ChefTest do
     assert %{stage: :head_chef, extras: 1, next: %{stage: :extra, left: 39}} = Chef.stage(161)
     assert %{stage: :head_chef, extras: 6, next: nil} = Chef.stage(1000)
   end
+
+  describe "Today's scene" do
+    defp scene(hour, day \\ %{}),
+      do:
+        Chef.today_scene(
+          Map.merge(%{hour: hour, cooked: false, to_buy: false, dinner_tonight: false}, day)
+        )
+
+    test "asleep from 22 to 6, whatever the day" do
+      assert scene(22, %{to_buy: true}) == :sleep
+      assert scene(3) == :sleep
+      assert scene(6) != :sleep
+    end
+
+    test "what's needed comes before the time: the list, then the stove at dinner time" do
+      assert scene(8, %{to_buy: true, dinner_tonight: true}) == :list
+      assert scene(17, %{to_buy: true, dinner_tonight: true}) == :list
+      assert scene(17, %{dinner_tonight: true}) == :stove
+      assert scene(14, %{dinner_tonight: true}) == :chef
+    end
+
+    test "coffee in the morning; content once dinner is cooked" do
+      assert scene(7) == :morning
+      assert scene(10) == :chef
+      assert scene(18, %{cooked: true, dinner_tonight: true}) == :chef
+    end
+  end
 end

@@ -47,6 +47,7 @@ defmodule ToreWeb.CookLive do
        swaps: swaps,
        timers: [],
        done: nil,
+       chef: Tore.Chef.now(scope).stage,
        close_to: ToreWeb.SafeReturn.path(params["from"], ~p"/recipes")
      )}
   end
@@ -143,9 +144,9 @@ defmodule ToreWeb.CookLive do
          used: used,
          was: recipe.last_used_at,
          dinner: dinner,
-         chef: chef,
          moved_up: chef != was
-       }
+       },
+       chef: chef
      )}
   end
 
@@ -156,7 +157,7 @@ defmodule ToreWeb.CookLive do
     :ok = Tore.Pantry.put_back(scope, done.used)
     :ok = Recipes.record_used(scope, recipe.id, done.was)
     :ok = Tore.Chef.uncooked(scope, done.dinner)
-    {:noreply, assign(socket, done: nil)}
+    {:noreply, assign(socket, done: nil, chef: Tore.Chef.now(scope).stage)}
   end
 
   def handle_event("stop_timer", %{"id" => id}, socket) do
@@ -164,10 +165,10 @@ defmodule ToreWeb.CookLive do
     {:noreply, update(socket, :timers, &Enum.reject(&1, fn t -> t.id == id end))}
   end
 
-  defp done_card(nil), do: nil
+  defp done_card(nil, _chef), do: nil
 
   # Says what ran out; what's only less now goes unsaid.
-  defp done_card(%{used: used, chef: chef, moved_up: moved_up}) do
+  defp done_card(%{used: used, moved_up: moved_up}, chef) do
     gone = Enum.filter(used, & &1.gone)
 
     %{
@@ -181,7 +182,6 @@ defmodule ToreWeb.CookLive do
         ]
         |> Enum.filter(&is_binary/1),
       undo: "undo_done",
-      chef: chef,
       mood: if(moved_up, do: "cheer", else: "proud")
     }
   end
@@ -295,7 +295,8 @@ defmodule ToreWeb.CookLive do
         close_to={@close_to}
         timers={@timers}
         on_done="done"
-        done={done_card(@done)}
+        done={done_card(@done, @chef)}
+        chef={@chef}
       />
 
       <div
