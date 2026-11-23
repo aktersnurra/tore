@@ -81,31 +81,30 @@ defmodule ToreWeb.ShopLive do
 
   def handle_progress(:receipt_photo, _entry, socket), do: {:noreply, socket}
 
+  # A tick that went through: the item is put away at home, and gone from the list. Ångra takes
+  # both back.
   def handle_event("toggle_item", %{"item_id" => id}, socket) do
-    item = Map.get(socket.assigns.grocery_state.items, id)
+    %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
 
-    if item && item.checked do
-      Shop.uncheck_item(
-        socket.assigns.current_scope,
-        socket.assigns.list_id,
-        id,
-        socket.assigns.user_id
-      )
-    else
-      Shop.check_item(
-        socket.assigns.current_scope,
-        socket.assigns.list_id,
-        id,
-        socket.assigns.user_id
-      )
+    case Shop.tick(scope, list_id, id, user_id) do
+      {:ok, bought} ->
+        name = socket.assigns.grocery_state.items[id].name
+        text = gettext("%{name} put away at home", name: name)
+        {:noreply, assign(socket, undo: %{bought: bought, text: text})}
+
+      {:error, :not_on_list} ->
+        {:noreply, socket}
     end
-
-    {:noreply, socket}
   end
 
   # From the item's sheet, or a swipe (`id`); Ångra puts it back as it was.
   def handle_event("remove_item", %{"item_id" => id}, socket), do: remove(socket, id)
   def handle_event("remove_item", %{"id" => id}, socket), do: remove(socket, id)
+
+  def handle_event("undo", _params, %{assigns: %{undo: %{bought: bought}}} = socket) do
+    :ok = Shop.take_back(socket.assigns.current_scope, bought, socket.assigns.user_id)
+    {:noreply, assign(socket, undo: nil)}
+  end
 
   def handle_event("undo", _params, %{assigns: %{undo: %{item: item}}} = socket) do
     %{current_scope: scope, list_id: list_id, user_id: user_id} = socket.assigns
@@ -359,13 +358,13 @@ defmodule ToreWeb.ShopLive do
       |> sorted_items()
       |> then(&Shop.annotate_with_pantry_belief(assigns.current_scope, &1))
 
-    {unchecked, checked} = Enum.split_with(items, &(!&1.checked))
+    # Ticked items are bought and put away: only what's left is shown.
+    {unchecked, _ticked} = Enum.split_with(items, &(!&1.checked))
     groups = group_by_section(unchecked, assigns.section_order)
 
     assigns =
       assign(assigns,
         groups: groups,
-        checked: checked,
         total: length(items),
         unchecked_count: length(unchecked)
       )
@@ -510,20 +509,6 @@ defmodule ToreWeb.ShopLive do
                 </ul>
               </section>
             </div>
-
-            <%!-- The basket, folded shut at the bottom --%>
-            <section :if={@checked != []} class="mt-4">
-              <.group_head
-                id="items-basket"
-                label={gettext("In the basket")}
-                tint="grey"
-                count={length(@checked)}
-                open={false}
-              />
-              <ul id="items-basket" class="hidden pl-6" phx-hook=".Tick">
-                <.item_row :for={item <- @checked} item={item} />
-              </ul>
-            </section>
           </div>
 
           <div class="min-w-0 lg:sticky lg:top-4 lg:[&>section]:mt-3">
@@ -592,8 +577,8 @@ defmodule ToreWeb.ShopLive do
       <.undo_bar :if={@undo} text={@undo.text} on_undo="undo" on_dismiss="dismiss_undo" />
       <script :type={Phoenix.LiveView.ColocatedHook} name=".Tick">
         // Ticking an item checks it where it stands, as Reminders does: for a moment a second
-        // tap takes the tick back, then the row folds into the basket. Each row waits on its
-        // own, so several can be ticked in a row. Unticking in the basket goes straight through.
+        // tap takes the tick back, then the row folds away and is put away at home (Ångra on the
+        // line below takes that back). Each row waits on its own, so several can be ticked in a row.
         // The waiting look is set at once and also through this.js(), which applies it a frame
         // later but keeps it through a patch from another tick.
         export default {
@@ -602,7 +587,7 @@ defmodule ToreWeb.ShopLive do
             this.onClick = (e) => {
               const target = e.target.closest("[data-tick]")
               const row = target?.closest(".tick-row")
-              if (!row || row.classList.contains("is-checked")) return
+              if (!row) return
               e.stopPropagation()
               e.preventDefault()
               const id = target.dataset.tick
@@ -752,21 +737,20 @@ defmodule ToreWeb.ShopLive do
   attr :dinner, :string, default: nil
   attr :offer_gone, :boolean, default: false, doc: "its offer was withdrawn before it was bought"
 
-  # Ticking draws the check, then the row folds away into the basket (the `.Tick` hook waits
-  # for that before telling the server); with reduced motion it moves at once.
+  # Ticking draws the check, waits a moment for a second tap, then folds the row away (the
+  # `.Tick` hook tells the server after); with reduced motion it goes at once.
   defp item_row(assigns) do
     ~H"""
     <li
       id={"item-#{@item.id}"}
-      phx-hook={!@item.checked && "Swipe"}
+      phx-hook="Swipe"
       data-swipe-event="remove_item"
       data-id={@item.id}
       data-name={@item.name}
-      class={["tick-row relative overflow-hidden", @item.checked && "is-checked"]}
+      class="tick-row relative overflow-hidden"
     >
       <%!-- What a swipe left does, shown as the row slides over it --%>
       <span
-        :if={!@item.checked}
         data-swipe-label
         aria-hidden="true"
         class="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-4 font-semibold text-[color:var(--danger)] opacity-0"
@@ -786,7 +770,7 @@ defmodule ToreWeb.ShopLive do
         <button
           type="button"
           role="checkbox"
-          aria-checked={to_string(@item.checked)}
+          aria-checked="false"
           aria-label={@item.name}
           phx-click="toggle_item"
           phx-value-item_id={@item.id}
@@ -831,7 +815,7 @@ defmodule ToreWeb.ShopLive do
         </button>
         <%!-- The amount opens the item's sheet, to change it or take the item off --%>
         <button
-          :if={qty_label(@item) != "" && !@item.checked}
+          :if={qty_label(@item) != ""}
           type="button"
           phx-click="open_item_sheet"
           phx-value-item_id={@item.id}
@@ -842,13 +826,6 @@ defmodule ToreWeb.ShopLive do
         >
           {qty_label(@item)}
         </button>
-        <span
-          :if={qty_label(@item) != "" && @item.checked}
-          class="shrink-0 text-[color:var(--muted)] tabular-nums"
-          style="font-size: var(--t-meta);"
-        >
-          {qty_label(@item)}
-        </span>
         <div
           :if={@offer_gone}
           data-role="deal-gone"

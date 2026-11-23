@@ -3514,3 +3514,8 @@ msgstr "Hur mycket?"
 #, elixir-autogen, elixir-format
 msgid "Change %{name}"
 msgstr "Ändra %{name}"
+
+#: lib/tore_web/live/shop_live.ex:92
+#, elixir-autogen, elixir-format
+msgid "%{name} put away at home"
+msgstr "%{name} lagd hemma"

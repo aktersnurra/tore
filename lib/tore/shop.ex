@@ -312,11 +312,14 @@ defmodule Tore.Shop do
     end
   end
 
-  @typedoc "What `buy/4` changed, so `take_back/3` can put it back."
+  @typedoc """
+  What `buy/4` or `tick/4` changed, so `take_back/3` can put it back. `pantry` is nil when nothing
+  got a pantry row (salt and the like are taken as always at home).
+  """
   @type bought :: %{
           list_id: String.t(),
           on_list: String.t() | nil,
-          pantry: {integer(), Tore.Harness.Undo.pantry_before() | :absent},
+          pantry: {integer(), Tore.Harness.Undo.pantry_before() | :absent} | nil,
           basic: Basics.Basic.t() | nil
         }
 
@@ -326,8 +329,6 @@ defmodule Tore.Shop do
   """
   @spec buy(Scope.t(), String.t(), String.t(), integer()) :: {:ok, bought()}
   def buy(%Scope{} = scope, list_id, name, user_id) do
-    kept = Pantry.get_by_name(scope, name)
-    basic = Basics.get(scope, name)
     {:ok, %{items: items}} = load_list(scope, list_id)
     key = Ingredient.to_key(name)
 
@@ -336,23 +337,53 @@ defmodule Tore.Shop do
         !item.checked and Ingredient.to_key(item.name) == key and id
       end)
 
+    {:ok, put_away(scope, list_id, name, on_list, user_id)}
+  end
+
+  @doc """
+  Ticks item `item_id` on the list, which puts it away at home. Answers what `take_back/3` needs
+  to undo it; `:not_on_list` when it's gone or ticked already (on another phone, say).
+  """
+  @spec tick(Scope.t(), String.t(), String.t(), integer()) ::
+          {:ok, bought()} | {:error, :not_on_list}
+  def tick(%Scope{} = scope, list_id, item_id, user_id) do
+    case load_list(scope, list_id) do
+      {:ok, %{items: %{^item_id => %{checked: false, name: name}}}} ->
+        {:ok, put_away(scope, list_id, name, item_id, user_id)}
+
+      _ ->
+        {:error, :not_on_list}
+    end
+  end
+
+  # Ticks `on_list` (or, with none, puts `name` away), noting the pantry row and the regular buy
+  # as they were.
+  defp put_away(scope, list_id, name, on_list, user_id) do
+    kept = Pantry.get_by_name(scope, name)
+    basic = Basics.get(scope, name)
+
     if on_list,
       do: {:ok, _} = check_item(scope, list_id, on_list, user_id),
       else: {:ok, _} = Pantry.put_away(scope, name, nil, nil)
 
-    %Tore.Pantry.PantryItem{id: item_id} = Pantry.get_by_name(scope, name)
     before = if kept, do: Pantry.before_image(kept), else: :absent
 
-    {:ok, %{list_id: list_id, on_list: on_list, pantry: {item_id, before}, basic: basic}}
+    pantry =
+      case Pantry.get_by_name(scope, name) do
+        %Tore.Pantry.PantryItem{id: item_id} -> {item_id, before}
+        nil -> nil
+      end
+
+    %{list_id: list_id, on_list: on_list, pantry: pantry, basic: basic}
   end
 
   @doc "A buy taken back: the list, the pantry row and the regular buy as they were before it."
   @spec take_back(Scope.t(), bought(), integer()) :: :ok
-  def take_back(%Scope{} = scope, %{pantry: {item_id, before}} = bought, user_id) do
+  def take_back(%Scope{} = scope, bought, user_id) do
     if bought.on_list,
       do: {:ok, _} = uncheck_item(scope, bought.list_id, bought.on_list, user_id)
 
-    :ok = Pantry.restore_item(scope, item_id, before)
+    with {item_id, before} <- bought.pantry, do: :ok = Pantry.restore_item(scope, item_id, before)
     if bought.basic, do: :ok = Basics.unbought(scope, bought.basic)
     :ok
   end

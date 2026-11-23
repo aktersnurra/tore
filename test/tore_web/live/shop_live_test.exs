@@ -146,7 +146,7 @@ defmodule ToreWeb.ShopLiveTest do
     assert positions == Enum.sort(positions)
   end
 
-  test "the page says what's left, sections are tags that fold, and the basket starts folded", %{
+  test "the page says what's left, sections are tags that fold, and ticked items are gone", %{
     conn: conn
   } do
     week = Tore.Streams.monday(Tore.Clock.today())
@@ -178,9 +178,9 @@ defmodule ToreWeb.ShopLiveTest do
     assert view |> element(~s([aria-controls="items-produce"])) |> render() =~
              ~r/tag-green.*Frukt &amp; grönt.*2/s
 
-    assert has_element?(view, ~s([aria-controls="items-basket"][aria-expanded="false"]))
-    assert has_element?(view, ~s(ul#items-basket.hidden))
     assert has_element?(view, ~s[ul#items-produce:not(.hidden)])
+    refute has_element?(view, "#items-basket")
+    refute has_element?(view, ~s([data-item-name="Mjölk"]))
   end
 
   describe "adding" do
@@ -276,6 +276,27 @@ defmodule ToreWeb.ShopLiveTest do
 
       assert view |> element(row("gurka")) |> render() =~ "3 st"
       refute has_element?(view, "#item-sheet")
+    end
+
+    test "a tick puts it away at home, and Ångra takes it back off the pantry", %{conn: conn} do
+      {:ok, view, _} = live(conn, ~p"/shop")
+      add(view, "2 st gurka")
+      id = item_id_from_render(view)
+      assert Tore.Pantry.get_by_name(home_scope(), "gurka") == nil
+
+      view
+      |> element(row("gurka") <> ~s( button[data-tick="#{id}"][aria-checked]))
+      |> render_click()
+
+      refute has_element?(view, ~s([data-item-name="gurka"]))
+      assert %{name: "gurka"} = Tore.Pantry.get_by_name(home_scope(), "gurka")
+      assert view |> element("#undo-bar") |> render() =~ "gurka lagd hemma"
+
+      view |> element("#undo-bar button", "Ångra") |> render_click()
+
+      assert view |> element(row("gurka")) |> render() =~ "2 st"
+      assert Tore.Pantry.get_by_name(home_scope(), "gurka") == nil
+      refute has_element?(view, "#undo-bar")
     end
 
     test "Ta bort in its sheet removes it, with Ångra", %{conn: conn} do
