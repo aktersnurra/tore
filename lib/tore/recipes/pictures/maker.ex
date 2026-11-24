@@ -1,8 +1,9 @@
 defmodule Tore.Recipes.Pictures.Maker do
   @moduledoc """
-  Makes the widths of recipe pictures a few at a time (`:image_resize_concurrency`, default 2),
-  so a gallery's worth of first looks queues instead of starting a vips per tile. Asking for a
-  width that's already being made waits for that one rather than making it again.
+  Makes the widths of recipe pictures a few at a time (`:image_resize_concurrency`, default one
+  per scheduler, each vips on one thread), so a gallery's worth of first looks queues instead of
+  starting a vips per tile. Asking for a width that's already being made waits for that one
+  rather than making it again.
 
   The work itself is `fun`, run under `Tore.TaskSupervisor`; every caller waiting on it gets its
   result. A queue past `@max_queue` turns new work away with `{:error, :busy}`.
@@ -24,7 +25,7 @@ defmodule Tore.Recipes.Pictures.Maker do
 
   @impl true
   def init(_opts) do
-    max = Application.get_env(:tore, :image_resize_concurrency, 2)
+    max = Application.get_env(:tore, :image_resize_concurrency, System.schedulers_online())
     {:ok, %{max: max, running: %{}, waiting: %{}, queue: :queue.new()}}
   end
 

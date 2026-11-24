@@ -31,6 +31,57 @@ defmodule Tore.Recipes.PicturesTest do
     assert {:error, :not_found} = Mock.get_object(Buckets.recipes(), @key <> ".w720.webp")
   end
 
+  test "a width that takes long is the original now, and small on the next look" do
+    {:ok, _} = Mock.put_object(Buckets.recipes(), @key, "slow original")
+
+    {us, result} = :timer.tc(fn -> Pictures.get(@key, 720) end)
+    assert {:ok, "slow original", :pending} = result
+    assert us < 1_900_000
+
+    assert eventually(fn ->
+             match?({:ok, _}, Mock.get_object(Buckets.recipes(), @key <> ".w720.webp"))
+           end)
+
+    assert {:ok, "RIFF" <> _, :resized} = Pictures.get(@key, 720)
+  end
+
+  test "warm reads the original once, and only for widths missing" do
+    {:ok, _} = Mock.put_object(Buckets.recipes(), @key <> ".w256.webp", "kept")
+    {:ok, _} = Mock.put_object(Buckets.recipes(), @key <> ".w720.webp", "kept")
+    :ok = Pictures.warm(@key)
+    assert {:ok, "kept"} = Mock.get_object(Buckets.recipes(), @key <> ".w720.webp")
+    assert {:ok, "RIFF" <> _} = Mock.get_object(Buckets.recipes(), @key <> ".w1440.webp")
+
+    # Every width kept: the original isn't needed, so a missing one is no error.
+    :ok = Mock.delete_object(Buckets.recipes(), @key)
+    assert :ok = Pictures.warm(@key)
+  end
+
+  test "warm of a picture storage no longer has is an error warm_all skips" do
+    assert {:error, :not_found} = Pictures.warm("gone.jpg")
+  end
+
+  test "warming at boot is off in test, and with no vips" do
+    assert Pictures.warm_all_later() == :ignore
+  end
+
+  test "without vips, the original straight away, and nothing made" do
+    Application.put_env(:tore, :stub_image_resize_available?, false)
+    on_exit(fn -> Application.delete_env(:tore, :stub_image_resize_available?) end)
+
+    assert {:ok, "original", :original} = Pictures.get(@key, 720)
+    :ok = Pictures.warm(@key)
+    assert {:error, :not_found} = Mock.get_object(Buckets.recipes(), @key <> ".w720.webp")
+  end
+
+  defp eventually(fun, tries \\ 50) do
+    cond do
+      fun.() -> true
+      tries == 0 -> false
+      true -> Process.sleep(50) && eventually(fun, tries - 1)
+    end
+  end
+
   test "a missing picture is an error" do
     assert {:error, :not_found} = Pictures.get("nope.jpg", 720)
   end

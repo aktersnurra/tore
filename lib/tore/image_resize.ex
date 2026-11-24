@@ -12,8 +12,14 @@ defmodule Tore.ImageResize do
   @callback thumbnail(image :: binary(), width :: pos_integer()) ::
               {:ok, binary()} | {:error, term()}
 
+  @doc "Whether this server can resize at all (vips installed), so callers needn't try."
+  @callback available?() :: boolean()
+
   @spec thumbnail(binary(), pos_integer()) :: {:ok, binary()} | {:error, term()}
   def thumbnail(image, width), do: client().thumbnail(image, width)
+
+  @spec available?() :: boolean()
+  def available?, do: client().available?()
 
   @doc """
   What a picture's bytes are, by their first bytes: one of the formats a photo comes in, or nil

@@ -19,8 +19,10 @@ defmodule Tore.Recipes.Pictures do
 
   @widths [256, 720, 1440]
 
-  # How long a look waits for its width before it's sent the original instead.
-  @wait_ms 15_000
+  # How long a look waits for its width before it's sent the original instead. Short: every tile
+  # on a page waits at once, and a picture a little big now beats a page that fills in slowly.
+  # The width is still made, for the next look.
+  @wait_ms 1_500
 
   @spec widths() :: [pos_integer()]
   def widths, do: @widths
@@ -39,52 +41,106 @@ defmodule Tore.Recipes.Pictures do
   def width(_), do: nil
 
   @doc """
-  The picture at `width`: `{:ok, bytes, :resized}` when that width is kept or could be made, and
-  `{:ok, original, :original}` when it couldn't (no vips, a busy queue, say), so the screen still
-  has a picture.
+  The picture at `width`:
+
+    * `{:ok, bytes, :resized}` when that width is kept or could be made;
+    * `{:ok, original, :pending}` when it's still being made (the look didn't wait longer, or the
+      queue was full), so the next look may get it;
+    * `{:ok, original, :original}` when it can't be made (no vips, not a photo), or no width was
+      asked for.
   """
   @spec get(String.t(), pos_integer() | nil) ::
-          {:ok, binary(), :resized | :original} | {:error, term()}
+          {:ok, binary(), :resized | :pending | :original} | {:error, term()}
   def get(key, nil), do: original(key)
 
   def get(key, width) when width in @widths do
     with {:error, _} <- kept(key, width),
-         {:error, _} <- make(key, width, nil, @wait_ms) do
-      original(key)
+         true <- Tore.ImageResize.available?() || :cannot,
+         {:error, reason} <- make(key, width, nil, @wait_ms) do
+      if reason in [:timeout, :busy], do: original(key, :pending), else: original(key)
     else
       {:ok, small} -> {:ok, small, :resized}
+      :cannot -> original(key)
     end
   end
 
   @doc """
   Makes every width of a stored picture that isn't kept yet, so its first look is already small.
-  `image` is its bytes when the caller has them, saving a read.
+  `image` is its bytes when the caller has them; otherwise it's read once, and only when a width
+  is missing. Which widths are kept is one listing, not a read of each.
   """
-  @spec warm(String.t(), binary() | nil) :: :ok
+  @spec warm(String.t(), binary() | nil) :: :ok | {:error, term()}
   def warm(key, image \\ nil) do
-    for width <- @widths, match?({:error, _}, kept(key, width)) do
-      make(key, width, image, :infinity)
+    with true <- Tore.ImageResize.available?() || :ok,
+         {:ok, keys} <- Storage.client().list_object_keys(bucket(), key),
+         missing when missing != [] <- Enum.reject(@widths, &(variant_key(key, &1) in keys)),
+         {:ok, image} <- if(image, do: {:ok, image}, else: read(key)) do
+      Enum.each(missing, &make(key, &1, image, :infinity))
+    else
+      {:error, _} = error -> error
+      _ -> :ok
     end
-
-    :ok
   end
 
   @doc """
   Every household's pictures at every width: for the pictures stored before widths were made.
-  Run once on the server: `bin/tore rpc "Tore.Recipes.Pictures.warm_all()"`.
+  Runs by itself shortly after boot (`warm_all_later/0`); widths already kept are skipped. Stops
+  at the first picture storage can't answer for (it's down), to try again next boot.
   """
-  @spec warm_all() :: :ok
+  @spec warm_all() :: :ok | {:error, term()}
   def warm_all do
-    for household_id <- Tore.Household.list_ids(),
-        key <-
-          Repo.all(
-            from(r in Recipe, where: not is_nil(r.image_path), select: r.image_path),
-            Scope.repo_opts(Scope.for_household(household_id))
-          ) do
-      warm(key)
-    end
+    keys =
+      for household_id <- Tore.Household.list_ids(),
+          key <-
+            Repo.all(
+              from(r in Recipe, where: not is_nil(r.image_path), select: r.image_path),
+              Scope.repo_opts(Scope.for_household(household_id))
+            ),
+          do: key
 
-    :ok
+    Enum.reduce_while(keys, :ok, fn key, :ok ->
+      case safely_warm(key) do
+        {:error, reason} = error ->
+          Logger.warning("warming pictures stopped at #{key}: #{inspect(reason)}")
+          {:halt, error}
+
+        :ok ->
+          {:cont, :ok}
+      end
+    end)
+  end
+
+  # A picture that can't be resized is skipped (resize_and_keep logs it); one whose warming dies
+  # (the Maker restarting under it, say) is logged and skipped too.
+  defp safely_warm(key) do
+    case warm(key) do
+      {:error, :not_found} -> :ok
+      other -> other
+    end
+  catch
+    kind, reason ->
+      Logger.warning("warming #{key} failed: #{Exception.format(kind, reason)}")
+      :ok
+  end
+
+  @doc """
+  `warm_all/0` in the background, a little after boot, so a deploy needs no manual step and
+  pictures from before are small by their next look. Off with `:warm_pictures_at_boot` false.
+  """
+  def child_spec(_opts) do
+    %{id: __MODULE__, start: {__MODULE__, :warm_all_later, []}, restart: :temporary}
+  end
+
+  @spec warm_all_later() :: {:ok, pid()} | :ignore
+  def warm_all_later do
+    if Application.get_env(:tore, :warm_pictures_at_boot, true) and Tore.ImageResize.available?() do
+      Task.start_link(fn ->
+        Process.sleep(:timer.seconds(10))
+        warm_all()
+      end)
+    else
+      :ignore
+    end
   end
 
   defp make(key, width, image, wait) do
@@ -111,8 +167,8 @@ defmodule Tore.Recipes.Pictures do
 
   defp kept(key, width), do: read(variant_key(key, width))
 
-  defp original(key) do
-    with {:ok, body} <- read(key), do: {:ok, body, :original}
+  defp original(key, how \\ :original) do
+    with {:ok, body} <- read(key), do: {:ok, body, how}
   end
 
   defp read(key), do: Storage.client().get_object(bucket(), key)

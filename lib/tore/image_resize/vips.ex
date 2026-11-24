@@ -15,6 +15,21 @@ defmodule Tore.ImageResize.Vips do
 
   @timeout_s 20
 
+  # Found once, then remembered; not found is looked for again each time (a PATH search), so
+  # vips installed while Tore runs is picked up without a restart.
+  @impl true
+  def available? do
+    :persistent_term.get({__MODULE__, :available?}, false) or
+      case System.find_executable("vipsthumbnail") do
+        nil ->
+          false
+
+        _ ->
+          :persistent_term.put({__MODULE__, :available?}, true)
+          true
+      end
+  end
+
   @impl true
   def thumbnail(image, width) when is_binary(image) and is_integer(width) and width > 0 do
     with {:ok, format} <- photo_format(image),
@@ -36,7 +51,10 @@ defmodule Tore.ImageResize.Vips do
     {cmd, args} = with_timeout(exe, args)
 
     with :ok <- File.write(input, image) do
-      case System.cmd(cmd, args, stderr_to_stdout: true, env: [{"VIPS_BLOCK_UNTRUSTED", "1"}]) do
+      case System.cmd(cmd, args,
+             stderr_to_stdout: true,
+             env: [{"VIPS_BLOCK_UNTRUSTED", "1"}, {"VIPS_CONCURRENCY", "1"}]
+           ) do
         {_, 0} ->
           File.read(output)
 
