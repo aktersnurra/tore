@@ -39,6 +39,7 @@ const AutoDismiss = {
 // transition: a short cross-fade, and a dish's photograph travels to where it lands (its
 // `view-transition-name` is the same on both sides). Other patches apply as they come.
 let transitionNext = false
+let waiting = null
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
 window.addEventListener("phx:page-loading-start", e => {
   if (e.detail.kind === "redirect" || e.detail.kind === "patch") transitionNext = true
@@ -55,10 +56,19 @@ const liveSocket = new LiveSocket("/live", Socket, {
   params: {_csrf_token: csrfToken},
   hooks: {LongPress, AutoDismiss, Scanner, ...colocatedHooks},
   dom: {
+    // A transition applies its patch a frame or more later, so patches that arrive meanwhile wait
+    // behind it: applied ahead of it they'd be undone by it (the chat's history, read just after
+    // the tray opens, vanished that way).
     onDocumentPatch(start) {
+      if (waiting) return waiting.push(start)
       if (!transitionNext || !document.startViewTransition || reducedMotion.matches) return start()
       transitionNext = false
-      document.startViewTransition(start)
+      waiting = []
+      document.startViewTransition(() => {
+        const queued = [start, ...waiting]
+        waiting = null
+        queued.forEach(patch => patch())
+      })
     },
   },
 })

@@ -529,6 +529,57 @@ defmodule ToreWeb.CaptureLiveTest do
            }
   end
 
+  # On a phone the box is emptied as the message is sent, and LiveView reads the form only once
+  # the photo is up: what was written comes in `sent` (the Composer hook).
+  test "what was written with a photo is kept while the photo uploads", %{conn: conn, pi_log: log} do
+    {:ok, lv, _html} = live(conn, "/capture")
+
+    lv
+    |> file_input("#chat-form", :chat_photos, [
+      %{name: "kyl.jpg", content: "jpegbytes", type: "image/jpeg"}
+    ])
+    |> render_upload("kyl.jpg")
+
+    html = render_submit(lv, "send_message", %{"message" => "", "sent" => "Vad kan jag laga?"})
+    assert html =~ "Vad kan jag laga?"
+
+    assert eventually(fn -> prompts(log) != [] end)
+    [%{"message" => message, "images" => [_image]}] = prompts(log)
+    assert String.starts_with?(message, "Vad kan jag laga?")
+  end
+
+  # A phone back from the background mounts the chat again, at the address it has.
+  test "a new chat has its own address once something is sent in it", %{conn: conn, user: user} do
+    {:ok, lv, _html} = live(conn, "/capture?new=true&return_to=/plan")
+
+    lv |> form("#chat-form", %{message: "Hej"}) |> render_submit()
+    [chat] = Tore.Chats.list(scope_fixture(user))
+    assert_patch(lv, "/capture?chat=#{chat.id}&return_to=%2Fplan")
+
+    # The same conversation: what was sent is still there, and so is the answer.
+    assert has_element?(lv, ~s([data-role="bubble-user"]), "Hej")
+    assert eventually(fn -> render(lv) =~ "echo: Hej" end)
+  end
+
+  test "opened while Tore answers, the chat waits for the rest of the answer", %{
+    conn: conn,
+    pi_log: log
+  } do
+    hold(log)
+    {:ok, first, _html} = live(conn, "/capture")
+    first |> form("#chat-form", %{message: "Planera veckan"}) |> render_submit()
+
+    # The screen they come back to: mounted again, mid-answer.
+    {:ok, lv, _html} = live(conn, "/capture")
+    render_async(lv)
+    assert has_element?(lv, ~s([data-role="bubble-user"]), "Planera veckan")
+    assert has_element?(lv, ~s([data-role="stop"]))
+
+    release(log)
+    assert eventually(fn -> render(lv) =~ "echo: Planera veckan" end)
+    assert eventually(fn -> not has_element?(lv, ~s([data-role="stop"])) end)
+  end
+
   test "without pi, sending says it couldn't", %{conn: conn} do
     Application.delete_env(:tore, :pi)
     {:ok, lv, _html} = live(conn, "/capture")

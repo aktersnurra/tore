@@ -50,35 +50,46 @@ defmodule ToreWeb.CaptureLive do
       end
 
     previous = socket.assigns.session
+    return_to = ToreWeb.SafeReturn.path(params["return_to"], ~p"/")
 
-    if (connected?(socket) and previous) && previous != session,
-      do: Phoenix.PubSub.unsubscribe(Tore.PubSub, Pi.topic(scope, previous))
+    if session && session == previous do
+      # The conversation already shown, at a new address (a new chat that just got its row):
+      # nothing in it changes.
+      {:noreply, assign(socket, chat: chat, return_to: return_to)}
+    else
+      if connected?(socket) and previous,
+        do: Phoenix.PubSub.unsubscribe(Tore.PubSub, Pi.topic(scope, previous))
 
-    socket =
-      assign(socket,
-        session: session,
-        recipe: recipe,
-        chat: chat,
-        chats: nil,
-        replies: [],
-        messages: [],
-        draft: nil,
-        input: params["q"] || "",
-        loading: false,
-        working: nil,
-        return_to: ToreWeb.SafeReturn.path(params["return_to"], ~p"/"),
-        swaps: if(recipe, do: [], else: Home.current(scope).swaps)
-      )
+      socket =
+        assign(socket,
+          session: session,
+          recipe: recipe,
+          chat: chat,
+          chats: nil,
+          replies: [],
+          messages: [],
+          draft: nil,
+          input: params["q"] || "",
+          loading: false,
+          working: nil,
+          restoring: false,
+          return_to: return_to,
+          swaps: if(recipe, do: [], else: Home.current(scope).swaps)
+        )
 
-    socket =
-      if connected?(socket) and session do
-        if session != previous, do: Pi.subscribe(scope, session)
-        start_async(socket, :history, fn -> history(scope, session, recipe) end)
-      else
-        socket
-      end
+      socket =
+        if connected?(socket) and session do
+          Pi.subscribe(scope, session)
 
-    {:noreply, socket}
+          socket
+          |> assign(restoring: true)
+          |> start_async(:history, fn -> history(scope, session, recipe) end)
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end
   end
 
   defp recipe(scope, id) when is_binary(id) do
@@ -108,7 +119,15 @@ defmodule ToreWeb.CaptureLive do
     {:ok, chat} = Chats.create(scope)
     session = Chats.session(chat)
     Pi.subscribe(scope, session)
-    assign(socket, chat: chat, session: session)
+
+    # Its address too, so a phone back from the background (LiveView mounts again) opens this
+    # chat and not another new one.
+    socket
+    |> assign(chat: chat, session: session)
+    |> push_patch(
+      to: ~p"/capture?#{[chat: chat.id, return_to: socket.assigns.return_to]}",
+      replace: true
+    )
   end
 
   defp started(%{assigns: %{chat: %Chats.Chat{} = chat, current_scope: scope}} = socket) do
@@ -119,6 +138,10 @@ defmodule ToreWeb.CaptureLive do
   defp started(socket), do: socket
 
   @impl true
+  # What's being written is kept, so a reconnect (the form is sent again) doesn't empty the box.
+  def handle_event("validate", %{"message" => text}, socket),
+    do: {:noreply, assign(socket, input: text)}
+
   def handle_event("validate", _params, socket), do: {:noreply, socket}
 
   def handle_event("close_tray", _params, socket) do
@@ -182,8 +205,14 @@ defmodule ToreWeb.CaptureLive do
     {:noreply, assign(socket, loading: false, working: nil, draft: nil)}
   end
 
-  def handle_event("send_message", %{"message" => text}, socket) do
-    text = String.trim(text)
+  # With a photo, LiveView reads the form once the upload is done, after the box was emptied for
+  # the next message: the Composer hook keeps what was sent in `sent`.
+  def handle_event("send_message", %{"message" => message} = params, socket) do
+    text =
+      case String.trim(message) do
+        "" -> String.trim(params["sent"] || "")
+        text -> text
+      end
 
     images =
       consume_uploaded_entries(socket, :chat_photos, fn %{path: path}, entry ->
@@ -249,11 +278,21 @@ defmodule ToreWeb.CaptureLive do
   defp ask_for_card(message, _chat), do: message
 
   @impl true
-  def handle_async(:history, {:ok, {:ok, bubbles}}, socket),
-    do: {:noreply, update(socket, :messages, &(bubbles ++ &1))}
+  def handle_async(:history, {:ok, {:ok, bubbles, busy}}, socket) do
+    socket = update(socket, :messages, &(bubbles ++ &1))
+
+    # Opened while pi answers (a phone back from the background, a second screen): the rest of
+    # the answer is waited for, unless it finished while the conversation was being read.
+    socket =
+      if busy and socket.assigns.restoring and not socket.assigns.loading,
+        do: assign(socket, loading: true, working: gettext("Checking the kitchen…")),
+        else: socket
+
+    {:noreply, assign(socket, restoring: false)}
+  end
 
   # No pi, or pi couldn't be reached: the tray opens empty, and sending says why.
-  def handle_async(:history, _result, socket), do: {:noreply, socket}
+  def handle_async(:history, _result, socket), do: {:noreply, assign(socket, restoring: false)}
 
   # pi's name for the chat, given here or on another screen of theirs.
   @impl true
@@ -275,17 +314,27 @@ defmodule ToreWeb.CaptureLive do
       when session == socket.assigns.session,
       do: {:noreply, assign(socket, replies: replies)}
 
-  # pi's events, heard while it answers something sent from here.
+  # pi's events, heard while it answers something sent from here. One that ends a run, heard
+  # while the conversation is still being read, says pi isn't working whatever it said when asked.
+  def handle_info({:pi, _session, %{"type" => type}}, %{assigns: %{loading: false}} = socket)
+      when type in ~w(agent_settled exited),
+      do: {:noreply, assign(socket, restoring: false)}
+
   def handle_info({:pi, _session, _event}, %{assigns: %{loading: false}} = socket),
     do: {:noreply, socket}
 
   def handle_info({:pi, _session, event}, socket), do: {:noreply, pi_event(event, socket)}
 
+  # pi sends the message so far with each piece of it: that is the draft, so one that's joined
+  # halfway (the tray opened mid-answer) still reads from its start.
   defp pi_event(
-         %{"type" => "message_update", "assistantMessageEvent" => %{"type" => "text_delta"} = e},
+         %{"type" => "message_update", "assistantMessageEvent" => %{"type" => "text_delta"} = e} =
+           event,
          socket
-       ),
-       do: assign(socket, draft: (socket.assigns.draft || "") <> e["delta"])
+       ) do
+    draft = Pi.assistant_text(event["message"]) || (socket.assigns.draft || "") <> e["delta"]
+    assign(socket, draft: draft)
+  end
 
   defp pi_event(%{"type" => "message_end", "message" => %{"role" => "assistant"} = m}, socket) do
     case Pi.assistant_text(m) do
@@ -350,11 +399,13 @@ defmodule ToreWeb.CaptureLive do
       ids = for %{run_stream_id: id} <- bubbles, do: id
       statuses = Runs.statuses(scope, ids)
 
-      {:ok,
-       Enum.map(bubbles, fn
-         %{run_stream_id: id} = b -> Map.put(b, :reverted, statuses[id] == :reverted)
-         b -> b
-       end)}
+      bubbles =
+        Enum.map(bubbles, fn
+          %{run_stream_id: id} = b -> Map.put(b, :reverted, statuses[id] == :reverted)
+          b -> b
+        end)
+
+      {:ok, bubbles, Pi.busy?(scope, session)}
     end
   end
 
@@ -720,7 +771,8 @@ defmodule ToreWeb.CaptureLive do
         </p>
         <div
           :if={@chats != []}
-          class="max-h-[60vh] overflow-y-auto border-t border-[color:var(--hairline)] py-1"
+          data-scrolls
+          class="max-h-[60vh] overflow-y-auto overscroll-contain border-t border-[color:var(--hairline)] py-1"
         >
           <button
             :for={chat <- @chats}
@@ -767,9 +819,15 @@ defmodule ToreWeb.CaptureLive do
       <script :type={Phoenix.LiveView.ColocatedHook} name=".KeyboardInset">
         export default {
           mounted() {
+            const root = document.documentElement
+            // The page under the tray stays still (app.css), and a drag that starts on the
+            // tray's bars, which have nothing to scroll, doesn't pull the page along instead.
+            root.classList.add("tray-open")
+            this.el.addEventListener("touchmove", (e) => {
+              if (!e.target.closest("[data-scrolls], textarea")) e.preventDefault()
+            }, {passive: false})
             const vv = window.visualViewport
             if (!vv) return
-            const root = document.documentElement
             const wide = window.matchMedia("(min-width: 64rem)")
             this.fit = () => {
               const covered = window.innerHeight - vv.height
@@ -787,11 +845,11 @@ defmodule ToreWeb.CaptureLive do
             this.fit()
           },
           destroyed() {
+            document.documentElement.classList.remove("tray-open", "kb-open")
             const vv = window.visualViewport
             if (!vv || !this.fit) return
             vv.removeEventListener("resize", this.fit)
             vv.removeEventListener("scroll", this.fit)
-            document.documentElement.classList.remove("kb-open")
           },
         }
       </script>
@@ -853,8 +911,15 @@ defmodule ToreWeb.CaptureLive do
             updated() { if (this.atEnd) this.el.scrollTop = this.el.scrollHeight },
           }
         </script>
-        <div id="chat-messages" phx-hook=".ScrollBottom" class="flex-1 overflow-y-auto">
-          <div class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6">
+        <%!-- Always a pixel to scroll, so on iOS a drag moves (or bounces) this list and never
+             the page under the tray. --%>
+        <div
+          id="chat-messages"
+          phx-hook=".ScrollBottom"
+          data-scrolls
+          class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          <div class="mx-auto flex min-h-[calc(100%+1px)] w-full max-w-3xl flex-col px-4 py-6">
             <div
               :if={@messages == [] and not @loading}
               class="my-auto flex flex-col items-center py-10 text-center"
@@ -938,7 +1003,8 @@ defmodule ToreWeb.CaptureLive do
             :if={@replies != [] and not @loading}
             id={"replies-#{:erlang.phash2(@replies)}"}
             data-role="replies"
-            class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
+            data-scrolls
+            class="-mx-4 mb-2 flex gap-2 overflow-x-auto overscroll-contain px-4"
           >
             <button
               :for={{reply, index} <- Enum.with_index(@replies)}
@@ -955,7 +1021,8 @@ defmodule ToreWeb.CaptureLive do
           <div
             :if={@replies == [] and @messages == [] and @swaps != [] and not @loading}
             data-role="swaps"
-            class="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4"
+            data-scrolls
+            class="-mx-4 mb-2 flex gap-2 overflow-x-auto overscroll-contain px-4"
           >
             <button
               :for={{swap, index} <- Enum.with_index(@swaps)}
@@ -971,7 +1038,8 @@ defmodule ToreWeb.CaptureLive do
 
           <script :type={Phoenix.LiveView.ColocatedHook} name=".Composer">
             // The box grows with what's written, up to a point. Enter sends and Shift+Enter starts a
-            // new line; once sent, the box empties for the next message.
+            // new line; once sent, the box empties for the next message. What was sent goes in
+            // `sent` first: with a photo, LiveView reads the form only when the upload is done.
             export default {
               mounted() {
                 this.grow = () => {
@@ -986,9 +1054,12 @@ defmodule ToreWeb.CaptureLive do
                     if (!this.el.form.querySelector('[data-role="stop"]')) this.el.form.requestSubmit()
                   }
                 })
-                // After LiveView has read the form.
-                this.el.form.addEventListener("submit", () =>
-                  setTimeout(() => { this.el.value = ""; this.grow() }, 0))
+                // Before LiveView hears of it (it listens on the window).
+                this.el.form.addEventListener("submit", () => {
+                  this.el.form.elements.sent.value = this.el.value
+                  this.el.value = ""
+                  this.grow()
+                })
                 this.grow()
               },
               updated() { this.grow() },
@@ -1046,6 +1117,7 @@ defmodule ToreWeb.CaptureLive do
                 {entry.client_name} · {entry.progress}%
               </span>
             </div>
+            <input type="hidden" id="chat-sent" name="sent" phx-update="ignore" />
             <.live_file_input upload={@uploads.chat_photos} class="hidden" />
           </form>
         </div>

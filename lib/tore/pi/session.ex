@@ -72,6 +72,8 @@ defmodule Tore.Pi.Session do
     {:reply, :ok, state}
   end
 
+  def handle_call(:busy?, _from, state), do: {:reply, state.busy, state}
+
   def handle_call({:command, command}, from, state) do
     id = "tore-#{state.next_id}"
     send_record(state, Map.put(command, :id, id))

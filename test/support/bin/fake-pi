@@ -6,7 +6,8 @@
 # prompt>". get_messages answers the conversation so far, which starts as $FAKE_PI_HISTORY. With
 # $FAKE_PI_WAIT set, a prompt is answered only once that file exists, so a test can act while pi
 # works. $FAKE_PI_WAIT_SETTLE holds it the same way after the assistant message, before settling, so
-# a test can stop a session that has spent something.
+# a test can stop a session that has spent something. While held it goes on reading, so
+# get_messages is answered mid-run.
 set -eu
 IFS= read -r header
 printf '%s\n' "$header" >>"$FAKE_PI_LOG"
@@ -14,6 +15,40 @@ history="$FAKE_PI_LOG.messages"
 printf '%s\n' "${FAKE_PI_HISTORY:-[]}" >"$history"
 
 remember() { jq -c --argjson m "$1" '. + [$m]' "$history" >"$history.new" && mv "$history.new" "$history"; }
+
+# The rest of a prompt's answer, after it was accepted: $message and $reply are the caller's.
+answer() {
+  if [ -n "${FAKE_PI_WAIT:-}" ]; then
+    # Held at most 10 s, so a test that never lets go can't hang the run.
+    n=0
+    while [ ! -e "$FAKE_PI_WAIT" ] && [ "$n" -lt 500 ]; do sleep 0.02; n=$((n + 1)); done
+  fi
+
+  if [ -n "${FAKE_PI_TOOL:-}" ]; then
+    printf '%s' "$FAKE_PI_TOOL" |
+      jq -c '{type: "tool_execution_start", toolCallId: "call-1", toolName: .name, args: .args}'
+    printf '%s' "$FAKE_PI_TOOL" |
+      jq -c '{type: "tool_execution_end", toolCallId: "call-1", toolName: .name,
+        result: {content: [{type: "text", text: .result}]}, isError: false}'
+    remember "$(printf '%s' "$FAKE_PI_TOOL" |
+      jq -c '{role: "assistant", content: [{type: "toolCall", id: "call-1", name: .name, arguments: .args}]}')"
+    remember "$(printf '%s' "$FAKE_PI_TOOL" |
+      jq -c '{role: "toolResult", toolCallId: "call-1", toolName: .name,
+        content: [{type: "text", text: .result}], isError: false}')"
+  fi
+
+  jq -cn --arg d "$reply" '{type: "message_update", assistantMessageEvent: {type: "text_delta", contentIndex: 0, delta: $d}}'
+  jq -cn --arg t "$reply" --argjson c "${FAKE_PI_COST:-0.01}" \
+    '{type: "message_end", message: {role: "assistant", content: [{type: "text", text: $t}], usage: {cost: {total: $c}}}}'
+  remember "$(jq -cn --arg t "$reply" '{role: "assistant", content: [{type: "text", text: $t}]}')"
+
+  if [ -n "${FAKE_PI_WAIT_SETTLE:-}" ]; then
+    n=0
+    while [ ! -e "$FAKE_PI_WAIT_SETTLE" ] && [ "$n" -lt 500 ]; do sleep 0.02; n=$((n + 1)); done
+  fi
+
+  jq -cn '{type: "agent_settled", aborted: false}'
+}
 
 while IFS= read -r line; do
   printf '%s\n' "$line" >>"$FAKE_PI_LOG"
@@ -31,36 +66,9 @@ while IFS= read -r line; do
     jq -cn '{type: "agent_start"}'
     remember "$(jq -cn --arg t "$message" '{role: "user", content: [{type: "text", text: $t}]}')"
 
-    if [ -n "${FAKE_PI_WAIT:-}" ]; then
-      # Held at most 10 s, so a test that never lets go can't hang the run.
-      n=0
-      while [ ! -e "$FAKE_PI_WAIT" ] && [ "$n" -lt 500 ]; do sleep 0.02; n=$((n + 1)); done
-    fi
-
-    if [ -n "${FAKE_PI_TOOL:-}" ]; then
-      printf '%s' "$FAKE_PI_TOOL" |
-        jq -c '{type: "tool_execution_start", toolCallId: "call-1", toolName: .name, args: .args}'
-      printf '%s' "$FAKE_PI_TOOL" |
-        jq -c '{type: "tool_execution_end", toolCallId: "call-1", toolName: .name,
-          result: {content: [{type: "text", text: .result}]}, isError: false}'
-      remember "$(printf '%s' "$FAKE_PI_TOOL" |
-        jq -c '{role: "assistant", content: [{type: "toolCall", id: "call-1", name: .name, arguments: .args}]}')"
-      remember "$(printf '%s' "$FAKE_PI_TOOL" |
-        jq -c '{role: "toolResult", toolCallId: "call-1", toolName: .name,
-          content: [{type: "text", text: .result}], isError: false}')"
-    fi
-
-    jq -cn --arg d "$reply" '{type: "message_update", assistantMessageEvent: {type: "text_delta", contentIndex: 0, delta: $d}}'
-    jq -cn --arg t "$reply" --argjson c "${FAKE_PI_COST:-0.01}" \
-      '{type: "message_end", message: {role: "assistant", content: [{type: "text", text: $t}], usage: {cost: {total: $c}}}}'
-    remember "$(jq -cn --arg t "$reply" '{role: "assistant", content: [{type: "text", text: $t}]}')"
-
-    if [ -n "${FAKE_PI_WAIT_SETTLE:-}" ]; then
-      n=0
-      while [ ! -e "$FAKE_PI_WAIT_SETTLE" ] && [ "$n" -lt 500 ]; do sleep 0.02; n=$((n + 1)); done
-    fi
-
-    jq -cn '{type: "agent_settled", aborted: false}'
+    # A held answer leaves the fake reading, as pi does while it works: get_messages is still
+    # answered.
+    if [ -n "${FAKE_PI_WAIT:-}${FAKE_PI_WAIT_SETTLE:-}" ]; then answer & else answer; fi
     ;;
   esac
 done

@@ -204,6 +204,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--border);
 }
 
+/* The chat is open (CaptureLive's KeyboardInset): the page under it doesn't scroll, so on iOS a
+   drag on the tray moves the conversation and nothing behind it. */
+html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: none; }
+
 /* The phone's keyboard is up (CaptureLive's KeyboardInset): the chat fills what's above it, its
    box resting on the keyboard, and the home-bar gap goes since the keyboard covers it. */
 @media (max-width: 63.99rem) {

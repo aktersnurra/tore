@@ -127,6 +127,20 @@ defmodule Tore.Pi do
     :exit, _ -> {:error, :pi_unavailable}
   end
 
+  @doc """
+  Whether the session is answering something now. A screen that opens mid-answer (a phone back
+  from the background) asks, so it waits for the rest instead of showing a finished chat.
+  """
+  @spec busy?(Scope.t(), session()) :: boolean()
+  def busy?(%Scope{} = scope, session) do
+    case GenServer.whereis(Session.via(scope, session)) do
+      nil -> false
+      pid -> GenServer.call(pid, :busy?)
+    end
+  catch
+    :exit, _ -> false
+  end
+
   @doc "Stops what the session is doing now."
   @spec abort(Scope.t(), session()) :: :ok
   def abort(%Scope{} = scope, session) do
