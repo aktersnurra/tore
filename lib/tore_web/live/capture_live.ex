@@ -86,9 +86,15 @@ defmodule ToreWeb.CaptureLive do
         if connected?(socket) and session do
           Pi.subscribe(scope, session)
 
+          # The task is its own process: it names what was attached in the person's language.
+          locale = Gettext.get_locale(ToreWeb.Gettext)
+
           socket
           |> assign(restoring: true)
-          |> start_async(:history, fn -> history(scope, session, recipe) end)
+          |> start_async(:history, fn ->
+            Gettext.put_locale(ToreWeb.Gettext, locale)
+            history(scope, session, recipe)
+          end)
         else
           socket
         end
@@ -226,10 +232,10 @@ defmodule ToreWeb.CaptureLive do
 
     case pictures(files) do
       {:ok, images} ->
-        send_to_pi(socket, text, images, length(files))
+        send_to_pi(socket, text, images, attached(files))
 
       {:error, _reason} ->
-        bubble = user_bubble_for(text, length(files))
+        bubble = user_bubble_for(text, attached(files))
 
         {:noreply,
          socket
@@ -238,16 +244,17 @@ defmodule ToreWeb.CaptureLive do
     end
   end
 
-  defp send_to_pi(socket, "", [], _files), do: {:noreply, socket}
+  defp send_to_pi(socket, "", [], _attached), do: {:noreply, socket}
 
-  defp send_to_pi(socket, text, images, files) do
+  defp send_to_pi(socket, text, images, attached) do
     socket = started(socket)
     %{current_scope: scope, session: session, recipe: recipe, messages: before} = socket.assigns
-    bubble = user_bubble_for(text, files)
+    bubble = user_bubble_for(text, attached)
 
     message =
       recipe
       |> about(before, if(text == "", do: bubble.text, else: text))
+      |> files_note(attached)
       |> ask_for_card(socket.assigns.chat)
 
     socket =
@@ -261,6 +268,24 @@ defmodule ToreWeb.CaptureLive do
         {:noreply, update(socket, :messages, &(&1 ++ [refusal(reason)]))}
     end
   end
+
+  # What was attached, as its bubble names it: photos, or files once a PDF is among them.
+  defp attached([]), do: nil
+
+  defp attached(files) do
+    if Enum.any?(files, fn {_mime, bytes} -> Tore.Pdf.pdf?(bytes) end),
+      do: {:files, length(files)},
+      else: {:photos, length(files)}
+  end
+
+  # A PDF reaches pi as pictures of its pages, so the message says how many files they were: pi
+  # knows the pages belong together, and the history can name them as the bubble did.
+  defp files_note(message, {:files, n}),
+    do: message <> "\n\n(Attached: #{n} file(s); a PDF's pages are the pictures here.)"
+
+  defp files_note(message, _attached), do: message
+
+  @files_note_suffix ~r/\n\n\(Attached: (\d+) file\(s\); [^)]*\)\z/
 
   # What pi is sent: each photo as it is, and a PDF as pictures of its pages.
   defp pictures(files) do
@@ -446,7 +471,15 @@ defmodule ToreWeb.CaptureLive do
 
   defp bubbles(%{"role" => "user", "content" => content}) do
     {texts, photos} = user_content(content)
-    [user_bubble_for(texts |> Enum.join("\n") |> unabout(), photos)]
+    text = texts |> Enum.join("\n") |> String.replace(@card_note_suffix, "")
+
+    attached =
+      case Regex.run(@files_note_suffix, text) do
+        [_note, n] -> {:files, String.to_integer(n)}
+        nil -> if photos > 0, do: {:photos, photos}
+      end
+
+    [user_bubble_for(text |> String.replace(@files_note_suffix, "") |> unabout(), attached)]
   end
 
   defp bubbles(%{"role" => "assistant"} = message) do
@@ -551,14 +584,21 @@ defmodule ToreWeb.CaptureLive do
 
   # ----- bubbles ----------------------------------------------------------------------------
 
-  defp user_bubble_for(text, 0), do: %{role: :user, text: text}
-  defp user_bubble_for("", photos), do: %{role: :user, text: photo_label(photos)}
+  defp user_bubble_for(text, nil), do: %{role: :user, text: text}
 
-  defp user_bubble_for(text, photos),
-    do: %{role: :user, text: "#{text} (#{photo_label(photos)})"}
+  # Sent with nothing written, the label was the message, and is what the history has as its text.
+  defp user_bubble_for(text, attached) do
+    label = attached_label(attached)
 
-  defp photo_label(1), do: gettext("1 photo")
-  defp photo_label(n), do: gettext("%{n} photos", n: n)
+    if text in ["", label],
+      do: %{role: :user, text: label},
+      else: %{role: :user, text: "#{text} (#{label})"}
+  end
+
+  defp attached_label({:photos, 1}), do: gettext("1 photo")
+  defp attached_label({:photos, n}), do: gettext("%{n} photos", n: n)
+  defp attached_label({:files, 1}), do: gettext("1 file")
+  defp attached_label({:files, n}), do: gettext("%{n} files", n: n)
 
   defp refusal(reason) do
     text =

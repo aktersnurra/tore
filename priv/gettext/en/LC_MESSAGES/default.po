@@ -3447,3 +3447,13 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Tap to start the camera"
 msgstr ""
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "1 file"
+msgstr ""
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} files"
+msgstr ""

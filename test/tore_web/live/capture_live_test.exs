@@ -590,11 +590,18 @@ defmodule ToreWeb.CaptureLiveTest do
     ])
     |> render_upload("kvitto.pdf")
 
-    lv |> form("#chat-form", %{message: "Logga kvittot"}) |> render_submit()
+    html = lv |> form("#chat-form", %{message: "Logga kvittot"}) |> render_submit()
+    assert html =~ "Logga kvittot (1 fil)"
     assert eventually(fn -> prompts(log) != [] end)
 
     [%{"message" => message, "images" => [first, second]}] = prompts(log)
     assert String.starts_with?(message, "Logga kvittot")
+
+    # Opened again, the history names it the same way, though pi has it as two pictures.
+    {:ok, again, _html} = live(conn, "/capture")
+    html = render_async(again)
+    assert html =~ "Logga kvittot (1 fil)"
+    refute has_element?(again, ~s([data-role="bubble-user"]), "Attached:")
     assert %{"type" => "image", "mimeType" => "image/jpeg"} = first
     assert <<0xFF, 0xD8, _::binary>> = Base.decode64!(second["data"])
   end

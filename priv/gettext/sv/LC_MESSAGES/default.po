@@ -3447,3 +3447,13 @@ msgstr "Tore kunde inte öppna PDF:en. Prova med ett foto av den."
 #, elixir-autogen, elixir-format
 msgid "Tap to start the camera"
 msgstr "Tryck för att starta kameran"
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "1 file"
+msgstr "1 fil"
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} files"
+msgstr "%{n} filer"

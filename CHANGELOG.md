@@ -10,6 +10,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ### PDF receipts, and a scanner that stays lit (2026-11-24)
 
 - A receipt can be a PDF, in the chat and from Shop's "Scan receipt". pi takes pictures, so the first five pages are made into JPEGs by poppler's `pdftoppm` (`Tore.Pdf`; `pkg install poppler-utils`). Without it, or with a PDF that won't open, Tore says so and suggests a photo. Chat uploads may be 10 MB, as Shop's.
+- A PDF's bubble says "1 file", not "1 photo", also when the chat is opened again: the message tells pi how many files its pictures came from. The history names attachments in the person's language (it was English), and a photo sent with nothing written is "1 photo" once, not twice.
 - The barcode scanner opens its camera again when it stops giving pictures: an iPhone ends or blanks a camera when Safari is left, the phone locks or another app takes it. The video's `muted` and `playsInline` are set as properties, which iOS goes by; where a video may only start from a tap the view asks for one; and the frame's ring lights only once pictures really arrive. After three tries in a row it says the camera can't be used.
 
 ### The chat on an iPhone (2026-11-24)
