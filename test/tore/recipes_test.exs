@@ -22,6 +22,8 @@ defmodule Tore.RecipesTest do
       assert_received {:image_prompt, prompt}
       assert prompt =~ ~r/\ACinnamon buns in a tin\.\n\nA casual phone photo of this one dish/
       assert prompt =~ "the flat look of an unedited phone photo"
+      # Image models multiply a cut dish into a spread of slices unless told how many.
+      assert prompt =~ "exactly one piece cut"
 
       assert key =~ ~r"\Ahouseholds/#{home_scope().household_id}/recipes/#{recipe.id}/.+\.jpg\z"
       assert {:ok, _png} = Tore.Storage.Mock.get_object(Tore.Storage.Buckets.recipes(), key)

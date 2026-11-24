@@ -20,9 +20,11 @@ defmodule Tore.Recipes do
   the vessel described; no other food, pots or bowls. Daylight from a window to the side or a \
   little behind, soft and a little uneven, the scene light and fresh, not dark. Framed slightly \
   off-centre and a little too close; shot from a seated angle unless the dish is flat. The food \
-  as it really looks: someone has already cut into it or taken a spoonful, a drip or smear, a few \
-  crumbs, toppings that have slid or sunk. Natural, slightly muted colour, the flat look of an \
-  unedited phone photo, shallow phone depth of field. No text, no hands, no people, no logos.\
+  as it really looks: a spoonful already taken, a drip or smear, a few crumbs, toppings that have \
+  slid or sunk. A dish served in portions, like a cake, tart, pie or tray bake, has exactly one \
+  piece cut: the whole with that one piece lifted out, or that one piece alone on a small plate. \
+  Natural, slightly muted colour, the flat look of an unedited phone photo, shallow phone depth \
+  of field. No text, no hands, no people, no logos.\
   """
 
   @snapshot_fields ~w(title description instructions steps recipe_type base_servings prep_time_minutes cook_time_minutes source_url image_path)a

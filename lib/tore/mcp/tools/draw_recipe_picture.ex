@@ -21,7 +21,8 @@ defmodule Tore.Mcp.Tools.DrawRecipePicture do
     do: """
     Draws the recipe's picture, replacing the one it has. `dish` describes the finished food, \
     in 30-60 words of English for an image model: what it is, its colours and textures, the \
-    garnish that belongs with it, what shows best (a cut bun showing its swirl), and what it's \
+    garnish that belongs with it, what shows best (a bun torn open showing its swirl), how much \
+    of it there is (a cake or tart: the whole with one piece cut out, or one piece), and what it's \
     really served in at home and on: the pan or tin it was cooked in, a wooden board, a glazed \
     bowl in some colour, baking paper on a tray, on a kitchen counter, a wooden table or a linen \
     cloth. Vary these with the dish so the pictures don't all look alike; a plain plate is fine \
