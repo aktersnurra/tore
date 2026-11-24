@@ -31,7 +31,12 @@ defmodule ToreWeb.CaptureLive do
     {:ok,
      socket
      |> assign(session: nil)
-     |> allow_upload(:chat_photos, accept: ~w(.jpg .jpeg .png), max_entries: 5)}
+     # A PDF (a receipt a shop mailed) goes to pi as pictures of its pages (`Tore.Pdf`).
+     |> allow_upload(:chat_photos,
+       accept: ~w(.jpg .jpeg .png .pdf),
+       max_entries: 5,
+       max_file_size: 10_000_000
+     )}
   end
 
   # The chat shown is the page's params, so a new chat or another one is a patch: the tray stays
@@ -214,35 +219,65 @@ defmodule ToreWeb.CaptureLive do
         text -> text
       end
 
-    images =
+    files =
       consume_uploaded_entries(socket, :chat_photos, fn %{path: path}, entry ->
         {:ok, {MIME.from_path(entry.client_name), File.read!(path)}}
       end)
 
-    if text == "" and images == [] do
-      {:noreply, socket}
-    else
-      socket = started(socket)
-      %{current_scope: scope, session: session, recipe: recipe, messages: before} = socket.assigns
-      bubble = user_bubble_for(text, length(images))
+    case pictures(files) do
+      {:ok, images} ->
+        send_to_pi(socket, text, images, length(files))
 
-      message =
-        recipe
-        |> about(before, if(text == "", do: bubble.text, else: text))
-        |> ask_for_card(socket.assigns.chat)
+      {:error, _reason} ->
+        bubble = user_bubble_for(text, length(files))
 
-      socket =
-        socket |> assign(input: "", replies: []) |> update(:messages, &(&1 ++ [bubble]))
-
-      case Pi.ask(scope, session, message, images: images) do
-        :ok ->
-          {:noreply, assign(socket, loading: true, working: first_step(text, images))}
-
-        {:error, reason} ->
-          {:noreply, update(socket, :messages, &(&1 ++ [refusal(reason)]))}
-      end
+        {:noreply,
+         socket
+         |> assign(input: "")
+         |> update(:messages, &(&1 ++ [bubble, unread_pdf()]))}
     end
   end
+
+  defp send_to_pi(socket, "", [], _files), do: {:noreply, socket}
+
+  defp send_to_pi(socket, text, images, files) do
+    socket = started(socket)
+    %{current_scope: scope, session: session, recipe: recipe, messages: before} = socket.assigns
+    bubble = user_bubble_for(text, files)
+
+    message =
+      recipe
+      |> about(before, if(text == "", do: bubble.text, else: text))
+      |> ask_for_card(socket.assigns.chat)
+
+    socket =
+      socket |> assign(input: "", replies: []) |> update(:messages, &(&1 ++ [bubble]))
+
+    case Pi.ask(scope, session, message, images: images) do
+      :ok ->
+        {:noreply, assign(socket, loading: true, working: first_step(text, images))}
+
+      {:error, reason} ->
+        {:noreply, update(socket, :messages, &(&1 ++ [refusal(reason)]))}
+    end
+  end
+
+  # What pi is sent: each photo as it is, and a PDF as pictures of its pages.
+  defp pictures(files) do
+    Enum.reduce_while(files, {:ok, []}, fn {mime, bytes}, {:ok, images} ->
+      if Tore.Pdf.pdf?(bytes) do
+        case Tore.Pdf.pages(bytes) do
+          {:ok, pages} -> {:cont, {:ok, images ++ pages}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      else
+        {:cont, {:ok, images ++ [{mime, bytes}]}}
+      end
+    end)
+  end
+
+  defp unread_pdf,
+    do: %{role: :assistant, text: gettext("Tore couldn't open that PDF. Try a photo of it.")}
 
   defp close_chats(socket), do: {:noreply, assign(socket, chats: nil)}
 
@@ -1103,8 +1138,8 @@ defmodule ToreWeb.CaptureLive do
             <div class="mt-1.5 flex flex-wrap items-center gap-2 px-1">
               <label
                 for={@uploads.chat_photos.ref}
-                aria-label={gettext("Attach photo")}
-                title={gettext("Attach photo")}
+                aria-label={gettext("Attach a photo or PDF")}
+                title={gettext("Attach a photo or PDF")}
                 class="press flex size-9 cursor-pointer items-center justify-center rounded-full text-[color:var(--muted)] hover:bg-[var(--sunken)] hover:text-[color:var(--text)]"
               >
                 <.icon name="ph-camera" class="size-5" />

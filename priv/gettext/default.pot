@@ -777,7 +777,7 @@ msgstr ""
 #: lib/tore_web/live/capture_live.ex:1002
 #: lib/tore_web/live/capture_live.ex:1003
 #, elixir-autogen, elixir-format
-msgid "Attach photo"
+msgid "Attach a photo or PDF"
 msgstr ""
 
 #: lib/tore_web/live/budget_live.ex:153
@@ -3436,4 +3436,14 @@ msgstr ""
 #: lib/tore_web/live/deals_live.ex:127
 #, elixir-autogen, elixir-format
 msgid "Tore couldn't read the stores just now."
+msgstr ""
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "Tore couldn't open that PDF. Try a photo of it."
+msgstr ""
+
+#: lib/tore_web/live/shop_live.ex
+#, elixir-autogen, elixir-format
+msgid "Tap to start the camera"
 msgstr ""

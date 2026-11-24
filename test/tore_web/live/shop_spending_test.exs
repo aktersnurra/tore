@@ -81,6 +81,21 @@ defmodule ToreWeb.ShopSpendingTest do
       render_upload(photo, "receipt.jpg")
     end
 
+    @tag skip: System.find_executable("pdftoppm") == nil && "pdftoppm not installed"
+    test "as a PDF goes to pi as pictures of its pages", %{conn: conn, pi_log: log} do
+      {:ok, lv, _html} = live(conn, "/shop")
+
+      lv
+      |> file_input("#receipt-photo-form", :receipt_photo, [
+        %{name: "kvitto.pdf", content: Tore.PdfFixtures.pdf(), type: "application/pdf"}
+      ])
+      |> render_upload("kvitto.pdf")
+
+      assert_eventually(fn -> Enum.any?(pi_records(log), &(&1["type"] == "prompt")) end)
+      prompt = Enum.find(pi_records(log), &(&1["type"] == "prompt"))
+      assert [%{"type" => "image", "mimeType" => "image/jpeg"}] = prompt["images"]
+    end
+
     test "goes to pi in the person's chat, and the spending shows what pi logs", %{
       conn: conn,
       user: user,

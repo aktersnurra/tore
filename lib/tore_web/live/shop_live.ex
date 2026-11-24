@@ -37,8 +37,9 @@ defmodule ToreWeb.ShopLive do
      |> ToreWeb.PiReply.init()
      |> assign_dinners()
      |> allow_upload(:receipt_photo,
-       # What the model reads; an iPhone's camera sends JPEG to a web page, not HEIC.
-       accept: ~w(.jpg .jpeg .png .webp),
+       # What the model reads; an iPhone's camera sends JPEG to a web page, not HEIC. A PDF (a
+       # receipt a shop mailed) goes as pictures of its pages.
+       accept: ~w(.jpg .jpeg .png .webp .pdf),
        max_entries: 1,
        max_file_size: 10_000_000,
        auto_upload: true,
@@ -49,21 +50,30 @@ defmodule ToreWeb.ShopLive do
   # pi reads the receipt in the person's chat and logs it (`log_receipt`); the spending updates when
   # it does, and what pi says shows in the note.
   def handle_progress(:receipt_photo, %{done?: true} = entry, socket) do
-    image =
+    {mime, bytes} =
       consume_uploaded_entry(socket, entry, fn %{path: path} ->
         # Some browsers leave the type empty; the name the upload accepted says it.
         {:ok, {MIME.from_path(entry.client_name), File.read!(path)}}
       end)
 
-    socket =
-      ToreWeb.PiReply.ask(
-        socket,
-        "From the Shop screen: a photo of a receipt. Log it.",
-        gettext("Reading the receipt…"),
-        images: [image]
-      )
+    images = if Tore.Pdf.pdf?(bytes), do: Tore.Pdf.pages(bytes), else: {:ok, [{mime, bytes}]}
 
-    {:noreply, assign(socket, scanning: socket.assigns.pi_working != nil)}
+    case images do
+      {:ok, images} ->
+        socket =
+          ToreWeb.PiReply.ask(
+            socket,
+            "From the Shop screen: a receipt, as a photo or the pages of a PDF. Log it.",
+            gettext("Reading the receipt…"),
+            images: images
+          )
+
+        {:noreply, assign(socket, scanning: socket.assigns.pi_working != nil)}
+
+      {:error, _reason} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Tore couldn't open that PDF. Try a photo of it."))}
+    end
   end
 
   def handle_progress(:receipt_photo, _entry, socket), do: {:noreply, socket}

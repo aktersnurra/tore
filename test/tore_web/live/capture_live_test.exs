@@ -580,6 +580,40 @@ defmodule ToreWeb.CaptureLiveTest do
     assert eventually(fn -> not has_element?(lv, ~s([data-role="stop"])) end)
   end
 
+  @tag skip: System.find_executable("pdftoppm") == nil && "pdftoppm not installed"
+  test "a PDF goes to pi as pictures of its pages", %{conn: conn, pi_log: log} do
+    {:ok, lv, _html} = live(conn, "/capture")
+
+    lv
+    |> file_input("#chat-form", :chat_photos, [
+      %{name: "kvitto.pdf", content: Tore.PdfFixtures.pdf(2), type: "application/pdf"}
+    ])
+    |> render_upload("kvitto.pdf")
+
+    lv |> form("#chat-form", %{message: "Logga kvittot"}) |> render_submit()
+    assert eventually(fn -> prompts(log) != [] end)
+
+    [%{"message" => message, "images" => [first, second]}] = prompts(log)
+    assert String.starts_with?(message, "Logga kvittot")
+    assert %{"type" => "image", "mimeType" => "image/jpeg"} = first
+    assert <<0xFF, 0xD8, _::binary>> = Base.decode64!(second["data"])
+  end
+
+  test "a PDF that can't be opened says so, and pi isn't asked", %{conn: conn, pi_log: log} do
+    {:ok, lv, _html} = live(conn, "/capture")
+
+    lv
+    |> file_input("#chat-form", :chat_photos, [
+      %{name: "kvitto.pdf", content: "%PDF-1.4 trasig", type: "application/pdf"}
+    ])
+    |> render_upload("kvitto.pdf")
+
+    html = lv |> form("#chat-form", %{message: "Logga kvittot"}) |> render_submit()
+    assert html =~ "Logga kvittot"
+    assert has_element?(lv, ~s([data-role="bubble-assistant"]), "PDF")
+    assert prompts(log) == []
+  end
+
   test "without pi, sending says it couldn't", %{conn: conn} do
     Application.delete_env(:tore, :pi)
     {:ok, lv, _html} = live(conn, "/capture")

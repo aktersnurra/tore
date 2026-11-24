@@ -7,6 +7,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### PDF receipts, and a scanner that stays lit (2026-11-24)
+
+- A receipt can be a PDF, in the chat and from Shop's "Scan receipt". pi takes pictures, so the first five pages are made into JPEGs by poppler's `pdftoppm` (`Tore.Pdf`; `pkg install poppler-utils`). Without it, or with a PDF that won't open, Tore says so and suggests a photo. Chat uploads may be 10 MB, as Shop's.
+- The barcode scanner opens its camera again when it stops giving pictures: an iPhone ends or blanks a camera when Safari is left, the phone locks or another app takes it. The video's `muted` and `playsInline` are set as properties, which iOS goes by; where a video may only start from a tap the view asks for one; and the frame's ring lights only once pictures really arrive. After three tries in a row it says the camera can't be used.
+
 ### The chat on an iPhone (2026-11-24)
 
 - What's written with a photo is sent with it. LiveView reads the form once the upload is done, and the box had been emptied for the next message by then, so Tore got the photo alone; the box's text now also goes in a field of its own (`sent`) as the message is sent.
