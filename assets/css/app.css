@@ -586,6 +586,9 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
   transition: outline-color var(--dur-fast) var(--ease-out);
 }
 .scanner-view[data-state="live"] .scanner-frame { outline-color: var(--accent); }
+/* Where the video may only start from a tap, the view asks for it. */
+.scanner-tap { display: none; }
+.scanner-view[data-state="paused"] .scanner-tap { display: flex; }
 @keyframes caught { 0% { transform: translateY(-50%) scale(1); } 40% { transform: translateY(-50%) scale(1.06); outline-width: 4px; } 100% { transform: translateY(-50%) scale(1); } }
 .scanner-view.caught .scanner-frame { animation: caught var(--dur-slow) var(--ease-spring); }
 }
