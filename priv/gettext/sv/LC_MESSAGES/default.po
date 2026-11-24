@@ -777,8 +777,8 @@ msgstr "Fråga Tore"
 #: lib/tore_web/live/capture_live.ex:1002
 #: lib/tore_web/live/capture_live.ex:1003
 #, elixir-autogen, elixir-format
-msgid "Attach photo"
-msgstr "Bifoga foto"
+msgid "Attach a photo or PDF"
+msgstr "Bifoga foto eller PDF"
 
 #: lib/tore_web/live/budget_live.ex:153
 #: lib/tore_web/live/planner_live.ex:1476
@@ -3437,3 +3437,23 @@ msgstr "Tore kunde inte läsa %{stores} just nu."
 #, elixir-autogen, elixir-format
 msgid "Tore couldn't read the stores just now."
 msgstr "Tore kunde inte läsa butikerna just nu."
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "Tore couldn't open that PDF. Try a photo of it."
+msgstr "Tore kunde inte öppna PDF:en. Prova med ett foto av den."
+
+#: lib/tore_web/live/shop_live.ex
+#, elixir-autogen, elixir-format
+msgid "Tap to start the camera"
+msgstr "Tryck för att starta kameran"
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "1 file"
+msgstr "1 fil"
+
+#: lib/tore_web/live/capture_live.ex
+#, elixir-autogen, elixir-format
+msgid "%{n} files"
+msgstr "%{n} filer"

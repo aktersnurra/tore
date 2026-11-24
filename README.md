@@ -175,7 +175,7 @@ Tests use an in-memory storage mock, so `mix test` needs nothing running.
 Tore runs as a FreeBSD jail on the home server, deployed with serai from the infrastructure repo
 (`apps/tore` in mirbad): `serai up tore --revision master`. Its `env.template` names every variable
 the release reads, and the jail's `/etc/tore/env` must give each one a value.
-The jail needs `vips` (`pkg install vips`) for `vipsthumbnail`, which makes the small pictures.
+The jail needs `vips` (`pkg install vips`) for `vipsthumbnail`, which makes the small pictures. It needs `poppler-utils` (`pkg install poppler-utils`) for `pdftoppm`, which turns a PDF receipt into pictures Tore can read; without it a PDF is refused and photos work as before.
 Pictures stored before get their small widths by themselves, in the background, shortly after boot.
 
 ## Running tests

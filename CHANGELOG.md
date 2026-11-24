@@ -7,6 +7,21 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### PDF receipts, and a scanner that stays lit (2026-11-24)
+
+- A receipt can be a PDF, in the chat and from Shop's "Scan receipt". pi takes pictures, so the first five pages are made into JPEGs by poppler's `pdftoppm` (`Tore.Pdf`; `pkg install poppler-utils`). Without it, or with a PDF that won't open, Tore says so and suggests a photo. Chat uploads may be 10 MB, as Shop's.
+- A PDF's bubble says "1 file", not "1 photo", also when the chat is opened again: the message tells pi how many files its pictures came from. The history names attachments in the person's language (it was English), and a photo sent with nothing written is "1 photo" once, not twice.
+- The barcode scanner opens its camera again when it stops giving pictures: an iPhone ends or blanks a camera when Safari is left, the phone locks or another app takes it. The video's `muted` and `playsInline` are set as properties, which iOS goes by; where a video may only start from a tap the view asks for one; and the frame's ring lights only once pictures really arrive. After three tries in a row it says the camera can't be used.
+
+### The chat on an iPhone (2026-11-24)
+
+- What's written with a photo is sent with it. LiveView reads the form once the upload is done, and the box had been emptied for the next message by then, so Tore got the photo alone; the box's text now also goes in a field of its own (`sent`) as the message is sent.
+- The page under the chat no longer scrolls. While the tray is open the page is locked (`html.tray-open`), the conversation always has a pixel to scroll so a drag bounces it instead of the page, and a drag on the tray's bars moves nothing.
+- A chat opened while Tore answers waits for the rest of the answer (`Tore.Pi.busy?/2`). A phone back from the background mounts the chat again; it used to show the conversation as finished and drop what came after.
+- A new chat gets its address (`?chat=<id>`) with its first message, so that same remount opens it again and not another empty one.
+- A page change's cross-fade applies its patch a frame late; patches arriving meanwhile now wait behind it. Applied ahead of it they were undone, which could take the history off a chat just opened.
+- What's being written survives a reconnect.
+
 ### Pictures load side by side (2026-11-23)
 
 - Pictures are served by a signed link (`/images/pictures/<signature>/<key>`): an HMAC of the storage key under a secret derived from `secret_key_base`, checked without a session, a login or the database, then one read from storage. A link is the same every time, so the browser still keeps it a year. While a write held the one SQLite connection for a second, 16 tiles took 37 ms this way; through the database each failed. `/images/recipes/:id` stays, behind login, for what only knows a recipe's id.

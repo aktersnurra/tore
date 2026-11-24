@@ -204,6 +204,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--border);
 }
 
+/* The chat is open (CaptureLive's KeyboardInset): the page under it doesn't scroll, so on iOS a
+   drag on the tray moves the conversation and nothing behind it. */
+html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: none; }
+
 /* The phone's keyboard is up (CaptureLive's KeyboardInset): the chat fills what's above it, its
    box resting on the keyboard, and the home-bar gap goes since the keyboard covers it. */
 @media (max-width: 63.99rem) {
@@ -582,6 +586,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   transition: outline-color var(--dur-fast) var(--ease-out);
 }
 .scanner-view[data-state="live"] .scanner-frame { outline-color: var(--accent); }
+/* Where the video may only start from a tap, the view asks for it. */
+.scanner-tap { display: none; }
+.scanner-view[data-state="paused"] .scanner-tap { display: flex; }
 @keyframes caught { 0% { transform: translateY(-50%) scale(1); } 40% { transform: translateY(-50%) scale(1.06); outline-width: 4px; } 100% { transform: translateY(-50%) scale(1); } }
 .scanner-view.caught .scanner-frame { animation: caught var(--dur-slow) var(--ease-spring); }
 }
