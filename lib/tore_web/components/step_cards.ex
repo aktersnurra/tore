@@ -27,11 +27,14 @@ defmodule ToreWeb.StepCards do
     default: nil,
     doc: "an event the last card's button sends instead of going to `close_to`"
 
+  attr :chef, :atom, default: nil, doc: "the household's chef stage: he's at the stove"
+
   attr :done, :map,
     default: nil,
     doc: """
     After `on_done`: `%{text:, needs:, undo:}`, shown as a last card in the same place, with
     Close where Done was and Undo (the `undo` event) where the step buttons were. Nothing moves.
+    With `mood:` and the deck's `chef`, the chef steps from the top bar onto the card, in that mood.
     """
 
   attr :timers, :list,
@@ -70,6 +73,14 @@ defmodule ToreWeb.StepCards do
         <p class="num shrink-0 text-[14px] font-semibold text-[color:var(--text)]">
           {gettext("%{step} of %{total}", step: @index + 1, total: @last + 1)}
         </p>
+        <ToreWeb.Chef.figure
+          :if={@chef && !@done}
+          id="cook-chef"
+          stage={@chef}
+          scene={:stove}
+          size={:small}
+          class="-my-2"
+        />
       </header>
 
       <%!-- One segment per card: where you are, at a glance --%>
@@ -120,8 +131,17 @@ defmodule ToreWeb.StepCards do
       >
         <%!-- Keyed by position, so each new step arrives instead of swapping in place --%>
         <span id={if @done, do: "#{@id}-done", else: "#{@id}-card-#{@index}"} class="reveal block">
+          <ToreWeb.Chef.figure
+            :if={@done && @chef}
+            id="cooked-chef"
+            stage={@chef}
+            scene={:stove}
+            size={:large}
+            mood={@done[:mood]}
+            class="-ml-3 mb-1"
+          />
           <.icon
-            :if={@done}
+            :if={@done && !@chef}
             name="ph-check-circle-fill"
             class="mb-2 size-10 text-[color:var(--done)]"
           />

@@ -34,7 +34,9 @@ defmodule ToreWeb.HomeLive do
         before_cooking: false,
         choices: nil,
         changed: nil,
-        bought: %{}
+        bought: %{},
+        chef: Tore.Chef.now(scope),
+        chef_sheet: false
       )
       |> PiReply.init()
       |> reload_tonight()
@@ -381,8 +383,20 @@ defmodule ToreWeb.HomeLive do
               </.link>
             </div>
           </section>
+
+          <ToreWeb.Chef.chef_row
+            chef={@chef}
+            scene={chef_scene(assigns)}
+            stir={@pi_working != nil}
+          />
         </div>
       </.page>
+      <ToreWeb.Chef.chef_sheet
+        :if={@chef_sheet}
+        chef={@chef}
+        scene={chef_scene(assigns)}
+        lines={chef_lines(assigns)}
+      />
 
       <.live_component
         :if={@before_cooking and @dish != nil}
@@ -492,6 +506,32 @@ defmodule ToreWeb.HomeLive do
   # The hour the evening is over, and Today shows tomorrow though tonight wasn't marked cooked.
   defp evening_over, do: Application.get_env(:tore, :evening_over, 21)
 
+  # What the chef is doing on Today, by the household's hour and what tonight needs.
+  defp chef_scene(assigns) do
+    Tore.Chef.today_scene(%{
+      hour: Tore.Clock.now().hour,
+      cooked: assigns.cooked != nil,
+      to_buy: Enum.any?(assigns.buy, &(not Map.has_key?(assigns.bought, &1))),
+      dinner_tonight: assigns.day == :tonight and assigns.dish != nil
+    })
+  end
+
+  # What the chef says when tapped: about the day as it is, never about what's left undone.
+  defp chef_lines(assigns) do
+    dish = assigns.dish && assigns.dish.title
+
+    [
+      dish && assigns.day == :tonight && gettext("%{dish} tonight!", dish: dish),
+      dish && assigns.day == :tomorrow && gettext("%{dish} tomorrow.", dish: dish),
+      assigns.cooked && gettext("%{dish}, nicely done!", dish: assigns.cooked),
+      !dish && assigns.eating_out && gettext("Eating out tonight. Enjoy!"),
+      !dish && !assigns.eating_out && gettext("Hungry? Ask me for an idea."),
+      gettext("Yes, chef!"),
+      gettext("Taste it first!")
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
+
   # The pick's note, unless the page already says it: tomorrow's page shows what it needs.
   defp note(%{key: key}, :tomorrow) when key in [:buy_for_tomorrow, :tomorrow_open], do: nil
   defp note(note, _day), do: note
@@ -572,6 +612,11 @@ defmodule ToreWeb.HomeLive do
   end
 
   def handle_event("close_choices", _params, socket), do: {:noreply, assign(socket, choices: nil)}
+
+  def handle_event("open_chef", _params, socket), do: {:noreply, assign(socket, chef_sheet: true)}
+
+  def handle_event("close_chef", _params, socket),
+    do: {:noreply, assign(socket, chef_sheet: false)}
 
   # Cook now, when something isn't at home: first the sheet that asks about it.
   def handle_event("before_cooking", _params, socket),

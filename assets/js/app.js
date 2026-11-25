@@ -26,6 +26,7 @@ import {hooks as colocatedHooks} from "phoenix-colocated/tore"
 import LongPress from "./long_press"
 import Scanner from "./scanner"
 import Swipe from "./swipe"
+import Chef from "./chef"
 
 import topbar from "../vendor/topbar"
 
@@ -56,7 +57,7 @@ document.addEventListener("click", e => {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {LongPress, AutoDismiss, Scanner, Swipe, ...colocatedHooks},
+  hooks: {LongPress, AutoDismiss, Scanner, Swipe, Chef, ...colocatedHooks},
   dom: {
     // A transition applies its patch a frame or more later, so patches that arrive meanwhile wait
     // behind it: applied ahead of it they'd be undone by it (the chat's history, read just after

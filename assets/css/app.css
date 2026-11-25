@@ -427,6 +427,18 @@ html.tray-open, html.tray-open body { overflow: hidden; overscroll-behavior: non
   to { max-height: 0; min-height: 0; padding-block: 0; opacity: 0; }
 }
 
+/* ── The chef on Today: pi's drawing in a shadow root (assets/js/chef.js), which moves by
+   itself; here only its size, and the line it says when tapped. ── */
+.chef { --chef: 56px; display: inline-block; width: var(--chef); height: var(--chef); }
+.chef-large { --chef: 140px; }
+.chef-art { display: block; width: 100%; height: 100%; }
+.chef-line { opacity: 0; transform: translate(-50%, 6px) scale(0.92);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-spring); }
+.chef-line.is-shown { opacity: 1; transform: translate(-50%, 0) scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .chef-line { transition: opacity var(--dur-fast) linear; transform: translate(-50%, 0); }
+}
+
 /* ── A running timer: quiet while counting, lit when it's done. ── */
 .timer-chip {
   display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 40px;
